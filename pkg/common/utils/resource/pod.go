@@ -1,0 +1,290 @@
+package resource
+
+import (
+	v1 "github.com/selectdb/doris-operator/api/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/klog/v2"
+)
+
+const (
+	be_config_path  = "/etc/doris/be/conf"
+	be_storage_name = "be-storage"
+	be_storage_path = "/opt/doris/be/storage"
+	fe_meta_path    = "/opt/doris/fe/meta"
+	fe_meta_name    = "fe-meta"
+	fe_config_path  = "/etc/doris/fe/conf"
+)
+
+func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
+	spec := getBaseSpecFromCluster(dcr, componentType)
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   generatePodTemplateName(dcr, componentType),
+			Labels: v1.GetPodLabels(dcr, componentType),
+		},
+		Spec: corev1.PodSpec{
+			ImagePullSecrets:   spec.ImagePullSecrets,
+			NodeSelector:       spec.NodeSelector,
+			ServiceAccountName: spec.ServiceAccount,
+			Affinity:           spec.Affinity,
+			Tolerations:        spec.Tolerations,
+			HostAliases:        spec.HostAliases,
+		},
+	}
+}
+
+func NewBaseMainContainer(spec v1.BaseSpec, componentType v1.ComponentType) corev1.Container {
+	command, args := getCommand(componentType)
+	volumeMounts := buildVolumeMounts(spec, componentType)
+	var envs []corev1.EnvVar
+	envs = append(envs, buildBaseEnvs()...)
+	envs = append(envs, spec.EnvVars...)
+
+	return corev1.Container{
+		Image:           spec.Image,
+		Name:            string(componentType),
+		Command:         command,
+		Args:            args,
+		Ports:           []corev1.ContainerPort{},
+		Env:             envs,
+		VolumeMounts:    volumeMounts,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+	}
+}
+
+func buildBaseEnvs() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name: "POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+			},
+		},
+		{
+			Name: "POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			},
+		},
+		{
+			Name: "HOST_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+			},
+		},
+		{
+			Name:  "HOST_TYPE",
+			Value: "FQDN",
+		},
+		{
+			Name:  "USER",
+			Value: "root",
+		},
+	}
+}
+
+func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
+	var volumeMounts []corev1.VolumeMount
+	if len(spec.PersistentVolumes) == 0 {
+		_, volumeMount := GetDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType)
+		volumeMounts = append(volumeMounts, volumeMount...)
+		return volumeMounts
+	}
+
+	for _, pvs := range spec.PersistentVolumes {
+		var volumeMount corev1.VolumeMount
+		volumeMount.MountPath = pvs.MountPath
+		volumeMount.Name = pvs.Name
+	}
+	return volumeMounts
+}
+
+func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
+	switch componentType {
+	case v1.Component_FE:
+		return []string{"/opt/doris/fe_entrypoint.sh"}, []string{"$(FE_SERVICE_ADDR)"}
+	case v1.Component_BE:
+		return []string{"/opt/doris/be_entrypoint.sh"}, []string{"$(FE_SERVICE_ADDR)"}
+	default:
+		klog.Infof("getCommand the componentType %s is not supported.", componentType)
+		return []string{}, []string{}
+	}
+}
+
+func generatePodTemplateName(dcr *v1.DorisCluster, componentType v1.ComponentType) string {
+	switch componentType {
+	case v1.Component_FE:
+		return dcr.Name + "-" + string(v1.Component_FE)
+	case v1.Component_BE:
+		return dcr.Name + "-" + string(v1.Component_BE)
+	case v1.Component_CN:
+		return dcr.Name + "-" + string(v1.Component_CN)
+	case v1.Component_Broker:
+		return dcr.Name + "-" + string(v1.Component_Broker)
+	default:
+		return ""
+	}
+}
+
+func getBaseSpecFromCluster(dcr *v1.DorisCluster, componentType v1.ComponentType) *v1.BaseSpec {
+	var bSpec *v1.BaseSpec
+	switch componentType {
+	case v1.Component_FE:
+		bSpec = &dcr.Spec.FeSpec.BaseSpec
+	case v1.Component_BE:
+		bSpec = &dcr.Spec.BeSpec.BaseSpec
+	case v1.Component_CN:
+		bSpec = &dcr.Spec.CnSpec.BaseSpec
+	case v1.Component_Broker:
+		bSpec = &dcr.Spec.BrokerSpec.BaseSpec
+	default:
+		klog.Infof("the componentType %s is not supported!", componentType)
+	}
+
+	return bSpec
+}
+
+func GetDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	switch componentType {
+	case v1.Component_FE:
+		return getFeDefaultVolumesVolumeMounts()
+	case v1.Component_BE:
+		return getBeDefaultVolumesVolumeMounts()
+	default:
+		klog.Infof("GetDefaultVolumesVolumeMountsAndPersistentVolumeClaims componentType %s not supported.", componentType)
+		return nil, nil
+	}
+}
+
+func getFeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
+	volumes := []corev1.Volume{
+		{
+			Name: fe_meta_name,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+
+	volumMounts := []corev1.VolumeMount{
+		{
+			Name:      fe_meta_name,
+			MountPath: fe_meta_path,
+		},
+	}
+
+	return volumes, volumMounts
+}
+
+func getBeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
+	volumes := []corev1.Volume{
+		{
+			Name: be_storage_name,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      be_storage_name,
+			MountPath: be_storage_path,
+		},
+	}
+
+	return volumes, volumeMounts
+}
+
+func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.ComponentType) (corev1.Volume, corev1.VolumeMount) {
+	var volume corev1.Volume
+	var volumeMount corev1.VolumeMount
+	if cmInfo.ConfigMapName != "" && cmInfo.ResolveKey != "" {
+		volume = corev1.Volume{
+			Name: cmInfo.ConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cmInfo.ConfigMapName,
+					},
+				},
+			},
+		}
+		volumeMount = corev1.VolumeMount{
+			Name: cmInfo.ConfigMapName,
+		}
+
+		switch componentType {
+		case v1.Component_FE:
+			volumeMount.MountPath = fe_config_path
+		case v1.Component_BE:
+			volumeMount.MountPath = be_config_path
+		default:
+			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
+		}
+	}
+
+	return volume, volumeMount
+}
+
+const (
+	HEALTH_API_PATH = "/api/health"
+)
+
+// StartupProbe returns a startup probe.
+func startupProbe(port int32, path string) *corev1.Probe {
+	return &corev1.Probe{
+		FailureThreshold: 60,
+		PeriodSeconds:    5,
+		ProbeHandler:     getProbe(port, path),
+	}
+}
+
+// livenessProbe returns a liveness.
+func livenessProbe(port int32, path string) *corev1.Probe {
+	return &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler:     getProbe(port, path),
+	}
+}
+
+// ReadinessProbe returns a readiness probe.
+func readinessProbe(port int32, path string) *corev1.Probe {
+	return &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler:     getProbe(port, path),
+	}
+}
+
+// LifeCycle returns a lifecycle.
+func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
+	return &corev1.Lifecycle{
+		PreStop: &corev1.LifecycleHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{preStopScriptPath},
+			},
+		},
+	}
+}
+
+func getProbe(port int32, path string) corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Path: path,
+			Port: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: port,
+			},
+		},
+	}
+}
