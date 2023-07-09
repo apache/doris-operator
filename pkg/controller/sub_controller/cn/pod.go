@@ -12,16 +12,21 @@ func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	podTemplateSpc := resource.NewPodTemplateSpc(dcr, v1.Component_CN)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpc.Spec.Containers...)
-	cnContainer := cn.cnContainer(dcr)
+	config, _ := cn.getFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+	cnContainer := cn.cnContainer(dcr, config)
 	containers = append(containers, cnContainer)
 	podTemplateSpc.Spec.Containers = containers
 	return podTemplateSpc
 }
-func (cn *Controller) cnContainer(dcr *v1.DorisCluster) corev1.Container {
+func (cn *Controller) cnContainer(dcr *v1.DorisCluster, config map[string]interface{}) corev1.Container {
 	container := resource.NewBaseMainContainer(dcr.Spec.CnSpec.BaseSpec, v1.Component_CN)
 	cnConfig, _ := cn.GetConfig(context.Background(), &dcr.Spec.CnSpec.ConfigMapInfo, dcr.Namespace)
 	address := v1.GetConfigFEAddrForAccess(dcr, v1.Component_CN)
+	queryport := resource.GetPort(config, resource.QUERY_PORT)
 	// if address is empty
+	if address == "" {
+		address = v1.GenerateExternalServiceName(dcr, v1.Component_FE) + ":" + strconv.Itoa(int(queryport))
+	}
 
 	var feconfig map[string]interface{}
 
