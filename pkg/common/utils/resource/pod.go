@@ -19,20 +19,74 @@ const (
 
 func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
+	var volumes []corev1.Volume
+	switch componentType {
+	case v1.Component_FE:
+		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
+	case v1.Component_BE:
+		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
+	default:
+		klog.Errorf("NewPodTemplateSpc dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
+	}
+
+	if len(volumes) == 0 {
+		volumes = newDefaultVolume(componentType)
+	}
+
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   generatePodTemplateName(dcr, componentType),
 			Labels: v1.GetPodLabels(dcr, componentType),
 		},
+
 		Spec: corev1.PodSpec{
 			ImagePullSecrets:   spec.ImagePullSecrets,
 			NodeSelector:       spec.NodeSelector,
+			Volumes:            volumes,
 			ServiceAccountName: spec.ServiceAccount,
 			Affinity:           spec.Affinity,
 			Tolerations:        spec.Tolerations,
 			HostAliases:        spec.HostAliases,
 		},
 	}
+}
+
+func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
+	switch componentType {
+	case v1.Component_FE:
+		return []corev1.Volume{{
+			Name: fe_meta_name,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}}
+	case v1.Component_BE:
+		return []corev1.Volume{{
+			Name: be_storage_name,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}}
+	default:
+		klog.Infof("newDefaultVolume have not support componentType %s", componentType)
+		return []corev1.Volume{}
+	}
+}
+
+func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
+	var volumes []corev1.Volume
+	for _, pv := range spec.PersistentVolumes {
+		var volume corev1.Volume
+		volume.Name = pv.Name
+		volume.VolumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: pv.Name,
+			},
+		}
+		volumes = append(volumes, volume)
+	}
+
+	return volumes
 }
 
 func NewBaseMainContainer(spec v1.BaseSpec, componentType v1.ComponentType) corev1.Container {
@@ -87,6 +141,9 @@ func buildBaseEnvs() []corev1.EnvVar {
 		{
 			Name:  "USER",
 			Value: "root",
+		}, {
+			Name:  "DORIS_HOME",
+			Value: "/opt/doris",
 		},
 	}
 }
@@ -113,6 +170,7 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 		return []string{"/opt/doris/fe_entrypoint.sh"}, []string{"$(FE_SERVICE_ADDR)"}
 	case v1.Component_BE:
 		return []string{"/opt/doris/be_entrypoint.sh"}, []string{"$(FE_SERVICE_ADDR)"}
+		//TODO: cn and broker.
 	default:
 		klog.Infof("getCommand the componentType %s is not supported.", componentType)
 		return []string{}, []string{}

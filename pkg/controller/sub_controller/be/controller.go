@@ -76,7 +76,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return err
 	}
 
-	st := be.buildFEStatefulSet(dcr)
+	st := be.buildBEStatefulSet(dcr)
 	if err = k8s.ApplyStatefulSet(ctx, be.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
 		// if have restart annotation, we should exclude the interference for comparison.
 		return resource.StatefulSetDeepEqual(new, est, false)

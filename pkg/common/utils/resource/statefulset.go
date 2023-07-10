@@ -28,12 +28,9 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 		MatchLabels: v1.GenerateStatefulSetSelector(dcr, componentType),
 	}
 
-	volumeClaimTemplates := []corev1.PersistentVolumeClaim{}
+	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	for _, vct := range bSpec.PersistentVolumes {
 		volumeClaimTemplates = append(volumeClaimTemplates, vct.PersistentVolumeClaim)
-	}
-	if len(volumeClaimTemplates) == 0 {
-		volumeClaimTemplates = append(volumeClaimTemplates, corev1.PersistentVolumeClaim{})
 	}
 
 	st := appv1.StatefulSet{

@@ -27,7 +27,9 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 		if dcr.Spec.BeSpec.ConfigMapInfo.ConfigMapName != "" && dcr.Spec.BeSpec.ConfigMapInfo.ResolveKey != "" {
 			feconfig, _ = be.getFeConfig(context.Background(), &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace)
 		}
-		config[resource.QUERY_PORT] = strconv.FormatInt(int64(resource.GetPort(feconfig, resource.QUERY_PORT)), 10)
+		//addr have ip:port or domain:port
+		feQueryPort := strconv.FormatInt(int64(resource.GetPort(feconfig, resource.QUERY_PORT)), 10)
+		addr = v1.GenerateExternalServiceName(dcr, v1.Component_FE) + ":" + feQueryPort
 	}
 
 	ports := resource.GetContainerPorts(config, v1.Component_BE)
