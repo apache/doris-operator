@@ -23,6 +23,7 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 	c := resource.NewBaseMainContainer(dcr.Spec.FeSpec.BaseSpec, v1.Component_FE)
 	feAddr := v1.GetConfigFEAddrForAccess(dcr, v1.Component_FE)
 	queryPort := resource.GetPort(config, resource.QUERY_PORT)
+	//if fe addr not config, use external service as addr, if port not config in configmap use default value.
 	if feAddr == "" {
 		feAddr = v1.GenerateExternalServiceName(dcr, v1.Component_FE) + ":" + strconv.Itoa(int(queryPort))
 	}
