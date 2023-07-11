@@ -124,6 +124,7 @@ func (fc *Controller) GetFeConfig(ctx context.Context, configMapInfo *v1.ConfigM
 	if configMapInfo.ConfigMapName == "" || configMapInfo.ResolveKey == "" {
 		return make(map[string]interface{}), nil
 	}
+
 	configMap, err := k8s.GetConfigMap(ctx, fc.K8sclient, namespace, configMapInfo.ConfigMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

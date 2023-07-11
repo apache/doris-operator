@@ -134,6 +134,10 @@ func (be *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 }
 
 func (be *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
+	if feconfigMapInfo.ConfigMapName == "" {
+		return make(map[string]interface{}), nil
+	}
+
 	feconfigMap, err := k8s.GetConfigMap(ctx, be.K8sclient, namespace, feconfigMapInfo.ConfigMapName)
 	if err != nil && apierrors.IsNotFound(err) {
 		klog.Info("BeController getFeConfig fe config not exist namespace ", namespace, " configmapName ", feconfigMapInfo.ConfigMapName)
