@@ -15,6 +15,8 @@ PROBE_TIMEOUT=60
 # sleep interval
 PROBE_INTERVAL=2
 
+
+
 # log module
 doris_log() {
   local type="$1"
@@ -35,16 +37,12 @@ doris_error() {
   doris_log ERROR "$@" >&2
 }
 
-#从环境变量获取变量ENV_FE_ADDR，变量的形态为数组[ip:port,domain:port]
-#get_feaddr(){
-#
-#}
+fe_host= ${ENV_FE_ADDR[0]} | cut -d ":" -f1
 
 show_backends(){
   timeout 15 mysql --connect-timeout 2 -h $fe_host -P $FE_QUERY_PORT -u root --skip-column-names --batch -e "SHOW BACKENDS;"
 }
 
-#从fe中获取be的信息，根据注册的形态是FQDN还是IP检查本节点是否已注册成功。没有成功注册自己到fe
 check_self_status(){
   # get heartbeat port
     local heartbeat_port=`get_configuration_from_config "heartbeat_service_port"`

@@ -78,28 +78,8 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 			cnStatefulSet.Name, cnStatefulSet.Namespace)
 		return err
 	}
-	//create auto scale
-	if cnSpec.AutoScalingPolicy != nil {
-		cn.deployAutoScaler(ctx, *cnSpec.AutoScalingPolicy, &cnStatefulSet, dcr)
-	} else {
-		// if cn status is nil
-		if dcr.Status.CnStatus == nil {
-			return nil
-		}
-		cn.deleteAutoScaler(ctx, dcr)
-	}
 	return nil
 
-}
-
-func (cn *Controller) deleteAutoScaler(ctx context.Context, dcr *dorisv1.DorisCluster) {
-	//TODO: delete auto scaler
-	klog.Info("will be delete auto scaler")
-}
-
-func (cn *Controller) deployAutoScaler(ctx context.Context, policy dorisv1.AutoScalingPolicy, cnst *appv1.StatefulSet, dcr *dorisv1.DorisCluster) {
-	//TODO: deploy auto scaler
-	klog.Info("will scale deploy auto scaler")
 }
 
 func (cn *Controller) ClearResource(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
