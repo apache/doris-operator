@@ -135,14 +135,10 @@ func buildBaseEnvs() []corev1.EnvVar {
 			},
 		},
 		{
-			Name:  "HOST_TYPE",
-			Value: "FQDN",
-		},
-		{
 			Name:  "USER",
 			Value: "root",
 		}, {
-			Name:  "DORIS_HOME",
+			Name:  "DORIS_ROOT",
 			Value: "/opt/doris",
 		},
 	}

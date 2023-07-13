@@ -21,7 +21,7 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	c := resource.NewBaseMainContainer(dcr.Spec.BeSpec.BaseSpec, v1.Component_BE)
 	config, _ := be.GetConfig(context.Background(), &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace)
-	addr := v1.GetConfigFEAddrForAccess(dcr, v1.Component_BE)
+	addr, port := v1.GetConfigFEAddrForAccess(dcr, v1.Component_BE)
 	var feConfig map[string]interface{}
 	//if fe addr not config, we should use external service as addr and port get from fe config.
 	if addr == "" {
@@ -29,9 +29,12 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 			feConfig, _ = be.getFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 		}
 
-		//addr have ip:port or domain:port
-		feQueryPort := strconv.FormatInt(int64(resource.GetPort(feConfig, resource.QUERY_PORT)), 10)
-		addr = v1.GenerateExternalServiceName(dcr, v1.Component_FE) + ":" + feQueryPort
+		addr = v1.GenerateExternalServiceName(dcr, v1.Component_FE)
+	}
+
+	feQueryPort := strconv.FormatInt(int64(resource.GetPort(feConfig, resource.QUERY_PORT)), 10)
+	if port != -1 {
+		feQueryPort = strconv.FormatInt(int64(port), 10)
 	}
 
 	ports := resource.GetContainerPorts(config, v1.Component_BE)
@@ -40,6 +43,9 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	c.Env = append(c.Env, corev1.EnvVar{
 		Name:  resource.ENV_FE_ADDR,
 		Value: addr,
+	}, corev1.EnvVar{
+		Name:  resource.ENV_FE_PORT,
+		Value: feQueryPort,
 	})
 
 	return c

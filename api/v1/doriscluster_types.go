@@ -72,12 +72,12 @@ type FeAddress struct {
 	ServiceName string `json:"ServiceName,omitempty"`
 
 	//the fe addresses if not deploy by crd, user can use k8s deploy fe observer.
-	Endpoints []Endpoint `json:"endpoints,omitempty"`
+	Endpoints Endpoints `json:"endpoints,omitempty"`
 }
 
-type Endpoint struct {
-	Address string `json:":address,omitempty"`
-	Port    int    `json:"port,omitempty"`
+type Endpoints struct {
+	Address []string `json:":address,omitempty"`
+	Port    int      `json:"port,omitempty"`
 }
 
 // describes a template for creating copies of a cn software service. cn, the service for external table.
