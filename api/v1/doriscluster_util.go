@@ -234,7 +234,7 @@ func getFEPodLabels(dcr *DorisCluster) metadata.Labels {
 }
 
 func getBEPodLabels(dcr *DorisCluster) metadata.Labels {
-	labels := beStatefulSetLabels(dcr)
+	labels := beStatefulSetSelector(dcr)
 	labels.AddLabel(dcr.Spec.BeSpec.PodLabels)
 	return labels
 }

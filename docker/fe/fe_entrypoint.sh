@@ -1,15 +1,18 @@
 #!/bin/bash
-DORIS_HOME=:${DORIS_HOME:-"/opt/doris"}
-QUERY_PORT:=${FE_QUERY_PORT:-9030}
-DB_ADMIN_USER:=${$USER:-"root"}
-FE_CONFIG_FILE=$DORIS_HOME/fe/conf/fe.conf
+DORIS_ROOT=${DORIS_ROOT:-"/opt/doris"}
+DORIS_HOME=${DORIS_ROOT}/fe
+ELECT_NUMBER=${ELECT_NUMBER:=3}
+QUERY_PORT=${FE_QUERY_PORT:-9030}
+DB_ADMIN_USER=${USER:-"root"}
+FE_CONFFILE=$DORIS_HOME/conf/fe.conf
 START_TYPE=
 # FE leader
 FE_LEADER=
+POD_INDEX=
 # probe interval: 2 seconds
 PROBE_INTERVAL=2
 # timeout for probe leader: 120 seconds
-PROBE_LEADER_POD0_TIMEOUT=30 # at most 15 attempts, no less than the times needed for an election
+PROBE_LEADER_POD0_TIMEOUT=10 # at most 5 attempts, no less than the times needed for an election
 PROBE_LEADER_PODX_TIMEOUT=120 # at most 60 attempts
 
 # myself as IP or FQDN
@@ -35,7 +38,7 @@ parse_confval_from_fe_conf()
 function start_fe_with_meta()
 {
     log_stderr "start with meta run start_fe.sh"
-    "$DORIS_HOME"/fe/bin/start_fe.sh
+    $DORIS_HOME/fe/bin/start_fe.sh
 }
 
 parse_confval_from_fe_conf()
@@ -49,7 +52,6 @@ parse_confval_from_fe_conf()
 
 collect_env_info()
 {
-    local host_type=$1
     # set POD_IP, POD_FQDN, POD_INDEX, EDIT_LOG_PORT, QUERY_PORT
     if [[ "x$POD_IP" == "x" ]] ; then
         POD_IP=`hostname -i | awk '{print $1}'`
@@ -62,7 +64,7 @@ collect_env_info()
     # example: fe-sr-deploy-1.fe-svc.kc-sr.svc.cluster.local
     POD_INDEX=`echo $POD_FQDN | awk -F'.' '{print $1}' | awk -F'-' '{print $NF}'`
 
-    START_TYPE=`parse_confval_from_fe_conf "enable_ fqdn_ mode"`
+    START_TYPE=`parse_confval_from_fe_conf "enable_fqdn_mode"`
 
     if [[ "x$START_TYPE" == "xtrue" ]]; then
         MYSELF=$POD_FQDN
@@ -71,7 +73,7 @@ collect_env_info()
     fi
 
     # edit_log_port from conf file
-    local edit_port=`parse_confval_from_fe_conf "edit_log_port"`
+    local edit_log_port=`parse_confval_from_fe_conf "edit_log_port"`
     if [[ "x$edit_log_port" != "x" ]] ; then
         EDIT_LOG_PORT=$edit_log_port
     fi
@@ -87,26 +89,31 @@ collect_env_info()
 function show_frontends()
 {
     local addr=$1
-    timeout 15 mysql  --connect-timeout 2 -h $addr -P $QUERY_PORT -u $DB_ADMIN_USER  --skip-column-names --batch -e 'show frontends;'
+    echo ""
+    timeout 15 mysql  --connect-timeout 2 -h $addr -P $QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
 }
 
 function start_fe_no_meta()
 {
-    lcoal addr=$1
+    local addr=$1
     local opts=""
-    lcoal start=`date +%s`
+    local start=`date +%s`
     local has_member=false
     local member_list=
     if [[ "x$FE_LEADER" != "x" ]] ; then
-           opts+=" --helper $FE_LEADER:$EDIT_LOG_PORT"
-
-           local start=`date +%s`
-           while true
-           do
-               log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as follower ..."
-               mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+        opts+=" --helper $FE_LEADER:$EDIT_LOG_PORT"
+        local start=`date +%s`
+        while true
+        do
+            if [[ ELECT_NUMBER -gt $POD_INDEX ]]; then
+                log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as follower ..."
+                mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+            else
+                log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as observer ..."
+                mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+            fi
                # check if added successful
-               if show_frontends $svc | grep -q -w "$MYSELF" &>/dev/null ; then
+               if show_frontends $addr | grep -q -w "$MYSELF" &>/dev/null ; then
                    break;
                fi
 
@@ -122,8 +129,9 @@ function start_fe_no_meta()
            done
     fi
     log_stderr "first start with no meta run start_fe.sh with additional options: '$opts'"
-    $DORIS_HOME/bin/start_be.sh $opts
+    $DORIS_HOME/bin/start_fe.sh $opts
 }
+
 
 probe_leader_for_pod0()
 {
@@ -135,7 +143,8 @@ probe_leader_for_pod0()
     while true
     do
         memlist=`show_frontends $svc`
-        local leader=`echo "$memlist" | grep '\<LEADER\>' | awk '{print $2}'`
+        #local leader=`echo "$memlist" | grep '\<LEADER\>' | awk '{print $2}'`
+	    local leader=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
         if [[ "x$leader" != "x" ]] ; then
             # has leader, done
             log_stderr "Find leader: $leader!"
@@ -160,7 +169,7 @@ probe_leader_for_pod0()
         let "expire=start+timeout"
         if [[ $expire -le $now ]] ; then
             if $has_member ; then
-                log_stderr "Timed out, abort!"
+                log_stderr "Timed out ${timeout}s, abort!"
                 exit 1
             else
                 log_stderr "Timed out, no members detected ever, assume myself is the first node .."
@@ -180,7 +189,9 @@ probe_leader_for_podX()
     local start=`date +%s`
     while true
     do
-        local leader=`show_frontends $svc | grep '\<LEADER\>' | awk '{print $2}'`
+        #local leader=`show_frontends $svc | grep '\<LEADER\>' | awk '{print $2}'`
+        memlist=`show_frontends $svc`
+	local leader=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
         if [[ "x$leader" != "x" ]] ; then
             # has leader, done
             log_stderr "Find leader: $leader!"
@@ -204,6 +215,7 @@ probe_leader_for_podX()
 probe_leader()
 {
     local svc=$1
+
     # find leader under current service and set to FE_LEADER
     if [[ "$POD_INDEX" -eq 0 ]] ; then
         probe_leader_for_pod0 $svc
@@ -222,7 +234,7 @@ update_conf_from_configmap()
         log_stderr "$CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
         return 0
     fi
-    local tgtconfdir=$STARROCKS_HOME/conf
+    local tgtconfdir=$DORIS_HOME/conf
     for conffile in `ls $CONFIGMAP_MOUNT_PATH`
     do
         log_stderr "Process conf file $conffile ..."
@@ -239,6 +251,23 @@ start_fe_with_meta()
 {
     local opts=""
     log_stderr "start with meta run start_fe.sh with additional options: '$opts'"
-    $STARROCKS_HOME/bin/start_fe.sh $opts
+    $DORIS_HOME/bin/start_fe.sh $opts
 }
+
+fe_addrs=$1
+if [[ "x$fe_addrs" == "x" ]]; then
+    echo "need fe address as parameter!"
+    exit
+fi
+
+update_conf_from_configmap
+if [[ -f "/opt/doris/fe/doris-meta/image/ROLE" ]]; then
+    log_stderr "start fe with exist meta."
+    start_fe_with_meta
+else
+    log_stderr "first start fe with meta not exist."
+    collect_env_info
+    probe_leader $fe_addrs
+    start_fe_no_meta $fe_addrs
+fi
 

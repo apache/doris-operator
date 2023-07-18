@@ -19,8 +19,8 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 }
 
 func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
-	c := resource.NewBaseMainContainer(dcr.Spec.BeSpec.BaseSpec, v1.Component_BE)
 	config, _ := be.GetConfig(context.Background(), &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace)
+	c := resource.NewBaseMainContainer(dcr.Spec.BeSpec.BaseSpec, config, v1.Component_BE)
 	addr, port := v1.GetConfigFEAddrForAccess(dcr, v1.Component_BE)
 	var feConfig map[string]interface{}
 	//if fe addr not config, we should use external service as addr and port get from fe config.

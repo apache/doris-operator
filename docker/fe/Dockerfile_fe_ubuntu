@@ -1,0 +1,13 @@
+FROM ubuntu:22.04
+#
+RUN apt-get update -y \
+        && apt-get install -y --no-install-recommends vim default-jdk  mysql-client curl \
+        && rm -rf /var/lib/apt/lists/*
+
+#
+COPY apache-doris-2.0-beta-bin-x64/fe /opt/doris/fe
+
+COPY fe_*.sh /opt/doris
+RUN mkdir -p /opt/doris/fe/doris-meta
+ENV JAVA_HOME=/lib/jvm/default-java
+WORKDIR /opt/doris

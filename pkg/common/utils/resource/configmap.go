@@ -52,7 +52,7 @@ func ResolveConfigMap(configMap *corev1.ConfigMap, key string) (map[string]inter
 	return viper.AllSettings(), nil
 }
 
-func MountConfigMap(cmInfo v1.ConfigMapInfo, mountPath string) (corev1.Volume, corev1.VolumeMount) {
+func MountConfigMap(cmInfo v1.ConfigMapInfo) (corev1.Volume, corev1.VolumeMount) {
 	var volume corev1.Volume
 	var volumeMount corev1.VolumeMount
 
@@ -69,7 +69,7 @@ func MountConfigMap(cmInfo v1.ConfigMapInfo, mountPath string) (corev1.Volume, c
 		}
 		volumeMount = corev1.VolumeMount{
 			Name:      cmInfo.ConfigMapName,
-			MountPath: mountPath,
+			MountPath: "/etc/doris",
 		}
 	}
 

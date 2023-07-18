@@ -7,8 +7,10 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +49,10 @@ func (be *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return nil
 	}
 
+	//TODO:  check fe available
+	if !be.feAvailable(dcr) {
+		return nil
+	}
 	beSpec := dcr.Spec.BeSpec
 	//get the be configMap for resolve ports.
 	//2. get config for generate statefulset and service.
@@ -89,6 +95,28 @@ func (be *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 	return nil
 }
 
+func (be *Controller) feAvailable(dcr *dorisv1.DorisCluster) bool {
+	addr, _ := dorisv1.GetConfigFEAddrForAccess(dcr, dorisv1.Component_BE)
+	if addr != "" {
+		return true
+	}
+
+	//if fe deploy in k8s, should wait fe available
+	//1. wait for fe ok.
+	endpoints := corev1.Endpoints{}
+	if err := be.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: dcr.Namespace, Name: dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_FE)}, &endpoints); err != nil {
+		klog.Infof("BeController Sync wait fe service name %s available occur failed %s\n", dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_FE), err.Error())
+		return false
+	}
+
+	for _, sub := range endpoints.Subsets {
+		if len(sub.Addresses) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (be *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error {
 	//if spec is not exist, status is empty. but before clear status we must clear all resource about be used by ClearResources.
 	if cluster.Spec.BeSpec == nil {
@@ -98,6 +126,7 @@ func (be *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 
 	bs := &dorisv1.ComponentStatus{
 		ComponentCondition: dorisv1.ComponentCondition{
+			SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_FE),
 			Phase:              dorisv1.Reconciling,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		},
@@ -112,6 +141,15 @@ func (be *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 }
 
 func (be *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
+	//if the doris is not have be.
+	if dcr.Status.BEStatus == nil {
+		return true, nil
+	}
+
+	if dcr.DeletionTimestamp.IsZero() {
+		return true, nil
+	}
+
 	//if the doris is not have cn.
 	beStName := dorisv1.GenerateComponentStatefulSetName(dcr, dorisv1.Component_BE)
 	externalServiceName := dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_BE)
