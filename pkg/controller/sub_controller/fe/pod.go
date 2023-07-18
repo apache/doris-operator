@@ -20,12 +20,21 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 }
 
 func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interface{}) corev1.Container {
-	c := resource.NewBaseMainContainer(dcr.Spec.FeSpec.BaseSpec, v1.Component_FE)
-	feAddr := v1.GetConfigFEAddrForAccess(dcr, v1.Component_FE)
-	queryPort := resource.GetPort(config, resource.QUERY_PORT)
+	c := resource.NewBaseMainContainer(dcr.Spec.FeSpec.BaseSpec, config, v1.Component_FE)
+	feAddr, port := v1.GetConfigFEAddrForAccess(dcr, v1.Component_FE)
+	queryPort := strconv.FormatInt(int64(resource.GetPort(config, resource.QUERY_PORT)), 10)
 	//if fe addr not config, use external service as addr, if port not config in configmap use default value.
 	if feAddr == "" {
-		feAddr = v1.GenerateExternalServiceName(dcr, v1.Component_FE) + ":" + strconv.Itoa(int(queryPort))
+		feAddr = v1.GenerateExternalServiceName(dcr, v1.Component_FE)
+	}
+	if port != -1 {
+		queryPort = strconv.FormatInt(int64(port), 10)
+	}
+
+	if dcr.Spec.FeSpec.ElectionNumber == nil {
+		if *dcr.Spec.FeSpec.Replicas >= 3 {
+			dcr.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(3)
+		}
 	}
 
 	ports := resource.GetContainerPorts(config, v1.Component_FE)
@@ -34,6 +43,13 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 	c.Env = append(c.Env, corev1.EnvVar{
 		Name:  resource.ENV_FE_ADDR,
 		Value: feAddr,
+	}, corev1.EnvVar{
+		Name:  resource.ENV_FE_PORT,
+		Value: queryPort,
+	}, corev1.EnvVar{
+		Name: resource.ENV_FE_ELECT_NUMBER,
+		//TODO: need webhook add default.
+		Value: strconv.FormatInt(int64(*dcr.Spec.FeSpec.ElectionNumber), 10),
 	})
 
 	return c

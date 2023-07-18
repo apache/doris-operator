@@ -20,6 +20,15 @@ type Controller struct {
 }
 
 func (fc *Controller) ClearResources(ctx context.Context, cluster *v1.DorisCluster) (bool, error) {
+	//if the doris is not have fe.
+	if cluster.Status.FEStatus == nil {
+		return true, nil
+	}
+
+	if cluster.DeletionTimestamp.IsZero() {
+		return true, nil
+	}
+
 	feStName := v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)
 	externalServiceName := v1.GenerateExternalServiceName(cluster, v1.Component_FE)
 	internalServiceName := v1.GenerateInternalCommunicateServiceName(cluster, v1.Component_FE)
@@ -48,6 +57,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 
 	fs := &v1.ComponentStatus{
 		ComponentCondition: v1.ComponentCondition{
+			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE),
 			Phase:              v1.Reconciling,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		},

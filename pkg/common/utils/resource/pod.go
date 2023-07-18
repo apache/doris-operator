@@ -9,12 +9,13 @@ import (
 )
 
 const (
-	be_config_path  = "/etc/doris/be/conf"
+	config_env_path = "/etc/doris"
+	config_env_name = "CONFIGMAP_MOUNT_PATH"
 	be_storage_name = "be-storage"
 	be_storage_path = "/opt/doris/be/storage"
-	fe_meta_path    = "/opt/doris/fe/meta"
+	fe_meta_path    = "/opt/doris/fe/doris-meta"
 	fe_meta_name    = "fe-meta"
-	fe_config_path  = "/etc/doris/fe/conf"
+	HEALTH_API_PATH = "/api/health"
 )
 
 func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -89,14 +90,20 @@ func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 	return volumes
 }
 
-func NewBaseMainContainer(spec v1.BaseSpec, componentType v1.ComponentType) corev1.Container {
+func NewBaseMainContainer(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) corev1.Container {
 	command, args := getCommand(componentType)
 	volumeMounts := buildVolumeMounts(spec, componentType)
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs()...)
 	envs = append(envs, spec.EnvVars...)
+	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  config_env_name,
+			Value: config_env_path,
+		})
+	}
 
-	return corev1.Container{
+	c := corev1.Container{
 		Image:           spec.Image,
 		Name:            string(componentType),
 		Command:         command,
@@ -106,6 +113,24 @@ func NewBaseMainContainer(spec v1.BaseSpec, componentType v1.ComponentType) core
 		VolumeMounts:    volumeMounts,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
+
+	var healthPort int32
+	switch componentType {
+	case v1.Component_FE:
+		healthPort = GetPort(config, HTTP_PORT)
+	case v1.Component_BE:
+		healthPort = GetPort(config, WEBSERVER_PORT)
+	default:
+		klog.Infof("the componentType %s is not supported in probe.")
+	}
+
+	if healthPort != 0 {
+		c.LivenessProbe = livenessProbe(healthPort, HEALTH_API_PATH)
+		c.StartupProbe = startupProbe(healthPort, HEALTH_API_PATH)
+		c.ReadinessProbe = readinessProbe(healthPort, HEALTH_API_PATH)
+	}
+
+	return c
 }
 
 func buildBaseEnvs() []corev1.EnvVar {
@@ -135,14 +160,10 @@ func buildBaseEnvs() []corev1.EnvVar {
 			},
 		},
 		{
-			Name:  "HOST_TYPE",
-			Value: "FQDN",
-		},
-		{
 			Name:  "USER",
 			Value: "root",
 		}, {
-			Name:  "DORIS_HOME",
+			Name:  "DORIS_ROOT",
 			Value: "/opt/doris",
 		},
 	}
@@ -167,9 +188,9 @@ func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
 	switch componentType {
 	case v1.Component_FE:
-		return []string{"/opt/doris/fe_entrypoint.sh"}, []string{"$(FE_SERVICE_ADDR)"}
+		return []string{"/opt/doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case v1.Component_BE:
-		return []string{"/opt/doris/be_entrypoint.sh"}, []string{"$(FE_SERVICE_ADDR)"}
+		return []string{"/opt/doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 		//TODO: cn and broker.
 	default:
 		klog.Infof("getCommand the componentType %s is not supported.", componentType)
@@ -282,9 +303,8 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 
 		switch componentType {
 		case v1.Component_FE:
-			volumeMount.MountPath = fe_config_path
 		case v1.Component_BE:
-			volumeMount.MountPath = be_config_path
+			volumeMount.MountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
 		}
@@ -292,10 +312,6 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 
 	return volume, volumeMount
 }
-
-const (
-	HEALTH_API_PATH = "/api/health"
-)
 
 // StartupProbe returns a startup probe.
 func startupProbe(port int32, path string) *corev1.Probe {

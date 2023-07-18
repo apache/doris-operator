@@ -18,6 +18,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(Scheme))
 	utilruntime.Must(v1.AddToScheme(Scheme))
 	//+kubebuilder:scaffold:scheme
+	Controllers = append(Controllers, &DorisClusterReconciler{})
 }
 
 type Controller interface {

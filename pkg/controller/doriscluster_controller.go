@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"os"
+	"time"
 
 	dorisv1 "github.com/selectdb/doris-operator/api/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,6 +57,7 @@ type DorisClusterReconciler struct {
 //+kubebuilder:rbac:groups=doris.selectdb.com,resources=dorisclusters/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
@@ -102,25 +104,68 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	for _, rc := range r.Scs {
+		//update component status.
+		if err := rc.UpdateComponentStatus(dcr); err != nil {
+			klog.Errorf("DorisClusterReconciler reconcile update component %s status failed.err=%s\n", rc.GetControllerName(), err.Error())
+			return requeueIfError(err)
+		}
+	}
+
 	//generate the src status.
 	r.reconcileStatus(ctx, dcr)
-	return ctrl.Result{}, r.UpdateStarRocksClusterStatus(ctx, dcr)
+	return r.updateDorisClusterStatus(ctx, dcr)
 }
 
 func (r *DorisClusterReconciler) reconcileStatus(context context.Context, cluster *dorisv1.DorisCluster) {
+	//calculate the status of doris cluster by subresource's status.
+	//clear resources when sub resource deleted. example: deployed fe,be,cn, when cn spec is deleted we should delete cn resources.
+	for _, rc := range r.Scs {
+		rc.ClearResources(context, cluster)
+	}
 
+	//TODO: need update other fields, if the field specify.
+	return
 }
 
-func (r *DorisClusterReconciler) UpdateStarRocksClusterStatus(ctx context.Context, dcr *dorisv1.DorisCluster) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		var edcr dorisv1.DorisCluster
-		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: dcr.Namespace, Name: dcr.Name}, &edcr); err != nil {
-			return err
-		}
+func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, dcr *dorisv1.DorisCluster) (ctrl.Result, error) {
+	var edcr dorisv1.DorisCluster
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: dcr.Namespace, Name: dcr.Name}, &edcr); err != nil {
+		return ctrl.Result{}, err
+	}
 
-		edcr.Status = dcr.Status
+	if !inconsistentStatus(&dcr.Status, &edcr) {
+		if r.reconcile(dcr) {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+	}
+
+	dcr.Status.DeepCopyInto(&edcr.Status)
+	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return r.Client.Status().Update(ctx, &edcr)
 	})
+}
+
+func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
+	if dcr.Spec.FeSpec != nil {
+		if dcr.Status.FEStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	if dcr.Spec.BeSpec != nil {
+		if dcr.Status.BEStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	if dcr.Spec.CnSpec != nil {
+		if dcr.Status.CnStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	return false
 }
 
 // clean all resource deploy by DorisCluster

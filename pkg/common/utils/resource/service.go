@@ -27,9 +27,10 @@ func BuildInternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.Compo
 	//the k8s service type.
 	return corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dorisv1.GenerateInternalCommunicateServiceName(dcr, componentType),
-			Namespace: dcr.Namespace,
-			Labels:    labels,
+			Name:            dorisv1.GenerateInternalCommunicateServiceName(dcr, componentType),
+			Namespace:       dcr.Namespace,
+			Labels:          labels,
+			OwnerReferences: []metav1.OwnerReference{getOwnerReference(dcr)},
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
@@ -49,13 +50,13 @@ func getInternalServicePort(config map[string]interface{}, componentType dorisv1
 	switch componentType {
 	case dorisv1.Component_FE:
 		return corev1.ServicePort{
-			Name:       strings.ReplaceAll(QUERY_PORT, "_", "-"),
+			Name:       GetPortKey(QUERY_PORT),
 			Port:       GetPort(config, QUERY_PORT),
 			TargetPort: intstr.FromInt(int(GetPort(config, QUERY_PORT))),
 		}
 	case dorisv1.Component_BE:
 		return corev1.ServicePort{
-			Name:       strings.ReplaceAll(HEARTBEAT_SERVICE_PORT, "_", "-"),
+			Name:       GetPortKey(HEARTBEAT_SERVICE_PORT),
 			Port:       GetPort(config, HEARTBEAT_SERVICE_PORT),
 			TargetPort: intstr.FromInt(int(GetPort(config, HEARTBEAT_SERVICE_PORT))),
 		}
@@ -97,13 +98,7 @@ func BuildExternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.Compo
 		klog.Infof("BuildExternalService componentType %s not supported.")
 	}
 
-	or := metav1.OwnerReference{
-		APIVersion: dcr.APIVersion,
-		Kind:       dcr.Kind,
-		Name:       dcr.Name,
-		UID:        dcr.UID,
-	}
-	svc.OwnerReferences = []metav1.OwnerReference{or}
+	svc.OwnerReferences = []metav1.OwnerReference{getOwnerReference(dcr)}
 	hso := serviceHashObject(&svc)
 	anno := map[string]string{}
 	anno[dorisv1.ComponentResourceHash] = hash.HashObject(hso)
@@ -112,19 +107,28 @@ func BuildExternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.Compo
 	return svc
 }
 
+func getOwnerReference(dcr *dorisv1.DorisCluster) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion: dcr.APIVersion,
+		Kind:       dcr.Kind,
+		Name:       dcr.Name,
+		UID:        dcr.UID,
+	}
+}
+
 func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePort) {
 	httpPort := GetPort(config, HTTP_PORT)
 	rpcPort := GetPort(config, RPC_PORT)
 	queryPort := GetPort(config, QUERY_PORT)
 	editPort := GetPort(config, EDIT_LOG_PORT)
 	ports = append(ports, corev1.ServicePort{
-		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: "http",
+		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: GetPortKey(HTTP_PORT),
 	}, corev1.ServicePort{
-		Port: rpcPort, TargetPort: intstr.FromInt(int(rpcPort)), Name: "rpc",
+		Port: rpcPort, TargetPort: intstr.FromInt(int(rpcPort)), Name: GetPortKey(RPC_PORT),
 	}, corev1.ServicePort{
-		Port: queryPort, TargetPort: intstr.FromInt(int(queryPort)), Name: "query",
+		Port: queryPort, TargetPort: intstr.FromInt(int(queryPort)), Name: GetPortKey(QUERY_PORT),
 	}, corev1.ServicePort{
-		Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: "edit-log"})
+		Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: GetPortKey(EDIT_LOG_PORT)})
 
 	return
 }
@@ -136,13 +140,13 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	brpcPort := GetPort(config, BRPC_PORT)
 
 	ports = append(ports, corev1.ServicePort{
-		Port: bePort, TargetPort: intstr.FromInt(int(bePort)), Name: "be",
+		Port: bePort, TargetPort: intstr.FromInt(int(bePort)), Name: GetPortKey(BE_PORT),
 	}, corev1.ServicePort{
-		Port: webseverPort, TargetPort: intstr.FromInt(int(webseverPort)), Name: "webserver",
+		Port: webseverPort, TargetPort: intstr.FromInt(int(webseverPort)), Name: GetPortKey(WEBSERVER_PORT),
 	}, corev1.ServicePort{
-		Port: heartPort, TargetPort: intstr.FromInt(int(heartPort)), Name: "heartbeat",
+		Port: heartPort, TargetPort: intstr.FromInt(int(heartPort)), Name: GetPortKey(HEARTBEAT_SERVICE_PORT),
 	}, corev1.ServicePort{
-		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: "brpc",
+		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: GetPortKey(BRPC_PORT),
 	})
 
 	return
@@ -162,16 +166,20 @@ func GetContainerPorts(config map[string]interface{}, componentType dorisv1.Comp
 
 func getFeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
-		Name:          strings.ReplaceAll(HTTP_PORT, "_", "-"),
+		Name:          GetPortKey(HTTP_PORT),
 		ContainerPort: GetPort(config, HTTP_PORT),
 		Protocol:      corev1.ProtocolTCP,
 	}, {
-		Name:          "rpc-port",
+		Name:          GetPortKey(RPC_PORT),
 		ContainerPort: GetPort(config, RPC_PORT),
 		Protocol:      corev1.ProtocolTCP,
 	}, {
-		Name:          "query-port",
+		Name:          GetPortKey(QUERY_PORT),
 		ContainerPort: GetPort(config, QUERY_PORT),
+		Protocol:      corev1.ProtocolTCP,
+	}, {
+		Name:          GetPortKey(EDIT_LOG_PORT),
+		ContainerPort: GetPort(config, EDIT_LOG_PORT),
 		Protocol:      corev1.ProtocolTCP,
 	}}
 }
@@ -179,21 +187,45 @@ func getFeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 func getBeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			Name:          strings.ReplaceAll(BE_PORT, "_", "-"),
+			Name:          GetPortKey(BE_PORT),
 			ContainerPort: GetPort(config, BE_PORT),
 		}, {
-			Name:          strings.ReplaceAll(WEBSERVER_PORT, "_", "-"),
+			Name:          GetPortKey(WEBSERVER_PORT),
 			ContainerPort: GetPort(config, WEBSERVER_PORT),
 			Protocol:      corev1.ProtocolTCP,
 		}, {
-			Name:          strings.ReplaceAll(HEARTBEAT_SERVICE_PORT, "_", "-"),
+			Name:          GetPortKey(HEARTBEAT_SERVICE_PORT),
 			ContainerPort: GetPort(config, HEARTBEAT_SERVICE_PORT),
 			Protocol:      corev1.ProtocolTCP,
 		}, {
-			Name:          strings.ReplaceAll(BRPC_PORT, "_", "-"),
+			Name:          GetPortKey(BRPC_PORT),
 			ContainerPort: GetPort(config, BRPC_PORT),
 			Protocol:      corev1.ProtocolTCP,
 		},
+	}
+}
+
+func GetPortKey(configKey string) string {
+	switch configKey {
+	case BE_PORT:
+		return strings.ReplaceAll(BE_PORT, "_", "-")
+	case WEBSERVER_PORT:
+		return strings.ReplaceAll(WEBSERVER_PORT, "_", "-")
+	case HEARTBEAT_SERVICE_PORT:
+		return "heartbeat-port"
+	case BRPC_PORT:
+		return strings.ReplaceAll(BRPC_PORT, "_", "-")
+	case HTTP_PORT:
+		return strings.ReplaceAll(HTTP_PORT, "_", "-")
+	case QUERY_PORT:
+		return strings.ReplaceAll(QUERY_PORT, "_", "-")
+	case RPC_PORT:
+		return strings.ReplaceAll(RPC_PORT, "_", "-")
+	case EDIT_LOG_PORT:
+		return strings.ReplaceAll(EDIT_LOG_PORT, "_", "-")
+
+	default:
+		return ""
 	}
 }
 
@@ -254,21 +286,4 @@ func serviceHashObject(svc *corev1.Service) hashService {
 		selector:  svc.Spec.Selector,
 		labels:    svc.Labels,
 	}
-}
-
-func HaveEqualOwnerReference(svc1 *corev1.Service, svc2 *corev1.Service) bool {
-	set := make(map[string]bool)
-	for _, o := range svc1.OwnerReferences {
-		key := o.Kind + o.Name
-		set[key] = true
-
-	}
-
-	for _, o := range svc2.OwnerReferences {
-		key := o.Kind + o.Name
-		if _, ok := set[key]; ok {
-			return true
-		}
-	}
-	return false
 }

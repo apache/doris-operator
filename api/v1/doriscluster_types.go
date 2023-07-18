@@ -52,18 +52,18 @@ type AdminUser struct {
 
 // describes a template for creating copies of a fe software service.
 type FeSpec struct {
-	//the number of fe in election. electionNumber <= replicas, left as observers.
+	//the number of fe in election. electionNumber <= replicas, left as observers. default value=3
 	ElectionNumber *int32 `json:"electionNumber,omitempty"`
 
 	//the foundation spec for creating be software services.
-	BaseSpec `json:"baseSpec,omitempty"`
+	BaseSpec `json:",inline"`
 }
 
 // describes a template for creating copies of a be software service.
 type BeSpec struct {
 
 	//the foundation spec for creating be software services.
-	BaseSpec `json:"baseSpec,omitempty"`
+	BaseSpec `json:",inline"`
 }
 
 // Fe address for other components access, if not config generate default.
@@ -72,18 +72,18 @@ type FeAddress struct {
 	ServiceName string `json:"ServiceName,omitempty"`
 
 	//the fe addresses if not deploy by crd, user can use k8s deploy fe observer.
-	Endpoints []Endpoint `json:"endpoints,omitempty"`
+	Endpoints Endpoints `json:"endpoints,omitempty"`
 }
 
-type Endpoint struct {
-	Address string `json:":address,omitempty"`
-	Port    int    `json:"port,omitempty"`
+type Endpoints struct {
+	Address []string `json:":address,omitempty"`
+	Port    int      `json:"port,omitempty"`
 }
 
 // describes a template for creating copies of a cn software service. cn, the service for external table.
 type CnSpec struct {
 	//the foundation spec for creating cn software services.
-	BaseSpec `json:"baseSpec,omitempty"`
+	BaseSpec `json:",inline"`
 
 	//AutoScalingPolicy auto scaling strategy
 	AutoScalingPolicy *AutoScalingPolicy `json:"autoScalingPolicy,omitempty"`
@@ -117,6 +117,7 @@ type BaseSpec struct {
 
 	//Replicas is the number of desired cn Pod.
 	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:feSpecMinimum=3
 	//+optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
@@ -234,6 +235,7 @@ type ComponentStatus struct {
 }
 
 type ComponentCondition struct {
+	SubResourceName string `json:"subResourceName,omitempty"`
 	// Phase of statefulset condition.
 	Phase ComponentPhase `json:"phase"`
 	// The last time this condition was updated.
@@ -253,9 +255,15 @@ const (
 	Available        ComponentPhase = "available"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=dcr
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
+// +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
+// +kubebuilder:storageversion
+// +genclient
 // DorisCluster is the Schema for the dorisclusters API
 type DorisCluster struct {
 	metav1.TypeMeta   `json:",inline"`

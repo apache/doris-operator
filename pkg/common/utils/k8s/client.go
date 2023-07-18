@@ -43,12 +43,6 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 	} else if err != nil {
 		return err
 	}
-	//for compatible version <= v1.5, before v1.5 we use order policy to deploy pods.
-	//and use `xx-domain-search` for internal service. we should exclude the interference.
-	if est.Spec.PodManagementPolicy == appv1.OrderedReadyPodManagement {
-		st.Spec.PodManagementPolicy = appv1.OrderedReadyPodManagement
-	}
-	st.Spec.ServiceName = est.Spec.ServiceName
 
 	//if have restart annotation we should exclude it impacts on hash.
 	if equal(st, &est) {

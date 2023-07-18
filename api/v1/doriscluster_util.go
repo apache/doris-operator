@@ -3,7 +3,6 @@ package v1
 import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
 	"k8s.io/klog/v2"
-	"strconv"
 	"strings"
 )
 
@@ -235,7 +234,7 @@ func getFEPodLabels(dcr *DorisCluster) metadata.Labels {
 }
 
 func getBEPodLabels(dcr *DorisCluster) metadata.Labels {
-	labels := beStatefulSetLabels(dcr)
+	labels := beStatefulSetSelector(dcr)
 	labels.AddLabel(dcr.Spec.BeSpec.PodLabels)
 	return labels
 }
@@ -246,7 +245,7 @@ func getCNPodLabels(dcr *DorisCluster) metadata.Labels {
 	return labels
 }
 
-func GetConfigFEAddrForAccess(dcr *DorisCluster, componentType ComponentType) string {
+func GetConfigFEAddrForAccess(dcr *DorisCluster, componentType ComponentType) (string, int) {
 	switch componentType {
 	case Component_FE:
 		return getFEAccessAddrForFEADD(dcr)
@@ -256,55 +255,45 @@ func GetConfigFEAddrForAccess(dcr *DorisCluster, componentType ComponentType) st
 		return getFeAddrForComputeNodes(dcr)
 	default:
 		klog.Infof("GetFEAddrForAccess the componentType %s not supported.", componentType)
-		return ""
+		return "", -1
 	}
 }
 
-func getFEAccessAddrForFEADD(dcr *DorisCluster) string {
+func getFEAccessAddrForFEADD(dcr *DorisCluster) (string, int) {
 	if dcr.Spec.FeSpec != nil && dcr.Spec.FeSpec.FeAddress != nil {
-		if len(dcr.Spec.FeSpec.FeAddress.Endpoints) != 0 {
+		if len(dcr.Spec.FeSpec.FeAddress.Endpoints.Address) != 0 {
 			return getEndpointsToString(dcr.Spec.FeSpec.FeAddress.Endpoints)
 		}
-
-		return dcr.Spec.FeSpec.FeAddress.ServiceName
 	}
 
-	return ""
+	return "", -1
 }
 
-func getEndpointsToString(eps []Endpoint) string {
-	if len(eps) == 0 {
-		return ""
+func getEndpointsToString(ep Endpoints) (string, int) {
+	if len(ep.Address) == 0 {
+		return "", -1
 	}
 
-	var addrs []string
-	for _, ep := range eps {
-		addrs = append(addrs, ep.Address+":"+strconv.Itoa(ep.Port))
-	}
-
-	return strings.Join(addrs, ";")
+	return strings.Join(ep.Address, ";"), ep.Port
 }
 
-func getFEAddrForBackends(dcr *DorisCluster) string {
+func getFEAddrForBackends(dcr *DorisCluster) (string, int) {
 	if dcr.Spec.BeSpec != nil && dcr.Spec.BeSpec.FeAddress != nil {
-		if len(dcr.Spec.BeSpec.FeAddress.Endpoints) != 0 {
+		if len(dcr.Spec.BeSpec.FeAddress.Endpoints.Address) != 0 {
 			return getEndpointsToString(dcr.Spec.BeSpec.FeAddress.Endpoints)
 		}
 
-		return dcr.Spec.CnSpec.FeAddress.ServiceName
 	}
 
-	return ""
+	return getFEAccessAddrForFEADD(dcr)
 }
 
-func getFeAddrForComputeNodes(dcr *DorisCluster) string {
+func getFeAddrForComputeNodes(dcr *DorisCluster) (string, int) {
 	if dcr.Spec.CnSpec != nil && dcr.Spec.CnSpec.FeAddress != nil {
-		if len(dcr.Spec.CnSpec.FeAddress.Endpoints) != 0 {
+		if len(dcr.Spec.CnSpec.FeAddress.Endpoints.Address) != 0 {
 			return getEndpointsToString(dcr.Spec.CnSpec.FeAddress.Endpoints)
 		}
-
-		return dcr.Spec.CnSpec.FeAddress.ServiceName
 	}
 
-	return ""
+	return getFEAccessAddrForFEADD(dcr)
 }
