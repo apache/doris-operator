@@ -2,7 +2,7 @@ package be
 
 import (
 	"context"
-	dorisv1 "github.com/selectdb/doris-operator/api/v1"
+	"github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
@@ -39,7 +39,7 @@ func (be *Controller) GetControllerName() string {
 	return "beController"
 }
 
-func (be *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if dcr.Spec.BeSpec == nil {
 		if _, err := be.ClearResources(ctx, dcr); err != nil {
 			klog.Errorf("beController sync clearResource namespace=%s,srcName=%s, err=%s\n", dcr.Namespace, dcr.Name, err.Error())
@@ -68,9 +68,9 @@ func (be *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 	//generate new cn external service.
 
 	//generate new be service.
-	svc := resource.BuildExternalService(dcr, dorisv1.Component_BE, config)
+	svc := resource.BuildExternalService(dcr, v1.Component_BE, config)
 	//create or update be external and domain search service, update the status of fe on src.
-	internalService := resource.BuildInternalService(dcr, dorisv1.Component_BE, config)
+	internalService := resource.BuildInternalService(dcr, v1.Component_BE, config)
 	if err := k8s.ApplyService(ctx, be.K8sclient, &internalService, resource.ServiceDeepEqual); err != nil {
 		klog.Errorf("be controller sync apply internalService name=%s, namespace=%s, clusterName=%s failed.message=%s.",
 			internalService.Name, internalService.Namespace, dcr.Name, err.Error())
@@ -95,8 +95,8 @@ func (be *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 	return nil
 }
 
-func (be *Controller) feAvailable(dcr *dorisv1.DorisCluster) bool {
-	addr, _ := dorisv1.GetConfigFEAddrForAccess(dcr, dorisv1.Component_BE)
+func (be *Controller) feAvailable(dcr *v1.DorisCluster) bool {
+	addr, _ := v1.GetConfigFEAddrForAccess(dcr, v1.Component_BE)
 	if addr != "" {
 		return true
 	}
@@ -104,8 +104,8 @@ func (be *Controller) feAvailable(dcr *dorisv1.DorisCluster) bool {
 	//if fe deploy in k8s, should wait fe available
 	//1. wait for fe ok.
 	endpoints := corev1.Endpoints{}
-	if err := be.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: dcr.Namespace, Name: dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_FE)}, &endpoints); err != nil {
-		klog.Infof("BeController Sync wait fe service name %s available occur failed %s\n", dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_FE), err.Error())
+	if err := be.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: dcr.Namespace, Name: v1.GenerateExternalServiceName(dcr, v1.Component_FE)}, &endpoints); err != nil {
+		klog.Infof("BeController Sync wait fe service name %s available occur failed %s\n", v1.GenerateExternalServiceName(dcr, v1.Component_FE), err.Error())
 		return false
 	}
 
@@ -117,17 +117,17 @@ func (be *Controller) feAvailable(dcr *dorisv1.DorisCluster) bool {
 	return false
 }
 
-func (be *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error {
+func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 	//if spec is not exist, status is empty. but before clear status we must clear all resource about be used by ClearResources.
 	if cluster.Spec.BeSpec == nil {
 		cluster.Status.BEStatus = nil
 		return nil
 	}
 
-	bs := &dorisv1.ComponentStatus{
-		ComponentCondition: dorisv1.ComponentCondition{
-			SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_FE),
-			Phase:              dorisv1.Reconciling,
+	bs := &v1.ComponentStatus{
+		ComponentCondition: v1.ComponentCondition{
+			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE),
+			Phase:              v1.Reconciling,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		},
 	}
@@ -136,11 +136,11 @@ func (be *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 		bs = cluster.Status.BEStatus.DeepCopy()
 	}
 	cluster.Status.BEStatus = bs
-	bs.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_BE)
-	return be.UpdateStatus(cluster.Namespace, bs, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_BE), *cluster.Spec.BeSpec.Replicas)
+	bs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_BE)
+	return be.UpdateStatus(cluster.Namespace, bs, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
 }
 
-func (be *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
+func (be *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) (bool, error) {
 	//if the doris is not have be.
 	if dcr.Status.BEStatus == nil {
 		return true, nil
@@ -151,9 +151,9 @@ func (be *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 	}
 
 	//if the doris is not have cn.
-	beStName := dorisv1.GenerateComponentStatefulSetName(dcr, dorisv1.Component_BE)
-	externalServiceName := dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_BE)
-	internalServiceName := dorisv1.GenerateInternalCommunicateServiceName(dcr, dorisv1.Component_BE)
+	beStName := v1.GenerateComponentStatefulSetName(dcr, v1.Component_BE)
+	externalServiceName := v1.GenerateExternalServiceName(dcr, v1.Component_BE)
+	internalServiceName := v1.GenerateInternalCommunicateServiceName(dcr, v1.Component_BE)
 	if err := k8s.DeleteStatefulset(ctx, be.K8sclient, dcr.Namespace, beStName); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("beController ClearResources delete statefulset failed, namespace=%s,name=%s, error=%s.", dcr.Namespace, beStName, err.Error())
 		return false, err
@@ -171,7 +171,7 @@ func (be *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 	return true, nil
 }
 
-func (be *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
+func (be *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
 	if feconfigMapInfo.ConfigMapName == "" {
 		return make(map[string]interface{}), nil
 	}
@@ -187,7 +187,7 @@ func (be *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *dorisv1.
 	return res, err
 }
 
-func (be *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
+func (be *Controller) GetConfig(ctx context.Context, configMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
 	configMap, err := k8s.GetConfigMap(ctx, be.K8sclient, namespace, configMapInfo.ConfigMapName)
 	if err != nil && apierrors.IsNotFound(err) {
 		klog.Info("BeController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)

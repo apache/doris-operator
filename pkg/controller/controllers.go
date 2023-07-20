@@ -1,7 +1,7 @@
 package controller
 
 import (
-	v1 "github.com/selectdb/doris-operator/api/v1"
+	"github.com/selectdb/doris-operator/api/doris/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

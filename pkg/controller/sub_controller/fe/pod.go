@@ -2,7 +2,7 @@ package fe
 
 import (
 	"context"
-	v1 "github.com/selectdb/doris-operator/api/v1"
+	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
 	"strconv"

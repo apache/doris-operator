@@ -1,7 +1,7 @@
 package fe
 
 import (
-	v1 "github.com/selectdb/doris-operator/api/v1"
+	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 )

@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"path/filepath"
 	"testing"
 
@@ -29,8 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	dorisv1 "github.com/selectdb/doris-operator/api/v1"
 	//+kubebuilder:scaffold:imports
 )
 

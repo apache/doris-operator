@@ -2,7 +2,7 @@ package resource
 
 import (
 	"bytes"
-	v1 "github.com/selectdb/doris-operator/api/v1"
+	"github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 )

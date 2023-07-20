@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/be"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/fe"
@@ -30,7 +31,6 @@ import (
 	"os"
 	"time"
 
-	dorisv1 "github.com/selectdb/doris-operator/api/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
