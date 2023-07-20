@@ -2,7 +2,7 @@ package sub_controller
 
 import (
 	"context"
-	dorisv1 "github.com/selectdb/doris-operator/api/v1"
+	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"

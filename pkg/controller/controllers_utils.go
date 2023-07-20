@@ -1,7 +1,7 @@
 package controller
 
 import (
-	v1 "github.com/selectdb/doris-operator/api/v1"
+	"github.com/selectdb/doris-operator/api/doris/v1"
 	"sort"
 )
 

@@ -1,7 +1,7 @@
 package resource
 
 import (
-	dorisv1 "github.com/selectdb/doris-operator/api/v1"
+	"github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,13 +21,13 @@ type hashService struct {
 	labels map[string]string
 }
 
-func BuildInternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType, config map[string]interface{}) corev1.Service {
-	labels := dorisv1.GenerateInternalServiceLabels(dcr, componentType)
-	selector := dorisv1.GenerateServiceSelector(dcr, componentType)
+func BuildInternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, config map[string]interface{}) corev1.Service {
+	labels := v1.GenerateInternalServiceLabels(dcr, componentType)
+	selector := v1.GenerateServiceSelector(dcr, componentType)
 	//the k8s service type.
 	return corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            dorisv1.GenerateInternalCommunicateServiceName(dcr, componentType),
+			Name:            v1.GenerateInternalCommunicateServiceName(dcr, componentType),
 			Namespace:       dcr.Namespace,
 			Labels:          labels,
 			OwnerReferences: []metav1.OwnerReference{getOwnerReference(dcr)},
@@ -46,15 +46,15 @@ func BuildInternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.Compo
 
 }
 
-func getInternalServicePort(config map[string]interface{}, componentType dorisv1.ComponentType) corev1.ServicePort {
+func getInternalServicePort(config map[string]interface{}, componentType v1.ComponentType) corev1.ServicePort {
 	switch componentType {
-	case dorisv1.Component_FE:
+	case v1.Component_FE:
 		return corev1.ServicePort{
 			Name:       GetPortKey(QUERY_PORT),
 			Port:       GetPort(config, QUERY_PORT),
 			TargetPort: intstr.FromInt(int(GetPort(config, QUERY_PORT))),
 		}
-	case dorisv1.Component_BE:
+	case v1.Component_BE:
 		return corev1.ServicePort{
 			Name:       GetPortKey(HEARTBEAT_SERVICE_PORT),
 			Port:       GetPort(config, HEARTBEAT_SERVICE_PORT),
@@ -68,14 +68,14 @@ func getInternalServicePort(config map[string]interface{}, componentType dorisv1
 }
 
 // BuildExternalService build the external service. not have selector
-func BuildExternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType, config map[string]interface{}) corev1.Service {
-	labels := dorisv1.GenerateExternalServiceLabels(dcr, componentType)
-	selector := dorisv1.GenerateServiceSelector(dcr, componentType)
+func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, config map[string]interface{}) corev1.Service {
+	labels := v1.GenerateExternalServiceLabels(dcr, componentType)
+	selector := v1.GenerateServiceSelector(dcr, componentType)
 	//the k8s service type.
 	var ports []corev1.ServicePort
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dorisv1.GenerateExternalServiceName(dcr, componentType),
+			Name:      v1.GenerateExternalServiceName(dcr, componentType),
 			Namespace: dcr.Namespace,
 			Labels:    labels,
 		},
@@ -85,13 +85,13 @@ func BuildExternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.Compo
 	}
 
 	switch componentType {
-	case dorisv1.Component_FE:
+	case v1.Component_FE:
 		setServiceType(dcr.Spec.FeSpec.Service, &svc)
 		ports = getFeServicePorts(config)
-	case dorisv1.Component_BE:
+	case v1.Component_BE:
 		setServiceType(dcr.Spec.BeSpec.Service, &svc)
 		ports = getBeServicePorts(config)
-	case dorisv1.Component_CN:
+	case v1.Component_CN:
 		setServiceType(dcr.Spec.FeSpec.Service, &svc)
 		ports = getCnServicePorts(config)
 	default:
@@ -101,13 +101,13 @@ func BuildExternalService(dcr *dorisv1.DorisCluster, componentType dorisv1.Compo
 	svc.OwnerReferences = []metav1.OwnerReference{getOwnerReference(dcr)}
 	hso := serviceHashObject(&svc)
 	anno := map[string]string{}
-	anno[dorisv1.ComponentResourceHash] = hash.HashObject(hso)
+	anno[v1.ComponentResourceHash] = hash.HashObject(hso)
 	svc.Annotations = anno
 	svc.Spec.Ports = ports
 	return svc
 }
 
-func getOwnerReference(dcr *dorisv1.DorisCluster) metav1.OwnerReference {
+func getOwnerReference(dcr *v1.DorisCluster) metav1.OwnerReference {
 	return metav1.OwnerReference{
 		APIVersion: dcr.APIVersion,
 		Kind:       dcr.Kind,
@@ -152,11 +152,11 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	return
 }
 
-func GetContainerPorts(config map[string]interface{}, componentType dorisv1.ComponentType) []corev1.ContainerPort {
+func GetContainerPorts(config map[string]interface{}, componentType v1.ComponentType) []corev1.ContainerPort {
 	switch componentType {
-	case dorisv1.Component_FE:
+	case v1.Component_FE:
 		return getFeContainerPorts(config)
-	case dorisv1.Component_BE:
+	case v1.Component_BE:
 		return getBeContainerPorts(config)
 	default:
 		klog.Infof("GetContainerPorts the componentType %s not supported.", componentType)
@@ -247,7 +247,7 @@ func getCnServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	return
 }
 
-func setServiceType(svc *dorisv1.ExportService, service *corev1.Service) {
+func setServiceType(svc *v1.ExportService, service *corev1.Service) {
 	service.Spec.Type = corev1.ServiceTypeClusterIP
 	if svc != nil && svc.Type != "" {
 		service.Spec.Type = svc.Type
@@ -260,15 +260,15 @@ func setServiceType(svc *dorisv1.ExportService, service *corev1.Service) {
 
 func ServiceDeepEqual(nsvc, oldsvc *corev1.Service) bool {
 	var nhsvcValue, ohsvcValue string
-	if _, ok := nsvc.Annotations[dorisv1.ComponentResourceHash]; ok {
-		nhsvcValue = nsvc.Annotations[dorisv1.ComponentResourceHash]
+	if _, ok := nsvc.Annotations[v1.ComponentResourceHash]; ok {
+		nhsvcValue = nsvc.Annotations[v1.ComponentResourceHash]
 	} else {
 		nhsvc := serviceHashObject(nsvc)
 		nhsvcValue = hash.HashObject(nhsvc)
 	}
 
-	if _, ok := oldsvc.Annotations[dorisv1.ComponentResourceHash]; ok {
-		ohsvcValue = oldsvc.Annotations[dorisv1.ComponentResourceHash]
+	if _, ok := oldsvc.Annotations[v1.ComponentResourceHash]; ok {
+		ohsvcValue = oldsvc.Annotations[v1.ComponentResourceHash]
 	} else {
 		ohsvc := serviceHashObject(oldsvc)
 		ohsvcValue = hash.HashObject(ohsvc)
