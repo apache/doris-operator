@@ -10,6 +10,8 @@ MY_HOSTNAME=`hostname -f`
 DORIS_ROOT=${DORIS_ROOT:-"/opt/doris"}
 DORIS_HOME=${DORIS_ROOT}/be
 BE_CONFIG=$DORIS_HOME/conf/be.conf
+REGISTERED=false
+
 
 log_stderr()
 {
@@ -99,18 +101,32 @@ add_self()
             now=`date +%s`
             if [[ $expire -le $now ]] ; then
                 log_stderr "Time out, abort!"
-                exit 1
+                return 0
             fi
         else
             log_stderr "not have leader wait fe cluster elect a master, sleep 2s..."
             sleep $PROBE_INTERVAL
         fi
-
     done
 }
 
-fe_addr=$1
+function check_and_register()
+{
+    $addrs=$1
+    addrArr=(${addrs//,/ })
+    for addr in ${addrArr[@]}
+    do
+        add_self $addr
+    done
 
+    if [[ $REGISTERED ]];
+        return 0
+    else
+        exit 1
+    fi
+}
+
+fe_addr=$1
 if [[ "x$fe_addr" == "x" ]]; then
     echo "need fe address as paramter!"
     echo "  Example $0 <fe_addr>"
@@ -119,6 +135,7 @@ fi
 
 update_conf_from_configmap
 collect_env_info
-add_self $fe_addr || exit $?
+#add_self $fe_addr || exit $?
+check_and_register $fe_addr
 log_stderr "run start_be.sh"
 $DORIS_HOME/bin/start_be.sh

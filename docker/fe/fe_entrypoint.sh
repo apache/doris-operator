@@ -1,20 +1,28 @@
 #!/bin/bash
 DORIS_ROOT=${DORIS_ROOT:-"/opt/doris"}
+# fe location
 DORIS_HOME=${DORIS_ROOT}/fe
+# participant election number of fe.
 ELECT_NUMBER=${ELECT_NUMBER:=3}
+# query port for mysql connection.
 QUERY_PORT=${FE_QUERY_PORT:-9030}
-DB_ADMIN_USER=${USER:-"root"}
+# location of fe config store.
 FE_CONFFILE=$DORIS_HOME/conf/fe.conf
+# represents the type for fe communication: domain or IP.
 START_TYPE=
-# FE leader
+# the master node in fe cluster.
 FE_LEADER=
+# pod number
 POD_INDEX=
 # probe interval: 2 seconds
 PROBE_INTERVAL=2
 # timeout for probe leader: 120 seconds
-PROBE_LEADER_POD0_TIMEOUT=10 # at most 5 attempts, no less than the times needed for an election
+PROBE_LEADER_POD0_TIMEOUT=60 # at most 30 attempts, no less than the times needed for an election
 PROBE_LEADER_PODX_TIMEOUT=120 # at most 60 attempts
+# administrator for administrate the cluster.
+DB_ADMIN_USER=${USER:-"root"}
 
+DB_ADMIN_PASSWD=$PASSWD
 # myself as IP or FQDN
 MYSELF=
 
@@ -89,8 +97,30 @@ collect_env_info()
 function show_frontends()
 {
     local addr=$1
-    echo ""
-    timeout 15 mysql  --connect-timeout 2 -h $addr -P $QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
+    # timeout 15 mysql  --connect-timeout 2 -h $addr -P $QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'show frontends;'
+    else
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'show frontends;'
+    fi
+}
+
+function add_self_follower()
+{
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+    else
+        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+    fi
+}
+
+function add_self_observer()
+{
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+    else
+        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+    fi
 }
 
 function start_fe_no_meta()
@@ -107,26 +137,28 @@ function start_fe_no_meta()
         do
             if [[ ELECT_NUMBER -gt $POD_INDEX ]]; then
                 log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as follower ..."
-                mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+                #mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+                add_self_follower
             else
                 log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as observer ..."
-                mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+                #mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+                add_self_observer
             fi
-               # check if added successful
-               if show_frontends $addr | grep -q -w "$MYSELF" &>/dev/null ; then
-                   break;
-               fi
+               # check if added successfully.
+            if show_frontends $addr | grep -q -w "$MYSELF" &>/dev/null ; then
+                break;
+            fi
 
-               local now=`date +%s`
-               let "expire=start+30" # 30s timeout
-               if [[ $expire -le $now ]] ; then
-                   log_stderr "Timed out, abort!"
-                   exit 1
-               fi
+            local now=`date +%s`
+            let "expire=start+30" # 30s timeout
+            if [[ $expire -le $now ]] ; then
+                log_stderr "Timed out, abort!"
+                exit 1
+            fi
 
-               log_stderr "Sleep a while and retry adding ..."
-               sleep $PROBE_INTERVAL
-           done
+            log_stderr "Sleep a while and retry adding ..."
+            sleep $PROBE_INTERVAL
+        done
     fi
     log_stderr "first start with no meta run start_fe.sh with additional options: '$opts'"
     $DORIS_HOME/bin/start_fe.sh $opts
@@ -169,7 +201,7 @@ probe_leader_for_pod0()
         let "expire=start+timeout"
         if [[ $expire -le $now ]] ; then
             if $has_member ; then
-                log_stderr "Timed out ${timeout}s, abort!"
+                log_stderr "Timed out ${timeout}s, has members but not master abort!"
                 exit 1
             else
                 log_stderr "Timed out, no members detected ever, assume myself is the first node .."
@@ -191,7 +223,7 @@ probe_leader_for_podX()
     do
         #local leader=`show_frontends $svc | grep '\<LEADER\>' | awk '{print $2}'`
         memlist=`show_frontends $svc`
-	local leader=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+	    local leader=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
         if [[ "x$leader" != "x" ]] ; then
             # has leader, done
             log_stderr "Find leader: $leader!"
@@ -199,13 +231,13 @@ probe_leader_for_podX()
             return 0
         fi
         # no leader yet, check if needs timeout and quit
-        log_stderr "No leader yet ..."
+        log_stderr "No leader wait ${PROBE_INTERVAL}s..."
 
         local now=`date +%s`
         let "expire=start+PROBE_LEADER_PODX_TIMEOUT"
         if [[ $expire -le $now ]] ; then
-            log_stderr "Timed out, abort!"
-            exit 1
+            log_stderr "Probe leader timeout, abort!"
+            return 0
         fi
 
         sleep $PROBE_INTERVAL
@@ -215,12 +247,30 @@ probe_leader_for_podX()
 probe_leader()
 {
     local svc=$1
+    # resolve svc as array.
+    local addArr=${svc//,/ }
+    for addr in ${addArr[@]}
+    do
+        # if have leader break for register or check.
+        if [[ "x$FE_LEADER" != "x" ]]; then
+            break
+        fi
 
-    # find leader under current service and set to FE_LEADER
-    if [[ "$POD_INDEX" -eq 0 ]] ; then
-        probe_leader_for_pod0 $svc
-    else
-        probe_leader_for_podX $svc
+        # find leader under current service and set to FE_LEADER
+        if [[ "$POD_INDEX" -eq 0 ]] ; then
+            probe_leader_for_pod0 $addr
+        else
+            probe_leader_for_podX $addr
+    fi
+    done
+
+    # if first pod assume first start should as master. others first start have not master exit.
+    if [[ "x$FE_LEADER" == "x" ]]; then
+        if [[ "$POD_INDEX" -eq 0 ]]; then
+            return 0
+        else
+            exit 1
+        fi
     fi
 }
 
