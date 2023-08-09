@@ -30,7 +30,14 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	for _, vct := range bSpec.PersistentVolumes {
-		volumeClaimTemplates = append(volumeClaimTemplates, vct.PersistentVolumeClaim)
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: vct.Name,
+			},
+			Spec: vct.PersistentVolumeClaimSpec,
+		}
+
+		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
 	}
 
 	st := appv1.StatefulSet{

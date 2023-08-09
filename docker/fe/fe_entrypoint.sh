@@ -318,6 +318,5 @@ else
     log_stderr "first start fe with meta not exist."
     collect_env_info
     probe_leader $fe_addrs
-    start_fe_no_meta $fe_addrs
+    start_fe_no_meta $FE_LEADER
 fi
-
