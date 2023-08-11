@@ -94,14 +94,6 @@ type CnSpec struct {
 }
 
 // BrokerSpec describes a template for creating copies of a broker software service, if deploy broker we recommend you add affinity for deploy with be pod.
-// example:
-// affinity:
-//
-//	 podAffinity:
-//	   requiredDuringSchedulingIgnoredDuringExecution:
-//	   - labelSelector:
-//		   matchLabels:
-//		     app.kubernetes.io/component: be
 type BrokerSpec struct {
 	//expose the cn listen ports
 	Service ExportService `json:"service,omitempty"`
@@ -280,15 +272,16 @@ const (
 	Available        ComponentPhase = "available"
 )
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:storageversion
-// +genclient
 // DorisCluster is the Schema for the dorisclusters API
 type DorisCluster struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -298,8 +291,7 @@ type DorisCluster struct {
 	Status DorisClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // DorisClusterList contains a list of DorisCluster
 type DorisClusterList struct {
 	metav1.TypeMeta `json:",inline"`
