@@ -16,6 +16,17 @@ const (
 	fe_meta_path    = "/opt/doris/fe/doris-meta"
 	fe_meta_name    = "fe-meta"
 	HEALTH_API_PATH = "/api/health"
+
+	//keys for pod env variables
+	POD_NAME           = "POD_NAME"
+	POD_IP             = "POD_IP"
+	HOST_IP            = "HOST_IP"
+	POD_NAMESPACE      = "POD_NAMESPACE"
+	ADMIN_USER         = "USER"
+	ADMIN_PASSWD       = "PASSWD"
+	DORIS_ROOT         = "DORIS_ROOT"
+	DEFAULT_ADMIN_USER = "root"
+	DEFAULT_ROOT_PATH  = "/opt/doris"
 )
 
 func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -74,6 +85,7 @@ func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
 	}
 }
 
+// newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
 func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 	var volumes []corev1.Volume
 	for _, pv := range spec.PersistentVolumes {
@@ -90,12 +102,50 @@ func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 	return volumes
 }
 
-func NewBaseMainContainer(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) corev1.Container {
+// dst array have high priority will cover the src env when the env's name is right.
+func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
+	if len(dst) == 0 {
+		return src
+	}
+
+	if len(src) == 0 {
+		return dst
+	}
+
+	m := make(map[string]bool, len(dst))
+	for _, env := range dst {
+		m[env.Name] = true
+	}
+
+	for _, env := range src {
+		if _, ok := m[env.Name]; ok {
+			continue
+		}
+		dst = append(dst, env)
+	}
+
+	return dst
+}
+
+func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) corev1.Container {
 	command, args := getCommand(componentType)
+	var spec v1.BaseSpec
+	switch componentType {
+	case v1.Component_FE:
+		spec = dcr.Spec.FeSpec.BaseSpec
+	case v1.Component_BE:
+		spec = dcr.Spec.BeSpec.BaseSpec
+	case v1.Component_CN:
+		spec = dcr.Spec.CnSpec.BaseSpec
+	case v1.Component_Broker:
+		spec = dcr.Spec.BrokerSpec.BaseSpec
+	default:
+	}
+
 	volumeMounts := buildVolumeMounts(spec, componentType)
 	var envs []corev1.EnvVar
-	envs = append(envs, buildBaseEnvs()...)
-	envs = append(envs, spec.EnvVars...)
+	envs = append(envs, buildBaseEnvs(dcr)...)
+	envs = mergeEnvs(envs, spec.EnvVars)
 	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  config_env_name,
@@ -133,40 +183,56 @@ func NewBaseMainContainer(spec v1.BaseSpec, config map[string]interface{}, compo
 	return c
 }
 
-func buildBaseEnvs() []corev1.EnvVar {
-	return []corev1.EnvVar{
+func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
+	defaultEnvs := []corev1.EnvVar{
 		{
-			Name: "POD_NAME",
+			Name: POD_NAME,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 			},
 		},
 		{
-			Name: "POD_IP",
+			Name: POD_IP,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 			},
 		},
 		{
-			Name: "HOST_IP",
+			Name: HOST_IP,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"},
 			},
 		},
 		{
-			Name: "POD_NAMESPACE",
+			Name: POD_NAMESPACE,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 			},
 		},
-		{
-			Name:  "USER",
-			Value: "root",
-		}, {
-			Name:  "DORIS_ROOT",
-			Value: "/opt/doris",
-		},
 	}
+
+	if dcr.Spec.AdminUser != nil {
+		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+			Name:  ADMIN_USER,
+			Value: dcr.Spec.AdminUser.Name,
+		})
+		if dcr.Spec.AdminUser.Password != "" {
+			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+				Name:  ADMIN_PASSWD,
+				Value: dcr.Spec.AdminUser.Password,
+			})
+		}
+	} else {
+		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
+			Name:  ADMIN_USER,
+			Value: DEFAULT_ADMIN_USER,
+		}, {
+			Name:  DORIS_ROOT,
+			Value: DEFAULT_ROOT_PATH,
+		}}...)
+	}
+
+	return defaultEnvs
 }
 
 func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
@@ -181,6 +247,7 @@ func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev
 		var volumeMount corev1.VolumeMount
 		volumeMount.MountPath = pvs.MountPath
 		volumeMount.Name = pvs.Name
+		volumeMounts = append(volumeMounts, volumeMount)
 	}
 	return volumeMounts
 }
@@ -191,7 +258,8 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 		return []string{"/opt/doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case v1.Component_BE:
 		return []string{"/opt/doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
-		//TODO: cn and broker.
+	case v1.Component_CN:
+		return
 	default:
 		klog.Infof("getCommand the componentType %s is not supported.", componentType)
 		return []string{}, []string{}

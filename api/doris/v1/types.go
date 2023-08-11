@@ -26,31 +26,32 @@ import (
 
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
-	//defines the pod that will created from feSpec template.
+	//defines the fe cluster state that will be created by operator.
 	FeSpec *FeSpec `json:"feSpec,omitempty"`
 
-	//defines the pod that will created from beSpec template.
+	//defines the be cluster state pod that will be created by operator.
 	BeSpec *BeSpec `json:"beSpec,omitempty"`
 
-	//defines the pod that will created from cnSpec template.
+	//defines the cn cluster state that will be created by operator.
 	CnSpec *CnSpec `json:"cnSpec,omitempty"`
 
+	//defines the broker state that will be created by operator.
 	BrokerSpec *BrokerSpec `json:"brokerSpec,omitempty"`
 
-	//components register or drop self in doris cluster.
+	//administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.
 	AdminUser *AdminUser `json:"adminUser,omitempty"`
 }
 
-// AdminUser manage the software service nodes in doris cluster.
+// AdminUser describe administrator for manage components in specified cluster.
 type AdminUser struct {
 	//the user name for admin service's node.
 	Name string `json:"name,omitempty"`
 
-	//login to doris db.
+	//password, login to doris db.
 	Password string `json:"password,omitempty"`
 }
 
-// describes a template for creating copies of a fe software service.
+// FeSpec describes a template for creating copies of a fe software service.
 type FeSpec struct {
 	//the number of fe in election. electionNumber <= replicas, left as observers. default value=3
 	ElectionNumber *int32 `json:"electionNumber,omitempty"`
@@ -59,14 +60,13 @@ type FeSpec struct {
 	BaseSpec `json:",inline"`
 }
 
-// describes a template for creating copies of a be software service.
+// BeSpec describes a template for creating copies of a be software service.
 type BeSpec struct {
-
 	//the foundation spec for creating be software services.
 	BaseSpec `json:",inline"`
 }
 
-// Fe address for other components access, if not config generate default.
+// FeAddress specify the fe address, please set it when you deploy fe outside k8s or deploy components use crd except fe, if not set .
 type FeAddress struct {
 	//the service name that proxy fe on k8s. the service must in same namespace with fe.
 	ServiceName string `json:"ServiceName,omitempty"`
@@ -75,12 +75,16 @@ type FeAddress struct {
 	Endpoints Endpoints `json:"endpoints,omitempty"`
 }
 
+// Endpoints describe the address outside k8s.
 type Endpoints struct {
+	//the ip or domain array.
 	Address []string `json:":address,omitempty"`
-	Port    int      `json:"port,omitempty"`
+
+	// the fe port that for query. the field `query_port` defines in fe config.
+	Port int `json:"port,omitempty"`
 }
 
-// describes a template for creating copies of a cn software service. cn, the service for external table.
+// CnSpec describes a template for creating copies of a cn software service. cn, the service for external table.
 type CnSpec struct {
 	//the foundation spec for creating cn software services.
 	BaseSpec `json:",inline"`
@@ -89,6 +93,7 @@ type CnSpec struct {
 	AutoScalingPolicy *AutoScalingPolicy `json:"autoScalingPolicy,omitempty"`
 }
 
+// BrokerSpec describes a template for creating copies of a broker software service, if deploy broker we recommend you add affinity for deploy with be pod.
 type BrokerSpec struct {
 	//expose the cn listen ports
 	Service ExportService `json:"service,omitempty"`
@@ -97,7 +102,7 @@ type BrokerSpec struct {
 	BaseSpec `json:"baseSpec,omitempty"`
 }
 
-// describe the foundation spec of component about doris.
+// BaseSpec describe the foundation spec of pod about doris components.
 type BaseSpec struct {
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -171,12 +176,20 @@ type BaseSpec struct {
 	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
 }
 
+// PersistentVolume defines volume information and container mount information.
 type PersistentVolume struct {
-	// volumeClaimTemplates is a list of claims that pods are allowed to reference.
-	corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
-	MountPath                    string `json:"mountPath"`
+	// PersistentVolumeClaimSpec is a list of claim spec about storage that pods are required.
+	// +kubebuilder:validation:Optional
+	corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec,omitempty"`
+
+	//the mount path for component service.
+	MountPath string `json:"mountPath,omitempty"`
+
+	//the volume name associate with
+	Name string `json:"name,omitempty"`
 }
 
+// ConfigMapInfo specify configmap to mount for component.
 type ConfigMapInfo struct {
 	//the config info for start progress.
 	ConfigMapName string `json:"configMapName,omitempty"`
@@ -206,12 +219,16 @@ type ExportService struct {
 
 // DorisClusterStatus defines the observed state of DorisCluster
 type DorisClusterStatus struct {
+	//describe fe cluster status, record running, creating and failed pods.
 	FEStatus *ComponentStatus `json:"feStatus,omitempty"`
 
+	//describe be cluster status, recode running, creating and failed pods.
 	BEStatus *ComponentStatus `json:"beStatus,omitempty"`
 
+	//describe cn cluster status, record running, creating and failed pods.
 	CnStatus *ComponentStatus `json:"cnStatus,omitempty"`
 
+	//describe broker cluster status, record running, creating and failed pods.
 	BrokerStatus *ComponentStatus `json:"brokerStatus,omitempty"`
 }
 
@@ -255,15 +272,16 @@ const (
 	Available        ComponentPhase = "available"
 )
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:storageversion
-// +genclient
 // DorisCluster is the Schema for the dorisclusters API
 type DorisCluster struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -273,8 +291,7 @@ type DorisCluster struct {
 	Status DorisClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // DorisClusterList contains a list of DorisCluster
 type DorisClusterList struct {
 	metav1.TypeMeta `json:",inline"`

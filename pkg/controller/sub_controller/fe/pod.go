@@ -11,7 +11,7 @@ import (
 func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpc(dcr, v1.Component_FE)
 	var containers []corev1.Container
-	containers = append(containers, podTemplateSpec.Spec.Containers...)
+	//containers = append(containers, podTemplateSpec.Spec.Containers...)
 	config, _ := fc.GetFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
@@ -20,7 +20,7 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 }
 
 func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interface{}) corev1.Container {
-	c := resource.NewBaseMainContainer(dcr.Spec.FeSpec.BaseSpec, config, v1.Component_FE)
+	c := resource.NewBaseMainContainer(dcr, config, v1.Component_FE)
 	feAddr, port := v1.GetConfigFEAddrForAccess(dcr, v1.Component_FE)
 	queryPort := strconv.FormatInt(int64(resource.GetPort(config, resource.QUERY_PORT)), 10)
 	//if fe addr not config, use external service as addr, if port not config in configmap use default value.

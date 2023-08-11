@@ -2,7 +2,7 @@ package cn
 
 import (
 	"context"
-	dorisv1 "github.com/selectdb/doris-operator/api/v1"
+	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"

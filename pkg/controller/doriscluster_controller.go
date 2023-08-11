@@ -29,6 +29,12 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"os"
+	controller_builder "sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,7 +61,7 @@ type DorisClusterReconciler struct {
 //+kubebuilder:rbac:groups=doris.selectdb.com,resources=dorisclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=doris.selectdb.com,resources=dorisclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=doris.selectdb.com,resources=dorisclusters/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
@@ -177,13 +183,60 @@ func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1
 	return
 }
 
+func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
+	return builder.For(&dorisv1.DorisCluster{}).
+		Owns(&appv1.StatefulSet{}).
+		Owns(&corev1.Service{})
+}
+
+func (r *DorisClusterReconciler) watchBuilder(builder *ctrl.Builder) *ctrl.Builder {
+
+	mapFn := handler.EnqueueRequestsFromMapFunc(
+		func(a client.Object) []reconcile.Request {
+			labels := a.GetLabels()
+			dorisName := labels[dorisv1.DorisClusterLabelKey]
+			klog.Infof("DorisClusterReconciler watch pod %s change related to doris cluster %s", a.GetName(), dorisName)
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      dorisName,
+					Namespace: a.GetNamespace(),
+				}},
+			}
+		})
+
+	p := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			if _, ok := e.Object.GetLabels()[dorisv1.DorisClusterLabelKey]; !ok {
+				return false
+			}
+
+			return true
+		},
+		UpdateFunc: func(u event.UpdateEvent) bool {
+			if _, ok := u.ObjectOld.GetLabels()[dorisv1.DorisClusterLabelKey]; !ok {
+				return false
+			}
+
+			return u.ObjectOld != u.ObjectNew
+		},
+		DeleteFunc: func(d event.DeleteEvent) bool {
+			if _, ok := d.Object.GetLabels()[dorisv1.DorisClusterLabelKey]; !ok {
+				return false
+			}
+
+			return true
+		},
+	}
+
+	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
+		mapFn, controller_builder.WithPredicates(p))
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&dorisv1.DorisCluster{}).
-		Owns(&appv1.StatefulSet{}).
-		Owns(&corev1.Service{}).
-		Complete(r)
+	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
+	builder = r.watchBuilder(builder)
+	return builder.Complete(r)
 }
 
 // Init initial the StarRocksClusterReconciler for reconcile.

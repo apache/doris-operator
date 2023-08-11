@@ -21,7 +21,9 @@ const (
 	// NameLabelKey is Kubernetes recommended label key, it represents the name of the application
 	NameLabelKey string = "app.kubernetes.io/name"
 
-	//OwnerReference list object depended by this object
+	DorisClusterLabelKey string = "app.doris.cluster"
+
+	//OwnerReference list ownerReferences this object
 	OwnerReference string = "app.doris.ownerreference/name"
 
 	ServiceRoleForCluster string = "app.doris.service/role"
@@ -229,19 +231,28 @@ func GetPodLabels(dcr *DorisCluster, componentType ComponentType) metadata.Label
 
 func getFEPodLabels(dcr *DorisCluster) metadata.Labels {
 	labels := feStatefulSetSelector(dcr)
+	labels.AddLabel(getDefaultLabels(dcr))
 	labels.AddLabel(dcr.Spec.FeSpec.PodLabels)
 	return labels
 }
 
 func getBEPodLabels(dcr *DorisCluster) metadata.Labels {
 	labels := beStatefulSetSelector(dcr)
+	labels.AddLabel(getDefaultLabels(dcr))
 	labels.AddLabel(dcr.Spec.BeSpec.PodLabels)
 	return labels
 }
 
 func getCNPodLabels(dcr *DorisCluster) metadata.Labels {
 	labels := cnStatefulSetLabels(dcr)
+	labels.AddLabel(getDefaultLabels(dcr))
 	labels.AddLabel(dcr.Spec.CnSpec.PodLabels)
+	return labels
+}
+
+func getDefaultLabels(dcr *DorisCluster) metadata.Labels {
+	labels := metadata.Labels{}
+	labels[DorisClusterLabelKey] = dcr.Name
 	return labels
 }
 
@@ -274,7 +285,7 @@ func getEndpointsToString(ep Endpoints) (string, int) {
 		return "", -1
 	}
 
-	return strings.Join(ep.Address, ";"), ep.Port
+	return strings.Join(ep.Address, ","), ep.Port
 }
 
 func getFEAddrForBackends(dcr *DorisCluster) (string, int) {

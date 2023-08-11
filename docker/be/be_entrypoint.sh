@@ -119,7 +119,7 @@ function check_and_register()
         add_self $addr
     done
 
-    if [[ $REGISTERED ]];
+    if [[ $REGISTERED ]]; then
         return 0
     else
         exit 1

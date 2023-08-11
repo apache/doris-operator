@@ -2,7 +2,7 @@ package cn
 
 import (
 	"context"
-	v1 "github.com/selectdb/doris-operator/api/v1"
+	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
 	"strconv"
@@ -18,10 +18,12 @@ func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	podTemplateSpc.Spec.Containers = containers
 	return podTemplateSpc
 }
+
+// TODO: rewrite the logic
 func (cn *Controller) cnContainer(dcr *v1.DorisCluster, config map[string]interface{}) corev1.Container {
-	container := resource.NewBaseMainContainer(dcr.Spec.CnSpec.BaseSpec, v1.Component_CN)
+	container := resource.NewBaseMainContainer(dcr, config, v1.Component_CN)
 	cnConfig, _ := cn.GetConfig(context.Background(), &dcr.Spec.CnSpec.ConfigMapInfo, dcr.Namespace)
-	address := v1.GetConfigFEAddrForAccess(dcr, v1.Component_CN)
+	address, _ := v1.GetConfigFEAddrForAccess(dcr, v1.Component_CN)
 	queryport := resource.GetPort(config, resource.QUERY_PORT)
 	// if address is empty
 	if address == "" {
