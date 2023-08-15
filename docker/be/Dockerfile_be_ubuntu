@@ -1,13 +1,22 @@
 FROM ubuntu:22.04
 
-# copy from builder
-RUN apt-get update -y \
-        && apt-get install -y --no-install-recommends vim default-jdk mysql-client curl \
-        && rm -rf /var/lib/apt/lists/*
 
-# copy from builder
-COPY apache-doris-2.0-beta-bin-x64/be /opt/doris/be
+RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    patchelf gdb binutils binutils-common binutils-x86-64-linux-gnu bzip2 \
+    curl wget zip unzip less vim htop iproute2 numactl tar jq iotop sysstat smartmontools \
+    tcpdump iputils-ping dnsutils tree strace lsof blktrace pstack tmux \
+    bpfcc-tools linux-headers-realtime linux-tools-realtime silversearcher-ag \
+    net-tools openjdk-8-jdk && \
+    rm -rf /var/lib/apt/lists/*
 
-COPY be_*.sh /opt/doris/
-ENV JAVA_HOME=/lib/jvm/default-java
-WORKDIR /opt/doris
+
+# set environment variables
+ENV JAVA_HOME="lib/jvm/java-8-openjdk-amd64/"
+
+COPY resource/be.tar.gz /opt/apache-doris/be
+
+COPY resource/be_*.sh /opt/apache-doris/
+
+WORKDIR /opt/apache-doris
+
+ENTRYPOINT ["bash","entry_point.sh"]

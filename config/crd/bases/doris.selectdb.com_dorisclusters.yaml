@@ -1126,7 +1126,7 @@ spec:
                       type: object
                     type: array
                   image:
-                    description: Image for a starrocks cn deployment.
+                    description: Image for a doris cn deployment.
                     type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
@@ -2595,7 +2595,7 @@ spec:
                           type: object
                         type: array
                       image:
-                        description: Image for a starrocks cn deployment.
+                        description: Image for a doris cn deployment.
                         type: string
                       imagePullSecrets:
                         description: 'ImagePullSecrets is an optional list of references
@@ -4736,7 +4736,7 @@ spec:
                       type: object
                     type: array
                   image:
-                    description: Image for a starrocks cn deployment.
+                    description: Image for a doris cn deployment.
                     type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
@@ -6167,7 +6167,7 @@ spec:
                       type: object
                     type: array
                   image:
-                    description: Image for a starrocks cn deployment.
+                    description: Image for a doris cn deployment.
                     type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
@@ -6532,11 +6532,8 @@ spec:
                   and failed pods.
                 properties:
                   accessService:
-                    description: 'INSERT ADDITIONAL STATUS FIELD - define observed
-                      state of cluster Important: Run "make" to regenerate code after
-                      modifying this file StarRocksComponentStatus represents the
-                      status of a starrocks component. the name of fe service exposed
-                      for user.'
+                    description: DorisComponentStatus represents the status of a doris
+                      component. the name of fe service exposed for user.
                     type: string
                   componentCondition:
                     properties:
@@ -6585,11 +6582,8 @@ spec:
                   and failed pods.
                 properties:
                   accessService:
-                    description: 'INSERT ADDITIONAL STATUS FIELD - define observed
-                      state of cluster Important: Run "make" to regenerate code after
-                      modifying this file StarRocksComponentStatus represents the
-                      status of a starrocks component. the name of fe service exposed
-                      for user.'
+                    description: DorisComponentStatus represents the status of a doris
+                      component. the name of fe service exposed for user.
                     type: string
                   componentCondition:
                     properties:
@@ -6638,11 +6632,8 @@ spec:
                   and failed pods.
                 properties:
                   accessService:
-                    description: 'INSERT ADDITIONAL STATUS FIELD - define observed
-                      state of cluster Important: Run "make" to regenerate code after
-                      modifying this file StarRocksComponentStatus represents the
-                      status of a starrocks component. the name of fe service exposed
-                      for user.'
+                    description: DorisComponentStatus represents the status of a doris
+                      component. the name of fe service exposed for user.
                     type: string
                   componentCondition:
                     properties:
@@ -6691,11 +6682,8 @@ spec:
                   and failed pods.
                 properties:
                   accessService:
-                    description: 'INSERT ADDITIONAL STATUS FIELD - define observed
-                      state of cluster Important: Run "make" to regenerate code after
-                      modifying this file StarRocksComponentStatus represents the
-                      status of a starrocks component. the name of fe service exposed
-                      for user.'
+                    description: DorisComponentStatus represents the status of a doris
+                      component. the name of fe service exposed for user.
                     type: string
                   componentCondition:
                     properties:

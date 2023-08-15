@@ -12,8 +12,8 @@ const (
 	config_env_path = "/etc/doris"
 	config_env_name = "CONFIGMAP_MOUNT_PATH"
 	be_storage_name = "be-storage"
-	be_storage_path = "/opt/doris/be/storage"
-	fe_meta_path    = "/opt/doris/fe/doris-meta"
+	be_storage_path = "/opt/apache-doris/be/storage"
+	fe_meta_path    = "/opt/apache-doris/fe/doris-meta"
 	fe_meta_name    = "fe-meta"
 	HEALTH_API_PATH = "/api/health"
 
@@ -26,7 +26,7 @@ const (
 	ADMIN_PASSWD       = "PASSWD"
 	DORIS_ROOT         = "DORIS_ROOT"
 	DEFAULT_ADMIN_USER = "root"
-	DEFAULT_ROOT_PATH  = "/opt/doris"
+	DEFAULT_ROOT_PATH  = "/opt/apache-doris"
 )
 
 func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -255,9 +255,9 @@ func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
 	switch componentType {
 	case v1.Component_FE:
-		return []string{"/opt/doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
+		return []string{"/opt/apache-doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case v1.Component_BE:
-		return []string{"/opt/doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
+		return []string{"/opt/apache-doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case v1.Component_CN:
 		return
 	default:

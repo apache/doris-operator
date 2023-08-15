@@ -44,7 +44,7 @@ import (
 )
 
 var (
-	name             = "starrockscluster-controller"
+	name             = "dorisscluster-controller"
 	feControllerName = "fe-controller"
 	cnControllerName = "cn-controller"
 	beControllerName = "be-controller"
@@ -84,7 +84,7 @@ type DorisClusterReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	klog.FromContext(ctx)
-	klog.Info("StarRocksClusterReconciler reconcile the update crd name ", req.Name, " namespace ", req.Namespace)
+	klog.Info("DorisClusterReconciler reconcile the update crd name ", req.Name, " namespace ", req.Namespace)
 	var edcr dorisv1.DorisCluster
 	err := r.Client.Get(ctx, req.NamespacedName, &edcr)
 	if apierrors.IsNotFound(err) {
@@ -239,7 +239,7 @@ func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return builder.Complete(r)
 }
 
-// Init initial the StarRocksClusterReconciler for reconcile.
+// Init initial the DorisClusterReconciler for reconcile.
 func (r *DorisClusterReconciler) Init(mgr ctrl.Manager) {
 	subcs := make(map[string]sub_controller.SubController)
 	fc := fe.New(mgr.GetClient(), mgr.GetEventRecorderFor(feControllerName))
@@ -252,7 +252,7 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager) {
 		Recorder: mgr.GetEventRecorderFor(name),
 		Scs:      subcs,
 	}).SetupWithManager(mgr); err != nil {
-		klog.Error(err, " unable to create controller ", "controller ", "StarRocksCluster ")
+		klog.Error(err, " unable to create controller ", "controller ", "DorisCluster ")
 		os.Exit(1)
 	}
 }

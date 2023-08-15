@@ -90,7 +90,7 @@ func (fc *Controller) GetControllerName() string {
 // Sync DorisCluster to fe statefulset and service.
 func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error {
 	if cluster.Spec.FeSpec == nil {
-		klog.Info("fe Controller Sync ", "the fe component is not needed ", "namespace ", cluster.Namespace, " starrocks cluster name ", cluster.Name)
+		klog.Info("fe Controller Sync ", "the fe component is not needed ", "namespace ", cluster.Namespace, " doris cluster name ", cluster.Name)
 		return nil
 	}
 

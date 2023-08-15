@@ -23,13 +23,13 @@ SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 
 source "kube_codegen.sh"
 kube::codegen::gen_helpers \
-    --input-pkg-root selectdb/doris-operator/api \
-    --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
+    --input-pkg-root github.com/selectdb/doris-operator/api \
+    --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../.." \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 
 kube::codegen::gen_client \
     --with-watch \
-    --input-pkg-root selectdb/doris-operator/api \
-    --output-pkg-root selectdb/doris-operator/generated \
-    --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
+    --input-pkg-root github.com/selectdb/doris-operator/api \
+    --output-pkg-root github.com/selectdb/doris-operator/generated \
+    --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../.." \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
