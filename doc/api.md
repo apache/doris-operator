@@ -9,7 +9,148 @@
 <p>Package v1 is the v1 version of the API.</p>
 </div>
 Resource Types:
-<ul></ul>
+<ul><li>
+<a href="#doris.selectdb.com/v1.DorisCluster">DorisCluster</a>
+</li></ul>
+<h3 id="doris.selectdb.com/v1.DorisCluster">DorisCluster
+</h3>
+<div>
+<p>DorisCluster is the Schema for the dorisclusters API</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+doris.selectdb.com/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>DorisCluster</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.DorisClusterSpec">
+DorisClusterSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>feSpec</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.FeSpec">
+FeSpec
+</a>
+</em>
+</td>
+<td>
+<p>defines the fe cluster state that will be created by operator.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>beSpec</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.BeSpec">
+BeSpec
+</a>
+</em>
+</td>
+<td>
+<p>defines the be cluster state pod that will be created by operator.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cnSpec</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.CnSpec">
+CnSpec
+</a>
+</em>
+</td>
+<td>
+<p>defines the cn cluster state that will be created by operator.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>brokerSpec</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.BrokerSpec">
+BrokerSpec
+</a>
+</em>
+</td>
+<td>
+<p>defines the broker state that will be created by operator.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>adminUser</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.AdminUser">
+AdminUser
+</a>
+</em>
+</td>
+<td>
+<p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.DorisClusterStatus">
+DorisClusterStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.AdminUser">AdminUser
 </h3>
 <p>
@@ -239,7 +380,7 @@ string
 </em>
 </td>
 <td>
-<p>Image for a starrocks cn deployment.</p>
+<p>Image for a doris cn deployment.</p>
 </td>
 </tr>
 <tr>
@@ -423,15 +564,7 @@ BaseSpec
 (<em>Appears on:</em><a href="#doris.selectdb.com/v1.DorisClusterSpec">DorisClusterSpec</a>)
 </p>
 <div>
-<p>BrokerSpec describes a template for creating copies of a broker software service, if deploy broker we recommend you add affinity for deploy with be pod.
-example:
-affinity:</p>
-<pre><code> podAffinity:
-requiredDuringSchedulingIgnoredDuringExecution:
-- labelSelector:
-matchLabels:
-app.kubernetes.io/component: be
-</code></pre>
+<p>BrokerSpec describes a template for creating copies of a broker software service, if deploy broker we recommend you add affinity for deploy with be pod.</p>
 </div>
 <table>
 <thead>
@@ -638,9 +771,7 @@ string
 </em>
 </td>
 <td>
-<p>INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-Important: Run &ldquo;make&rdquo; to regenerate code after modifying this file
-StarRocksComponentStatus represents the status of a starrocks component.
+<p>DorisComponentStatus represents the status of a doris component.
 the name of fe service exposed for user.</p>
 </td>
 </tr>
@@ -861,128 +992,6 @@ string
 <td>
 <em>(Optional)</em>
 <p>API version of the referent</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="doris.selectdb.com/v1.DorisCluster">DorisCluster
-</h3>
-<div>
-<p>DorisCluster is the Schema for the dorisclusters API</p>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.DorisClusterSpec">
-DorisClusterSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table>
-<tr>
-<td>
-<code>feSpec</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.FeSpec">
-FeSpec
-</a>
-</em>
-</td>
-<td>
-<p>defines the fe cluster state that will be created by operator.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>beSpec</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.BeSpec">
-BeSpec
-</a>
-</em>
-</td>
-<td>
-<p>defines the be cluster state pod that will be created by operator.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>cnSpec</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.CnSpec">
-CnSpec
-</a>
-</em>
-</td>
-<td>
-<p>defines the cn cluster state that will be created by operator.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>brokerSpec</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.BrokerSpec">
-BrokerSpec
-</a>
-</em>
-</td>
-<td>
-<p>defines the broker state that will be created by operator.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>adminUser</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.AdminUser">
-AdminUser
-</a>
-</em>
-</td>
-<td>
-<p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.DorisClusterStatus">
-DorisClusterStatus
-</a>
-</em>
-</td>
-<td>
 </td>
 </tr>
 </tbody>
@@ -2183,5 +2192,5 @@ MetricTarget
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>c2d359e</code>.
+on git commit <code>5be2610</code>.
 </em></p>

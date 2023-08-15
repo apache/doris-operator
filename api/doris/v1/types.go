@@ -126,7 +126,7 @@ type BaseSpec struct {
 	//+optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
-	//Image for a starrocks cn deployment.
+	//Image for a doris cn deployment.
 	Image string `json:"image"`
 
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
@@ -233,9 +233,7 @@ type DorisClusterStatus struct {
 }
 
 type ComponentStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// StarRocksComponentStatus represents the status of a starrocks component.
+	// DorisComponentStatus represents the status of a doris component.
 	//the name of fe service exposed for user.
 	AccessService string `json:"accessService,omitempty"`
 

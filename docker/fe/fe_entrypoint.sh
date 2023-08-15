@@ -1,5 +1,5 @@
 #!/bin/bash
-DORIS_ROOT=${DORIS_ROOT:-"/opt/doris"}
+DORIS_ROOT=${DORIS_ROOT:-"/opt/apache-doris"}
 # fe location
 DORIS_HOME=${DORIS_ROOT}/fe
 # participant election number of fe.
@@ -311,7 +311,7 @@ if [[ "x$fe_addrs" == "x" ]]; then
 fi
 
 update_conf_from_configmap
-if [[ -f "/opt/doris/fe/doris-meta/image/ROLE" ]]; then
+if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
     log_stderr "start fe with exist meta."
     start_fe_with_meta
 else

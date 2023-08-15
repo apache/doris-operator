@@ -1,13 +1,29 @@
 FROM ubuntu:22.04
-#
-RUN apt-get update -y \
-        && apt-get install -y --no-install-recommends vim default-jdk  mysql-client curl \
-        && rm -rf /var/lib/apt/lists/*
+
+# set environment variables
+ENV JAVA_HOME="/usr/local/openjdk-8/"
+
+# download the software to the mirror and replace it as needed
+ADD resource/fe.tar.gz /opt/apache-doris/
+
+
+RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    patchelf gdb binutils binutils-common binutils-x86-64-linux-gnu bzip2 \
+    curl wget zip unzip less vim htop iproute2 numactl tar jq iotop sysstat smartmontools \
+    tcpdump iputils-ping dnsutils tree strace lsof blktrace pstack tmux \
+    bpfcc-tools linux-headers-realtime linux-tools-realtime silversearcher-ag \
+    net-tools openjdk-8-jdk && \
+    rm -rf /var/lib/apt/lists/*
+
+ADD resource/init_fe.sh /opt/apache-doris/fe/bin/
 
 #
-COPY apache-doris-2.0-beta-bin-x64/fe /opt/doris/fe
+COPY resource/fe /opt/apache-doris/fe
 
-COPY fe_*.sh /opt/doris/
-RUN mkdir -p /opt/doris/fe/doris-meta
-ENV JAVA_HOME=/lib/jvm/default-java
-WORKDIR /opt/doris
+COPY fe_*.sh /opt/apache-doris/
+
+
+WORKDIR /opt/apache-doris
+
+ENTRYPOINT ["/opt/apache-doris/fe/bin/init_fe.sh"]
+
