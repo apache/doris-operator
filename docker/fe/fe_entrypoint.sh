@@ -11,14 +11,14 @@ FE_CONFFILE=$DORIS_HOME/conf/fe.conf
 # represents the type for fe communication: domain or IP.
 START_TYPE=
 # the master node in fe cluster.
-FE_LEADER=
+FE_MASTER=
 # pod number
 POD_INDEX=
 # probe interval: 2 seconds
 PROBE_INTERVAL=2
-# timeout for probe leader: 120 seconds
-PROBE_LEADER_POD0_TIMEOUT=60 # at most 30 attempts, no less than the times needed for an election
-PROBE_LEADER_PODX_TIMEOUT=120 # at most 60 attempts
+# timeout for probe master: 120 seconds
+PROBE_master_POD0_TIMEOUT=60 # at most 30 attempts, no less than the times needed for an election
+PROBE_master_PODX_TIMEOUT=120 # at most 60 attempts
 # administrator for administrate the cluster.
 DB_ADMIN_USER=${USER:-"root"}
 
@@ -32,6 +32,7 @@ function log_stderr()
   echo "[`date`] $@" >& 2
 }
 
+#parse the `$FE_CONFFILE` file, passing the key need resolve as parameter.
 parse_confval_from_fe_conf()
 {
     # a naive script to grep given confkey from fe conf file
@@ -39,23 +40,13 @@ parse_confval_from_fe_conf()
     local confkey=$1
     local confvalue=`grep "\<$confkey\>" $FE_CONFFILE | grep -v '^\s*#' | sed 's|^\s*'$confkey'\s*=\s*\(.*\)\s*$|\1|g'`
     echo "$confvalue"
-    lcoal
 }
 
-# start with exist meta.
+# when image exist int doris-meta, use exist meta to start.
 function start_fe_with_meta()
 {
     log_stderr "start with meta run start_fe.sh"
     $DORIS_HOME/fe/bin/start_fe.sh
-}
-
-parse_confval_from_fe_conf()
-{
-    # a naive script to grep given confkey from fe conf file
-    # assume conf format: ^\s*<key>\s*=\s*<value>\s*$
-    local confkey=$1
-    local confvalue=`grep "\<$confkey\>" $FE_CONFFILE | grep -v '^\s*#' | sed 's|^\s*'$confkey'\s*=\s*\(.*\)\s*$|\1|g'`
-    echo "$confvalue"
 }
 
 collect_env_info()
@@ -97,7 +88,6 @@ collect_env_info()
 function show_frontends()
 {
     local addr=$1
-    # timeout 15 mysql  --connect-timeout 2 -h $addr -P $QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
     if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
         timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'show frontends;'
     else
@@ -105,43 +95,43 @@ function show_frontends()
     fi
 }
 
+# add myself in cluster for FOLLOWER.
 function add_self_follower()
 {
     if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
-        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
     else
-        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
     fi
 }
 
+# add myself in cluster for OBSERVER.
 function add_self_observer()
 {
     if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
-        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
     else
-        mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
     fi
 }
 
+# `dori-meta/image` not exist start as first time.
 function start_fe_no_meta()
 {
-    local addr=$1
     local opts=""
     local start=`date +%s`
     local has_member=false
     local member_list=
-    if [[ "x$FE_LEADER" != "x" ]] ; then
-        opts+=" --helper $FE_LEADER:$EDIT_LOG_PORT"
+    if [[ "x$FE_MASTER" != "x" ]] ; then
+        opts+=" --helper $FE_MASTER:$EDIT_LOG_PORT"
         local start=`date +%s`
         while true
         do
             if [[ ELECT_NUMBER -gt $POD_INDEX ]]; then
-                log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as follower ..."
-                #mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+                log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to master as follower ..."
                 add_self_follower
             else
-                log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to leader as observer ..."
-                #mysql --connect-timeout 2 -h $FE_LEADER -P $QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+                log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to master as observer ..."
                 add_self_observer
             fi
                # check if added successfully.
@@ -164,8 +154,8 @@ function start_fe_no_meta()
     $DORIS_HOME/bin/start_fe.sh $opts
 }
 
-
-probe_leader_for_pod0()
+# the ordinal is 0, probe timeout as 60s, when have not meta and not `MASTER` in fe cluster, 0 start as master.
+probe_master_for_pod0()
 {
     # possible to have no result at all, because myself is the first FE instance in the cluster
     local svc=$1
@@ -175,12 +165,11 @@ probe_leader_for_pod0()
     while true
     do
         memlist=`show_frontends $svc`
-        #local leader=`echo "$memlist" | grep '\<LEADER\>' | awk '{print $2}'`
-	    local leader=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-        if [[ "x$leader" != "x" ]] ; then
-            # has leader, done
-            log_stderr "Find leader: $leader!"
-            FE_LEADER=$leader
+	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+        if [[ "x$master" != "x" ]] ; then
+            # has master, done
+            log_stderr "Find master: $master!"
+            FE_MASTER=$master
             return 0
         fi
 
@@ -189,12 +178,12 @@ probe_leader_for_pod0()
             has_member=true
         fi
 
-        # no leader yet, check if needs timeout and quit
-        log_stderr "No leader yet, has_member: $has_member ..."
-        local timeout=$PROBE_LEADER_POD0_TIMEOUT
+        # no master yet, check if needs timeout and quit
+        log_stderr "No master yet, has_member: $has_member ..."
+        local timeout=$PROBE_MASTER_POD0_TIMEOUT
         if $has_member ; then
             # set timeout to the same as PODX since there are other members
-            timeout=$PROBE_LEADER_PODX_TIMEOUT
+            timeout=$PROBE_MASTER_PODX_TIMEOUT
         fi
 
         local now=`date +%s`
@@ -205,8 +194,8 @@ probe_leader_for_pod0()
                 exit 1
             else
                 log_stderr "Timed out, no members detected ever, assume myself is the first node .."
-                # empty FE_LEADER
-                FE_LEADER=""
+                # empty FE_MASTER
+                FE_MASTER=""
                 return 0
             fi
         fi
@@ -214,29 +203,29 @@ probe_leader_for_pod0()
     done
 }
 
-probe_leader_for_podX()
+# ordinal greater than 0, start as `FOLLOWER` or `OBSERVER`
+probe_master_for_podX()
 {
-    # wait until find a leader or timeout
+    # wait until find a master or timeout
     local svc=$1
     local start=`date +%s`
     while true
     do
-        #local leader=`show_frontends $svc | grep '\<LEADER\>' | awk '{print $2}'`
         memlist=`show_frontends $svc`
-	    local leader=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-        if [[ "x$leader" != "x" ]] ; then
-            # has leader, done
-            log_stderr "Find leader: $leader!"
-            FE_LEADER=$leader
+	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+        if [[ "x$master" != "x" ]] ; then
+            # has master done
+            log_stderr "Find master: $master!"
+            FE_MASTER=$master
             return 0
         fi
-        # no leader yet, check if needs timeout and quit
-        log_stderr "No leader wait ${PROBE_INTERVAL}s..."
+        # no master yet, check if needs timeout and quit
+        log_stderr "No master wait ${PROBE_INTERVAL}s..."
 
         local now=`date +%s`
-        let "expire=start+PROBE_LEADER_PODX_TIMEOUT"
+        let "expire=start+PROBE_MASTER_PODX_TIMEOUT"
         if [[ $expire -le $now ]] ; then
-            log_stderr "Probe leader timeout, abort!"
+            log_stderr "Probe master timeout, abort!"
             return 0
         fi
 
@@ -244,28 +233,29 @@ probe_leader_for_podX()
     done
 }
 
-probe_leader()
+# when not meta exist, fe start should probe
+probe_master()
 {
     local svc=$1
     # resolve svc as array.
     local addArr=${svc//,/ }
     for addr in ${addArr[@]}
     do
-        # if have leader break for register or check.
-        if [[ "x$FE_LEADER" != "x" ]]; then
+        # if have master break for register or check.
+        if [[ "x$FE_MASTER" != "x" ]]; then
             break
         fi
 
-        # find leader under current service and set to FE_LEADER
+        # find master under current service and set to FE_MASTER
         if [[ "$POD_INDEX" -eq 0 ]] ; then
-            probe_leader_for_pod0 $addr
+            probe_master_for_pod0 $addr
         else
-            probe_leader_for_podX $addr
+            probe_master_for_podX $addr
     fi
     done
 
     # if first pod assume first start should as master. others first start have not master exit.
-    if [[ "x$FE_LEADER" == "x" ]]; then
+    if [[ "x$FE_MASTER" == "x" ]]; then
         if [[ "$POD_INDEX" -eq 0 ]]; then
             return 0
         else
@@ -317,6 +307,6 @@ if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
 else
     log_stderr "first start fe with meta not exist."
     collect_env_info
-    probe_leader $fe_addrs
-    start_fe_no_meta $FE_LEADER
+    probe_master $fe_addrs
+    start_fe_no_meta
 fi

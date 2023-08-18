@@ -1,22 +1,21 @@
 FROM ubuntu:22.04
 
-
 RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    patchelf gdb binutils binutils-common binutils-x86-64-linux-gnu bzip2 \
-    curl wget zip unzip less vim htop iproute2 numactl tar jq iotop sysstat smartmontools \
-    tcpdump iputils-ping dnsutils tree strace lsof blktrace pstack tmux \
+    patchelf gdb binutils binutils-common mysql-client \
+    curl wget less vim htop iproute2 numactl jq iotop sysstat \
+    tcpdump iputils-ping dnsutils strace lsof blktrace pstack tzdata \
     bpfcc-tools linux-headers-realtime linux-tools-realtime silversearcher-ag \
     net-tools openjdk-8-jdk && \
     rm -rf /var/lib/apt/lists/*
 
-
 # set environment variables
-ENV JAVA_HOME="lib/jvm/java-8-openjdk-amd64/"
+ENV JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
 
-COPY resource/be.tar.gz /opt/apache-doris/be
+# apache-doris/be from doris release tar.gz
+ADD resource/apache-doris/be /opt/apache-doris/be
 
 COPY resource/be_*.sh /opt/apache-doris/
 
-WORKDIR /opt/apache-doris
+COPY resource/entry_point.sh /usr/local/bin/
 
-ENTRYPOINT ["bash","entry_point.sh"]
+WORKDIR /opt/apache-doris

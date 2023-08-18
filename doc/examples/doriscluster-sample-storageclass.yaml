@@ -1,0 +1,37 @@
+apiVersion: doris.selectdb.com/v1
+kind: DorisCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: doriscluster-sample-storageclass
+    app.kubernetes.io/part-of: doris-operator
+  name: doriscluster-sample-storageclass1
+  namespace: doris
+spec:
+  feSpec:
+    replicas: 3
+    image: selectdb.doris.fe:2.0
+    persistentVolumes:
+      - mountPath: /opt/apache-doris/fe/doris-meta
+        name: fetest
+        persistentVolumeClaimSpec:
+          storageClassName: openebs-jiva-csi-default
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            # notice: if the storage size less 5G, fe will not start normal.
+            requests:
+              storage: 10Gi
+  beSpec:
+    replicas: 3
+    image: selectdb.doris.be:2.1
+    persistentVolumes:
+      - mountPath: /opt/apache-doris/be/storage
+        name: betest
+        persistentVolumeClaimSpec:
+          storageClassName: openebs-jiva-csi-default
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi

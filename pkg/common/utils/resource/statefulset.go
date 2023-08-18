@@ -14,7 +14,7 @@ const (
 	defaultRollingUpdateStartPod int32 = 0
 )
 
-// NewStatefulset  statefulset
+// NewStatefulSet construct statefulset.
 func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.StatefulSet {
 	bSpec := getBaseSpecFromCluster(dcr, componentType)
 	orf := metav1.OwnerReference{
@@ -30,9 +30,10 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	for _, vct := range bSpec.PersistentVolumes {
+		name := vct.Name
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: vct.Name,
+				Name: name,
 			},
 			Spec: vct.PersistentVolumeClaimSpec,
 		}
@@ -87,22 +88,14 @@ func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, exclud
 		oldHashv = hash.HashObject(oldHso)
 	}
 
-	//var oldGeneration int64
-	//if _, ok := old.Annotations[srapi.ComponentGeneration]; ok {
-	//	oldGeneration, _ = strconv.ParseInt(old.Annotations[srapi.ComponentGeneration], 10, 64)
-	//}
-
 	anno := Annotations{}
 	anno.AddAnnotation(new.Annotations)
-	//anno.Add(srapi.ComponentGeneration, strconv.FormatInt(old.Generation+1, 10))
 	anno.Add(v1.ComponentResourceHash, newHashv)
 	new.Annotations = anno
 
 	klog.Info("the statefulset name "+new.Name+" new hash value ", newHashv, " old have value ", oldHashv)
-	//avoid the update from kubectl.
 	return newHashv == oldHashv &&
-		new.Namespace == old.Namespace /* &&
-		oldGeneration == old.Generation*/
+		new.Namespace == old.Namespace
 }
 
 // hashStatefulsetObject contains the info for hash comparison.
