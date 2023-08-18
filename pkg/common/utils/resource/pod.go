@@ -45,6 +45,11 @@ func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) cor
 		volumes = newDefaultVolume(componentType)
 	}
 
+	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
+		configVolume, _ := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumes = append(volumes, configVolume)
+	}
+
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   generatePodTemplateName(dcr, componentType),
@@ -151,6 +156,9 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 			Name:  config_env_name,
 			Value: config_env_path,
 		})
+
+		_, volumeMount := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumeMounts = append(volumeMounts, volumeMount)
 	}
 
 	c := corev1.Container{
@@ -238,7 +246,7 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
 	if len(spec.PersistentVolumes) == 0 {
-		_, volumeMount := GetDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType)
+		_, volumeMount := getDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType)
 		volumeMounts = append(volumeMounts, volumeMount...)
 		return volumeMounts
 	}
@@ -299,7 +307,7 @@ func getBaseSpecFromCluster(dcr *v1.DorisCluster, componentType v1.ComponentType
 	return bSpec
 }
 
-func GetDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+func getDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
 	switch componentType {
 	case v1.Component_FE:
 		return getFeDefaultVolumesVolumeMounts()
@@ -370,8 +378,7 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 		}
 
 		switch componentType {
-		case v1.Component_FE:
-		case v1.Component_BE:
+		case v1.Component_FE, v1.Component_BE:
 			volumeMount.MountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)

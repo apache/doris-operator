@@ -1,0 +1,24 @@
+apiVersion: doris.selectdb.com/v1
+kind: DorisCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: doriscluster-sample-configmap
+    app.kubernetes.io/part-of: doris-operator
+  name: doriscluster-sample-configmap
+  namespace: doris
+spec:
+  feSpec:
+    replicas: 3
+    image: 10.16.10.8:32000/selectdb.doris.fe:v1.3
+    configMapInfo:
+      # use kubectl create configmap fe-configmap from-file=fe.conf
+      configMapName: fe-configmap
+      resolveKey: fe.conf
+  beSpec:
+    replicas: 3
+    image: 10.16.10.8:32000/selectdb.doris.be:v1.8
+    configMapInfo:
+      # use kubectl create configmap be-configmap from-file=be.conf
+      configMapName: be-configmap
+      resolveKey: be.conf

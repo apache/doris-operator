@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 #
 #
 check_first_fe_status()

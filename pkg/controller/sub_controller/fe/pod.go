@@ -46,11 +46,14 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 	}, corev1.EnvVar{
 		Name:  resource.ENV_FE_PORT,
 		Value: queryPort,
-	}, corev1.EnvVar{
-		Name: resource.ENV_FE_ELECT_NUMBER,
-		//TODO: need webhook add default.
-		Value: strconv.FormatInt(int64(*dcr.Spec.FeSpec.ElectionNumber), 10),
 	})
+
+	if dcr.Spec.FeSpec.ElectionNumber != nil {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  resource.ENV_FE_ELECT_NUMBER,
+			Value: strconv.FormatInt(int64(*dcr.Spec.FeSpec.ElectionNumber), 10),
+		})
+	}
 
 	return c
 }
