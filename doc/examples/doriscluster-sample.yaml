@@ -1,0 +1,16 @@
+apiVersion: doris.selectdb.com/v1
+kind: DorisCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: doriscluster-sample
+    app.kubernetes.io/part-of: doris-operator
+  name: doriscluster-sample
+  namespace: doris
+spec:
+  feSpec:
+    replicas: 3
+    image: selectdb.doris.fe:v1.3
+  beSpec:
+    replicas: 3
+    image: selectdb.doris.be:v1.8

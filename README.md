@@ -13,9 +13,13 @@ Doris-operator for doris creates configures and manages doris cluster on kuberne
 
 ## Installation
 1. Install custom resource definitions:  
-```kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/doris.selectdb.com_dorisclusters.yaml```
+```
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/doris.selectdb.com_dorisclusters.yaml
+```
 2. Install the operator with its RBAC rules:  
-```kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/operator.yaml```
+```
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/operator.yaml
+```
 
 ## Get Started
 The [Quick Start Guide](./doc/examples) have examples for deploy doris on kubernetes. It provides examples for different features to deploy.
