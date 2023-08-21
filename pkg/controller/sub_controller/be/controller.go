@@ -62,7 +62,11 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
-	feconfig, _ := be.getFeConfig(ctx, &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace)
+	var feconfig map[string]interface{}
+	if dcr.Spec.FeSpec != nil {
+		feconfig, _ = be.getFeConfig(ctx, &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+	}
+	
 	//annotation: add query port in cnconfig.
 	config[resource.QUERY_PORT] = strconv.FormatInt(int64(resource.GetPort(feconfig, resource.QUERY_PORT)), 10)
 	//generate new cn external service.
