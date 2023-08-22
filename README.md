@@ -1,5 +1,5 @@
 # doris-operator
-Doris-operator for doris creates configures and manages doris cluster on kubernetes.
+Doris-operator for doris creates, configures and manages doris cluster running on kubernetes.
 
 ## Features
 - Create Doris clusters defined as custom resources
