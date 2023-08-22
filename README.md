@@ -17,6 +17,7 @@ Doris-operator for doris creates, configures and manages doris cluster running o
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/doris.selectdb.com_dorisclusters.yaml
 ```
 2. Install the operator with its RBAC rules:  
+the default deployed namespace is doris, when deploy on specific namespace, please pull yaml and update `namespace` field.
 ```
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/operator.yaml
 ```
