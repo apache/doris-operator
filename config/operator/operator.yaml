@@ -309,7 +309,7 @@ spec:
             - /manager
           args:
             - --leader-elect
-          image: controller:latest
+          image: selectdb/doris.k8s-operator:latest
           name: manager
           securityContext:
             allowPrivilegeEscalation: false

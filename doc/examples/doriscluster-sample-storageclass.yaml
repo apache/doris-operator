@@ -10,7 +10,7 @@ metadata:
 spec:
   feSpec:
     replicas: 3
-    image: selectdb.doris.fe:2.0
+    image: selectdb/doris.fe-ubuntu:latest
     persistentVolumes:
       - mountPath: /opt/apache-doris/fe/doris-meta
         name: fetest
@@ -24,7 +24,7 @@ spec:
               storage: 10Gi
   beSpec:
     replicas: 3
-    image: selectdb.doris.be:2.1
+    image: selectdb/doris.be-ubuntu:latest
     persistentVolumes:
       - mountPath: /opt/apache-doris/be/storage
         name: betest

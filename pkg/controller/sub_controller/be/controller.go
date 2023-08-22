@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 	"time"
 )
 
@@ -61,11 +60,6 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		klog.Error("BeController Sync ", "resolve cn configmap failed, namespace ", dcr.Namespace, " configmapName ", beSpec.ConfigMapInfo.ConfigMapName, " configMapKey ", beSpec.ConfigMapInfo.ResolveKey, " error ", err)
 		return err
 	}
-
-	feconfig, _ := be.getFeConfig(ctx, &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace)
-	//annotation: add query port in cnconfig.
-	config[resource.QUERY_PORT] = strconv.FormatInt(int64(resource.GetPort(feconfig, resource.QUERY_PORT)), 10)
-	//generate new cn external service.
 
 	//generate new be service.
 	svc := resource.BuildExternalService(dcr, v1.Component_BE, config)

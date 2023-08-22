@@ -21,8 +21,13 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/operator.yaml
 ```
 
-## Get Started
-The [Quick Start Guide](./doc/examples) have examples for deploy doris on kubernetes. It provides examples for different features to deploy.
+## Get Started to Deploy Doris
+The [Quick Start Guide](./doc/examples) have examples for deploy doris on kubernetes. It provides examples for different features to deploy.  
+Now the operator provide fe and be deployment and management, in next generation will complete cn deployment and management.
+for fe and be deploy example:
+```
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/doirscluster-sample.yaml
+```
 
 ## Notice 
  Now operator only support the fqdn mode to deploy doris on kubernetes. you should config set `enable_fqdn_mode = true` in every component config file.
