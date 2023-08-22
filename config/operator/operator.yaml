@@ -306,11 +306,11 @@ spec:
         #   type: RuntimeDefault
       containers:
         - command:
-            - /manager
+            - /dorisoperator
           args:
             - --leader-elect
           image: selectdb/doris.k8s-operator:latest
-          name: manager
+          name: dorisoperator
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
