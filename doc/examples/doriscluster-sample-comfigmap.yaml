@@ -10,14 +10,14 @@ metadata:
 spec:
   feSpec:
     replicas: 3
-    image: 10.16.10.8:32000/selectdb.doris.fe:v1.3
+    image: selectdb/doris.fe-ubuntu:latest
     configMapInfo:
       # use kubectl create configmap fe-configmap from-file=fe.conf
       configMapName: fe-configmap
       resolveKey: fe.conf
   beSpec:
     replicas: 3
-    image: 10.16.10.8:32000/selectdb.doris.be:v1.8
+    image: selectdb/doris.be-ubuntu:latest
     configMapInfo:
       # use kubectl create configmap be-configmap from-file=be.conf
       configMapName: be-configmap

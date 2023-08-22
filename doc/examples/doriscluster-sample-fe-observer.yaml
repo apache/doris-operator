@@ -13,7 +13,7 @@ spec:
     # the replicas must greater than replicas.
     electionNumber: 3
     replicas: 5
-    image: selectdb.doris.fe:v1.3
+    image: selectdb/doris.fe-ubuntu:latest
   beSpec:
     replicas: 3
-    image: 10.16.10.8:32000/selectdb.doris.be:v1.8
+    image: selectdb/doris.be-ubuntu:latest
