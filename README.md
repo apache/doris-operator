@@ -27,7 +27,7 @@ The [Quick Start Guide](./doc/examples) have examples for deploy doris on kubern
 Now the operator provide fe and be deployment and management, in next generation will complete cn deployment and management.
 for fe and be deploy example:
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/doirscluster-sample.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/doriscluster-sample.yaml
 ```
 
 ## Notice 
