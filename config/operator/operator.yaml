@@ -21,6 +21,7 @@ metadata:
     app.kubernetes.io/part-of: doris-operator
     app.kubernetes.io/managed-by: kustomize
   name: leader-election-role
+  namespace: doris
 rules:
   - apiGroups:
       - ""
@@ -65,6 +66,7 @@ metadata:
     app.kubernetes.io/part-of: doris-operator
     app.kubernetes.io/managed-by: kustomize
   name: leader-election-rolebinding
+  namespace: doris
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -74,12 +76,10 @@ subjects:
     name: controller-manager
     namespace: doris
 ---
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
-  name: manager-doris
+  name: manager-role
 rules:
   - apiGroups:
       - apps
@@ -254,26 +254,26 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: doris-operator
   namespace: doris
   labels:
-    control-plane: controller-manager
+    control-plane: doris-operator
     app.kubernetes.io/name: deployment
-    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/instance: doris-operator
     app.kubernetes.io/component: manager
     app.kubernetes.io/created-by: doris-operator
     app.kubernetes.io/part-of: doris-operator
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: doris-operator
   replicas: 1
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: controller-manager
+        control-plane: doris-operator
     spec:
       # TODO(user): Uncomment the following code to configure the nodeAffinity expression
       # according to the platforms which are supported by your solution.
