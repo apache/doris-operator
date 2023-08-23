@@ -21,6 +21,7 @@ metadata:
     app.kubernetes.io/part-of: doris-operator
     app.kubernetes.io/managed-by: kustomize
   name: leader-election-role
+  namespace: doris
 rules:
   - apiGroups:
       - ""
@@ -65,6 +66,7 @@ metadata:
     app.kubernetes.io/part-of: doris-operator
     app.kubernetes.io/managed-by: kustomize
   name: leader-election-rolebinding
+  namespace: doris
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -232,7 +234,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: manager-role
+  name: manager-doris
 subjects:
   - kind: ServiceAccount
     name: controller-manager
