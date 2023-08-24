@@ -391,7 +391,7 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 // StartupProbe returns a startup probe.
 func startupProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
-		FailureThreshold: 60,
+		FailureThreshold: 180,
 		PeriodSeconds:    5,
 		ProbeHandler:     getProbe(port, path),
 	}
