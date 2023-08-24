@@ -12,26 +12,44 @@ spec:
     replicas: 3
     image: selectdb/doris.fe-ubuntu:latest
     persistentVolumes:
-      - mountPath: /opt/apache-doris/fe/doris-meta
-        name: fetest
-        persistentVolumeClaimSpec:
-          storageClassName: openebs-jiva-csi-default
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            # notice: if the storage size less 5G, fe will not start normal.
-            requests:
-              storage: 10Gi
+    - mountPath: /opt/apache-doris/fe/doris-meta
+      name: fetest
+      persistentVolumeClaimSpec:
+        storageClassName: openebs-jiva-csi-default
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          # notice: if the storage size less 5G, fe will not start normal.
+          requests:
+            storage: 10Gi
+    - mountPath: /opt/apache-doris/fe/log
+      name: felog
+      persistentVolumeClaimSpec:
+        storageClassName: openebs-jiva-csi-default
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
   beSpec:
     replicas: 3
     image: selectdb/doris.be-ubuntu:latest
     persistentVolumes:
-      - mountPath: /opt/apache-doris/be/storage
-        name: betest
-        persistentVolumeClaimSpec:
-          storageClassName: openebs-jiva-csi-default
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 10Gi
+    - mountPath: /opt/apache-doris/be/storage
+      name: betest
+      persistentVolumeClaimSpec:
+        storageClassName: openebs-jiva-csi-default
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+    - mountPath: /opt/apache-doris/be/log
+      name: belog
+      persistentVolumeClaimSpec:
+        storageClassName: openebs-jiva-csi-default
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

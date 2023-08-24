@@ -31,5 +31,6 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 ```
 
 ## Notice 
- Now operator only support the fqdn mode to deploy doris on kubernetes. you should config set `enable_fqdn_mode = true` in every component config file.
- the apache doris docker image default value is false. recommend you reference [example/doriscluster-sample-comfigmap.yaml](./doc/examples/doriscluster-sample-comfigmap.yaml) custom config to deploy doris on kubernetes.
+ 1. Now operator only support the fqdn mode to deploy doris on kubernetes. you should config set `enable_fqdn_mode = true` in every component config file.
+ 2. the apache doris docker image default value is false. recommend you reference [example/doriscluster-sample-comfigmap.yaml](./doc/examples/doriscluster-sample-comfigmap.yaml) custom config to deploy doris on kubernetes.
+ 3. fe and be print log in /opt/apache-doris/fe/log, /opt/apache-doris/be/log， recommend you mount a volume to log for debug. please reference[example/doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml)
