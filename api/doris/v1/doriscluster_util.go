@@ -104,7 +104,7 @@ const (
 )
 
 func GenerateInternalCommunicateServiceName(dcr *DorisCluster, componentType ComponentType) string {
-	return dcr.Name + string(componentType) + SEARCH_SERVICE_SUFFIX
+	return dcr.Name + "-" + string(componentType) + SEARCH_SERVICE_SUFFIX
 }
 
 func GenerateInternalServiceLabels(dcr *DorisCluster, componentType ComponentType) metadata.Labels {
