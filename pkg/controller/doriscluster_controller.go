@@ -111,8 +111,8 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	//generate the src status.
-	r.reconcileStatus(ctx, dcr)
+	//generate the dcr status.
+	r.clearNoEffectResources(ctx, dcr)
 	for _, rc := range r.Scs {
 		//update component status.
 		if err := rc.UpdateComponentStatus(dcr); err != nil {
@@ -124,7 +124,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.updateDorisClusterStatus(ctx, dcr)
 }
 
-func (r *DorisClusterReconciler) reconcileStatus(context context.Context, cluster *dorisv1.DorisCluster) {
+func (r *DorisClusterReconciler) clearNoEffectResources(context context.Context, cluster *dorisv1.DorisCluster) {
 	//calculate the status of doris cluster by subresource's status.
 	//clear resources when sub resource deleted. example: deployed fe,be,cn, when cn spec is deleted we should delete cn resources.
 	for _, rc := range r.Scs {

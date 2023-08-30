@@ -67,7 +67,7 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return err
 	}
 	cnStatefulSet := cn.buildCnStatefulSet(dcr)
-	if err = cn.applyStatefulSet(ctx, &cnStatefulSet); err != nil {
+	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			cnStatefulSet.Name, cnStatefulSet.Namespace)
 		return err
@@ -98,8 +98,11 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 		},
 	}
 
-	if cluster.Status.CnStatus != nil {
-		cs = cluster.Status.CnStatus.DeepCopy()
+	if cluster.Spec.CnSpec.AutoScalingPolicy != nil {
+		cs.HorizontalScaler = &dorisv1.HorizontalScaler{
+			Version: cluster.Spec.CnSpec.AutoScalingPolicy.Version,
+			Name:    cn.generateAutoScalerName(cluster),
+		}
 	}
 
 	cluster.Status.CnStatus = cs
@@ -116,7 +119,8 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 	return cn.ClassifyPodsByStatus(cluster.Namespace, &cs.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas)
 }
 
-func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSet) error {
+// autoscaler represents start autoscaler or not.
+func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSet, autoscaler bool) error {
 	//create or update the status. create statefulset return, must ensure the
 	var est appv1.StatefulSet
 	if err := cn.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
@@ -128,7 +132,7 @@ func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSe
 	//if the spec is changed, update the status of cn on src.
 	var excludeReplica bool
 	//if replicas =0 and not the first time, exclude the hash for autoscaler
-	if st.Spec.Replicas == nil {
+	if st.Spec.Replicas == nil && !autoscaler {
 		excludeReplica = true
 	}
 
