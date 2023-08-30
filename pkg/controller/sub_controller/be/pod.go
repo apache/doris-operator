@@ -26,7 +26,7 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	//if fe addr not config, we should use external service as addr and port get from fe config.
 	if addr == "" {
 		if dcr.Spec.FeSpec != nil {
-			feConfig, _ = be.getFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+			feConfig, _ = be.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 		}
 
 		addr = v1.GenerateExternalServiceName(dcr, v1.Component_FE)

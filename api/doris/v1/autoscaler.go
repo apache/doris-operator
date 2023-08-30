@@ -11,12 +11,12 @@ type AutoScalingPolicy struct {
 	//the policy of cn autoscale. operator use autoscaling v2.
 	HPAPolicy *HPAPolicy `json:"hpaPolicy,omitempty"`
 
-	//the min numbers of target.
-
-	//version represents the autoscaler version for cn service. only support v1,v2beta2,v2
-	// +kubebuilder:default:="v2beta2"
+	//version represents the autoscaler version for cn service. only support v1,,v2
+	// +kubebuilder:default:="v2"
 	Version AutoScalerVersion `json:"version,omitempty"`
+
 	// +optional
+	//the min numbers of target.
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 
 	// the max numbers of target.
@@ -29,9 +29,6 @@ type AutoScalerVersion string
 const (
 	//the cn service use v1 autoscaler. reference to https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	AutoScalerV1 AutoScalerVersion = "v1"
-
-	//the cn service use v2beta. reference to  https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-	AutoScalerV2Beta2 AutoScalerVersion = "v2beta2"
 
 	//the cn service use v2. reference to  https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	AutoSclaerV2 AutoScalerVersion = "v2"

@@ -8,10 +8,12 @@ import (
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
+	"time"
 )
 
 type Controller struct {
@@ -46,16 +48,11 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 
 	config, err := cn.GetConfig(ctx, &cnSpec.ConfigMapInfo, dcr.Namespace)
 	if err != nil {
-		klog.Errorf("cn controller sync",
-			"resolve cn configMap failed, namespace ", dcr.Namespace,
-			"configMap", dcr.Spec.CnSpec.ConfigMapInfo.ConfigMapName)
+		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s configmap %s", dcr.Namespace, dcr.Spec.CnSpec.ConfigMapInfo.ConfigMapName)
 		return err
 	}
-	feconfig, _ := cn.getFeConfig(ctx, &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
-	config[resource.QUERY_PORT] = strconv.FormatInt(int64(resource.GetPort(feconfig, resource.QUERY_PORT)), 10)
 
 	svc := resource.BuildExternalService(dcr, dorisv1.Component_CN, config)
-
 	internalSVC := resource.BuildInternalService(dcr, dorisv1.Component_CN, config)
 
 	if err := k8s.ApplyService(ctx, cn.K8sclient, &internalSVC, resource.ServiceDeepEqual); err != nil {
@@ -70,59 +67,156 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return err
 	}
 	cnStatefulSet := cn.buildCnStatefulSet(dcr)
-	if err = k8s.ApplyStatefulSet(ctx, cn.K8sclient, &cnStatefulSet, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
-		// if have restart annotation, we should exclude the interference for comparison.
-		return resource.StatefulSetDeepEqual(new, est, false)
-	}); err != nil {
+	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			cnStatefulSet.Name, cnStatefulSet.Namespace)
 		return err
 	}
-	return nil
 
+	//create autoscaler.
+	if cnSpec.AutoScalingPolicy != nil {
+		err = cn.deployAutoScaler(ctx, *cnSpec.AutoScalingPolicy, &cnStatefulSet, dcr)
+	}
+
+	return nil
 }
 
-func (cn *Controller) ClearResource(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
+func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error {
+	// if spec is not exit, status is empty. but before clear status we must clear all resource about cn.
+	if cluster.Spec.CnSpec == nil {
+		cluster.Status.CnStatus = nil
+		return nil
+	}
+
+	cs := &dorisv1.CnStatus{
+		ComponentStatus: dorisv1.ComponentStatus{
+			ComponentCondition: dorisv1.ComponentCondition{
+				SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN),
+				Phase:              dorisv1.Reconciling,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			},
+		},
+	}
+
+	if cluster.Spec.CnSpec.AutoScalingPolicy != nil {
+		cs.HorizontalScaler = &dorisv1.HorizontalScaler{
+			Version: cluster.Spec.CnSpec.AutoScalingPolicy.Version,
+			Name:    cn.generateAutoScalerName(cluster),
+		}
+	}
+
+	cluster.Status.CnStatus = cs
+
+	// start autoscaler, the replicas should get from statefulset, statefulset's replicas will update by autoscaler when not set.
+	var est appv1.StatefulSet
+	if err := cn.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN)}, &est); err != nil {
+		cn.K8srecorder.Eventf(cluster, sub_controller.EventWarning, sub_controller.StatefulSetNotExist, "the cn statefulset %s not exist.", dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN))
+		return nil
+	}
+
+	replicas := *est.Spec.Replicas
+	cs.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_CN)
+	return cn.ClassifyPodsByStatus(cluster.Namespace, &cs.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas)
+}
+
+// autoscaler represents start autoscaler or not.
+func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSet, autoscaler bool) error {
+	//create or update the status. create statefulset return, must ensure the
+	var est appv1.StatefulSet
+	if err := cn.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
+		return k8s.CreateClientObject(ctx, cn.K8sclient, st)
+	} else if err != nil {
+		klog.Errorf("CnController Sync create statefulset name=%s, namespace=%s error=%s", st.Name, st.Namespace, err.Error())
+		return err
+	}
+	//if the spec is changed, update the status of cn on src.
+	var excludeReplica bool
+	//if replicas =0 and not the first time, exclude the hash for autoscaler
+	if st.Spec.Replicas == nil && !autoscaler {
+		excludeReplica = true
+	}
+
+	if !resource.StatefulSetDeepEqual(st, &est, excludeReplica) {
+		//if the replicas not zero, represent user have cancel autoscaler.
+		if st.Spec.Replicas != nil {
+			resource.MergeStatefulSets(st, est)
+			return k8s.UpdateClientObject(ctx, cn.K8sclient, st)
+		}
+
+		st.ResourceVersion = est.ResourceVersion
+		return k8s.UpdateClientObject(ctx, cn.K8sclient, st)
+	}
+
+	return nil
+}
+
+func (cn *Controller) deleteAutoScaler(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	if dcr.Status.CnStatus == nil {
+		return nil
+	}
+
+	if dcr.Status.CnStatus.HorizontalScaler.Name == "" {
+		klog.V(4).Infof("cnController not need delete the autoScaler, namespace=%s, src name=%s.", dcr.Namespace, dcr.Name)
+		return nil
+	}
+
+	autoScalerName := dcr.Status.CnStatus.HorizontalScaler.Name
+	version := dcr.Status.CnStatus.HorizontalScaler.Version
+	if err := k8s.DeleteAutoscaler(ctx, cn.K8sclient, dcr.Namespace, autoScalerName, version); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("cnController sync deploy or delete failed, namespace=%s, autosclaer name=%s, autoscaler version=%s", dcr.GetNamespace(), autoScalerName, version)
+		return err
+	}
+
+	dcr.Status.CnStatus.HorizontalScaler = nil
+	return nil
+}
+
+func (cn *Controller) deployAutoScaler(ctx context.Context, policy dorisv1.AutoScalingPolicy, target *appv1.StatefulSet, dcr *dorisv1.DorisCluster) error {
+	params := cn.buildCnAutoscalerParams(policy, target, dcr)
+	autoScaler := resource.BuildHorizontalPodAutoscaler(params)
+	if err := k8s.CreateOrUpdateClientObject(ctx, cn.K8sclient, autoScaler); err != nil {
+		klog.Errorf("cnController deployAutoscaler failed, namespace=%s,name=%s,version=%s,error=%s", autoScaler.GetNamespace(), autoScaler.GetName(), policy.Version, err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
 	cnStatus := dcr.Status.CnStatus
 	if cnStatus == nil {
 		klog.Info("Doris cluster is not have cn")
 		return true, nil
 	}
 
-	if dcr.DeletionTimestamp.IsZero() {
-		return true, nil
+	// clear autoscaler when autoscaler config deleted or the doriscluster deleted.
+	if dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
+		if err := cn.DeleteAutoscaler(ctx, dcr); err != nil {
+			cn.K8srecorder.Eventf(dcr, sub_controller.EventWarning, sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
+		}
 	}
 
-	cnStName := dorisv1.GenerateComponentStatefulSetName(dcr, dorisv1.Component_CN)
-	externalServiceName := dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_CN)
-	internalServiceName := dorisv1.GenerateInternalCommunicateServiceName(dcr, dorisv1.Component_CN)
-	if err := k8s.DeleteStatefulset(ctx, cn.K8sclient, dcr.Namespace, cnStName); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("cnController ClearResources delete statefulset failed, namespace=%s,name=%s, error=%s.", dcr.Namespace, cnStName, err.Error())
-		return false, err
-	}
-
-	if err := k8s.DeleteService(ctx, cn.K8sclient, dcr.Namespace, internalServiceName); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("cnController ClearResources delete search service, namespace=%s,name=%s,error=%s.", dcr.Namespace, internalServiceName, err.Error())
-		return false, err
-	}
-	if err := k8s.DeleteService(ctx, cn.K8sclient, dcr.Namespace, externalServiceName); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("cnController ClearResources delete external service, namespace=%s, name=%s,error=%s.", dcr.Namespace, externalServiceName, err.Error())
-		return false, err
+	if dcr.Spec.CnSpec == nil {
+		cn.ClearCommonResources(ctx, dcr, dorisv1.Component_CN)
 	}
 
 	return true, nil
 }
 
-func (cn *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	feconfigMap, err := k8s.GetConfigMap(ctx, cn.K8sclient, namespace, feconfigMapInfo.ConfigMapName)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.V(4).Info("cn controller get fe config is not exists namespace ", namespace, " configmapName ", feconfigMapInfo.ConfigMapName)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil {
+		return nil
 	}
-	res, err := resource.ResolveConfigMap(feconfigMap, feconfigMapInfo.ResolveKey)
-	return res, err
+
+	autoScalerName := dcr.Status.CnStatus.HorizontalScaler.Name
+	version := dcr.Status.CnStatus.HorizontalScaler.Version
+	if err := k8s.DeleteAutoscaler(ctx, cn.K8sclient, dcr.Namespace, autoScalerName, version); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("cnController delete failed, namespace=%s, autosclaer name=%s, autoscaler version=%s", dcr.GetNamespace(), autoScalerName, version)
+		return err
+	}
+
+	dcr.Status.CnStatus.HorizontalScaler = &dorisv1.HorizontalScaler{}
+	return nil
 }
 
 func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {

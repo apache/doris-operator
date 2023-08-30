@@ -24,6 +24,9 @@ spec:
     - jsonPath: .status.beStatus.componentCondition.phase
       name: BeStatus
       type: string
+    - jsonPath: .status.cnStatus.componentCondition.phase
+      name: CnStatus
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -4536,12 +4539,13 @@ spec:
                         format: int32
                         type: integer
                       minReplicas:
+                        description: the min numbers of target.
                         format: int32
                         type: integer
                       version:
-                        default: v2beta2
+                        default: v2
                         description: version represents the autoscaler version for
-                          cn service. only support v1,v2beta2,v2
+                          cn service. only support v1,,v2
                         type: string
                     type: object
                   claims:
@@ -6669,6 +6673,16 @@ spec:
                     items:
                       type: string
                     type: array
+                  horizontalScaler:
+                    description: HorizontalAutoscaler have the autoscaler information.
+                    properties:
+                      name:
+                        description: the deploy horizontal scaler name
+                        type: string
+                      version:
+                        description: the deploy horizontal version.
+                        type: string
+                    type: object
                   runningInstances:
                     description: RunningInstances in running status pod names.
                     items:

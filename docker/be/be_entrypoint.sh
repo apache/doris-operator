@@ -61,10 +61,20 @@ function show_frontends()
     timeout 15 mysql  --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
 }
 
+#parse the `$BE_CONFIG` file, passing the key need resolve as parameter.
+parse_confval_from_conf()
+{
+    # a naive script to grep given confkey from fe conf file
+    # assume conf format: ^\s*<key>\s*=\s*<value>\s*$
+    local confkey=$1
+    local confvalue=`grep "\<$confkey\>" $BE_CONFIG | grep -v '^\s*#' | sed 's|^\s*'$confkey'\s*=\s*\(.*\)\s*$|\1|g'`
+    echo "$confvalue"
+}
+
 collect_env_info()
 {
     # heartbeat_port from conf file
-    local heartbeat_port=`parse_confval_from_cn_conf "heartbeat_service_port"`
+    local heartbeat_port=`parse_confval_from_conf "heartbeat_service_port"`
     if [[ "x$heartbeat_port" != "x" ]] ; then
         HEARTBEAT_PORT=$heartbeat_port
     fi
@@ -118,6 +128,10 @@ function check_and_register()
     for addr in ${addrArr[@]}
     do
         add_self $addr
+
+        if [[ $REGISTERED ]]; then
+            break;
+        fi
     done
 
     if [[ $REGISTERED ]]; then

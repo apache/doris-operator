@@ -15,7 +15,10 @@ const (
 	be_storage_path = "/opt/apache-doris/be/storage"
 	fe_meta_path    = "/opt/apache-doris/fe/doris-meta"
 	fe_meta_name    = "fe-meta"
+
 	HEALTH_API_PATH = "/api/health"
+	FE_PRESTOP      = "/opt/apache-doris/fe_prestop.sh"
+	BE_PRESTOP      = "/opt/apache-doris/be_prestop.sh"
 
 	//keys for pod env variables
 	POD_NAME           = "POD_NAME"
@@ -168,17 +171,21 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		Args:            args,
 		Ports:           []corev1.ContainerPort{},
 		Env:             envs,
+		Resources:       spec.ResourceRequirements,
 		VolumeMounts:    volumeMounts,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Resources:       spec.ResourceRequirements,
 	}
 
 	var healthPort int32
+	var prestopScript string
 	switch componentType {
 	case v1.Component_FE:
 		healthPort = GetPort(config, HTTP_PORT)
-	case v1.Component_BE:
+		prestopScript = FE_PRESTOP
+	case v1.Component_BE, v1.Component_CN:
 		healthPort = GetPort(config, WEBSERVER_PORT)
+		prestopScript = BE_PRESTOP
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
@@ -187,6 +194,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		c.LivenessProbe = livenessProbe(healthPort, HEALTH_API_PATH)
 		c.StartupProbe = startupProbe(healthPort, HEALTH_API_PATH)
 		c.ReadinessProbe = readinessProbe(healthPort, HEALTH_API_PATH)
+		c.Lifecycle = lifeCycle(prestopScript)
 	}
 
 	return c
@@ -265,10 +273,8 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 	switch componentType {
 	case v1.Component_FE:
 		return []string{"/opt/apache-doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
-	case v1.Component_BE:
+	case v1.Component_BE, v1.Component_CN:
 		return []string{"/opt/apache-doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
-	case v1.Component_CN:
-		return
 	default:
 		klog.Infof("getCommand the componentType %s is not supported.", componentType)
 		return []string{}, []string{}
@@ -379,7 +385,7 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 		}
 
 		switch componentType {
-		case v1.Component_FE, v1.Component_BE:
+		case v1.Component_FE, v1.Component_BE, v1.Component_CN:
 			volumeMount.MountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
@@ -392,7 +398,7 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 // StartupProbe returns a startup probe.
 func startupProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
-		FailureThreshold: 180,
+		FailureThreshold: 60,
 		PeriodSeconds:    5,
 		ProbeHandler:     getProbe(port, path),
 	}

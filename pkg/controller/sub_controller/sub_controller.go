@@ -4,8 +4,11 @@ import (
 	"context"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
+	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,14 +25,18 @@ type SubController interface {
 	UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 }
 
+// SubDefaultController define common function for all component about doris.
 type SubDefaultController struct {
-	SubController
 	K8sclient   client.Client
 	K8srecorder record.EventRecorder
 }
 
 // UpdateStatus update the component status on src.
 func (d *SubDefaultController) UpdateStatus(namespace string, status *dorisv1.ComponentStatus, labels map[string]string, replicas int32) error {
+	return d.ClassifyPodsByStatus(namespace, status, labels, replicas)
+}
+
+func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *dorisv1.ComponentStatus, labels map[string]string, replicas int32) error {
 	var podList corev1.PodList
 	if err := d.K8sclient.List(context.Background(), &podList, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
 		return err
@@ -65,4 +72,45 @@ func (d *SubDefaultController) UpdateStatus(namespace string, status *dorisv1.Co
 	status.FailedMembers = faileds
 	status.CreatingMembers = creatings
 	return nil
+}
+
+func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
+	if configMapInfo.ConfigMapName == "" {
+		return make(map[string]interface{}), nil
+	}
+
+	configMap, err := k8s.GetConfigMap(ctx, d.K8sclient, namespace, configMapInfo.ConfigMapName)
+	if err != nil && apierrors.IsNotFound(err) {
+		klog.Info("SubDefaultController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)
+		return make(map[string]interface{}), nil
+	} else if err != nil {
+		return make(map[string]interface{}), err
+	}
+
+	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
+	return res, err
+}
+
+// ClearCommonResources clear common resources all component have, as statefulset, service.
+// response `bool` represents all resource have deleted, if not and delete resource failed return false for next reconcile retry.
+func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) (bool, error) {
+	//if the doris is not have cn.
+	stName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
+	externalServiceName := dorisv1.GenerateExternalServiceName(dcr, componentType)
+	internalServiceName := dorisv1.GenerateInternalCommunicateServiceName(dcr, componentType)
+	if err := k8s.DeleteStatefulset(ctx, d.K8sclient, dcr.Namespace, stName); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("SubDefaultController ClearResources delete statefulset failed, namespace=%s,name=%s, error=%s.", dcr.Namespace, stName, err.Error())
+		return false, err
+	}
+
+	if err := k8s.DeleteService(ctx, d.K8sclient, dcr.Namespace, internalServiceName); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("SubDefaultController ClearResources delete search service, namespace=%s,name=%s,error=%s.", dcr.Namespace, internalServiceName, err.Error())
+		return false, err
+	}
+	if err := k8s.DeleteService(ctx, d.K8sclient, dcr.Namespace, externalServiceName); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("SubDefaultController ClearResources delete external service, namespace=%s, name=%s,error=%s.", dcr.Namespace, externalServiceName, err.Error())
+		return false, err
+	}
+
+	return true, nil
 }

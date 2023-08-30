@@ -21,6 +21,7 @@ import (
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/be"
+	cn "github.com/selectdb/doris-operator/pkg/controller/sub_controller/cn"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/fe"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -110,6 +111,8 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	//generate the dcr status.
+	r.clearNoEffectResources(ctx, dcr)
 	for _, rc := range r.Scs {
 		//update component status.
 		if err := rc.UpdateComponentStatus(dcr); err != nil {
@@ -118,19 +121,16 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	//generate the src status.
-	r.reconcileStatus(ctx, dcr)
 	return r.updateDorisClusterStatus(ctx, dcr)
 }
 
-func (r *DorisClusterReconciler) reconcileStatus(context context.Context, cluster *dorisv1.DorisCluster) {
+func (r *DorisClusterReconciler) clearNoEffectResources(context context.Context, cluster *dorisv1.DorisCluster) {
 	//calculate the status of doris cluster by subresource's status.
 	//clear resources when sub resource deleted. example: deployed fe,be,cn, when cn spec is deleted we should delete cn resources.
 	for _, rc := range r.Scs {
 		rc.ClearResources(context, cluster)
 	}
 
-	//TODO: need update other fields, if the field specify.
 	return
 }
 
@@ -246,6 +246,8 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager) {
 	subcs[feControllerName] = fc
 	be := be.New(mgr.GetClient(), mgr.GetEventRecorderFor(beControllerName))
 	subcs[beControllerName] = be
+	cn := cn.New(mgr.GetClient(), mgr.GetEventRecorderFor(cnControllerName))
+	subcs[cnControllerName] = cn
 
 	if err := (&DorisClusterReconciler{
 		Client:   mgr.GetClient(),

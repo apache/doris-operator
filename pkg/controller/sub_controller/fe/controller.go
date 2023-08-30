@@ -7,7 +7,6 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -29,23 +28,7 @@ func (fc *Controller) ClearResources(ctx context.Context, cluster *v1.DorisClust
 		return true, nil
 	}
 
-	feStName := v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)
-	externalServiceName := v1.GenerateExternalServiceName(cluster, v1.Component_FE)
-	internalServiceName := v1.GenerateInternalCommunicateServiceName(cluster, v1.Component_FE)
-	if err := k8s.DeleteStatefulset(ctx, fc.K8sclient, cluster.Namespace, feStName); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("feController ClearResources delete statefulset failed, namespace=%s,name=%s, error=%s.", cluster.Namespace, feStName, err.Error())
-		return false, err
-	}
-
-	if err := k8s.DeleteService(ctx, fc.K8sclient, cluster.Namespace, internalServiceName); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("feController ClearResources delete search service, namespace=%s,name=%s,error=%s.", cluster.Namespace, internalServiceName, err.Error())
-		return false, err
-	}
-	if err := k8s.DeleteService(ctx, fc.K8sclient, cluster.Namespace, externalServiceName); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("feController ClearResources delete external service, namespace=%s, name=%s,error=%s.", cluster.Namespace, externalServiceName, err.Error())
-		return false, err
-	}
-	return true, nil
+	return fc.ClearCommonResources(ctx, cluster, v1.Component_FE)
 }
 
 func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
@@ -70,7 +53,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 	cluster.Status.FEStatus = fs
 	fs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_FE)
 
-	return fc.UpdateStatus(cluster.Namespace, fs, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
+	return fc.ClassifyPodsByStatus(cluster.Namespace, fs, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
 }
 
 // New construct a FeController.
@@ -96,7 +79,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 
 	feSpec := cluster.Spec.FeSpec
 	//get the fe configMap for resolve ports.
-	config, err := fc.GetFeConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace)
+	config, err := fc.GetConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace)
 	if err != nil {
 		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " configmapName ", feSpec.BaseSpec.ConfigMapInfo.ConfigMapName, " configMapKey ", feSpec.ConfigMapInfo.ResolveKey, " error ", err)
 		return err
@@ -128,23 +111,4 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	return nil
-}
-
-func (fc *Controller) GetFeConfig(ctx context.Context, configMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	if configMapInfo.ConfigMapName == "" || configMapInfo.ResolveKey == "" {
-		return make(map[string]interface{}), nil
-	}
-
-	configMap, err := k8s.GetConfigMap(ctx, fc.K8sclient, namespace, configMapInfo.ConfigMapName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			klog.Infof("the FeController get fe config is not exist, namespace = %s configmapName = %s", namespace, configMapInfo.ConfigMapName)
-			return make(map[string]interface{}), nil
-		}
-		klog.Errorf("error occurred when FeController get fe config, namespace = %s configmapName = %s", namespace, configMapInfo.ConfigMapName)
-		return nil, err
-	}
-
-	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
-	return res, err
 }
