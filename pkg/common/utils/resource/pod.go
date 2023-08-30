@@ -171,7 +171,6 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		Args:            args,
 		Ports:           []corev1.ContainerPort{},
 		Env:             envs,
-		Resources:       spec.ResourceRequirements,
 		VolumeMounts:    volumeMounts,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Resources:       spec.ResourceRequirements,
