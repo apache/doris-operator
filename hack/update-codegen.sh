@@ -30,6 +30,6 @@ kube::codegen::gen_helpers \
 kube::codegen::gen_client \
     --with-watch \
     --input-pkg-root github.com/selectdb/doris-operator/api \
-    --output-pkg-root github.com/selectdb/doris-operator/generated \
+    --output-pkg-root github.com/selectdb/doris-operator/client \
     --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../.." \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
