@@ -54,7 +54,7 @@ func getInternalServicePort(config map[string]interface{}, componentType v1.Comp
 			Port:       GetPort(config, QUERY_PORT),
 			TargetPort: intstr.FromInt(int(GetPort(config, QUERY_PORT))),
 		}
-	case v1.Component_BE:
+	case v1.Component_BE, v1.Component_CN:
 		return corev1.ServicePort{
 			Name:       GetPortKey(HEARTBEAT_SERVICE_PORT),
 			Port:       GetPort(config, HEARTBEAT_SERVICE_PORT),
@@ -89,11 +89,12 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 		setServiceType(dcr.Spec.FeSpec.Service, &svc)
 		ports = getFeServicePorts(config)
 	case v1.Component_BE:
+		//cn is be, but for user we should make them clear for ability recognition
 		setServiceType(dcr.Spec.BeSpec.Service, &svc)
 		ports = getBeServicePorts(config)
 	case v1.Component_CN:
-		setServiceType(dcr.Spec.FeSpec.Service, &svc)
-		ports = getCnServicePorts(config)
+		setServiceType(dcr.Spec.CnSpec.Service, &svc)
+		ports = getBeServicePorts(config)
 	default:
 		klog.Infof("BuildExternalService componentType %s not supported.")
 	}
@@ -227,24 +228,6 @@ func GetPortKey(configKey string) string {
 	default:
 		return ""
 	}
-}
-
-func getCnServicePorts(config map[string]interface{}) (ports []corev1.ServicePort) {
-	thriftPort := GetPort(config, THRIFT_PORT)
-	webseverPort := GetPort(config, WEBSERVER_PORT)
-	heartPort := GetPort(config, HEARTBEAT_SERVICE_PORT)
-	brpcPort := GetPort(config, BRPC_PORT)
-	ports = append(ports, corev1.ServicePort{
-		Port: thriftPort, TargetPort: intstr.FromInt(int(thriftPort)), Name: "thrift",
-	}, corev1.ServicePort{
-		Port: webseverPort, TargetPort: intstr.FromInt(int(webseverPort)), Name: "webserver",
-	}, corev1.ServicePort{
-		Port: heartPort, TargetPort: intstr.FromInt(int(heartPort)), Name: "heartbeat",
-	}, corev1.ServicePort{
-		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: "brpc",
-	})
-
-	return
 }
 
 func setServiceType(svc *v1.ExportService, service *corev1.Service) {

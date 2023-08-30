@@ -12,31 +12,30 @@ func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	podTemplateSpc := resource.NewPodTemplateSpc(dcr, v1.Component_CN)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpc.Spec.Containers...)
-	config, _ := cn.getFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
-	cnContainer := cn.cnContainer(dcr, config)
+	cnContainer := cn.cnContainer(dcr)
 	containers = append(containers, cnContainer)
 	podTemplateSpc.Spec.Containers = containers
 	return podTemplateSpc
 }
 
-// TODO: rewrite the logic
-func (cn *Controller) cnContainer(dcr *v1.DorisCluster, config map[string]interface{}) corev1.Container {
-	container := resource.NewBaseMainContainer(dcr, config, v1.Component_CN)
+func (cn *Controller) cnContainer(dcr *v1.DorisCluster) corev1.Container {
 	cnConfig, _ := cn.GetConfig(context.Background(), &dcr.Spec.CnSpec.ConfigMapInfo, dcr.Namespace)
-	address, _ := v1.GetConfigFEAddrForAccess(dcr, v1.Component_CN)
-	queryport := resource.GetPort(config, resource.QUERY_PORT)
+	container := resource.NewBaseMainContainer(dcr, cnConfig, v1.Component_CN)
+	address, port := v1.GetConfigFEAddrForAccess(dcr, v1.Component_CN)
 	// if address is empty
+	var feConfig map[string]interface{}
 	if address == "" {
-		address = v1.GenerateExternalServiceName(dcr, v1.Component_FE) + ":" + strconv.Itoa(int(queryport))
-	}
+		if dcr.Spec.FeSpec != nil {
+			//if fe exist, get fe config.
+			feConfig, _ = cn.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+		}
 
-	var feconfig map[string]interface{}
-
-	// fe query port set has nothing to do with the address
-	if dcr.Spec.CnSpec.ConfigMapInfo.ConfigMapName != "" && dcr.Spec.CnSpec.ConfigMapInfo.ResolveKey != "" {
-		feconfig, _ = cn.getFeConfig(context.Background(), &dcr.Spec.CnSpec.ConfigMapInfo, dcr.Namespace)
+		address = v1.GenerateExternalServiceName(dcr, v1.Component_FE)
 	}
-	cnConfig[resource.QUERY_PORT] = strconv.FormatInt(int64(resource.GetPort(feconfig, resource.QUERY_PORT)), 10)
+	feQueryPort := strconv.FormatInt(int64(resource.GetPort(feConfig, resource.QUERY_PORT)), 10)
+	if port != -1 {
+		feQueryPort = strconv.FormatInt(int64(port), 10)
+	}
 
 	ports := resource.GetContainerPorts(cnConfig, v1.Component_CN)
 	container.Name = "cn"
@@ -44,6 +43,12 @@ func (cn *Controller) cnContainer(dcr *v1.DorisCluster, config map[string]interf
 	container.Env = append(container.Env, corev1.EnvVar{
 		Name:  resource.ENV_FE_ADDR,
 		Value: address,
+	}, corev1.EnvVar{
+		Name:  resource.ENV_FE_PORT,
+		Value: feQueryPort,
+	}, corev1.EnvVar{
+		Name:  resource.COMPONENT_TYPE,
+		Value: "COMPUTE",
 	})
 	return container
 }

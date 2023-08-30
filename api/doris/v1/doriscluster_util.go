@@ -244,7 +244,7 @@ func getBEPodLabels(dcr *DorisCluster) metadata.Labels {
 }
 
 func getCNPodLabels(dcr *DorisCluster) metadata.Labels {
-	labels := cnStatefulSetLabels(dcr)
+	labels := cnStatefulSetSelector(dcr)
 	labels.AddLabel(getDefaultLabels(dcr))
 	labels.AddLabel(dcr.Spec.CnSpec.PodLabels)
 	return labels

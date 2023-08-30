@@ -226,10 +226,24 @@ type DorisClusterStatus struct {
 	BEStatus *ComponentStatus `json:"beStatus,omitempty"`
 
 	//describe cn cluster status, record running, creating and failed pods.
-	CnStatus *ComponentStatus `json:"cnStatus,omitempty"`
+	CnStatus *CnStatus `json:"cnStatus,omitempty"`
 
 	//describe broker cluster status, record running, creating and failed pods.
 	BrokerStatus *ComponentStatus `json:"brokerStatus,omitempty"`
+}
+
+type CnStatus struct {
+	ComponentStatus `json:",inline"`
+	//HorizontalAutoscaler have the autoscaler information.
+	HorizontalScaler *HorizontalScaler `json:"horizontalScaler,omitempty"`
+}
+
+type HorizontalScaler struct {
+	//the deploy horizontal scaler name
+	Name string `json:"name,omitempty"`
+
+	//the deploy horizontal version.
+	Version AutoScalerVersion `json:"version,omitempty"`
 }
 
 type ComponentStatus struct {
@@ -279,6 +293,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
+// +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`
 // +kubebuilder:storageversion
 // DorisCluster is the Schema for the dorisclusters API
 type DorisCluster struct {

@@ -135,3 +135,8 @@ func statefulSetHashObject(st *appv1.StatefulSet, excludeReplica bool) hashState
 		replicas:             replicas,
 	}
 }
+
+// MergeStatefulSets merge exist statefulset and new statefulset.
+func MergeStatefulSets(new *appv1.StatefulSet, old appv1.StatefulSet) {
+	MergeMetadata(&new.ObjectMeta, old.ObjectMeta)
+}

@@ -2,7 +2,12 @@ package k8s
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	appv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/autoscaling/v1"
+	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,6 +75,17 @@ func UpdateClientObject(ctx context.Context, k8sclient client.Client, object cli
 	return nil
 }
 
+func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
+	klog.V(4).Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
+	if err := k8sclient.Update(ctx, object); apierrors.IsNotFound(err) {
+		return k8sclient.Create(ctx, object)
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // PatchClientObject patch object when the object exist. if not return error.
 func PatchClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
 	klog.V(4).Infof("patch resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
@@ -121,6 +137,28 @@ func DeleteService(ctx context.Context, k8sclient client.Client, namespace, name
 	}
 
 	return k8sclient.Delete(ctx, &svc)
+}
+
+// DeleteAutoscaler as version type delete response autoscaler.
+func DeleteAutoscaler(ctx context.Context, k8sclient client.Client, namespace, name string, autoscalerVersion dorisv1.AutoScalerVersion) error {
+	var autoscaler client.Object
+	switch autoscalerVersion {
+	case dorisv1.AutoScalerV1:
+		autoscaler = &v1.HorizontalPodAutoscaler{}
+	case dorisv1.AutoSclaerV2:
+		autoscaler = &v2.HorizontalPodAutoscaler{}
+
+	default:
+		return errors.New(fmt.Sprintf("the autoscaler type %s is not supported.", autoscalerVersion))
+	}
+
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, autoscaler); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	return k8sclient.Delete(ctx, autoscaler)
 }
 
 func PodIsReady(status *corev1.PodStatus) bool {
