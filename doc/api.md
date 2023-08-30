@@ -194,7 +194,7 @@ string
 <h3 id="doris.selectdb.com/v1.AutoScalerVersion">AutoScalerVersion
 (<code>string</code> alias)</h3>
 <p>
-(<em>Appears on:</em><a href="#doris.selectdb.com/v1.AutoScalingPolicy">AutoScalingPolicy</a>)
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.AutoScalingPolicy">AutoScalingPolicy</a>, <a href="#doris.selectdb.com/v1.HorizontalScaler">HorizontalScaler</a>)
 </p>
 <div>
 </div>
@@ -207,9 +207,6 @@ string
 </thead>
 <tbody><tr><td><p>&#34;v1&#34;</p></td>
 <td><p>the cn service use v1 autoscaler. reference to <a href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/">https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</a></p>
-</td>
-</tr><tr><td><p>&#34;v2beta2&#34;</p></td>
-<td><p>the cn service use v2beta. reference to  <a href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/">https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</a></p>
 </td>
 </tr><tr><td><p>&#34;v2&#34;</p></td>
 <td><p>the cn service use v2. reference to  <a href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/">https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</a></p>
@@ -255,7 +252,7 @@ AutoScalerVersion
 </em>
 </td>
 <td>
-<p>version represents the autoscaler version for cn service. only support v1,v2beta2,v2</p>
+<p>version represents the autoscaler version for cn service. only support v1,,v2</p>
 </td>
 </tr>
 <tr>
@@ -267,6 +264,7 @@ int32
 </td>
 <td>
 <em>(Optional)</em>
+<p>the min numbers of target.</p>
 </td>
 </tr>
 <tr>
@@ -649,6 +647,51 @@ AutoScalingPolicy
 </tr>
 </tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.CnStatus">CnStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.DorisClusterStatus">DorisClusterStatus</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ComponentStatus</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.ComponentStatus">
+ComponentStatus
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ComponentStatus</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>horizontalScaler</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.HorizontalScaler">
+HorizontalScaler
+</a>
+</em>
+</td>
+<td>
+<p>HorizontalAutoscaler have the autoscaler information.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.ComponentCondition">ComponentCondition
 </h3>
 <p>
@@ -751,7 +794,7 @@ string
 <h3 id="doris.selectdb.com/v1.ComponentStatus">ComponentStatus
 </h3>
 <p>
-(<em>Appears on:</em><a href="#doris.selectdb.com/v1.DorisClusterStatus">DorisClusterStatus</a>)
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.CnStatus">CnStatus</a>, <a href="#doris.selectdb.com/v1.DorisClusterStatus">DorisClusterStatus</a>)
 </p>
 <div>
 </div>
@@ -1125,8 +1168,8 @@ ComponentStatus
 <td>
 <code>cnStatus</code><br/>
 <em>
-<a href="#doris.selectdb.com/v1.ComponentStatus">
-ComponentStatus
+<a href="#doris.selectdb.com/v1.CnStatus">
+CnStatus
 </a>
 </em>
 </td>
@@ -1624,6 +1667,47 @@ HPAScalingRules
 If not set, the default value is to allow to scale down to minReplicas pods, with a
 300 second stabilization window (i.e., the highest recommendation for
 the last 300sec is used).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="doris.selectdb.com/v1.HorizontalScaler">HorizontalScaler
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.CnStatus">CnStatus</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the deploy horizontal scaler name</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.AutoScalerVersion">
+AutoScalerVersion
+</a>
+</em>
+</td>
+<td>
+<p>the deploy horizontal version.</p>
 </td>
 </tr>
 </tbody>
@@ -2192,5 +2276,5 @@ MetricTarget
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>5be2610</code>.
+on git commit <code>2d69075</code>.
 </em></p>
