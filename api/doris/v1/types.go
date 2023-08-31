@@ -174,6 +174,9 @@ type BaseSpec struct {
 	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty"`
 
 	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
+
+	//SystemParameters for be and cn setting system parameters.
+	SystemParameters []string `json:"systemParameters,omitempty"`
 }
 
 // PersistentVolume defines volume information and container mount information.

@@ -1,6 +1,8 @@
 package resource
 
 import (
+	"strings"
+
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,6 +135,32 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 	}
 
 	return dst
+}
+
+func NewInitContainer(name string, params []string) corev1.Container {
+	enablePrivileged := true
+	c := corev1.Container{
+		Image:           "alpine:3.16",
+		Name:            name,
+		Command:         []string{"/sbin/sysctl", "-w", strings.Join(params, " ")},
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &enablePrivileged,
+		},
+	}
+	return c
+}
+
+func GetVmSystemParameters(params []string) []string {
+	var vmParams []string
+	//Maybe need to check vm params
+	for _, p := range params {
+		p = strings.Trim(p, " ")
+		if strings.HasPrefix(p, "vm.") {
+			vmParams = append(vmParams, p)
+		}
+	}
+	return vmParams
 }
 
 func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) corev1.Container {

@@ -1440,6 +1440,11 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  systemParameters:
+                    description: SystemParameters for be and cn setting system parameters.
+                    items:
+                      type: string
+                    type: array
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes
@@ -2925,6 +2930,12 @@ spec:
                       serviceAccount:
                         description: serviceAccount for cn access cloud service.
                         type: string
+                      systemParameters:
+                        description: SystemParameters for be and cn setting system
+                          parameters.
+                        items:
+                          type: string
+                        type: array
                       tolerations:
                         description: (Optional) Tolerations for scheduling pods onto
                           some dedicated nodes
@@ -5051,6 +5062,11 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  systemParameters:
+                    description: SystemParameters for be and cn setting system parameters.
+                    items:
+                      type: string
+                    type: array
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes
@@ -6482,6 +6498,11 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  systemParameters:
+                    description: SystemParameters for be and cn setting system parameters.
+                    items:
+                      type: string
+                    type: array
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes

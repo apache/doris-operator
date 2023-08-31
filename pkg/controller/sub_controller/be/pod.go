@@ -2,10 +2,11 @@ package be
 
 import (
 	"context"
+	"strconv"
+
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
@@ -15,6 +16,15 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
 	podTemplateSpec.Spec.Containers = containers
+
+	params := dcr.Spec.FeSpec.SystemParameters
+	if len(params) > 0 {
+		//Only support system parameters starting with vm, like vm.max_map_count.
+		params = resource.GetVmSystemParameters(params)
+		beInitContainer := resource.NewInitContainer(string(v1.Component_BE)+"-init", params)
+		podTemplateSpec.Spec.InitContainers = []corev1.Container{beInitContainer}
+	}
+
 	return podTemplateSpec
 }
 
