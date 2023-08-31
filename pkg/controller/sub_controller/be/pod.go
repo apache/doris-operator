@@ -10,21 +10,12 @@ import (
 )
 
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpc(dcr, v1.Component_BE)
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_BE)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
 	podTemplateSpec.Spec.Containers = containers
-
-	params := dcr.Spec.FeSpec.SystemParameters
-	if len(params) > 0 {
-		//Only support system parameters starting with vm, like vm.max_map_count.
-		params = resource.GetVmSystemParameters(params)
-		beInitContainer := resource.NewInitContainer(string(v1.Component_BE)+"-init", params)
-		podTemplateSpec.Spec.InitContainers = []corev1.Container{beInitContainer}
-	}
-
 	return podTemplateSpec
 }
 

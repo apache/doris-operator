@@ -52,7 +52,7 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 		Spec: appv1.StatefulSetSpec{
 			Replicas:             bSpec.Replicas,
 			Selector:             &selector,
-			Template:             NewPodTemplateSpc(dcr, componentType),
+			Template:             NewPodTemplateSpec(dcr, componentType),
 			VolumeClaimTemplates: volumeClaimTemplates,
 			ServiceName:          v1.GenerateInternalCommunicateServiceName(dcr, componentType),
 			RevisionHistoryLimit: metadata.GetInt32Pointer(5),

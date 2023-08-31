@@ -10,16 +10,13 @@ import (
 )
 
 func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpc(dcr, v1.Component_FE)
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
 	var containers []corev1.Container
 	//containers = append(containers, podTemplateSpec.Spec.Containers...)
 	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
 	podTemplateSpec.Spec.Containers = containers
-
-	//FE currently does not support initcontainer.
-
 	return podTemplateSpec
 }
 

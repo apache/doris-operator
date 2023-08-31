@@ -10,21 +10,12 @@ import (
 )
 
 func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpc(dcr, v1.Component_CN)
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_CN)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)
 	containers = append(containers, cnContainer)
 	podTemplateSpec.Spec.Containers = containers
-
-	params := dcr.Spec.CnSpec.SystemParameters
-	if len(params) > 0 {
-		//Only support system parameters starting with vm, like vm.max_map_count.
-		params = resource.GetVmSystemParameters(params)
-		cnInitContainer := resource.NewInitContainer(string(v1.Component_CN)+"-init", params)
-		podTemplateSpec.Spec.InitContainers = []corev1.Container{cnInitContainer}
-	}
-
 	return podTemplateSpec
 }
 
