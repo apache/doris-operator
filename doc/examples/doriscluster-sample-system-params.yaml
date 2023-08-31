@@ -14,5 +14,5 @@ spec:
   beSpec:
     replicas: 3
     image: selectdb/doris.be-ubuntu:latest
-    systemParameters:
-      - "vm.max_map_count=2000000"
+    systemInitialization:
+      command: ["/sbin/sysctl", "-w", "vm.max_map_count=2000000"]
