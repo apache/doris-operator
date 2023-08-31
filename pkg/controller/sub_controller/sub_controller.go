@@ -7,6 +7,7 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -113,4 +114,26 @@ func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *do
 	}
 
 	return true, nil
+}
+
+func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
+	addr, _ := dorisv1.GetConfigFEAddrForAccess(dcr, dorisv1.Component_BE)
+	if addr != "" {
+		return true
+	}
+
+	//if fe deploy in k8s, should wait fe available
+	//1. wait for fe ok.
+	endpoints := corev1.Endpoints{}
+	if err := d.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: dcr.Namespace, Name: dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_FE)}, &endpoints); err != nil {
+		klog.Infof("SubDefaultController Sync wait fe service name %s available occur failed %s\n", dorisv1.GenerateExternalServiceName(dcr, dorisv1.Component_FE), err.Error())
+		return false
+	}
+
+	for _, sub := range endpoints.Subsets {
+		if len(sub.Addresses) > 0 {
+			return true
+		}
+	}
+	return false
 }

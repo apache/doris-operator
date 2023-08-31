@@ -44,6 +44,11 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		}
 		return nil
 	}
+
+	if !cn.FeAvailable(dcr) {
+		return nil
+	}
+
 	cnSpec := dcr.Spec.CnSpec
 
 	config, err := cn.GetConfig(ctx, &cnSpec.ConfigMapInfo, dcr.Namespace)
