@@ -11,6 +11,20 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+
+LATEST_TAG=$(shell git describe --tags --abbrev=0 2>/dev/null)
+LATEST_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
+
+BUILD_DATE=$(shell date +"%Y%m%d-%T")
+ifeq (,$(LATEST_TAG))
+VERSION="UNKNOWN"
+else
+VERSION=$(shell echo $(LATEST_TAG) | tr -d "v")
+endif
+
+LDFLAGS="-s -X \"main.VERSION=$(VERSION)\" -X \"main.COMMIT=$(LATEST_COMMIT)\" -X \"main.BUILD_DATE=$(BUILD_DATE)\""
+
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -62,11 +76,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build -ldflags=$(LDFLAGS) -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run -ldflags=$(LDFLAGS)  cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

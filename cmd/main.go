@@ -18,8 +18,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/controller"
+	"io"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -38,7 +40,22 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	printVar bool
 )
+
+var (
+	VERSION    string
+	GOVERSION  string
+	COMMIT     string
+	BUILD_DATE string
+)
+
+// Print version information to a given out writer.
+func Print(out io.Writer) {
+	if printVar {
+		fmt.Fprint(out, "version="+VERSION+"\ncommit="+COMMIT+"\nbuild_date="+BUILD_DATE+"\n")
+	}
+}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -56,11 +73,18 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&printVar, "version", false, "Prints current version.")
+
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if printVar {
+		Print(os.Stdout)
+		return
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
