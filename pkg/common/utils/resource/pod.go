@@ -140,7 +140,7 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 func NewInitContainer(name string, params []string) corev1.Container {
 	enablePrivileged := true
 	c := corev1.Container{
-		Image:           "alpine:3.16",
+		Image:           "alpine:latest",
 		Name:            name,
 		Command:         []string{"/sbin/sysctl", "-w", strings.Join(params, " ")},
 		ImagePullPolicy: corev1.PullIfNotPresent,
