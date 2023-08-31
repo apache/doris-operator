@@ -6,10 +6,37 @@ import (
 )
 
 func inconsistentStatus(status *v1.DorisClusterStatus, dcr *v1.DorisCluster) bool {
-	return inconsistentComponentStatus(status.FEStatus, dcr.Status.FEStatus) ||
-		inconsistentComponentStatus(status.BEStatus, dcr.Status.BEStatus) ||
-		inconsistentComponentStatus(&status.CnStatus.ComponentStatus, &dcr.Status.CnStatus.ComponentStatus) ||
-		inconsistentHorizontalStatus(status.CnStatus.HorizontalScaler, dcr.Status.CnStatus.HorizontalScaler)
+	return inconsistentFEStatus(status.FEStatus, dcr.Status.FEStatus) ||
+		inconsistentBEStatus(status.BEStatus, dcr.Status.BEStatus) ||
+		inconsistentCnStatus(status.CnStatus, dcr.Status.CnStatus)
+}
+
+func inconsistentCnStatus(eStatus *v1.CnStatus, nStatus *v1.CnStatus) bool {
+	if eStatus == nil && nStatus == nil {
+		return false
+	}
+
+	eComponentStatus := v1.ComponentStatus{}
+	nComponentStatus := v1.ComponentStatus{}
+	var eHorizontalScaler, nHorizontalScaler *v1.HorizontalScaler
+	if eStatus != nil {
+		eComponentStatus = eStatus.ComponentStatus
+		eHorizontalScaler = eStatus.HorizontalScaler
+	}
+	if nStatus != nil {
+		nComponentStatus = nStatus.ComponentStatus
+		nHorizontalScaler = nStatus.HorizontalScaler
+	}
+
+	return inconsistentComponentStatus(&eComponentStatus, &nComponentStatus) || inconsistentHorizontalStatus(eHorizontalScaler, nHorizontalScaler)
+}
+
+func inconsistentFEStatus(eFeStatus *v1.ComponentStatus, nFeStatus *v1.ComponentStatus) bool {
+	return inconsistentComponentStatus(eFeStatus, nFeStatus)
+}
+
+func inconsistentBEStatus(eBeStatus *v1.ComponentStatus, nBeStatus *v1.ComponentStatus) bool {
+	return inconsistentComponentStatus(eBeStatus, nBeStatus)
 }
 
 func inconsistentComponentStatus(eStatus *v1.ComponentStatus, nStatus *v1.ComponentStatus) bool {

@@ -18,7 +18,7 @@ POD_INDEX=
 PROBE_INTERVAL=2
 # timeout for probe master: 120 seconds
 PROBE_MASTER_POD0_TIMEOUT=60 # at most 30 attempts, no less than the times needed for an election
-PROBE_MASTER_PODX_TIMEOUT=180 # at most 60 attempts
+PROBE_MASTER_PODX_TIMEOUT=180 # at most 90 attempts
 # administrator for administrate the cluster.
 DB_ADMIN_USER=${USER:-"root"}
 
