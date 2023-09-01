@@ -35,25 +35,16 @@ const (
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
 	var volumes []corev1.Volume
-	var initContainer corev1.Container
+	var si v1.SystemInitialization
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
-		si := dcr.Spec.FeSpec.BaseSpec.SystemInitialization
-		if len(si.Command) > 0 || len(si.Args) > 0 {
-			initContainer = newBaseInitContainer(string(v1.Component_FE)+"-init", si)
-		}
+		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
 	case v1.Component_BE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
-		si := dcr.Spec.BeSpec.BaseSpec.SystemInitialization
-		if len(si.Command) > 0 || len(si.Args) > 0 {
-			initContainer = newBaseInitContainer(string(v1.Component_BE)+"-init", si)
-		}
+		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 	case v1.Component_CN:
-		si := dcr.Spec.CnSpec.BaseSpec.SystemInitialization
-		if len(si.Command) > 0 || len(si.Args) > 0 {
-			initContainer = newBaseInitContainer(string(v1.Component_CN)+"-init", si)
-		}
+		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -84,7 +75,8 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		},
 	}
 
-	if initContainer.Name != "" {
+	if len(si.Command) > 0 || len(si.Args) > 0 {
+		initContainer := newBaseInitContainer("init", si)
 		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
 	}
 
