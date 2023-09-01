@@ -32,16 +32,21 @@ const (
 	DEFAULT_ROOT_PATH  = "/opt/apache-doris"
 )
 
-func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
+func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
 	var volumes []corev1.Volume
+	var si *v1.SystemInitialization
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
+		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
 	case v1.Component_BE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
+		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
+	case v1.Component_CN:
+		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 	default:
-		klog.Errorf("NewPodTemplateSpc dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
+		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
 
 	if len(volumes) == 0 {
@@ -53,7 +58,7 @@ func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) cor
 		volumes = append(volumes, configVolume)
 	}
 
-	return corev1.PodTemplateSpec{
+	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   generatePodTemplateName(dcr, componentType),
 			Labels: v1.GetPodLabels(dcr, componentType),
@@ -69,6 +74,13 @@ func NewPodTemplateSpc(dcr *v1.DorisCluster, componentType v1.ComponentType) cor
 			HostAliases:        spec.HostAliases,
 		},
 	}
+
+	if si != nil {
+		initContainer := newBaseInitContainer("init", si)
+		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
+	}
+
+	return pts
 }
 
 func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
@@ -133,6 +145,21 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 	}
 
 	return dst
+}
+
+func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Container {
+	enablePrivileged := true
+	c := corev1.Container{
+		Image:           "alpine:latest",
+		Name:            name,
+		Command:         si.Command,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Args:            si.Args,
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &enablePrivileged,
+		},
+	}
+	return c
 }
 
 func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) corev1.Container {

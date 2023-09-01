@@ -1440,6 +1440,21 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  systemInitialization:
+                    description: SystemInitialization for fe, be and cn setting system
+                      parameters.
+                    properties:
+                      args:
+                        description: Arguments to the entrypoint.
+                        items:
+                          type: string
+                        type: array
+                      command:
+                        description: Entrypoint array. Not executed within a shell.
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes
@@ -2925,6 +2940,21 @@ spec:
                       serviceAccount:
                         description: serviceAccount for cn access cloud service.
                         type: string
+                      systemInitialization:
+                        description: SystemInitialization for fe, be and cn setting
+                          system parameters.
+                        properties:
+                          args:
+                            description: Arguments to the entrypoint.
+                            items:
+                              type: string
+                            type: array
+                          command:
+                            description: Entrypoint array. Not executed within a shell.
+                            items:
+                              type: string
+                            type: array
+                        type: object
                       tolerations:
                         description: (Optional) Tolerations for scheduling pods onto
                           some dedicated nodes
@@ -5051,6 +5081,21 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  systemInitialization:
+                    description: SystemInitialization for fe, be and cn setting system
+                      parameters.
+                    properties:
+                      args:
+                        description: Arguments to the entrypoint.
+                        items:
+                          type: string
+                        type: array
+                      command:
+                        description: Entrypoint array. Not executed within a shell.
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes
@@ -6482,6 +6527,21 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  systemInitialization:
+                    description: SystemInitialization for fe, be and cn setting system
+                      parameters.
+                    properties:
+                      args:
+                        description: Arguments to the entrypoint.
+                        items:
+                          type: string
+                        type: array
+                      command:
+                        description: Entrypoint array. Not executed within a shell.
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes

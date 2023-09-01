@@ -2,20 +2,21 @@ package cn
 
 import (
 	"context"
+	"strconv"
+
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpc := resource.NewPodTemplateSpc(dcr, v1.Component_CN)
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_CN)
 	var containers []corev1.Container
-	containers = append(containers, podTemplateSpc.Spec.Containers...)
+	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)
 	containers = append(containers, cnContainer)
-	podTemplateSpc.Spec.Containers = containers
-	return podTemplateSpc
+	podTemplateSpec.Spec.Containers = containers
+	return podTemplateSpec
 }
 
 func (cn *Controller) cnContainer(dcr *v1.DorisCluster) corev1.Container {

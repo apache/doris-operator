@@ -2,14 +2,15 @@ package be
 
 import (
 	"context"
+	"strconv"
+
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpc(dcr, v1.Component_BE)
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_BE)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)

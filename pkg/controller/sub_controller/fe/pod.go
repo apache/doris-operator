@@ -2,14 +2,15 @@ package fe
 
 import (
 	"context"
+	"strconv"
+
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpc(dcr, v1.Component_FE)
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
 	var containers []corev1.Container
 	//containers = append(containers, podTemplateSpec.Spec.Containers...)
 	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)

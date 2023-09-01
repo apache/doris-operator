@@ -174,6 +174,17 @@ type BaseSpec struct {
 	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty"`
 
 	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
+
+	//SystemInitialization for fe, be and cn setting system parameters.
+	SystemInitialization *SystemInitialization `json:"systemInitialization,omitempty"`
+}
+
+type SystemInitialization struct {
+	// Entrypoint array. Not executed within a shell.
+	Command []string `json:"command,omitempty"`
+
+	// Arguments to the entrypoint.
+	Args []string `json:"args,omitempty"`
 }
 
 // PersistentVolume defines volume information and container mount information.
