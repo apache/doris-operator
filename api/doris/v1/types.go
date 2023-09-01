@@ -176,7 +176,7 @@ type BaseSpec struct {
 	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
 
 	//SystemInitialization for fe, be and cn setting system parameters.
-	SystemInitialization SystemInitialization `json:"systemInitialization,omitempty"`
+	SystemInitialization *SystemInitialization `json:"systemInitialization,omitempty"`
 }
 
 type SystemInitialization struct {

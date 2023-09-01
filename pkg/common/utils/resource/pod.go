@@ -35,7 +35,7 @@ const (
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
 	var volumes []corev1.Volume
-	var si v1.SystemInitialization
+	var si *v1.SystemInitialization
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
@@ -75,7 +75,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		},
 	}
 
-	if len(si.Command) > 0 || len(si.Args) > 0 {
+	if si != nil {
 		initContainer := newBaseInitContainer("init", si)
 		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
 	}
@@ -147,7 +147,7 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 	return dst
 }
 
-func newBaseInitContainer(name string, si v1.SystemInitialization) corev1.Container {
+func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Container {
 	enablePrivileged := true
 	c := corev1.Container{
 		Image:           "alpine:latest",
