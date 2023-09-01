@@ -39,12 +39,21 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
-		initContainer = newBaseInitContainer(string(v1.Component_FE)+"-init", dcr.Spec.FeSpec.BaseSpec.SystemInitialization)
+		si := dcr.Spec.FeSpec.BaseSpec.SystemInitialization
+		if len(si.Command) > 0 || len(si.Args) > 0 {
+			initContainer = newBaseInitContainer(string(v1.Component_FE)+"-init", si)
+		}
 	case v1.Component_BE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
-		initContainer = newBaseInitContainer(string(v1.Component_BE)+"-init", dcr.Spec.BeSpec.BaseSpec.SystemInitialization)
+		si := dcr.Spec.BeSpec.BaseSpec.SystemInitialization
+		if len(si.Command) > 0 || len(si.Args) > 0 {
+			initContainer = newBaseInitContainer(string(v1.Component_BE)+"-init", si)
+		}
 	case v1.Component_CN:
-		initContainer = newBaseInitContainer(string(v1.Component_CN)+"-init", dcr.Spec.CnSpec.BaseSpec.SystemInitialization)
+		si := dcr.Spec.CnSpec.BaseSpec.SystemInitialization
+		if len(si.Command) > 0 || len(si.Args) > 0 {
+			initContainer = newBaseInitContainer(string(v1.Component_CN)+"-init", si)
+		}
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -58,7 +67,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = append(volumes, configVolume)
 	}
 
-	return corev1.PodTemplateSpec{
+	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   generatePodTemplateName(dcr, componentType),
 			Labels: v1.GetPodLabels(dcr, componentType),
@@ -72,11 +81,14 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 			Affinity:           spec.Affinity,
 			Tolerations:        spec.Tolerations,
 			HostAliases:        spec.HostAliases,
-			InitContainers: []corev1.Container{
-				initContainer,
-			},
 		},
 	}
+
+	if initContainer.Name != "" {
+		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
+	}
+
+	return pts
 }
 
 func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
