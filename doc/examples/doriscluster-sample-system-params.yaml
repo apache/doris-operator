@@ -1,3 +1,5 @@
+# this yaml describes running system command on host when pod deployed.
+# Doris be component can set some system config to maximize performance advantages.
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:

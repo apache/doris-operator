@@ -1,3 +1,5 @@
+# This yaml describe using `storageclass` to provide persistentVolume for fe and be.
+# This yaml use default `storageclass` on kubernetes. when use specific storageclass please update then field of storageClassName.
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:
@@ -15,7 +17,8 @@ spec:
     - mountPath: /opt/apache-doris/fe/doris-meta
       name: fetest
       persistentVolumeClaimSpec:
-        storageClassName: openebs-jiva-csi-default
+        # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+        #storageClassName: openebs-jiva-csi-default
         accessModes:
         - ReadWriteOnce
         resources:
@@ -25,7 +28,8 @@ spec:
     - mountPath: /opt/apache-doris/fe/log
       name: felog
       persistentVolumeClaimSpec:
-        storageClassName: openebs-jiva-csi-default
+        # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+        #storageClassName: openebs-jiva-csi-default
         accessModes:
         - ReadWriteOnce
         resources:
@@ -38,7 +42,8 @@ spec:
     - mountPath: /opt/apache-doris/be/storage
       name: betest
       persistentVolumeClaimSpec:
-        storageClassName: openebs-jiva-csi-default
+        # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+        #storageClassName: openebs-jiva-csi-default
         accessModes:
         - ReadWriteOnce
         resources:
@@ -47,7 +52,8 @@ spec:
     - mountPath: /opt/apache-doris/be/log
       name: belog
       persistentVolumeClaimSpec:
-        storageClassName: openebs-jiva-csi-default
+        # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+        #storageClassName: openebs-jiva-csi-default
         accessModes:
         - ReadWriteOnce
         resources:

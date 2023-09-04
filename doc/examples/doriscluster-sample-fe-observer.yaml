@@ -1,3 +1,4 @@
+# This yaml describe have to deploy fe as observer. Its base yaml is `doriscluster-sample.yaml`.
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:

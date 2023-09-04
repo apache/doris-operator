@@ -1,3 +1,5 @@
+#This yaml deploy doris with fe and cn. Only for experience deployment and usability about fe and cn on kubernetes.
+# the cn rely on configmap. Before apply this yaml, please create configmap as annotation described.
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:

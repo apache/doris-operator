@@ -42,6 +42,8 @@ COPY resource/be_*.sh /opt/apache-doris/
 
 COPY resource/entry_point.sh /usr/local/bin/
 
+COPY resource/init_be.sh /opt/apache-doris/be/bin/
+
 WORKDIR /opt/apache-doris
 
 ENTRYPOINT ["bash","entry_point.sh"]

@@ -1,12 +1,14 @@
 # doris-operator
-Doris-operator for doris creates, configures and manages doris cluster running on kubernetes.
+Doris-operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn components.
+Users custom `DorisCluster` CRD to deploy doris as demand.
 
 ## Features
-- Create Doris clusters defined as custom resources
+- Create Doris clusters defined as custom resource
 - Customized storage provisioning(VolumeClaim templates)
 - Customized pod templates
 - Doris configuration management
 - Doris version upgrades
+- Provided HorizontalPodAutoscaler v1 and v2 versions for compute node.
 
 ## Requirements
 - Kubernetes 1.19+
@@ -23,14 +25,13 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 ```
 
 ## Get Started to Deploy Doris
-The [Quick Start Guide](./doc/examples) have examples for deploy doris on kubernetes. It provides examples for different features to deploy.  
-Now the operator provide fe and be deployment and management, in next generation will complete cn deployment and management.
-for fe and be deploy example:
+The [Quick Start Guide](./doc/examples) have some examples to deploy doris on kubernetes. they represent some mode to deploy doris on different situation.
+for only deploy fe and be without persistentVolume:
 ```
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/doriscluster-sample.yaml
 ```
+This [doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml) displayed to deploy doris with [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/) mode to provide persistent Volume.
 
 ## Notice 
- 1. Now operator only support the fqdn mode to deploy doris on kubernetes. you should config set `enable_fqdn_mode = true` in every component config file.
- 2. the apache doris docker image default value is false. recommend you reference [example/doriscluster-sample-comfigmap.yaml](./doc/examples/doriscluster-sample-comfigmap.yaml) custom config to deploy doris on kubernetes.
- 3. fe and be print log in /opt/apache-doris/fe/log, /opt/apache-doris/be/log， recommend you mount a volume to log for debug. please reference[example/doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml)
+ 1. Now operator only support the fqdn mode to deploy doris on kubernetes. you should config set `enable_fqdn_mode = true` in every component config file. The apache doris docker image default value is false. recommend you reference [example/doriscluster-sample-comfigmap.yaml](./doc/examples/doriscluster-sample-comfigmap.yaml) to custom config to deploy doris on kubernetes.
+ 3. fe and be print log in /opt/apache-doris/fe/log, /opt/apache-doris/be/log. When have not log processing system on k8s, mount a volume for log directory is good idea. the config to mount volume for log can reference the doc[example/doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml).

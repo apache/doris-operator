@@ -1,3 +1,4 @@
+# This yaml have autoscaler config in contrast to `doriscluster-sample-cn.yaml`, the details usage can reference [doc](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:
