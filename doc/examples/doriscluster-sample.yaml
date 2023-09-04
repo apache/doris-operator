@@ -1,3 +1,7 @@
+# this yaml is the simplest mode to deploy doris with fe and be.
+# the log and be storage use `EmptyDir` mode as disk. when the pod restart the log and storage will lost.
+# This yaml only for experience deploy and usability on k8s about doris.
+
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:

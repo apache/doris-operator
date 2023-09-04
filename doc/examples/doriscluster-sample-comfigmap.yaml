@@ -1,3 +1,6 @@
+# this yaml describe `configmap` config in DorisCluster CRD.
+#Compareed to `doriscluster-sample.yaml`, It have `configmap` config for fe and be.
+
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:
