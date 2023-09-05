@@ -3,7 +3,7 @@ Doris-operator for doris creates, configures and manages doris cluster running o
 Users custom `DorisCluster` CRD to deploy doris as demand.
 
 ## Features
-- Create Doris clusters defined as custom resource
+- Create Doris clusters by custom DorisCluster resource
 - Customized storage provisioning(VolumeClaim templates)
 - Customized pod templates
 - Doris configuration management
