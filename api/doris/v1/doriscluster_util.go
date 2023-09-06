@@ -53,6 +53,8 @@ func GenerateExternalServiceName(dcr *DorisCluster, componentType ComponentType)
 		return dcr.Name + "-" + string(Component_CN) + "-service"
 	case Component_BE:
 		return dcr.Name + "-" + string(Component_BE) + "-service"
+	case Component_Broker:
+		return dcr.Name + "-" + string(Component_Broker) + "-service"
 	default:
 		return ""
 	}
@@ -160,7 +162,7 @@ func beStatefulSetSelector(dcr *DorisCluster) metadata.Labels {
 func brokerStatefulSetSelector(dcr *DorisCluster) metadata.Labels {
 	labels := metadata.Labels{}
 	labels[OwnerReference] = brokerStatefulSetName(dcr)
-	labels[ComponentLabelKey] = string(Component_BE)
+	labels[ComponentLabelKey] = string(Component_Broker)
 	return labels
 }
 
@@ -223,6 +225,8 @@ func GetPodLabels(dcr *DorisCluster, componentType ComponentType) metadata.Label
 		return getBEPodLabels(dcr)
 	case Component_CN:
 		return getCNPodLabels(dcr)
+	case Component_Broker:
+		return getBrokerPodLabels(dcr)
 	default:
 		klog.Infof("GetPodLabels the componentType %s is not supported.", componentType)
 		return metadata.Labels{}
@@ -250,6 +254,13 @@ func getCNPodLabels(dcr *DorisCluster) metadata.Labels {
 	return labels
 }
 
+func getBrokerPodLabels(dcr *DorisCluster) metadata.Labels {
+	labels := brokerStatefulSetSelector(dcr)
+	labels.AddLabel(getDefaultLabels(dcr))
+	labels.AddLabel(dcr.Spec.BrokerSpec.PodLabels)
+	return labels
+}
+
 func getDefaultLabels(dcr *DorisCluster) metadata.Labels {
 	labels := metadata.Labels{}
 	labels[DorisClusterLabelKey] = dcr.Name
@@ -264,6 +275,8 @@ func GetConfigFEAddrForAccess(dcr *DorisCluster, componentType ComponentType) (s
 		return getFEAddrForBackends(dcr)
 	case Component_CN:
 		return getFeAddrForComputeNodes(dcr)
+	case Component_Broker:
+		return getFeAddrForBroker(dcr)
 	default:
 		klog.Infof("GetFEAddrForAccess the componentType %s not supported.", componentType)
 		return "", -1
@@ -303,6 +316,16 @@ func getFeAddrForComputeNodes(dcr *DorisCluster) (string, int) {
 	if dcr.Spec.CnSpec != nil && dcr.Spec.CnSpec.FeAddress != nil {
 		if len(dcr.Spec.CnSpec.FeAddress.Endpoints.Address) != 0 {
 			return getEndpointsToString(dcr.Spec.CnSpec.FeAddress.Endpoints)
+		}
+	}
+
+	return getFEAccessAddrForFEADD(dcr)
+}
+
+func getFeAddrForBroker(dcr *DorisCluster) (string, int) {
+	if dcr.Spec.BrokerSpec != nil && dcr.Spec.BrokerSpec.FeAddress != nil {
+		if len(dcr.Spec.BrokerSpec.FeAddress.Endpoints.Address) != 0 {
+			return getEndpointsToString(dcr.Spec.BrokerSpec.FeAddress.Endpoints)
 		}
 	}
 

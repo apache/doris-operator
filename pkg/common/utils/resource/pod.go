@@ -19,6 +19,7 @@ const (
 	HEALTH_API_PATH = "/api/health"
 	FE_PRESTOP      = "/opt/apache-doris/fe_prestop.sh"
 	BE_PRESTOP      = "/opt/apache-doris/be_prestop.sh"
+	BROKER_PRESTOP  = "/opt/apache-doris/broker_prestop.sh"
 
 	//keys for pod env variables
 	POD_NAME           = "POD_NAME"
@@ -45,6 +46,8 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
+	case v1.Component_Broker:
+		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -99,6 +102,8 @@ func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		}}
+	case v1.Component_Broker:
+		return []corev1.Volume{}
 	default:
 		klog.Infof("newDefaultVolume have not support componentType %s", componentType)
 		return []corev1.Volume{}
@@ -212,6 +217,9 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	case v1.Component_BE, v1.Component_CN:
 		healthPort = GetPort(config, WEBSERVER_PORT)
 		prestopScript = BE_PRESTOP
+	case v1.Component_Broker:
+		healthPort = GetPort(config, BROKER_IPC_PORT)
+		prestopScript = BROKER_PRESTOP
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
@@ -301,6 +309,8 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 		return []string{"/opt/apache-doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case v1.Component_BE, v1.Component_CN:
 		return []string{"/opt/apache-doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
+	case v1.Component_Broker:
+		return []string{"/opt/apache-doris/broker_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	default:
 		klog.Infof("getCommand the componentType %s is not supported.", componentType)
 		return []string{}, []string{}
@@ -411,7 +421,7 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 		}
 
 		switch componentType {
-		case v1.Component_FE, v1.Component_BE, v1.Component_CN:
+		case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
 			volumeMount.MountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
