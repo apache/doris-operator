@@ -73,39 +73,58 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 	selector := v1.GenerateServiceSelector(dcr, componentType)
 	//the k8s service type.
 	var ports []corev1.ServicePort
+	var exportService *v1.ExportService
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v1.GenerateExternalServiceName(dcr, componentType),
 			Namespace: dcr.Namespace,
 			Labels:    labels,
 		},
-		Spec: corev1.ServiceSpec{
-			Selector: selector,
-		},
 	}
 
 	switch componentType {
 	case v1.Component_FE:
-		setServiceType(dcr.Spec.FeSpec.Service, &svc)
+		exportService = dcr.Spec.FeSpec.Service
 		ports = getFeServicePorts(config)
 	case v1.Component_BE:
 		//cn is be, but for user we should make them clear for ability recognition
-		setServiceType(dcr.Spec.BeSpec.Service, &svc)
+		exportService = dcr.Spec.BeSpec.Service
 		ports = getBeServicePorts(config)
 	case v1.Component_CN:
-		setServiceType(dcr.Spec.CnSpec.Service, &svc)
+		exportService = dcr.Spec.CnSpec.Service
 		ports = getBeServicePorts(config)
 	default:
 		klog.Infof("BuildExternalService componentType %s not supported.")
 	}
 
+	constructServiceSpec(exportService, &svc, selector, ports)
 	svc.OwnerReferences = []metav1.OwnerReference{getOwnerReference(dcr)}
 	hso := serviceHashObject(&svc)
 	anno := map[string]string{}
 	anno[v1.ComponentResourceHash] = hash.HashObject(hso)
 	svc.Annotations = anno
-	svc.Spec.Ports = ports
 	return svc
+}
+
+func constructServiceSpec(exportService *v1.ExportService, svc *corev1.Service, selector map[string]string, ports []corev1.ServicePort) {
+	var exportPorts []v1.DorisServicePort
+	if exportService != nil {
+		exportPorts = exportService.ServicePorts
+	}
+
+	for _, ep := range exportPorts {
+		for i, _ := range ports {
+			if int(ep.TargetPort) == ports[i].TargetPort.IntValue() {
+				ports[i].NodePort = ep.NodePort
+			}
+		}
+	}
+
+	svc.Spec = corev1.ServiceSpec{
+		Selector: selector,
+		Ports:    ports,
+	}
+	setServiceType(exportService, svc)
 }
 
 func getOwnerReference(dcr *v1.DorisCluster) metav1.OwnerReference {
