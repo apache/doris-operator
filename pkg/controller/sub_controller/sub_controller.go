@@ -137,3 +137,36 @@ func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
 	}
 	return false
 }
+
+func ApplyRequiredPodAffinity(spec *dorisv1.BaseSpec, rule corev1.PodAffinityTerm) {
+	if spec.Affinity == nil {
+		spec.Affinity = &corev1.Affinity{}
+	}
+	if spec.Affinity.PodAffinity == nil {
+		spec.Affinity.PodAffinity = &corev1.PodAffinity{}
+	}
+
+	spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+		spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+		rule,
+	)
+}
+
+func ApplyPreferredPodAffinity(spec *dorisv1.BaseSpec, rule corev1.PodAffinityTerm, weight int32) {
+
+	term := corev1.WeightedPodAffinityTerm{
+		Weight:          weight,
+		PodAffinityTerm: rule,
+	}
+	if spec.Affinity == nil {
+		spec.Affinity = &corev1.Affinity{}
+	}
+	if spec.Affinity.PodAffinity == nil {
+		spec.Affinity.PodAffinity = &corev1.PodAffinity{}
+	}
+
+	spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		term,
+	)
+}

@@ -16,4 +16,4 @@ spec:
     image: selectdb/doris.be-ubuntu:latest
   brokerSpec:
     replicas: 1
-    image: selectdb/doris.broker-ubuntu:latest
+    image: selectdb/doris.broker-ubuntu:dev

@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
+	"strconv"
 )
 
 const (
@@ -16,10 +17,11 @@ const (
 	fe_meta_path    = "/opt/apache-doris/fe/doris-meta"
 	fe_meta_name    = "fe-meta"
 
-	HEALTH_API_PATH = "/api/health"
-	FE_PRESTOP      = "/opt/apache-doris/fe_prestop.sh"
-	BE_PRESTOP      = "/opt/apache-doris/be_prestop.sh"
-	BROKER_PRESTOP  = "/opt/apache-doris/broker_prestop.sh"
+	HEALTH_API_PATH  = "/api/health"
+	HEALTH_BROKER_SH = "/opt/apache-doris/broker_is_alive.sh"
+	FE_PRESTOP       = "/opt/apache-doris/fe_prestop.sh"
+	BE_PRESTOP       = "/opt/apache-doris/be_prestop.sh"
+	BROKER_PRESTOP   = "/opt/apache-doris/broker_prestop.sh"
 
 	//keys for pod env variables
 	POD_NAME           = "POD_NAME"
@@ -220,6 +222,13 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	case v1.Component_Broker:
 		healthPort = GetPort(config, BROKER_IPC_PORT)
 		prestopScript = BROKER_PRESTOP
+		if healthPort != 0 {
+			c.LivenessProbe = brokerLivenessProbe(healthPort)
+			c.StartupProbe = brokerStartupProbe(healthPort)
+			c.ReadinessProbe = brokerReadinessProbe(healthPort)
+			c.Lifecycle = lifeCycle(prestopScript)
+		}
+		return c
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
@@ -478,5 +487,40 @@ func getProbe(port int32, path string) corev1.ProbeHandler {
 				IntVal: port,
 			},
 		},
+	}
+}
+
+func getBrokerProbe(port int32) corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{"sh", HEALTH_BROKER_SH, strconv.Itoa(int(port))},
+		},
+	}
+}
+
+// StartupProbe returns a startup probe.
+func brokerStartupProbe(port int32) *corev1.Probe {
+	return &corev1.Probe{
+		FailureThreshold: 60,
+		PeriodSeconds:    5,
+		ProbeHandler:     getBrokerProbe(port),
+	}
+}
+
+// livenessProbe returns a liveness.
+func brokerLivenessProbe(port int32) *corev1.Probe {
+	return &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler:     getBrokerProbe(port),
+	}
+}
+
+// ReadinessProbe returns a readiness probe.
+func brokerReadinessProbe(port int32) *corev1.Probe {
+	return &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler:     getBrokerProbe(port),
 	}
 }

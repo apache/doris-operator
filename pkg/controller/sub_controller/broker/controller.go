@@ -46,6 +46,8 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return nil
 	}
 	brokerSpec := dcr.Spec.BrokerSpec
+
+	sub_controller.ApplyRequiredPodAffinity(&brokerSpec.BaseSpec, bk.getBorkerPodAffinityRule())
 	//get the broker configMap for resolve ports.
 	//2. get config for generate statefulset and service.
 	config, err := bk.GetConfig(ctx, &brokerSpec.ConfigMapInfo, dcr.Namespace)

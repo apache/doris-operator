@@ -5,6 +5,7 @@ import (
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 )
 
@@ -49,4 +50,21 @@ func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container
 	})
 
 	return c
+}
+
+// the broker Pod Affinity rule, .
+func (broker *Controller) getBorkerPodAffinityRule() corev1.PodAffinityTerm {
+
+	matchExpressions := []metav1.LabelSelectorRequirement{
+		{Key: v1.ComponentLabelKey, Operator: metav1.LabelSelectorOpIn, Values: []string{string(v1.Component_BE)}},
+	}
+
+	labelSelector := &metav1.LabelSelector{
+		MatchExpressions: matchExpressions,
+	}
+
+	return corev1.PodAffinityTerm{
+		LabelSelector: labelSelector,
+		TopologyKey:   "kubernetes.io/hostname", // Match nodes based on hostname.
+	}
 }

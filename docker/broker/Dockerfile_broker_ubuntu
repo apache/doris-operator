@@ -36,11 +36,11 @@ RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 ENV JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
 
 # apache-doris/broker from doris release xxxx.tar.gz
-ADD resource/apache-doris-xxxx/extensions/apache_hdfs_broker /opt/apache-doris/apache_hdfs_broker
+ADD resource/apache-doris-2.0.0-bin-x64/extensions/apache_hdfs_broker /opt/apache-doris/apache_hdfs_broker
 
 COPY resource/broker_*.sh /opt/apache-doris/
 
-COPY resource/broker_entrypoint.sh /usr/local/bin/entry_point.sh
+RUN chmod +x /opt/apache-doris/broker_*.sh
 
 WORKDIR /opt/apache-doris
 

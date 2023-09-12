@@ -14,7 +14,7 @@ MY_IP=`hostname -i`
 MY_HOSTNAME=`hostname -f`
 DORIS_ROOT=${DORIS_ROOT:-"/opt/apache-doris"}
 DORIS_HOME=${DORIS_ROOT}/apache_hdfs_broker
-BK_CONFIG=$DORIS_HOME/conf/apache_hdfs_broker.conf
+BK_CONFIG=$DORIS_HOME/confi/apache_hdfs_broker.conf
 BK_NAME=broker001
 # represents self in fe meta or not.
 REGISTERED=false
