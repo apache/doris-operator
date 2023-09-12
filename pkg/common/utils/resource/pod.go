@@ -149,8 +149,12 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 
 func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Container {
 	enablePrivileged := true
+	initImage := si.InitImage
+	if initImage == "" {
+		initImage = "alpine:latest"
+	}
 	c := corev1.Container{
-		Image:           "alpine:latest",
+		Image:           initImage,
 		Name:            name,
 		Command:         si.Command,
 		ImagePullPolicy: corev1.PullIfNotPresent,

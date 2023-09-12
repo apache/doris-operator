@@ -180,6 +180,9 @@ type BaseSpec struct {
 }
 
 type SystemInitialization struct {
+	//Image for doris initialization, default is alpine:latest.
+	InitImage string `json:"initImage,omitempty"`
+
 	// Entrypoint array. Not executed within a shell.
 	Command []string `json:"command,omitempty"`
 
