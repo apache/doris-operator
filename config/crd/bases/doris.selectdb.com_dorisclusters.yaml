@@ -1488,6 +1488,9 @@ spec:
                         items:
                           type: string
                         type: array
+                      initImage:
+                        description: Image for doris initialization, default is alpine:latest.
+                        type: string
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -3025,6 +3028,10 @@ spec:
                             items:
                               type: string
                             type: array
+                          initImage:
+                            description: Image for doris initialization, default is
+                              alpine:latest.
+                            type: string
                         type: object
                       tolerations:
                         description: (Optional) Tolerations for scheduling pods onto
@@ -5234,6 +5241,9 @@ spec:
                         items:
                           type: string
                         type: array
+                      initImage:
+                        description: Image for doris initialization, default is alpine:latest.
+                        type: string
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -6714,6 +6724,9 @@ spec:
                         items:
                           type: string
                         type: array
+                      initImage:
+                        description: Image for doris initialization, default is alpine:latest.
+                        type: string
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
