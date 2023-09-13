@@ -1131,6 +1131,9 @@ spec:
                   image:
                     description: Image for a doris cn deployment.
                     type: string
+                  imagePullPolicy:
+                    description: 'Image pull policy. More info: https://kubernetes.io/docs/concepts/containers/images/#updating-images'
+                    type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
                       to secrets in the same namespace to use for pulling any of the
@@ -2651,6 +2654,9 @@ spec:
                         type: array
                       image:
                         description: Image for a doris cn deployment.
+                        type: string
+                      imagePullPolicy:
+                        description: 'Image pull policy. More info: https://kubernetes.io/docs/concepts/containers/images/#updating-images'
                         type: string
                       imagePullSecrets:
                         description: 'ImagePullSecrets is an optional list of references
@@ -4884,6 +4890,9 @@ spec:
                   image:
                     description: Image for a doris cn deployment.
                     type: string
+                  imagePullPolicy:
+                    description: 'Image pull policy. More info: https://kubernetes.io/docs/concepts/containers/images/#updating-images'
+                    type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
                       to secrets in the same namespace to use for pulling any of the
@@ -6366,6 +6375,9 @@ spec:
                     type: array
                   image:
                     description: Image for a doris cn deployment.
+                    type: string
+                  imagePullPolicy:
+                    description: 'Image pull policy. More info: https://kubernetes.io/docs/concepts/containers/images/#updating-images'
                     type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
