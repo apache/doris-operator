@@ -122,19 +122,6 @@ func (bk *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) 
 	return true, nil
 }
 
-//func (bk *Controller) GetConfig(ctx context.Context, configMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-//	configMap, err := k8s.GetConfigMap(ctx, bk.K8sclient, namespace, configMapInfo.ConfigMapName)
-//	if err != nil && apierrors.IsNotFound(err) {
-//		klog.Info("BrokerController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)
-//		return make(map[string]interface{}), nil
-//	} else if err != nil {
-//		return make(map[string]interface{}), err
-//	}
-//
-//	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
-//	return res, err
-//}
-
 func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
 	if feconfigMapInfo.ConfigMapName == "" {
 		return make(map[string]interface{}), nil
@@ -150,25 +137,3 @@ func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.Confi
 	res, err := resource.ResolveConfigMap(feconfigMap, feconfigMapInfo.ResolveKey)
 	return res, err
 }
-
-//func (bk *Controller) feAvailable(dcr *v1.DorisCluster) bool {
-//	addr, _ := v1.GetConfigFEAddrForAccess(dcr, v1.Component_Broker)
-//	if addr != "" {
-//		return true
-//	}
-//
-//	//if fe deploy in k8s, should wait fe available
-//	//1. wait for fe ok.
-//	endpoints := corev1.Endpoints{}
-//	if err := bk.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: dcr.Namespace, Name: v1.GenerateExternalServiceName(dcr, v1.Component_FE)}, &endpoints); err != nil {
-//		klog.Infof("BrokerController Sync wait fe service name %s available occur failed %s\n", v1.GenerateExternalServiceName(dcr, v1.Component_FE), err.Error())
-//		return false
-//	}
-//
-//	for _, sub := range endpoints.Subsets {
-//		if len(sub.Addresses) > 0 {
-//			return true
-//		}
-//	}
-//	return false
-//}

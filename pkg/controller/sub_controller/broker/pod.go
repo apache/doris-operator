@@ -52,7 +52,7 @@ func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container
 	return c
 }
 
-// the broker Pod Affinity rule, .
+// the broker Pod Affinity rule
 func (broker *Controller) getBorkerPodAffinityRule() corev1.PodAffinityTerm {
 
 	matchExpressions := []metav1.LabelSelectorRequirement{
@@ -65,6 +65,6 @@ func (broker *Controller) getBorkerPodAffinityRule() corev1.PodAffinityTerm {
 
 	return corev1.PodAffinityTerm{
 		LabelSelector: labelSelector,
-		TopologyKey:   "kubernetes.io/hostname", // Match nodes based on hostname.
+		TopologyKey:   "kubernetes.io/hostname",
 	}
 }

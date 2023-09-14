@@ -310,7 +310,7 @@ spec:
             - /dorisoperator
           args:
             - --leader-elect
-          image: catpineapple/doris-operator:dev
+          image: selectdb/doris.k8s-operator:latest
           name: dorisoperator
           securityContext:
             allowPrivilegeEscalation: false
