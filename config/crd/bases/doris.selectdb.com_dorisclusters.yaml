@@ -2862,129 +2862,6 @@ spec:
                             storageClassName:
                               description: 'storageClassName is the name of the StorageClass
                                 required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
-                          type: object
-                        type: array
-                      podLabels:
-                        additionalProperties:
-                          type: string
-                        description: podLabels for user selector or classify pods
-                        type: object
-                      replicas:
-                        description: Replicas is the number of desired cn Pod.
-                        format: int32
-                        minimum: 0
-                        type: integer
-                      requests:
-                        additionalProperties:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        description: 'Requests describes the minimum amount of compute
-                          resources required. If Requests is omitted for a container,
-                          it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                        type: object
-                      service:
-                        description: expose the be listen ports
-                        properties:
-                          loadBalancerIP:
-                            description: 'Only applies to Service Type: LoadBalancer.
-                              This feature depends on whether the underlying cloud-provider
-                              supports specifying the loadBalancerIP when a load balancer
-                              is created. This field will be ignored if the cloud-provider
-                              does not support the feature. This field was under-specified
-                              and its meaning varies across implementations, and it
-                              cannot support dual-stack. As of Kubernetes v1.24, users
-                              are encouraged to use implementation-specific annotations
-                              when available. This field may be removed in a future
-                              API version.'
-                            type: string
-                          servicePorts:
-                            description: ServicePort config service for NodePort access
-                              mode.
-                            items:
-                              description: DorisServicePort for ServiceType=NodePort
-                                situation.
-                              properties:
-                                nodePort:
-                                  description: 'The port on each node on which this
-                                    service is exposed when type is NodePort or LoadBalancer.  Usually
-                                    assigned by the system. If a value is specified,
-                                    in-range, and not in use it will be used, otherwise
-                                    the operation will fail.  If not specified, a
-                                    port will be allocated if this Service requires
-                                    one.  If this field is specified when creating
-                                    a Service which does not need it, creation will
-                                    fail. This field will be wiped when updating a
-                                    Service to no longer need it (e.g. changing type
-                                    from NodePort to ClusterIP). More info: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
-                                    need in 30000-32767'
-                                  format: int32
-                                  type: integer
-                                targetPort:
-                                  description: 'Number or name of the port to access
-                                    on the pods targeted by the service. Number must
-                                    be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
-                                    If this is a string, it will be looked up as a
-                                    named port in the target Pod''s container ports.
-                                    If this is not specified, the value of the ''port''
-                                    field is used (an identity map). This field is
-                                    ignored for services with clusterIP=None, and
-                                    should be omitted or set equal to the ''port''
-                                    field. More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service'
-                                  format: int32
-                                  type: integer
-                              type: object
-                            type: array
-                          type:
-                            description: 'type of service,the possible value for the
-                              service type are : ClusterIP, NodePort, LoadBalancer,ExternalName.
-                              More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types'
-                            type: string
-                        type: object
-                      serviceAccount:
-                        description: serviceAccount for cn access cloud service.
-                        type: string
-                      systemInitialization:
-                        description: SystemInitialization for fe, be and cn setting
-                          system parameters.
-                        properties:
-                          args:
-                            description: Arguments to the entrypoint.
-                            items:
-                              type: string
-                            type: array
-                          command:
-                            description: Entrypoint array. Not executed within a shell.
-                            items:
-                              type: string
-                            type: array
-                          initImage:
-                            description: Image for doris initialization, default is
-                              alpine:latest.
-                            type: string
-                        type: object
-                      tolerations:
-                        description: (Optional) Tolerations for scheduling pods onto
-                          some dedicated nodes
-                        items:
-                          description: The pod this Toleration is attached to tolerates
-                            any taint that matches the triple <key,value,effect> using
-                            the matching operator <operator>.
-                          properties:
-                            effect:
-                              description: Effect indicates the taint effect to match.
-                                Empty means match all taint effects. When specified,
-                                allowed values are NoSchedule, PreferNoSchedule and
-                                NoExecute.
-                              type: string
-                            key:
-                              description: Key is the taint key that the toleration
-                                applies to. Empty means match all taint keys. If the
-                                key is empty, operator must be Exists; this combination
-                                means to match all values and all keys.
                               type: string
                             volumeMode:
                               description: volumeMode defines what type of volume
@@ -3091,6 +2968,9 @@ spec:
                         items:
                           type: string
                         type: array
+                      initImage:
+                        description: Image for doris initialization, default is alpine:latest.
+                        type: string
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
