@@ -520,6 +520,19 @@ file if specified. This is only valid for non-hostNetwork pods.</p>
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>systemInitialization</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.SystemInitialization">
+SystemInitialization
+</a>
+</em>
+</td>
+<td>
+<p>SystemInitialization for fe, be and cn setting system parameters.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.BeSpec">BeSpec
@@ -1192,6 +1205,64 @@ ComponentStatus
 </tr>
 </tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.DorisServicePort">DorisServicePort
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.ExportService">ExportService</a>)
+</p>
+<div>
+<p>DorisServicePort for ServiceType=NodePort situation.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>nodePort</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The port on each node on which this service is exposed when type is
+NodePort or LoadBalancer.  Usually assigned by the system. If a value is
+specified, in-range, and not in use it will be used, otherwise the
+operation will fail.  If not specified, a port will be allocated if this
+Service requires one.  If this field is specified when creating a
+Service which does not need it, creation will fail. This field will be
+wiped when updating a Service to no longer need it (e.g. changing type
+from NodePort to ClusterIP).
+More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport</a>
+need in 30000-32767</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetPort</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Number or name of the port to access on the pods targeted by the service.
+Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+If this is a string, it will be looked up as a named port in the
+target Pod&rsquo;s container ports. If this is not specified, the value
+of the &lsquo;port&rsquo; field is used (an identity map).
+This field is ignored for services with clusterIP=None, and should be
+omitted or set equal to the &lsquo;port&rsquo; field.
+More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service">https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service</a></p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.Endpoints">Endpoints
 </h3>
 <p>
@@ -1261,6 +1332,19 @@ Kubernetes core/v1.ServiceType
 <em>(Optional)</em>
 <p>type of service,the possible value for the service type are : ClusterIP, NodePort, LoadBalancer,ExternalName.
 More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types">https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>servicePorts</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.DorisServicePort">
+[]DorisServicePort
+</a>
+</em>
+</td>
+<td>
+<p>ServicePort config service for NodePort access mode.</p>
 </td>
 </tr>
 <tr>
@@ -2273,8 +2357,47 @@ MetricTarget
 <td></td>
 </tr></tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.SystemInitialization">SystemInitialization
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.BaseSpec">BaseSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>command</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Entrypoint array. Not executed within a shell.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>args</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Arguments to the entrypoint.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>2d69075</code>.
+on git commit <code>8970cb1</code>.
 </em></p>
