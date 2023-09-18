@@ -2374,6 +2374,17 @@ MetricTarget
 <tbody>
 <tr>
 <td>
+<code>initImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Image for doris initialization, default is alpine:latest.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>command</code><br/>
 <em>
 []string
@@ -2399,5 +2410,5 @@ MetricTarget
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>8970cb1</code>.
+on git commit <code>211df42</code>.
 </em></p>

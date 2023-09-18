@@ -18,3 +18,5 @@ spec:
     image: selectdb/doris.be-ubuntu:latest
     systemInitialization:
       command: ["/sbin/sysctl", "-w", "vm.max_map_count=2000000"]
+      # the default image use selectdb/alpine:latest, if you k8s cluster not access internet, you can specify initImage by follow field.
+      #initImage: selectdb/alpine:latest

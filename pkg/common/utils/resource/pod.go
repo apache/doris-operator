@@ -151,7 +151,7 @@ func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Conta
 	enablePrivileged := true
 	initImage := si.InitImage
 	if initImage == "" {
-		initImage = "alpine:latest"
+		initImage = "selectdb/alpine:latest"
 	}
 	c := corev1.Container{
 		Image:           initImage,
