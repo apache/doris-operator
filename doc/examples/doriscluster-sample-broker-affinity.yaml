@@ -1,0 +1,29 @@
+apiVersion: doris.selectdb.com/v1
+kind: DorisCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: doriscluster-sample
+    app.kubernetes.io/part-of: doris-operator
+  name: doriscluster-sample
+  namespace: doris
+spec:
+  feSpec:
+    replicas: 1
+    image: selectdb/doris.fe-ubuntu:latest
+  beSpec:
+    replicas: 1
+    image: selectdb/doris.be-ubuntu:latest
+  brokerSpec:
+    replicas: 1
+    image: selectdb/doris.broker-ubuntu:latest
+    affinity:
+      podAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: "app.kubernetes.io/component"
+                  operator: "In"
+                  values:
+                    - "fe"
+            topologyKey: kubernetes.io/hostname

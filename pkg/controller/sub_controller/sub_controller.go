@@ -144,12 +144,13 @@ func ApplyRequiredPodAffinity(spec *dorisv1.BaseSpec, rule corev1.PodAffinityTer
 	}
 	if spec.Affinity.PodAffinity == nil {
 		spec.Affinity.PodAffinity = &corev1.PodAffinity{}
+		spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+			spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+			rule,
+		)
+	} else {
+		klog.Infof("User affinity take effect, doris-operator default affinity will be overwritten.")
 	}
-
-	spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
-		spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
-		rule,
-	)
 }
 
 func ApplyPreferredPodAffinity(spec *dorisv1.BaseSpec, rule corev1.PodAffinityTerm, weight int32) {
