@@ -47,7 +47,6 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 	brokerSpec := dcr.Spec.BrokerSpec
 
-	sub_controller.ApplyRequiredPodAffinity(&brokerSpec.BaseSpec, bk.getBorkerPodAffinityRule())
 	//get the broker configMap for resolve ports.
 	//2. get config for generate statefulset and service.
 	config, err := bk.GetConfig(ctx, &brokerSpec.ConfigMapInfo, dcr.Namespace)
@@ -56,18 +55,10 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
-	//generate new broker service.
-	svc := resource.BuildExternalService(dcr, v1.Component_Broker, config)
-	//create or update bk external and domain search service, update the status of fe on src.
 	internalService := resource.BuildInternalService(dcr, v1.Component_Broker, config)
 	if err := k8s.ApplyService(ctx, bk.K8sclient, &internalService, resource.ServiceDeepEqual); err != nil {
 		klog.Errorf("broker controller sync apply internalService name=%s, namespace=%s, clusterName=%s failed.message=%s.",
 			internalService.Name, internalService.Namespace, dcr.Name, err.Error())
-		return err
-	}
-	if err := k8s.ApplyService(ctx, bk.K8sclient, &svc, resource.ServiceDeepEqual); err != nil {
-		klog.Errorf("broker controller sync apply external service name=%s, namespace=%s, clusterName=%s failed. message=%s.",
-			svc.Name, svc.Namespace, dcr.Name, err.Error())
 		return err
 	}
 

@@ -98,9 +98,6 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 	case v1.Component_CN:
 		exportService = dcr.Spec.CnSpec.Service
 		ports = getBeServicePorts(config)
-	case v1.Component_Broker:
-		setServiceType(dcr.Spec.BrokerSpec.Service, &svc)
-		ports = getBrokerServicePorts(config)
 	default:
 		klog.Infof("BuildExternalService componentType %s not supported.")
 	}
@@ -177,14 +174,6 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: GetPortKey(BRPC_PORT),
 	})
 
-	return
-}
-
-func getBrokerServicePorts(config map[string]interface{}) (ports []corev1.ServicePort) {
-	ipcPort := GetPort(config, BROKER_IPC_PORT)
-	ports = append(ports, corev1.ServicePort{
-		Port: ipcPort, TargetPort: intstr.FromInt(int(ipcPort)), Name: GetPortKey(BROKER_IPC_PORT),
-	})
 	return
 }
 

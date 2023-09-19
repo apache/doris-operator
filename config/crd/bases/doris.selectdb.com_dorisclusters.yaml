@@ -2628,6 +2628,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                  kickOffAffinityBe:
+                    description: Enable affinity configuration switch, default:false
+                    type: boolean
                   limits:
                     additionalProperties:
                       anyOf:

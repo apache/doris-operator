@@ -98,6 +98,9 @@ type BrokerSpec struct {
 	//the foundation spec for creating cn software services.
 	//BaseSpec `json:"baseSpec,omitempty"`
 	BaseSpec `json:",inline"`
+
+	// Enable affinity configuration switch, default:false
+	KickOffAffinityBe bool `json:"kickOffAffinityBe,omitempty"`
 }
 
 // BaseSpec describe the foundation spec of pod about doris components.

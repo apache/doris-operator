@@ -16,6 +16,7 @@ spec:
     image: selectdb/doris.be-ubuntu:latest
   brokerSpec:
     replicas: 1
+    kickOffAffinityBe: true
     image: selectdb/doris.broker-ubuntu:latest
     affinity:
       podAffinity:
@@ -25,5 +26,5 @@ spec:
                 - key: "app.kubernetes.io/component"
                   operator: "In"
                   values:
-                    - "fe"
+                    - "be"
             topologyKey: kubernetes.io/hostname
