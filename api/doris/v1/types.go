@@ -99,7 +99,9 @@ type BrokerSpec struct {
 	//BaseSpec `json:"baseSpec,omitempty"`
 	BaseSpec `json:",inline"`
 
-	// Enable affinity configuration switch, default:false
+	// enable affinity with be , if kickoff affinity, the operator will set affinity on broker with be.
+	// The affinity is preferred but not required.
+	// When the user custom affinity the switch does not take effect anymore.
 	KickOffAffinityBe bool `json:"kickOffAffinityBe,omitempty"`
 }
 
