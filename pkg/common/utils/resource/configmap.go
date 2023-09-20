@@ -24,6 +24,8 @@ const (
 	BRPC_PORT              = "brpc_port"
 )
 
+const BROKER_IPC_PORT = "broker_ipc_port"
+
 // defMap the default port about abilities.
 var defMap = map[string]int32{
 	HTTP_PORT:              8030,
@@ -35,6 +37,7 @@ var defMap = map[string]int32{
 	WEBSERVER_PORT:         8040,
 	HEARTBEAT_SERVICE_PORT: 9050,
 	BRPC_PORT:              8060,
+	BROKER_IPC_PORT:        8000,
 }
 
 func ResolveConfigMap(configMap *corev1.ConfigMap, key string) (map[string]interface{}, error) {

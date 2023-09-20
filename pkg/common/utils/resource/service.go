@@ -60,7 +60,12 @@ func getInternalServicePort(config map[string]interface{}, componentType v1.Comp
 			Port:       GetPort(config, HEARTBEAT_SERVICE_PORT),
 			TargetPort: intstr.FromInt(int(GetPort(config, HEARTBEAT_SERVICE_PORT))),
 		}
-
+	case v1.Component_Broker:
+		return corev1.ServicePort{
+			Name:       GetPortKey(BROKER_IPC_PORT),
+			Port:       GetPort(config, BROKER_IPC_PORT),
+			TargetPort: intstr.FromInt(int(GetPort(config, BROKER_IPC_PORT))),
+		}
 	default:
 		klog.Infof("getInternalServicePort not supported the type %s", componentType)
 		return corev1.ServicePort{}
@@ -178,6 +183,8 @@ func GetContainerPorts(config map[string]interface{}, componentType v1.Component
 		return getFeContainerPorts(config)
 	case v1.Component_BE:
 		return getBeContainerPorts(config)
+	case v1.Component_Broker:
+		return getBrokerContainerPorts(config)
 	default:
 		klog.Infof("GetContainerPorts the componentType %s not supported.", componentType)
 		return []corev1.ContainerPort{}
@@ -225,6 +232,15 @@ func getBeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 	}
 }
 
+func getBrokerContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			Name:          GetPortKey(BROKER_IPC_PORT),
+			ContainerPort: GetPort(config, BROKER_IPC_PORT),
+		},
+	}
+}
+
 func GetPortKey(configKey string) string {
 	switch configKey {
 	case BE_PORT:
@@ -243,6 +259,8 @@ func GetPortKey(configKey string) string {
 		return strings.ReplaceAll(RPC_PORT, "_", "-")
 	case EDIT_LOG_PORT:
 		return strings.ReplaceAll(EDIT_LOG_PORT, "_", "-")
+	case BROKER_IPC_PORT:
+		return strings.ReplaceAll(BROKER_IPC_PORT, "_", "-")
 
 	default:
 		return ""

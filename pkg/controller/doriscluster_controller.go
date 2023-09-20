@@ -21,6 +21,7 @@ import (
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/be"
+	bk "github.com/selectdb/doris-operator/pkg/controller/sub_controller/broker"
 	cn "github.com/selectdb/doris-operator/pkg/controller/sub_controller/cn"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/fe"
 	appv1 "k8s.io/api/apps/v1"
@@ -45,10 +46,11 @@ import (
 )
 
 var (
-	name             = "dorisscluster-controller"
-	feControllerName = "fe-controller"
-	cnControllerName = "cn-controller"
-	beControllerName = "be-controller"
+	name                 = "dorisscluster-controller"
+	feControllerName     = "fe-controller"
+	cnControllerName     = "cn-controller"
+	beControllerName     = "be-controller"
+	brokerControllerName = "broker-controller"
 )
 
 // DorisClusterReconciler reconciles a DorisCluster object
@@ -171,6 +173,12 @@ func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
 		}
 	}
 
+	if dcr.Spec.BrokerSpec != nil {
+		if dcr.Status.BrokerStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -248,6 +256,8 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager) {
 	subcs[beControllerName] = be
 	cn := cn.New(mgr.GetClient(), mgr.GetEventRecorderFor(cnControllerName))
 	subcs[cnControllerName] = cn
+	brk := bk.New(mgr.GetClient(), mgr.GetEventRecorderFor(brokerControllerName))
+	subcs[brokerControllerName] = brk
 
 	if err := (&DorisClusterReconciler{
 		Client:   mgr.GetClient(),

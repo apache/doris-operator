@@ -95,11 +95,14 @@ type CnSpec struct {
 
 // BrokerSpec describes a template for creating copies of a broker software service, if deploy broker we recommend you add affinity for deploy with be pod.
 type BrokerSpec struct {
-	//expose the cn listen ports
-	Service ExportService `json:"service,omitempty"`
-
 	//the foundation spec for creating cn software services.
-	BaseSpec `json:"baseSpec,omitempty"`
+	//BaseSpec `json:"baseSpec,omitempty"`
+	BaseSpec `json:",inline"`
+
+	// enable affinity with be , if kickoff affinity, the operator will set affinity on broker with be.
+	// The affinity is preferred but not required.
+	// When the user custom affinity the switch does not take effect anymore.
+	KickOffAffinityBe bool `json:"kickOffAffinityBe,omitempty"`
 }
 
 // BaseSpec describe the foundation spec of pod about doris components.
@@ -338,6 +341,7 @@ const (
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`
+// +kubebuilder:printcolumn:name="BrokerStatus",type=string,JSONPath=`.status.brokerStatus.componentCondition.phase`
 // +kubebuilder:storageversion
 // DorisCluster is the Schema for the dorisclusters API
 type DorisCluster struct {

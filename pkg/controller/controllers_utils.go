@@ -8,7 +8,8 @@ import (
 func inconsistentStatus(status *v1.DorisClusterStatus, dcr *v1.DorisCluster) bool {
 	return inconsistentFEStatus(status.FEStatus, dcr.Status.FEStatus) ||
 		inconsistentBEStatus(status.BEStatus, dcr.Status.BEStatus) ||
-		inconsistentCnStatus(status.CnStatus, dcr.Status.CnStatus)
+		inconsistentCnStatus(status.CnStatus, dcr.Status.CnStatus) ||
+		inconsistentBrokerStatus(status.BrokerStatus, dcr.Status.BrokerStatus)
 }
 
 func inconsistentCnStatus(eStatus *v1.CnStatus, nStatus *v1.CnStatus) bool {
@@ -37,6 +38,10 @@ func inconsistentFEStatus(eFeStatus *v1.ComponentStatus, nFeStatus *v1.Component
 
 func inconsistentBEStatus(eBeStatus *v1.ComponentStatus, nBeStatus *v1.ComponentStatus) bool {
 	return inconsistentComponentStatus(eBeStatus, nBeStatus)
+}
+
+func inconsistentBrokerStatus(eBkStatus *v1.ComponentStatus, nBkStatus *v1.ComponentStatus) bool {
+	return inconsistentComponentStatus(eBkStatus, nBkStatus)
 }
 
 func inconsistentComponentStatus(eStatus *v1.ComponentStatus, nStatus *v1.ComponentStatus) bool {

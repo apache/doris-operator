@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
+	"strconv"
 )
 
 const (
@@ -16,9 +17,11 @@ const (
 	fe_meta_path    = "/opt/apache-doris/fe/doris-meta"
 	fe_meta_name    = "fe-meta"
 
-	HEALTH_API_PATH = "/api/health"
-	FE_PRESTOP      = "/opt/apache-doris/fe_prestop.sh"
-	BE_PRESTOP      = "/opt/apache-doris/be_prestop.sh"
+	HEALTH_API_PATH            = "/api/health"
+	HEALTH_BROKER_LIVE_COMMAND = "/opt/apache-doris/broker_is_alive.sh"
+	FE_PRESTOP                 = "/opt/apache-doris/fe_prestop.sh"
+	BE_PRESTOP                 = "/opt/apache-doris/be_prestop.sh"
+	BROKER_PRESTOP             = "/opt/apache-doris/broker_prestop.sh"
 
 	//keys for pod env variables
 	POD_NAME           = "POD_NAME"
@@ -45,6 +48,8 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
+	case v1.Component_Broker:
+		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -99,6 +104,8 @@ func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		}}
+	case v1.Component_Broker:
+		return []corev1.Volume{}
 	default:
 		klog.Infof("newDefaultVolume have not support componentType %s", componentType)
 		return []corev1.Volume{}
@@ -209,21 +216,28 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 
 	var healthPort int32
 	var prestopScript string
+	var health_api_path string
 	switch componentType {
 	case v1.Component_FE:
 		healthPort = GetPort(config, HTTP_PORT)
 		prestopScript = FE_PRESTOP
+		health_api_path = HEALTH_API_PATH
 	case v1.Component_BE, v1.Component_CN:
 		healthPort = GetPort(config, WEBSERVER_PORT)
 		prestopScript = BE_PRESTOP
+		health_api_path = HEALTH_API_PATH
+	case v1.Component_Broker:
+		healthPort = GetPort(config, BROKER_IPC_PORT)
+		prestopScript = BROKER_PRESTOP
+		health_api_path = ""
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
 
 	if healthPort != 0 {
-		c.LivenessProbe = livenessProbe(healthPort, HEALTH_API_PATH)
-		c.StartupProbe = startupProbe(healthPort, HEALTH_API_PATH)
-		c.ReadinessProbe = readinessProbe(healthPort, HEALTH_API_PATH)
+		c.LivenessProbe = livenessProbe(healthPort, health_api_path)
+		c.StartupProbe = startupProbe(healthPort, health_api_path)
+		c.ReadinessProbe = readinessProbe(healthPort, health_api_path)
 		c.Lifecycle = lifeCycle(prestopScript)
 	}
 
@@ -305,6 +319,8 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 		return []string{"/opt/apache-doris/fe_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case v1.Component_BE, v1.Component_CN:
 		return []string{"/opt/apache-doris/be_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
+	case v1.Component_Broker:
+		return []string{"/opt/apache-doris/broker_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	default:
 		klog.Infof("getCommand the componentType %s is not supported.", componentType)
 		return []string{}, []string{}
@@ -415,7 +431,7 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 		}
 
 		switch componentType {
-		case v1.Component_FE, v1.Component_BE, v1.Component_CN:
+		case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
 			volumeMount.MountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
@@ -464,13 +480,24 @@ func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
 }
 
 func getProbe(port int32, path string) corev1.ProbeHandler {
-	return corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Path: path,
-			Port: intstr.IntOrString{
-				Type:   intstr.Int,
-				IntVal: port,
+	var p corev1.ProbeHandler
+	if path != "" {
+		p = corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: path,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: port,
+				},
 			},
-		},
+		}
+	} else {
+		p = corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{HEALTH_BROKER_LIVE_COMMAND, strconv.Itoa(int(port))},
+			},
+		}
 	}
+
+	return p
 }
