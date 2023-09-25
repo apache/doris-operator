@@ -24,15 +24,17 @@ const (
 	BROKER_PRESTOP             = "/opt/apache-doris/broker_prestop.sh"
 
 	//keys for pod env variables
-	POD_NAME           = "POD_NAME"
-	POD_IP             = "POD_IP"
-	HOST_IP            = "HOST_IP"
-	POD_NAMESPACE      = "POD_NAMESPACE"
-	ADMIN_USER         = "USER"
-	ADMIN_PASSWD       = "PASSWD"
-	DORIS_ROOT         = "DORIS_ROOT"
-	DEFAULT_ADMIN_USER = "root"
-	DEFAULT_ROOT_PATH  = "/opt/apache-doris"
+	POD_NAME             = "POD_NAME"
+	POD_IP               = "POD_IP"
+	HOST_IP              = "HOST_IP"
+	POD_NAMESPACE        = "POD_NAMESPACE"
+	ADMIN_USER           = "USER"
+	ADMIN_PASSWD         = "PASSWD"
+	DORIS_ROOT           = "DORIS_ROOT"
+	DEFAULT_ADMIN_USER   = "root"
+	DEFAULT_ROOT_PATH    = "/opt/apache-doris"
+	POD_INFO_PATH        = "/etc/podinfo"
+	POD_INFO_VOLUME_NAME = "podinfo"
 )
 
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -55,7 +57,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	}
 
 	if len(volumes) == 0 {
-		volumes = newDefaultVolume(componentType)
+		volumes, _ = getDefaultVolumesVolumeMounts(componentType)
 	}
 
 	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
@@ -88,30 +90,6 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	return pts
 }
 
-func newDefaultVolume(componentType v1.ComponentType) []corev1.Volume {
-	switch componentType {
-	case v1.Component_FE:
-		return []corev1.Volume{{
-			Name: fe_meta_name,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		}}
-	case v1.Component_BE:
-		return []corev1.Volume{{
-			Name: be_storage_name,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		}}
-	case v1.Component_Broker:
-		return []corev1.Volume{}
-	default:
-		klog.Infof("newDefaultVolume have not support componentType %s", componentType)
-		return []corev1.Volume{}
-	}
-}
-
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
 func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 	var volumes []corev1.Volume
@@ -127,6 +105,24 @@ func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 	}
 
 	return volumes
+}
+
+// buildVolumeMounts construct all volumeMounts contains default volumeMounts if persistentVolumes not definition.
+func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
+	var volumeMounts []corev1.VolumeMount
+	if len(spec.PersistentVolumes) == 0 {
+		_, volumeMount := getDefaultVolumesVolumeMounts(componentType)
+		volumeMounts = append(volumeMounts, volumeMount...)
+		return volumeMounts
+	}
+
+	for _, pvs := range spec.PersistentVolumes {
+		var volumeMount corev1.VolumeMount
+		volumeMount.MountPath = pvs.MountPath
+		volumeMount.Name = pvs.Name
+		volumeMounts = append(volumeMounts, volumeMount)
+	}
+	return volumeMounts
 }
 
 // dst array have high priority will cover the src env when the env's name is right.
@@ -296,23 +292,6 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 	return defaultEnvs
 }
 
-func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
-	var volumeMounts []corev1.VolumeMount
-	if len(spec.PersistentVolumes) == 0 {
-		_, volumeMount := getDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType)
-		volumeMounts = append(volumeMounts, volumeMount...)
-		return volumeMounts
-	}
-
-	for _, pvs := range spec.PersistentVolumes {
-		var volumeMount corev1.VolumeMount
-		volumeMount.MountPath = pvs.MountPath
-		volumeMount.Name = pvs.Name
-		volumeMounts = append(volumeMounts, volumeMount)
-	}
-	return volumeMounts
-}
-
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
 	switch componentType {
 	case v1.Component_FE:
@@ -360,11 +339,11 @@ func getBaseSpecFromCluster(dcr *v1.DorisCluster, componentType v1.ComponentType
 	return bSpec
 }
 
-func getDefaultVolumesVolumeMountsAndPersistentVolumeClaims(componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+func getDefaultVolumesVolumeMounts(componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
 	switch componentType {
 	case v1.Component_FE:
 		return getFeDefaultVolumesVolumeMounts()
-	case v1.Component_BE:
+	case v1.Component_BE, v1.Component_CN:
 		return getBeDefaultVolumesVolumeMounts()
 	default:
 		klog.Infof("GetDefaultVolumesVolumeMountsAndPersistentVolumeClaims componentType %s not supported.", componentType)
@@ -388,8 +367,37 @@ func getFeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 			MountPath: fe_meta_path,
 		},
 	}
+	volumes, volumMounts = appendPodInfoVolumesVolumeMounts(volumes, volumMounts)
 
 	return volumes, volumMounts
+}
+
+func appendPodInfoVolumesVolumeMounts(volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) ([]corev1.Volume, []corev1.VolumeMount) {
+	volumes = append(volumes, corev1.Volume{
+		Name: POD_INFO_VOLUME_NAME,
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{{
+					Path: "labels",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.labels",
+					},
+				}, {
+					Path: "annotations",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.annotations",
+					},
+				}},
+			},
+		},
+	})
+
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      POD_INFO_VOLUME_NAME,
+		MountPath: POD_INFO_PATH,
+	})
+
+	return volumes, volumeMounts
 }
 
 func getBeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {

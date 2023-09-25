@@ -38,9 +38,10 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-	printVar bool
+	scheme        = runtime.NewScheme()
+	setupLog      = ctrl.Log.WithName("setup")
+	printVar      bool
+	enableWebHook = true
 )
 
 var (
@@ -74,7 +75,6 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&printVar, "version", false, "Prints current version.")
-
 	opts := zap.Options{
 		Development: true,
 	}
@@ -116,6 +116,9 @@ func main() {
 	for _, c := range controller.Controllers {
 		c.Init(mgr)
 	}
+
+	////TODO: modify to config
+	//(&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr)
 
 	//+kubebuilder:scaffold:builder
 
