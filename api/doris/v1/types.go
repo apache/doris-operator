@@ -21,8 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+var (
+	AnnotationDebugKey   = "selectdb.com.doris/runmode"
+	AnnotationDebugValue = "debug"
+)
 
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
@@ -100,7 +102,7 @@ type BrokerSpec struct {
 	BaseSpec `json:",inline"`
 
 	// enable affinity with be , if kickoff affinity, the operator will set affinity on broker with be.
-	// The affinity is preferred but not required.
+	// The affinity is preferred not required.
 	// When the user custom affinity the switch does not take effect anymore.
 	KickOffAffinityBe bool `json:"kickOffAffinityBe,omitempty"`
 }
@@ -183,7 +185,7 @@ type BaseSpec struct {
 }
 
 type SystemInitialization struct {
-	//Image for doris initialization, default is alpine:latest.
+	//Image for doris initialization, default is selectdb/alpine:latest.
 	InitImage string `json:"initImage,omitempty"`
 
 	// Entrypoint array. Not executed within a shell.

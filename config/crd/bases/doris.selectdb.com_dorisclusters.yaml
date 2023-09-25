@@ -1492,7 +1492,7 @@ spec:
                           type: string
                         type: array
                       initImage:
-                        description: Image for doris initialization, default is alpine:latest.
+                        description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
                     type: object
                   tolerations:
@@ -2629,7 +2629,10 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                   kickOffAffinityBe:
-                    description: Enable affinity configuration switch, default:false
+                    description: enable affinity with be , if kickoff affinity, the
+                      operator will set affinity on broker with be. The affinity is
+                      preferred not required. When the user custom affinity the switch
+                      does not take effect anymore.
                     type: boolean
                   limits:
                     additionalProperties:
@@ -2972,7 +2975,7 @@ spec:
                           type: string
                         type: array
                       initImage:
-                        description: Image for doris initialization, default is alpine:latest.
+                        description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
                     type: object
                   tolerations:
@@ -5128,7 +5131,7 @@ spec:
                           type: string
                         type: array
                       initImage:
-                        description: Image for doris initialization, default is alpine:latest.
+                        description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
                     type: object
                   tolerations:
@@ -6611,7 +6614,7 @@ spec:
                           type: string
                         type: array
                       initImage:
-                        description: Image for doris initialization, default is alpine:latest.
+                        description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
                     type: object
                   tolerations:
