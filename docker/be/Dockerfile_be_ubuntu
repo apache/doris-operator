@@ -42,10 +42,14 @@ RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-${TARGETARCH:-amd64} \
         PATH="/opt/apache-doris/be/bin:${PATH}"
 
-# apache-doris/be from doris release xxxx.tar.gz
-ADD resource/apache-doris-2.0.1-bin-${TARGETARCH:-amd64}/be /opt/apache-doris/be
+# apache-doris/be from doris release xxxx.tar.gz.please update the version in follows x.x.x.
+ADD resource/apache-doris-x.x.x-bin-${TARGETARCH:-amd64}/be /opt/apache-doris/be
 
 COPY resource/be_*.sh /opt/apache-doris/
+
+COPY resource/doris-debug /opt/apache-doris/
+
+COPY --from=selectdb/doris-debug-ubuntu:latest /doris-debug /opt/apache-doris/
 
 COPY resource/entry_point.sh /usr/local/bin/
 

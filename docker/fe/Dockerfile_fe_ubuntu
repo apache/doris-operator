@@ -34,8 +34,8 @@ ARG TARGETARCH
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-${TARGETARCH:-amd64} \
         PATH="/opt/apache-doris/fe/bin:${PATH}"
 
-# apache-doris/fe from doris release tar.gz
-COPY resource/apache-doris-2.0.1-bin-${TARGETARCH:-amd64}/fe /opt/apache-doris/fe
+# apache-doris/fe from doris release tar.gz, please update the version in follows x.x.x.
+COPY resource/apache-doris-x.x.x-bin-${TARGETARCH:-amd64}/fe /opt/apache-doris/fe
 
 
 RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -49,6 +49,10 @@ RUN apt-get update -y &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 ADD resource/init_fe.sh /opt/apache-doris/fe/bin/
 
 COPY resource/fe_*.sh /opt/apache-doris/
+
+COPY resource/doris-debug /opt/apache-doris/
+
+COPY --from=selectdb/doris-debug-ubuntu:latest /doris-debug /opt/apache-doris/
 
 WORKDIR /opt/apache-doris
 
