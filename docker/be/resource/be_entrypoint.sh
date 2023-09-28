@@ -152,6 +152,7 @@ update_conf_from_configmap
 collect_env_info
 #add_self $fe_addr || exit $?
 check_and_register $fe_addrs
+./doris-debug --component be
 log_stderr "run start_be.sh"
 $DORIS_HOME/bin/start_be.sh
 

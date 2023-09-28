@@ -59,6 +59,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	if len(volumes) == 0 {
 		volumes, _ = getDefaultVolumesVolumeMounts(componentType)
 	}
+	volumes, _ = appendPodInfoVolumesVolumeMounts(volumes, nil)
 
 	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
 		configVolume, _ := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
@@ -110,6 +111,7 @@ func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 // buildVolumeMounts construct all volumeMounts contains default volumeMounts if persistentVolumes not definition.
 func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
+	_, volumeMounts = appendPodInfoVolumesVolumeMounts(nil, volumeMounts)
 	if len(spec.PersistentVolumes) == 0 {
 		_, volumeMount := getDefaultVolumesVolumeMounts(componentType)
 		volumeMounts = append(volumeMounts, volumeMount...)
@@ -122,6 +124,7 @@ func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev
 		volumeMount.Name = pvs.Name
 		volumeMounts = append(volumeMounts, volumeMount)
 	}
+
 	return volumeMounts
 }
 
@@ -367,12 +370,18 @@ func getFeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 			MountPath: fe_meta_path,
 		},
 	}
-	volumes, volumMounts = appendPodInfoVolumesVolumeMounts(volumes, volumMounts)
 
 	return volumes, volumMounts
 }
 
 func appendPodInfoVolumesVolumeMounts(volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) ([]corev1.Volume, []corev1.VolumeMount) {
+	if volumes == nil {
+		var _ []corev1.Volume
+	}
+	if volumeMounts == nil {
+		var _ []corev1.VolumeMount
+	}
+
 	volumes = append(volumes, corev1.Volume{
 		Name: POD_INFO_VOLUME_NAME,
 		VolumeSource: corev1.VolumeSource{

@@ -303,6 +303,7 @@ fi
 update_conf_from_configmap
 if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
     log_stderr "start fe with exist meta."
+    ./doris-debug --component fe
     start_fe_with_meta
 else
     log_stderr "first start fe with meta not exist."
