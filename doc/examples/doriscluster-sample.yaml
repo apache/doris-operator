@@ -14,7 +14,7 @@ metadata:
 spec:
   feSpec:
     replicas: 3
-    image: selectdb/doris.fe-ubuntu:latest
+    image: selectdb/doris.fe-ubuntu:2.0.2
   beSpec:
     replicas: 3
-    image: selectdb/doris.be-ubuntu:latest
+    image: selectdb/doris.be-ubuntu:2.0.2

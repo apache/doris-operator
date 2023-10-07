@@ -12,11 +12,11 @@ metadata:
 spec:
   feSpec:
     replicas: 3
-    image: selectdb/doris.fe-ubuntu:latest
+    image: selectdb/doris.fe-ubuntu:2.0.2
   beSpec:
     replicas: 3
-    image: selectdb/doris.be-ubuntu:latest
+    image: selectdb/doris.be-ubuntu:2.0.2
     systemInitialization:
       command: ["/sbin/sysctl", "-w", "vm.max_map_count=2000000"]
-      # the default image use selectdb/alpine:latest, if you k8s cluster not access internet, you can specify initImage by follow field.
-      #initImage: selectdb/alpine:latest
+      # the default image use selectdb/alpine:2.0.2, if you k8s cluster not access internet, you can specify initImage by follow field.
+      #initImage: selectdb/alpine:2.0.2
