@@ -7,7 +7,7 @@ doris-operator提供了`debug`的运行模式。下面描述了当服务进入`C
 ```
     kubectl annotate pod ${pod_name} -n ${namespace} selectdb.com.doris/runmode=debug
 ```
-当服务进行下一次重启时候，服务会检测到标识debug模式启动的annotation就会进入debug模式启动。
+当服务进行下一次重启时候，服务会检测到标识debug模式启动的annotation就会进入debug模式启动。  
 2. 当服务进入`debug`模式，此时服务的pod显示为正常状态，用户可以通过如下命令进入pod内部。
 ```
     kubectl -n ${namespace} exec -ti ${pod_name} bash
