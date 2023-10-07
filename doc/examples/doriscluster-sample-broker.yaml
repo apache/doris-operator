@@ -10,10 +10,10 @@ metadata:
 spec:
   feSpec:
     replicas: 1
-    image: selectdb/doris.fe-ubuntu:latest
+    image: selectdb/doris.fe-ubuntu:2.0.2
   beSpec:
     replicas: 1
-    image: selectdb/doris.be-ubuntu:latest
+    image: selectdb/doris.be-ubuntu:2.0.2
   brokerSpec:
     replicas: 1
-    image: selectdb/doris.broker-ubuntu:latest
+    image: selectdb/doris.broker-ubuntu:2.0.2

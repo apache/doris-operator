@@ -16,7 +16,7 @@ spec:
     # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
     electionNumber: 3
     replicas: 3
-    image: selectdb/doris.fe-ubuntu:latest
+    image: selectdb/doris.fe-ubuntu:2.0.2
     annotations:
       selectdb/dorisclsuter.component: fe
     service:
@@ -104,7 +104,7 @@ spec:
       command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
   beSpec:
     replicas: 3
-    image: selectdb/doris.be-ubuntu:latest
+    image: selectdb/doris.be-ubuntu:2.0.2
     annotations:
       selectdb/dorisclsuter.component: be
     service:
@@ -203,7 +203,7 @@ spec:
       configMapName: cn-configmap
       # the resolveKey is fixed as be.conf, only when your build image as your self dockerfile, you can modify it.
       resolveKey: be.conf
-    image: selectdb/doris.be-ubuntu:latest
+    image: selectdb/doris.be-ubuntu:2.0.2
     annotations:
       selectdb/dorisclsuter.component: cn
     service:
