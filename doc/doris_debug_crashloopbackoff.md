@@ -7,7 +7,7 @@ When pod enter into `CrashLoopBackOff` status, follow next steps to debug servic
 ```
     kubectl annotate pod ${pod_name} -n ${namespace} selectdb.com.doris/runmode=debug
 ```
-When the pod start in next. Service will detect the annotation and start in debug mode.
+When the pod start in next. Service will detect the annotation and start in debug mode.  
 2. Service start with `Debug` mode will always start successfully. you can use follow command enter into container.
 ```
     kubectl -n ${namespace} exec -ti ${pod_name} bash
