@@ -8,7 +8,10 @@ doris-operator提供了`debug`的运行模式。下面描述了当服务进入`C
     kubectl annotate pod ${pod_name} -n ${namespace} selectdb.com.doris/runmode=debug
 ```
 当服务进行下一次重启时候，服务会检测到标识debug模式启动的annotation就会进入debug模式启动。
-2. 当服务进入`debug`模式，此时服务的pod显示为正常状态，用户可以通过`kubectl exec`进入pod内部。
+2. 当服务进入`debug`模式，此时服务的pod显示为正常状态，用户可以通过如下命令进入pod内部。
+```
+    kubectl -n ${namespace} exec -ti ${pod_name} bash
+```
 3. debug下手动启动服务，当用户进入pod内部，通过修改对应配置文件有关http的端口进行手动执行`start_xx.sh`脚本，脚本目录为`/opt/apache-doris/xx/bin`下。
 ## 退出Debug模式
 当服务定位到问题后需要退出debug运行，此时只需要按照如下命令删除对应的pod，服务就会按照正常的模式启动。
