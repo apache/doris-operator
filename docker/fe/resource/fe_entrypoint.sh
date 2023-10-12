@@ -63,6 +63,8 @@ collect_env_info()
     # example: fe-sr-deploy-1.fe-svc.kc-sr.svc.cluster.local
     POD_INDEX=`echo $POD_FQDN | awk -F'.' '{print $1}' | awk -F'-' '{print $NF}'`
 
+    # since selectdb/doris.fe-ubuntu:2.0.2 , fqdn is forced to open without using ip method(enable_fqdn_mode = true).
+    # Therefore START_TYPE is true
     START_TYPE=`parse_confval_from_fe_conf "enable_fqdn_mode"`
 
     if [[ "x$START_TYPE" == "xtrue" ]]; then
@@ -294,6 +296,12 @@ start_fe_with_meta()
     $DORIS_HOME/bin/start_fe.sh $opts
 }
 
+add_fqdn_config() {
+    # since selectdb/doris.fe-ubuntu:2.0.2 , fqdn is forced to open without using ip method(enable_fqdn_mode = true).
+      log_stderr "add enable_fqdn_mode = true to ${DORIS_HOME}/conf/fe.conf"
+	    echo "enable_fqdn_mode = true" >>${DORIS_HOME}/conf/fe.conf
+}
+
 fe_addrs=$1
 if [[ "x$fe_addrs" == "x" ]]; then
     echo "need fe address as parameter!"
@@ -306,6 +314,7 @@ if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
     ./doris-debug --component fe
     start_fe_with_meta
 else
+    add_fqdn_config
     log_stderr "first start fe with meta not exist."
     collect_env_info
     probe_master $fe_addrs
