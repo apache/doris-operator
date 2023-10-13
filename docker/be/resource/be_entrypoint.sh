@@ -170,5 +170,5 @@ collect_env_info
 check_and_register $fe_addrs
 ./doris-debug --component be
 log_stderr "run start_be.sh"
-$DORIS_HOME/bin/start_be.sh
+$DORIS_HOME/bin/start_be.sh --console
 

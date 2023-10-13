@@ -46,7 +46,7 @@ parse_confval_from_fe_conf()
 function start_fe_with_meta()
 {
     log_stderr "start with meta run start_fe.sh"
-    $DORIS_HOME/fe/bin/start_fe.sh
+    $DORIS_HOME/fe/bin/start_fe.sh --console
 }
 
 collect_env_info()
@@ -153,7 +153,7 @@ function start_fe_no_meta()
         done
     fi
     log_stderr "first start with no meta run start_fe.sh with additional options: '$opts'"
-    $DORIS_HOME/bin/start_fe.sh $opts
+    $DORIS_HOME/bin/start_fe.sh --console $opts
 }
 
 # the ordinal is 0, probe timeout as 60s, when have not meta and not `MASTER` in fe cluster, 0 start as master.
@@ -266,14 +266,29 @@ probe_master()
     fi
 }
 
+function add_fqdn_config()
+{
+      # TODO(user):since selectdb/doris.fe-ubuntu:2.0.2 , fqdn is forced to open without using ip method(enable_fqdn_mode = true).
+
+      local enable_fqdn=`parse_confval_from_fe_conf "enable_fqdn_mode"`
+      log_stderr "enable_fqdn is : $enable_fqdn"
+      if [[ "x$enable_fqdn" != "xtrue" ]] ; then
+          log_stderr "add enable_fqdn_mode = true to ${DORIS_HOME}/conf/fe.conf"
+          echo "enable_fqdn_mode = true" >>${DORIS_HOME}/conf/fe.conf
+      fi
+
+}
+
 update_conf_from_configmap()
 {
     if [[ "x$CONFIGMAP_MOUNT_PATH" == "x" ]] ; then
         log_stderr 'Empty $CONFIGMAP_MOUNT_PATH env var, skip it!'
+        add_fqdn_config
         return 0
     fi
     if ! test -d $CONFIGMAP_MOUNT_PATH ; then
         log_stderr "$CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
+        add_fqdn_config
         return 0
     fi
     local tgtconfdir=$DORIS_HOME/conf
@@ -287,19 +302,14 @@ update_conf_from_configmap()
         fi
         ln -sfT $CONFIGMAP_MOUNT_PATH/$conffile $tgt
     done
+    add_fqdn_config
 }
 
 start_fe_with_meta()
 {
     local opts=""
     log_stderr "start with meta run start_fe.sh with additional options: '$opts'"
-    $DORIS_HOME/bin/start_fe.sh $opts
-}
-
-add_fqdn_config() {
-    # since selectdb/doris.fe-ubuntu:2.0.2 , fqdn is forced to open without using ip method(enable_fqdn_mode = true).
-      log_stderr "add enable_fqdn_mode = true to ${DORIS_HOME}/conf/fe.conf"
-	    echo "enable_fqdn_mode = true" >>${DORIS_HOME}/conf/fe.conf
+    $DORIS_HOME/bin/start_fe.sh --console $opts
 }
 
 fe_addrs=$1
@@ -314,7 +324,6 @@ if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
     ./doris-debug --component fe
     start_fe_with_meta
 else
-    add_fqdn_config
     log_stderr "first start fe with meta not exist."
     collect_env_info
     probe_master $fe_addrs
