@@ -170,5 +170,8 @@ collect_env_info
 check_and_register $fe_addrs
 ./doris-debug --component be
 log_stderr "run start_be.sh"
+# the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
+# befor doris 2.0.2 ,doris start with : start_xx.sh
+# sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
 $DORIS_HOME/bin/start_be.sh --console
 

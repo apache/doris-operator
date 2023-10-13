@@ -46,6 +46,9 @@ parse_confval_from_fe_conf()
 function start_fe_with_meta()
 {
     log_stderr "start with meta run start_fe.sh"
+    # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
+    # befor doris 2.0.2 ,doris start with : start_xx.sh
+    # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
     $DORIS_HOME/fe/bin/start_fe.sh --console
 }
 
@@ -153,6 +156,9 @@ function start_fe_no_meta()
         done
     fi
     log_stderr "first start with no meta run start_fe.sh with additional options: '$opts'"
+    # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
+    # befor doris 2.0.2 ,doris start with : start_xx.sh
+    # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
     $DORIS_HOME/bin/start_fe.sh --console $opts
 }
 
@@ -309,6 +315,9 @@ start_fe_with_meta()
 {
     local opts=""
     log_stderr "start with meta run start_fe.sh with additional options: '$opts'"
+    # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
+    # befor doris 2.0.2 ,doris start with : start_xx.sh
+    # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
     $DORIS_HOME/bin/start_fe.sh --console $opts
 }
 
