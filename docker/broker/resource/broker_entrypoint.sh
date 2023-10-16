@@ -19,8 +19,11 @@ BK_NAME=broker001
 # represents self in fe meta or not.
 REGISTERED=false
 
+DB_ADMIN_USER=${USER:-"root"}
 
-log_stderr() #11
+DB_ADMIN_PASSWD=$PASSWD
+
+log_stderr()
 {
     echo "[`date`] $@" >&2
 }
@@ -60,20 +63,27 @@ update_conf_from_configmap()
 
 
 # get all brokers info to check self exist or not.
-show_brokers(){ #11
+show_brokers(){
     local svc=$1
-    timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u root --skip-column-names --batch -e 'SHOW BROKER;'
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+        timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'SHOW BROKER;'
+    else
+        timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'SHOW BROKER;'
+    fi
 }
 
 
  ## ALTER SYSTEM ADD BROKER broker_name "broker_host1:broker_ipc_port1","broker_host2:broker_ipc_port2",...;
 
 # get all registered fe in cluster, for check the fe have `MASTER`.
-function show_frontends() #11
+function show_frontends()
 {
     local addr=$1
-    echo ""
-    timeout 15 mysql  --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'show frontends;'
+    else
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'show frontends;'
+    fi
 }
 
 collect_env_info()
@@ -110,7 +120,13 @@ add_self()
         local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
         if [[ "x$leader" != "x" ]]; then
             log_stderr "Check myself ($MY_SELF:$IPC_PORT)  not exist in FE and fe have leader register myself..."
-            timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";"
+
+            if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+                timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";"
+            else
+                timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";"
+            fi
+
             let "expire=start+timeout"
             now=`date +%s`
             if [[ $expire -le $now ]] ; then
