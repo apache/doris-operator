@@ -6,7 +6,7 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o doirs-debug cmd/doris-debug/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o doris-debug cmd/doris-debug/main.go
 
 FROM ubuntu:22.04
 

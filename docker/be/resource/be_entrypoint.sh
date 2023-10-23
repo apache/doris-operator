@@ -18,6 +18,9 @@ BE_CONFIG=$DORIS_HOME/conf/be.conf
 # represents self in fe meta or not.
 REGISTERED=false
 
+DB_ADMIN_USER=${USER:-"root"}
+
+DB_ADMIN_PASSWD=$PASSWD
 
 log_stderr()
 {
@@ -50,15 +53,22 @@ update_conf_from_configmap()
 # get all backends info to check self exist or not.
 show_backends(){
     local svc=$1
-    timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u root --skip-column-names --batch -e 'SHOW BACKENDS;'
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+       timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'SHOW BACKENDS;'
+    else
+       timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'SHOW BACKENDS;'
+    fi
 }
 
 # get all registered fe in cluster, for check the fe have `MASTER`.
 function show_frontends()
 {
     local addr=$1
-    echo ""
-    timeout 15 mysql  --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u root --skip-column-names --batch -e 'show frontends;'
+    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'show frontends;'
+    else
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'show frontends;'
+    fi
 }
 
 #parse the `$BE_CONFIG` file, passing the key need resolve as parameter.
@@ -105,7 +115,13 @@ add_self()
         local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
         if [[ "x$leader" != "x" ]]; then
             log_stderr "Check myself ($MY_SELF:$HEARTBEAT_PORT)  not exist in FE and fe have leader register myself..."
-            timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u root --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";"
+
+            if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+                timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";"
+            else
+                timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";"
+            fi
+
             let "expire=start+timeout"
             now=`date +%s`
             if [[ $expire -le $now ]] ; then
@@ -154,5 +170,8 @@ collect_env_info
 check_and_register $fe_addrs
 ./doris-debug --component be
 log_stderr "run start_be.sh"
-$DORIS_HOME/bin/start_be.sh
+# the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
+# befor doris 2.0.2 ,doris start with : start_xx.sh
+# sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
+$DORIS_HOME/bin/start_be.sh --console
 
