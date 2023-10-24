@@ -12,12 +12,13 @@ FE_CONFFILE=$DORIS_HOME/conf/fe.conf
 START_TYPE=
 # the master node in fe cluster.
 FE_MASTER=
-# pod number
+# pod ordinal of statefulset deployed pod.
 POD_INDEX=
 # probe interval: 2 seconds
 PROBE_INTERVAL=2
-# timeout for probe master: 120 seconds
+# timeout for probe master: 60 seconds
 PROBE_MASTER_POD0_TIMEOUT=60 # at most 30 attempts, no less than the times needed for an election
+# no-0 ordinal pod timeout for probe master: 90 times
 PROBE_MASTER_PODX_TIMEOUT=180 # at most 90 attempts
 # administrator for administrate the cluster.
 DB_ADMIN_USER=${USER:-"root"}
@@ -123,7 +124,10 @@ function add_self_observer()
 # `dori-meta/image` not exist start as first time.
 function start_fe_no_meta()
 {
-    local opts=""
+    # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
+    # befor doris 2.0.2 ,doris start with : start_xx.sh
+    # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
+    local opts="--console"
     local start=`date +%s`
     local has_member=false
     local member_list=
@@ -132,6 +136,7 @@ function start_fe_no_meta()
         local start=`date +%s`
         while true
         do
+            # for statefulset manage fe pods, when `ELECT_NUMBER` greater than `POD_INDEX`
             if [[ ELECT_NUMBER -gt $POD_INDEX ]]; then
                 log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to master as follower ..."
                 add_self_follower
@@ -139,13 +144,14 @@ function start_fe_no_meta()
                 log_stderr "Add myself($MYSELF:$EDIT_LOG_PORT) to master as observer ..."
                 add_self_observer
             fi
-               # check if added successfully.
+               # if successfully exit circulate register logic and start fe.
             if show_frontends $addr | grep -q -w "$MYSELF" &>/dev/null ; then
                 break;
             fi
 
             local now=`date +%s`
             let "expire=start+30" # 30s timeout
+            # if timeout for register self exit 1.
             if [[ $expire -le $now ]] ; then
                 log_stderr "Timed out, abort!"
                 exit 1
@@ -156,14 +162,11 @@ function start_fe_no_meta()
         done
     fi
     log_stderr "first start with no meta run start_fe.sh with additional options: '$opts'"
-    # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
-    # befor doris 2.0.2 ,doris start with : start_xx.sh
-    # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
-    $DORIS_HOME/bin/start_fe.sh --console $opts
+    $DORIS_HOME/bin/start_fe.sh $opts
 }
 
 # the ordinal is 0, probe timeout as 60s, when have not meta and not `MASTER` in fe cluster, 0 start as master.
-probe_master_for_pod0()
+probe_master_for_pod()
 {
     # possible to have no result at all, because myself is the first FE instance in the cluster
     local svc=$1
@@ -182,7 +185,7 @@ probe_master_for_pod0()
         fi
 
         if [[ "x$memlist" != "x" ]] ; then
-            # has memberlist ever before
+            # has member list ever before
             has_member=true
         fi
 
@@ -197,49 +200,44 @@ probe_master_for_pod0()
         local now=`date +%s`
         let "expire=start+timeout"
         if [[ $expire -le $now ]] ; then
-            if $has_member ; then
-                log_stderr "Timed out ${timeout}s, has members but not master abort!"
-                exit 1
-            else
-                log_stderr "Timed out, no members detected ever, assume myself is the first node .."
-                # empty FE_MASTER
-                FE_MASTER=""
-                return 0
-            fi
+            log_stderr "Timed out, exit probe master .."
+            # empty FE_MASTER
+            FE_MASTER=""
+            return 0
         fi
         sleep $PROBE_INTERVAL
     done
 }
 
 # ordinal greater than 0, start as `FOLLOWER` or `OBSERVER`
-probe_master_for_podX()
-{
-    # wait until find a master or timeout
-    local svc=$1
-    local start=`date +%s`
-    while true
-    do
-        memlist=`show_frontends $svc`
-	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-        if [[ "x$master" != "x" ]] ; then
-            # has master done
-            log_stderr "Find master: $master!"
-            FE_MASTER=$master
-            return 0
-        fi
-        # no master yet, check if needs timeout and quit
-        log_stderr "No master wait ${PROBE_INTERVAL}s..."
-
-        local now=`date +%s`
-        let "expire=start+PROBE_MASTER_PODX_TIMEOUT"
-        if [[ $expire -le $now ]] ; then
-            log_stderr "Probe master timeout, abort!"
-            return 0
-        fi
-
-        sleep $PROBE_INTERVAL
-    done
-}
+#probe_master_for_podX()
+#{
+#    # wait until find a master or timeout
+#    local svc=$1
+#    local start=`date +%s`
+#    while true
+#    do
+#        memlist=`show_frontends $svc`
+#	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+#        if [[ "x$master" != "x" ]] ; then
+#            # has master done
+#            log_stderr "Find master: $master!"
+#            FE_MASTER=$master
+#            return 0
+#        fi
+#        # no master yet, check if needs timeout and quit
+#        log_stderr "No master wait ${PROBE_INTERVAL}s..."
+#
+#        local now=`date +%s`
+#        let "expire=start+PROBE_MASTER_PODX_TIMEOUT"
+#        if [[ $expire -le $now ]] ; then
+#            log_stderr "Probe master timeout, abort!"
+#            return 0
+#        fi
+#
+#        sleep $PROBE_INTERVAL
+#    done
+#}
 
 # when not meta exist, fe start should probe
 probe_master()
@@ -255,11 +253,7 @@ probe_master()
         fi
 
         # find master under current service and set to FE_MASTER
-        if [[ "$POD_INDEX" -eq 0 ]] ; then
-            probe_master_for_pod0 $addr
-        else
-            probe_master_for_podX $addr
-    fi
+        probe_master_for_pod $addr
     done
 
     # if first pod assume first start should as master. others first start have not master exit.
@@ -274,15 +268,13 @@ probe_master()
 
 function add_fqdn_config()
 {
-      # TODO(user):since selectdb/doris.fe-ubuntu:2.0.2 , fqdn is forced to open without using ip method(enable_fqdn_mode = true).
-
+      # TODO(user):since selectdb/doris.fe-ubuntu:2.0.2 , `enable_fqdn_mode` is forced to set `true` for starting doris. (enable_fqdn_mode = true).
       local enable_fqdn=`parse_confval_from_fe_conf "enable_fqdn_mode"`
       log_stderr "enable_fqdn is : $enable_fqdn"
       if [[ "x$enable_fqdn" != "xtrue" ]] ; then
           log_stderr "add enable_fqdn_mode = true to ${DORIS_HOME}/conf/fe.conf"
           echo "enable_fqdn_mode = true" >>${DORIS_HOME}/conf/fe.conf
       fi
-
 }
 
 update_conf_from_configmap()
@@ -313,12 +305,12 @@ update_conf_from_configmap()
 
 start_fe_with_meta()
 {
-    local opts=""
-    log_stderr "start with meta run start_fe.sh with additional options: '$opts'"
     # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
     # befor doris 2.0.2 ,doris start with : start_xx.sh
-    # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
-    $DORIS_HOME/bin/start_fe.sh --console $opts
+    local opts="--console"
+    log_stderr "start with meta run start_fe.sh with additional options: '$opts'"
+     # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
+    $DORIS_HOME/bin/start_fe.sh  $opts
 }
 
 fe_addrs=$1
