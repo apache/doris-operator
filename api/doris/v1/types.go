@@ -206,7 +206,20 @@ type PersistentVolume struct {
 
 	//the volume name associate with
 	Name string `json:"name,omitempty"`
+
+	//defines pvc provisioner
+	PVCProvisioner PVCProvisioner `json:"provisioner,omitempty"`
 }
+
+// PVCProvisioner defines PVC provisioner
+type PVCProvisioner string
+
+// Possible values of PVC provisioner
+const (
+	PVCProvisionerUnspecified PVCProvisioner = ""
+	PVCProvisionerStatefulSet PVCProvisioner = "StatefulSet"
+	PVCProvisionerOperator    PVCProvisioner = "Operator"
+)
 
 // ConfigMapInfo specify configmap to mount for component.
 type ConfigMapInfo struct {

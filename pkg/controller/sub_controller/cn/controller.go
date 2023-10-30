@@ -72,6 +72,11 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return err
 	}
 	cnStatefulSet := cn.buildCnStatefulSet(dcr)
+	if !cn.PrepareReconcileResources(ctx, dcr, dorisv1.Component_CN) {
+		klog.Infof("cn controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
+		return nil
+	}
+
 	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			cnStatefulSet.Name, cnStatefulSet.Namespace)
@@ -96,8 +101,9 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 	cs := &dorisv1.CnStatus{
 		ComponentStatus: dorisv1.ComponentStatus{
 			ComponentCondition: dorisv1.ComponentCondition{
-				SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN),
-				Phase:              dorisv1.Reconciling,
+				SubResourceName: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN),
+				Phase:           dorisv1.Reconciling,
+
 				LastTransitionTime: metav1.NewTime(time.Now()),
 			},
 		},
@@ -141,6 +147,8 @@ func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSe
 		excludeReplica = true
 	}
 
+	//the statefulset equal should exclude pvc. pvc not allowed update when use statefulset manage, when use `operator` mode for management that pvc not allow updated in statetfulset spec.
+	cn.RestrictConditionsEqual(st, &est)
 	if !resource.StatefulSetDeepEqual(st, &est, excludeReplica) {
 		//if the replicas not zero, represent user have cancel autoscaler.
 		if st.Spec.Replicas != nil {

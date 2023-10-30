@@ -2,15 +2,19 @@ package sub_controller
 
 import (
 	"context"
+	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+	"strings"
 )
 
 type SubController interface {
@@ -136,4 +140,161 @@ func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
 		}
 	}
 	return false
+}
+
+func (d *SubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, est *appv1.StatefulSet) {
+	//shield persistent volume update when the pvcProvider=Operator
+	//in webhook should intercept the volume spec updated when use statefulset pvc.
+	nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
+}
+
+// PrepareReconcileResources prepare resource for reconcile
+// response: bool, if true presents resource have ready for reconciling, if false presents resource is preparing.
+func (d *SubDefaultController) PrepareReconcileResources(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) bool {
+	switch componentType {
+	case dorisv1.Component_FE:
+		return d.prepareFEReconcileResources(ctx, dcr)
+	case dorisv1.Component_BE:
+		return d.prepareBEReconcileResources(ctx, dcr)
+	case dorisv1.Component_CN:
+		return d.prepareCNReconcileResources(ctx, dcr)
+	default:
+		klog.Infof("prepareReconcileResource not support type=", componentType)
+		return true
+	}
+}
+
+// prepareFEReconcileResources prepare resource for fe reconcile
+// response: bool, if true presents resource have ready for fe reconciling, if false presents resource is preparing.
+func (d *SubDefaultController) prepareFEReconcileResources(ctx context.Context, dcr *dorisv1.DorisCluster) bool {
+	if len(dcr.Spec.FeSpec.PersistentVolumes) != 0 {
+		return d.preparePersistentVolumeClaim(ctx, dcr, dorisv1.Component_FE)
+	}
+
+	return true
+}
+
+// prepareBEReconcileResources prepare resource for be reconcile
+// response: bool, if true presents resource have ready for be reconciling, if false presents resource is preparing.
+func (d *SubDefaultController) prepareBEReconcileResources(ctx context.Context, dcr *dorisv1.DorisCluster) bool {
+	if len(dcr.Spec.BeSpec.PersistentVolumes) != 0 {
+		return d.preparePersistentVolumeClaim(ctx, dcr, dorisv1.Component_BE)
+	}
+
+	return true
+}
+
+// prepareCNReconcileResources prepare resource for cn reconcile
+// response: bool, if true presents resource have ready for cn reconciling, if false presents resource is preparing.
+func (d *SubDefaultController) prepareCNReconcileResources(ctx context.Context, dcr *dorisv1.DorisCluster) bool {
+	if len(dcr.Spec.CnSpec.PersistentVolumes) != 0 {
+		return d.preparePersistentVolumeClaim(ctx, dcr, dorisv1.Component_CN)
+	}
+
+	return true
+}
+
+// 1. list pvcs, create or update,
+// 1.1 labels use statefulset selector.
+// 2. classify pvcs by dorisv1.PersistentVolume.name
+// 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
+func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) bool {
+	var volumes []dorisv1.PersistentVolume
+	var replicas int32
+	switch componentType {
+	case dorisv1.Component_FE:
+		volumes = dcr.Spec.FeSpec.PersistentVolumes
+		replicas = *dcr.Spec.FeSpec.Replicas
+	case dorisv1.Component_BE:
+		volumes = dcr.Spec.BeSpec.PersistentVolumes
+		replicas = *dcr.Spec.BeSpec.Replicas
+	case dorisv1.Component_CN:
+		volumes = dcr.Spec.CnSpec.PersistentVolumes
+		replicas = *dcr.Spec.CnSpec.Replicas
+	default:
+	}
+
+	pvcList := corev1.PersistentVolumeClaimList{}
+	selector := dorisv1.GenerateStatefulSetSelector(dcr, componentType)
+	stsName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
+	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dcr.Namespace), client.MatchingLabels(selector)); err != nil {
+		d.K8srecorder.Event(dcr, EventWarning, PVCListFailed, string("list component "+componentType+" failed!"))
+		return false
+	}
+	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
+	pvcMap := make(map[string][]corev1.PersistentVolumeClaim)
+
+	for _, pvc := range pvcList.Items {
+		//start with unique string for classify pvc, avoid empty string match all pvc.Name
+		key := "-^"
+		for _, volume := range volumes {
+			if volume.Name != "" && strings.HasPrefix(pvc.Name, volume.Name) {
+				key = key + volume.Name
+				break
+			}
+		}
+
+		if _, ok := pvcMap[key]; !ok {
+			pvcMap[key] = []corev1.PersistentVolumeClaim{}
+		}
+		pvcMap[key] = append(pvcMap[key], pvc)
+	}
+
+	//presents the pvc have all created or updated to new version.
+	prepared := true
+	for _, volume := range volumes {
+		// if provider not `operator` should not manage pvc.
+		if volume.PVCProvisioner != dorisv1.PVCProvisionerOperator {
+			continue
+		}
+
+		if !d.patchPVCs(ctx, dcr, selector, pvcMap["-^"+volume.Name], stsName, volume, replicas) {
+			prepared = false
+		}
+	}
+
+	return prepared
+}
+
+func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.DorisCluster, selector map[string]string,
+	pvcs []corev1.PersistentVolumeClaim, stsName string, volume dorisv1.PersistentVolume, replicas int32) bool {
+	//patch already exist in k8s .
+	prepared := true
+	for _, pvc := range pvcs {
+		oldCapacity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+		newCapacity := volume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
+		if !oldCapacity.Equal(newCapacity) {
+			// if pvc need update, the resource have not prepared, return false.
+			prepared = false
+			eventType := EventNormal
+			reason := PVCUpdate
+			message := pvc.Name + " update successfully!"
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = newCapacity
+			if err := d.K8sclient.Patch(ctx, &pvc, client.Merge); err != nil {
+				klog.Errorf("SubDefaultController namespace %s name %s patch pvc %s failed, %s", dcr.Namespace, dcr.Name, pvc.Name, err.Error())
+				eventType = EventWarning
+				reason = PVCUpdateFailed
+				message = pvc.Name + " update failed, " + err.Error()
+			}
+
+			d.K8srecorder.Event(dcr, eventType, reason, message)
+		}
+	}
+
+	// if need add new pvc, the resource prepared not finished, return false.
+	if len(pvcs) < int(replicas) {
+		prepared = false
+		d.K8srecorder.Event(dcr, EventNormal, PVCCreate, fmt.Sprintf("create PVC ordinal %d - %d", len(pvcs), replicas))
+	}
+
+	baseOrdinal := len(pvcs)
+	for ; baseOrdinal < int(replicas); baseOrdinal++ {
+		pvc := resource.BuildPVC(volume, selector, dcr.Namespace, stsName, strconv.Itoa(baseOrdinal))
+		if err := d.K8sclient.Create(ctx, &pvc); err != nil && !apierrors.IsAlreadyExists(err) {
+			d.K8srecorder.Event(dcr, EventWarning, PVCCreateFailed, err.Error())
+			klog.Errorf("SubDefaultController namespace %s name %s create pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name)
+		}
+	}
+
+	return prepared
 }

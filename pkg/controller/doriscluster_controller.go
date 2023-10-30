@@ -75,6 +75,7 @@ type DorisClusterReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="core",resources=endpoints,verbs=get;watch;list
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list,update,watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -142,6 +143,7 @@ func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, d
 		return ctrl.Result{}, err
 	}
 
+	// if the status is not equal before reconcile and now the status is not available we should requeue.
 	if !inconsistentStatus(&dcr.Status, &edcr) {
 		if r.reconcile(dcr) {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
