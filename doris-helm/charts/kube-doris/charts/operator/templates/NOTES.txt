@@ -1,0 +1,2 @@
+Thank you for installing {{ .Chart.Name }}-{{ .Chart.Version }}
+// chart的"帮助文本"。这会在你的用户执行helm install时展示给他们。
