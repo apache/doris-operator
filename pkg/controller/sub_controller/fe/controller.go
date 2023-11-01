@@ -101,8 +101,13 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	st := fc.buildFEStatefulSet(cluster)
+	if !fc.PrepareReconcileResources(ctx, cluster, v1.Component_FE) {
+		klog.Infof("fe controller sync preparing resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
+		return nil
+	}
+
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
-		// if have restart annotation, we should exclude the interference for comparison.
+		fc.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
 	}); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
