@@ -1,82 +1,376 @@
-# Default values for kube-doris.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
 
-replicaCount: 1
 
-image:
-  repository: nginx
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+operator:
+  # Default values for operator.
+  # This is a YAML-formatted file.
+  # Declare variables to be passed into your templates.
 
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+  global:
+    rbac:
+      # if set true, the clusterrole, clusterrolebinding, role, rolebinding, serviceaccount resources will be created for
+      # operator.
+      create: true
 
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  nameOverride: "doris"
 
-podAnnotations: {}
+  dorisOperator:
+    enabled: true
+    # annotations for doris operator.
+    annotations: { }
+    namespaceOverride: "doris"
+    image:
+      repository: selectdb/doris.k8s-operator
+      tag: latest
+    replicaCount: 1
+    resources:
+      limits:
+        cpu: "2"
+        memory: 4Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    # If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
+    # Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+    nodeSelector: { }
 
-podSecurityContext: {}
-  # fsGroup: 2000
+doris:
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  nameOverride: "doriscluster"
 
-service:
-  type: ClusterIP
-  port: 80
 
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  # deploy a doris cluster
+  dorisCluster:
+    # the name of doriscluster cluster, if not set, the chart name will be used.
+    name: ""
+    # the namespace of doriscluster cluster, if not set, the release namespace will be used.
+    namespace: ""
+    # annotations for doris cluster.
+    annotations:
+      selectdb/doriscluster: doriscluster-sample
+    # specify the cn deploy or not.
+    enabledCn: false
+    # specify the broker deploy or not.
+    enabledBroker: false
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+    # specify the doris adminuser or not.
+    adminUser: { }
+    # name: root
+    # password: "12345"
 
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  dorisImage:
+    feImage:
+      repository: selectdb/doris.fe-ubuntu
+      tag: 2.0.2
+      imagePullSecrets:
+        - "imagePullSecret"
+    beImage:
+      repository: selectdb/doris.be-ubuntu
+      tag: 2.0.2
+      imagePullSecrets:
+        - "imagePullSecret"
+    cnImage:
+      repository: selectdb/doris.be-ubuntu
+      tag: 2.0.2
+      imagePullSecrets:
+        - "imagePullSecret"
+    brokerImage:
+      repository: selectdb/doris.broker-ubuntu
+      tag: 2.0.2
+      imagePullSecrets:
+        - "imagePullSecret"
+  feSpec:
+    replicas: 3
+    # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
+    # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
+    electionNumber: 3
+    service:
+      # the fe service type, only supported ClusterIP, NodePort, LoadBalancer
+      type: "LoadBalancer"
+      # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+      loadbalancerIP: "127.0.0.1"
+      # config the service port for fe service.
+      # if you want to use a dedicated port for fe service, you can config the port.
+      # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+      servicePorts:
+        - nodePort: 9030
+          targetPort: 9030
+        - nodePort: 8030
+          targetPort: 8030
+    configMapInfo:
+      # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
+      configMapName: "fe-configmap"
+      # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
+      resolveKey: "fe.conf"
+    resource:
+      requests:
+        cpu: 8
+        memory: 16Gi
+      limits:
+        cpu: 16
+        memory: 32Gi
+    nodeSelector: { }
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+    env: [ ]
+      # - name: "HOME"
+      #   value: "/opt/selectdb"
+      # - name: HOST_IP
+      #   valueFrom:
+    #     fieldRef:
+    #       apiVersion: v1
+    #       fieldPath: status.hostIP
+    affinity: { }
+    # Node tolerations for fe pod scheduling to nodes with taints
+    # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    tolerations: [ ]
+    # the pod labels for user select or classify pods.
+    podLabels: { }
+    ## hostAliases allows adding entries to /etc/hosts inside the containers
+    hostAliases: [ ]
+    # - ip: "127.0.0.1"
+    #   hostnames: "hostname1"
+    persistentVolumes:
+    # - mountPath: /opt/apache-doris/fe/doris-meta
+    #   name: fe-meta
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #       - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 10Gi
+    systemInitializationCommand: [ ]
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
-nodeSelector: {}
+  beSpec:
+    replicas: 3
+    service:
+      # the be service type, only supported ClusterIP, NodePort, LoadBalancer
+      type: "LoadBalancer"
+      # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+      loadbalancerIP: "127.0.0.1"
+      # config the service port for be service.
+      # if you want to use a dedicated port for be service, you can config the port.
+      # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+      servicePorts:
+        - nodePort: 9040
+          targetPort: 9040
+        - nodePort: 8040
+          targetPort: 8040
+    configMapInfo:
+      # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
+      configMapName: "be-configmap"
+      # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
+      resolveKey: "be.conf"
+    resource:
+      requests:
+        cpu: 8
+        memory: 16Gi
+      limits:
+        cpu: 16
+        memory: 32Gi
+    nodeSelector: { }
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+    env: [ ]
+      # - name: "HOME"
+      #   value: "/opt/selectdb"
+      # - name: HOST_IP
+      #   valueFrom:
+    #     fieldRef:
+    #     apiVersion: v1
+    #     fieldPath: status.hostIP
+    affinity: { }
+    # Node tolerations for fe pod scheduling to nodes with taints
+    # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    tolerations: [ ]
+    # key: "toleration"
+    # value: "master"
+    # the pod labels for user select or classify pods.
+    podLabels: { }
+    # selectdb.app.classify: "classify-1"
+    ## hostAliases allows adding entries to /etc/hosts inside the containers
+    hostAliases: [ ]
+    # - ip: "127.0.0.1"
+    #   hostnames: "hostname1"
+    persistentVolumes:
+    # - mountPath: /opt/apache-doris/be/log
+    #   name: be-log
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #     - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 10Gi
+    # - mountPath: /opt/apache-doris/be/storage
+    #   name: be-storage
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #     - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 1024Gi
+    systemInitializationCommand: [ ]
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
-tolerations: []
 
-affinity: {}
+  cnSpec:
+    replicas: 3
+    service:
+      # the be service type, only supported ClusterIP, NodePort, LoadBalancer
+      type: "LoadBalancer"
+      # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+      loadbalancerIP: "127.0.0.1"
+      # config the service port for be service.
+      # if you want to use a dedicated port for be service, you can config the port.
+      # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+      servicePorts:
+        - nodePort: 9040
+          targetPort: 9040
+        - nodePort: 8040
+          targetPort: 8040
+    configMapInfo:
+      # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
+      configMapName: "be-configmap"
+      # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
+      resolveKey: "be.conf"
+    resource:
+      requests:
+        cpu: 8
+        memory: 16Gi
+      limits:
+        cpu: 16
+        memory: 32Gi
+    nodeSelector: { }
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+    env: [ ]
+      # - name: "HOME"
+    #   value: "/opt/selectdb"
+    # - name: HOST_IP
+    #   valueFrom:
+    #     fieldRef:
+    #       apiVersion: v1
+    #       fieldPath: status.hostIP
+    affinity: { }
+    # Node tolerations for fe pod scheduling to nodes with taints
+    # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    tolerations: [ ]
+    # key: "toleration"
+    # value: "master"
+    # the pod labels for user select or classify pods.
+    podLabels: { }
+    # selectdb.app.classify: "classify-1"
+    ## hostAliases allows adding entries to /etc/hosts inside the containers
+    hostAliases: [ ]
+    # - ip: "127.0.0.1"
+    #   hostnames: "hostname1"
+    persistentVolumes:
+    # - mountPath: /opt/apache-doris/be/log
+    #   name: be-log
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #     - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 10Gi
+    # - mountPath: /opt/apache-doris/be/storage
+    #   name: be-storage
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #     - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 1024Gi
+    systemInitializationCommand: [ ]
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+    autoScalingPolicy:
+      # version: v2
+      minReplicas: 1
+      maxReplicas: 4
+      # hpaPolicy response to horizontlaPodAutoscaler's HorizontalPodAutoscalerSpec
+      hpaPolicy:
+        metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 30
+
+
+  brokerSpec:
+    replicas: 3
+    configMapInfo:
+      # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
+      configMapName: "broker-configmap"
+      # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
+      resolveKey: "broker.conf"
+    resource:
+      requests:
+        cpu: 8
+        memory: 16Gi
+      limits:
+        cpu: 16
+        memory: 32Gi
+    nodeSelector: { }
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+    env: [ ]
+    # - name: "HOME"
+    #   value: "/opt/selectdb"
+    # - name: HOST_IP
+    #   valueFrom:
+    #     fieldRef:
+    #       apiVersion: v1
+    #       fieldPath: status.hostIP
+    affinity: { }
+    # Node tolerations for fe pod scheduling to nodes with taints
+    # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    tolerations: [ ]
+    # - key: "toleration"
+    #   value: "master"
+    # the pod labels for user select or classify pods.
+    podLabels: { }
+    # selectdb.app.classify: "classify-1"
+    ## hostAliases allows adding entries to /etc/hosts inside the containers
+    hostAliases: [ ]
+    # - ip: "127.0.0.1"
+    #   hostnames: "hostname1"
+    persistentVolumes:
+    # - mountPath: /opt/apache-doris/be/log
+    #   name: be-log
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #     - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 10Gi
+    # - mountPath: /opt/apache-doris/be/storage
+    #   name: be-storage
+    #   persistentVolumeClaimSpec:
+    #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #     #storageClassName: openebs-jiva-csi-default
+    #     accessModes:
+    #     - ReadWriteOnce
+    #     resources:
+    #       requests:
+    #         storage: 1024Gi
+    systemInitializationCommand: [ ]
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+
