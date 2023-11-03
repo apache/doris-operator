@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ template "doriscluster.name" . }}
     app.kubernetes.io/instance: {{ template "doriscluster.name" . }}-sample
-    app.kubernetes.io/part-of: {{ template "doriscluster.namespace" . }}-operator
+    app.kubernetes.io/part-of: {{ template "doriscluster.name" . }}-operator
   name: {{ template "doriscluster.name" . }}-sample
   namespace: {{ template "doriscluster.namespace" . }}
 spec:
@@ -20,9 +20,7 @@ spec:
     electionNumber: {{ .Values.feSpec.electionNumber }}
     replicas: {{ .Values.feSpec.replicas }}
     image: {{ .Values.dorisImage.feImage.repository }}:{{ .Values.dorisImage.feImage.tag }}
-    annotations:
-      selectdb/dorisclsuter.component: fe
-    {{- if .Values.feSpec.service.type }}
+    {{- if .Values.feSpec.service }}
     service:
       type: {{ .Values.feSpec.service.type }}
       {{- if and (eq "LoadBalancer" .Values.feSpec.service.type) .Values.feSpec.service.loadbalancerIP }}
@@ -79,8 +77,6 @@ spec:
   beSpec:
     replicas: {{ .Values.beSpec.replicas }}
     image: {{ .Values.dorisImage.beImage.repository }}:{{ .Values.dorisImage.beImage.tag }}
-    annotations:
-      selectdb/dorisclsuter.component: be
     {{- if .Values.beSpec.service }}
     service:
       type: {{ .Values.beSpec.service.type }}
@@ -141,8 +137,6 @@ spec:
 cnSpec:
   replicas: {{ .Values.cnSpec.replicas }}
   image: {{ .Values.dorisImage.beImage.repository }}:{{ .Values.dorisImage.beImage.tag }}
-  annotations:
-    selectdb/dorisclsuter.component: cn
   {{- if .Values.cnSpec.service }}
   service:
     type: {{ .Values.cnSpec.service.type }}
@@ -211,8 +205,6 @@ cnSpec:
 brokerSpec:
   replicas: {{ .Values.brokerSpec.replicas }}
   image: {{ .Values.dorisImage.brokerImage.repository }}:{{ .Values.dorisImage.brokerImage.tag }}
-  annotations:
-    selectdb/dorisclsuter.component: broker
   {{- if .Values.dorisImage.brokerImage.imagePullSecrets }}
   imagePullSecrets:
   {{- toYaml .Values.dorisImage.brokerImage.imagePullSecrets | nindent 4 }}
