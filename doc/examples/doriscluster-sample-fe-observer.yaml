@@ -7,7 +7,6 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample
-  namespace: doris
 spec:
   feSpec:
     # the electionNumber represents the number of FOLLOWER, (replicas - electionNumber) represents the number of OBSERVER.

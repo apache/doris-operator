@@ -1,5 +1,4 @@
 # This yaml have dorisCluster CRD all fields. The yaml only for reference how to config, not for deploy on kubernetes.
-
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:
@@ -10,7 +9,6 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample
-  namespace: doris
 spec:
   feSpec:
     # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`

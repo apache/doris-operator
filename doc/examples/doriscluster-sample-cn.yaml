@@ -8,7 +8,6 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample-cn
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample
-  namespace: doris
 spec:
   feSpec:
     replicas: 3
