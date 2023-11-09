@@ -1,0 +1,24 @@
+name: Main
+
+on: push
+  push:
+    tags: "*.*.*"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: helm package
+        run: cd helm-charts && tar zcf doris.tar.tgz && tar zcf doris-operator.tar.gz doris-operator && mv doris.tar.gz doris-operator.tar.gz ../ 
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.md
+          # note you'll typically need to create a personal access token
+          # with permissions to create releases in the other repo
+          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+          files: |
+            doris.tar.tgz
+            doris-operator.tar.tgz
