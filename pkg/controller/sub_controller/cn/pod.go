@@ -12,7 +12,6 @@ import (
 func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_CN)
 	var containers []corev1.Container
-	cn.addAffinity(dcr, &podTemplateSpec)
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)
 	containers = append(containers, cnContainer)
@@ -53,8 +52,4 @@ func (cn *Controller) cnContainer(dcr *v1.DorisCluster) corev1.Container {
 		Value: "COMPUTE",
 	})
 	return container
-}
-
-func (cn *Controller) addAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
-	podTemplateSpec.Spec.Affinity = cn.GetAffinity(dcr.Spec.CnSpec.Affinity, v1.Component_CN)
 }

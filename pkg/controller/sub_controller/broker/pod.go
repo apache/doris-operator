@@ -12,16 +12,12 @@ import (
 func (broker *Controller) buildBrokerPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_Broker)
 	var containers []corev1.Container
-	broker.addAffinity(dcr, &podTemplateSpec)
+	broker.addDefaultBorkerPodAffinity(dcr, &podTemplateSpec)
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	bkContainer := broker.brokerContainer(dcr)
 	containers = append(containers, bkContainer)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
-}
-
-func (broker *Controller) addAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
-	podTemplateSpec.Spec.Affinity = broker.getDefaultBorkerPodAffinity(dcr)
 }
 
 func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container {
@@ -60,8 +56,11 @@ func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container
 // the broker Pod Affinity rule
 // Pods of the broker should deploy on Affinity with be.
 // weight is 20, weight range is 1-100
-func (broker *Controller) getDefaultBorkerPodAffinity(dcr *v1.DorisCluster) *corev1.Affinity {
-	affinity := broker.GetAffinity(dcr.Spec.BrokerSpec.Affinity, v1.Component_Broker)
+func (broker *Controller) addDefaultBorkerPodAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
+	affinity := podTemplateSpec.Spec.Affinity
+	if !dcr.Spec.BrokerSpec.KickOffAffinityBe {
+		return
+	}
 
 	podAffinityTerm := corev1.WeightedPodAffinityTerm{
 		Weight: 20,
@@ -75,10 +74,6 @@ func (broker *Controller) getDefaultBorkerPodAffinity(dcr *v1.DorisCluster) *cor
 		},
 	}
 
-	if !dcr.Spec.BrokerSpec.KickOffAffinityBe {
-		return affinity
-	}
-
 	if affinity.PodAffinity != nil {
 		affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, podAffinityTerm)
 	} else {
@@ -86,7 +81,4 @@ func (broker *Controller) getDefaultBorkerPodAffinity(dcr *v1.DorisCluster) *cor
 			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
 		}
 	}
-
-	return affinity
-
 }

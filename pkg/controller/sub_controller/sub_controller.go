@@ -9,7 +9,6 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -298,59 +297,4 @@ func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.Doris
 	}
 
 	return prepared
-}
-
-func (d *SubDefaultController) getDefaultAffinity(componentType dorisv1.ComponentType) *corev1.Affinity {
-	// default Affinity rule is :
-	// Pods of the same component should deploy on different hosts with Preferred scheduling.
-	// weight is 20, weight range is 1-100
-
-	podAffinityTerm := corev1.WeightedPodAffinityTerm{
-		Weight: 20,
-		PodAffinityTerm: corev1.PodAffinityTerm{
-			LabelSelector: &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{Key: dorisv1.ComponentLabelKey, Operator: metav1.LabelSelectorOpIn, Values: []string{string(componentType)}},
-				},
-			},
-			TopologyKey: "kubernetes.io/hostname",
-		},
-	}
-
-	podAntiAffinity := corev1.PodAntiAffinity{
-		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
-	}
-
-	return &corev1.Affinity{
-		PodAntiAffinity: &podAntiAffinity,
-	}
-
-}
-
-func (d *SubDefaultController) GetAffinity(dcrAffinity *corev1.Affinity, componentType dorisv1.ComponentType) *corev1.Affinity {
-	affinity := d.getDefaultAffinity(componentType)
-
-	if dcrAffinity != nil {
-		dcrPodAffinity := dcrAffinity.PodAffinity
-		dcrPodAntiAffinity := dcrAffinity.PodAntiAffinity
-		dcrNodeAffinity := dcrAffinity.NodeAffinity
-
-		if dcrPodAffinity != nil {
-			affinity.PodAffinity = dcrPodAffinity
-		}
-
-		if dcrPodAntiAffinity != nil {
-			affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = dcrPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-			for i := range dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-				affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i])
-			}
-		}
-
-		if dcrNodeAffinity != nil {
-			affinity.NodeAffinity = dcrNodeAffinity
-		}
-	}
-
-	return affinity
-
 }

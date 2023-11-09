@@ -12,7 +12,6 @@ import (
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_BE)
 	var containers []corev1.Container
-	be.addAffinity(dcr, &podTemplateSpec)
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
@@ -51,8 +50,4 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	})
 
 	return c
-}
-
-func (be *Controller) addAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
-	podTemplateSpec.Spec.Affinity = be.GetAffinity(dcr.Spec.BeSpec.Affinity, v1.Component_BE)
 }

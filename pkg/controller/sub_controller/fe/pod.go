@@ -13,7 +13,6 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
 	var containers []corev1.Container
 	//containers = append(containers, podTemplateSpec.Spec.Containers...)
-	fc.addAffinity(dcr, &podTemplateSpec)
 	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
@@ -58,8 +57,4 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 	}
 
 	return c
-}
-
-func (fc *Controller) addAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
-	podTemplateSpec.Spec.Affinity = fc.GetAffinity(dcr.Spec.FeSpec.Affinity, v1.Component_FE)
 }
