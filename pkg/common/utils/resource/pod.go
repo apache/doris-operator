@@ -93,7 +93,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
 	}
 
-	pts.Spec.Affinity = GetAffinity(dcrAffinity, componentType)
+	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
 }
@@ -541,33 +541,28 @@ func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
 			TopologyKey: "kubernetes.io/hostname",
 		},
 	}
-
-	podAntiAffinity := corev1.PodAntiAffinity{
-		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
-	}
-
 	return &corev1.Affinity{
-		PodAntiAffinity: &podAntiAffinity,
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
+		},
 	}
 }
 
-func GetAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentType) *corev1.Affinity {
+func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentType) *corev1.Affinity {
 	affinity := getDefaultAffinity(componentType)
 
 	if dcrAffinity == nil {
 		return affinity
 	}
 
-	affinity.NodeAffinity = dcrAffinity.NodeAffinity
-	affinity.PodAffinity = dcrAffinity.PodAffinity
 	dcrPodAntiAffinity := dcrAffinity.PodAntiAffinity
-
 	if dcrPodAntiAffinity != nil {
 		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = dcrPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-		for i := range dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-			affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i])
-		}
+		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 	}
+
+	affinity.NodeAffinity = dcrAffinity.NodeAffinity
+	affinity.PodAffinity = dcrAffinity.PodAffinity
 
 	return affinity
 }

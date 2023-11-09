@@ -76,9 +76,10 @@ func (broker *Controller) addDefaultBorkerPodAffinity(dcr *v1.DorisCluster, podT
 
 	if affinity.PodAffinity != nil {
 		affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, podAffinityTerm)
-	} else {
-		affinity.PodAffinity = &corev1.PodAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
-		}
+		return
+	}
+
+	affinity.PodAffinity = &corev1.PodAffinity{
+		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
 	}
 }
