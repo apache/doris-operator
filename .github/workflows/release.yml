@@ -23,5 +23,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            doris-*.*.*.tgz
-            doris-operator-*.*.*.tgz
+            doris-[*]-*.*.*.tgz
