@@ -15,7 +15,7 @@ jobs:
       - name: helm package
         env:
           Version: ${{ steps.vars.outputs.tag }}
-        run: cd helm-charts && tar zcf doris-$Version.tgz doris && tar zcf doris-operator-$Version.tgz doris-operator && mv doris-$Version.tgz doris-operator-$Version.tgz ../ 
+        run: cd helm-charts && tar zcf doris-$Version.tgz doris && tar zcf doris-operator-$Version.tgz doris-operator && mv doris-$Version.tgz ../ && mv doris-operator-$Version.tgz ../
       - name: Release
         uses: softprops/action-gh-release@v1
         env:
