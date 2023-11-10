@@ -9,6 +9,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: set output 
         id: vars
         run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: helm package
