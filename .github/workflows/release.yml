@@ -24,3 +24,11 @@ jobs:
         with:
           files: |
             doris-*[-]*.*.*.tgz
+      - name: Release1
+        uses: softprops/action-gh-release@v1
+        env:
+          Version: ${{ steps.vars.outputs.tag }}
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            doris-*.*.*.tgz
