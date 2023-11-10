@@ -1,3 +1,25 @@
 apiVersion: v1
-entries: {}
-generated: "2023-11-08T16:30:59.331585+08:00"
+entries:
+  doris:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2023-11-10T17:06:24.966225+08:00"
+    description: A Helm chart for Kubernetes
+    digest: dd08798df5ce740fdcbc4fc9932aed85b8f3f3e0c15a1084f74478c0d6a8467a
+    name: doris
+    type: application
+    urls:
+    - https://github.com/intelligentfu/doris-operator/releases/download/1.2.3/doris-1.2.3.tgz
+    version: 0.1.0
+  doris-operator:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2023-11-10T17:06:24.966575+08:00"
+    description: A Helm chart for Kubernetes
+    digest: 760e8189e00785028995a0e4779b5109c69a3542438c284ac45e078e3d07f5db
+    name: doris-operator
+    type: application
+    urls:
+    - https://github.com/intelligentfu/doris-operator/releases/download/1.2.3/doris-operator-1.2.3.tgz 
+    version: 0.1.0
+generated: "2023-11-10T17:06:24.964643+08:00"
