@@ -1,5 +1,5 @@
 # doris-operator
-Doris-operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn components.
+Doris-operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn，broker components.
 Users custom `DorisCluster` CRD to deploy doris as demand.
 
 ## Features
