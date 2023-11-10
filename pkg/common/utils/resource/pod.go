@@ -41,17 +41,22 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	spec := getBaseSpecFromCluster(dcr, componentType)
 	var volumes []corev1.Volume
 	var si *v1.SystemInitialization
+	var dcrAffinity *corev1.Affinity
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
 		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
+		dcrAffinity = dcr.Spec.FeSpec.BaseSpec.Affinity
 	case v1.Component_BE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
+		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
+		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
+		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -87,6 +92,8 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		initContainer := newBaseInitContainer("init", si)
 		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
 	}
+
+	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
 }
@@ -517,4 +524,45 @@ func getProbe(port int32, path string) corev1.ProbeHandler {
 	}
 
 	return p
+}
+
+func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
+	// default Affinity rule is :
+	// Pods of the same component should deploy on different hosts with Preferred scheduling.
+	// weight is 20, weight range is 1-100
+	podAffinityTerm := corev1.WeightedPodAffinityTerm{
+		Weight: 20,
+		PodAffinityTerm: corev1.PodAffinityTerm{
+			LabelSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: v1.ComponentLabelKey, Operator: metav1.LabelSelectorOpIn, Values: []string{string(componentType)}},
+				},
+			},
+			TopologyKey: "kubernetes.io/hostname",
+		},
+	}
+	return &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
+		},
+	}
+}
+
+func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentType) *corev1.Affinity {
+	affinity := getDefaultAffinity(componentType)
+
+	if dcrAffinity == nil {
+		return affinity
+	}
+
+	dcrPodAntiAffinity := dcrAffinity.PodAntiAffinity
+	if dcrPodAntiAffinity != nil {
+		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = dcrPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+
+	affinity.NodeAffinity = dcrAffinity.NodeAffinity
+	affinity.PodAffinity = dcrAffinity.PodAffinity
+
+	return affinity
 }

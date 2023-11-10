@@ -12,27 +12,12 @@ import (
 func (broker *Controller) buildBrokerPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_Broker)
 	var containers []corev1.Container
-	broker.brokerAffinity(dcr, &podTemplateSpec)
+	broker.addDefaultBorkerPodAffinity(dcr, &podTemplateSpec)
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	bkContainer := broker.brokerContainer(dcr)
 	containers = append(containers, bkContainer)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
-}
-
-func (broker *Controller) brokerAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
-	defaultAffinity := broker.getDefaultBorkerPodAffinity()
-	podTemplateSpec.Spec.Affinity = dcr.Spec.BrokerSpec.Affinity
-	/*
-		kickOffAffinityBe	BrokerSpec.Affinity==nil		AffinityRule in effect
-					true				true					defaultAffinity(bk affinity be)
-					false				true					User-defined Affinity(User-defined in dcr)
-					true				false					User-defined Affinity(User-defined in dcr)
-					false				false					User-defined Affinity(User-defined in dcr)
-	*/
-	if dcr.Spec.BrokerSpec.Affinity == nil && dcr.Spec.BrokerSpec.KickOffAffinityBe {
-		podTemplateSpec.Spec.Affinity = defaultAffinity
-	}
 }
 
 func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container {
@@ -69,10 +54,16 @@ func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container
 }
 
 // the broker Pod Affinity rule
-func (broker *Controller) getDefaultBorkerPodAffinity() *corev1.Affinity {
+// Pods of the broker should deploy on Affinity with be.
+// weight is 20, weight range is 1-100
+func (broker *Controller) addDefaultBorkerPodAffinity(dcr *v1.DorisCluster, podTemplateSpec *corev1.PodTemplateSpec) {
+	affinity := podTemplateSpec.Spec.Affinity
+	if !dcr.Spec.BrokerSpec.KickOffAffinityBe {
+		return
+	}
 
 	podAffinityTerm := corev1.WeightedPodAffinityTerm{
-		Weight: 100,
+		Weight: 20,
 		PodAffinityTerm: corev1.PodAffinityTerm{
 			LabelSelector: &metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -83,12 +74,12 @@ func (broker *Controller) getDefaultBorkerPodAffinity() *corev1.Affinity {
 		},
 	}
 
-	affinity := corev1.PodAffinity{
+	if affinity.PodAffinity != nil {
+		affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, podAffinityTerm)
+		return
+	}
+
+	affinity.PodAffinity = &corev1.PodAffinity{
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
 	}
-
-	return &corev1.Affinity{
-		PodAffinity: &affinity,
-	}
-
 }
