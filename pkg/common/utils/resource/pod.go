@@ -92,7 +92,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 						Command: []string{
 							"bin/sh",
 							"-c",
-							"sysctl -w vm.max_map_count=2000001 && swapoff -a",
+							"sysctl -w vm.max_map_count=2000000 && swapoff -a",
 						},
 					},
 				),
