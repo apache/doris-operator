@@ -85,6 +85,18 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 			Affinity:           spec.Affinity,
 			Tolerations:        spec.Tolerations,
 			HostAliases:        spec.HostAliases,
+			InitContainers: []corev1.Container{
+				newBaseInitContainer(
+					"init-system",
+					&v1.SystemInitialization{
+						Command: []string{
+							"bin/sh",
+							"-c",
+							"sysctl -w vm.max_map_count=2000001 && swapoff -a",
+						},
+					},
+				),
+			},
 		},
 	}
 

@@ -1396,6 +1396,9 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner
+                          type: string
                       type: object
                     type: array
                   podLabels:
@@ -2879,6 +2882,9 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner
+                          type: string
                       type: object
                     type: array
                   podLabels:
@@ -5035,6 +5041,9 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner
+                          type: string
                       type: object
                     type: array
                   podLabels:
@@ -6518,6 +6527,9 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner
+                          type: string
                       type: object
                     type: array
                   podLabels:
