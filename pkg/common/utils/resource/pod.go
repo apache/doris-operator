@@ -52,11 +52,11 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructDefaultInitContainer())
+		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructDefaultInitContainer())
+		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
@@ -571,7 +571,7 @@ func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentT
 	return affinity
 }
 
-func constructDefaultInitContainer() corev1.Container {
+func constructBeDefaultInitContainer() corev1.Container {
 	return newBaseInitContainer(
 		"default-init",
 		&v1.SystemInitialization{
