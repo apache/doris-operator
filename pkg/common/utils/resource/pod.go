@@ -42,6 +42,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	var volumes []corev1.Volume
 	var si *v1.SystemInitialization
 	var dcrAffinity *corev1.Affinity
+	var defaultInitContainers []corev1.Container
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
@@ -51,9 +52,11 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
+		defaultInitContainers = append(defaultInitContainers, constructDefaultInitContainer())
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
+		defaultInitContainers = append(defaultInitContainers, constructDefaultInitContainer())
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
@@ -85,18 +88,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 			Affinity:           spec.Affinity,
 			Tolerations:        spec.Tolerations,
 			HostAliases:        spec.HostAliases,
-			InitContainers: []corev1.Container{
-				newBaseInitContainer(
-					"init-system",
-					&v1.SystemInitialization{
-						Command: []string{
-							"bin/sh",
-							"-c",
-							"sysctl -w vm.max_map_count=2000000 && swapoff -a",
-						},
-					},
-				),
-			},
+			InitContainers:     defaultInitContainers,
 		},
 	}
 
@@ -577,4 +569,14 @@ func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentT
 	affinity.PodAffinity = dcrAffinity.PodAffinity
 
 	return affinity
+}
+
+func constructDefaultInitContainer() corev1.Container {
+	return newBaseInitContainer(
+		"default-init",
+		&v1.SystemInitialization{
+			Command: []string{"/bin/sh"},
+			Args:    []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
+		},
+	)
 }
