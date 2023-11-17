@@ -12,6 +12,12 @@ spec:
   feSpec:
     replicas: 3
     image: selectdb/doris.fe-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
     persistentVolumes:
     - mountPath: /opt/apache-doris/fe/doris-meta
       name: fetest
@@ -37,6 +43,12 @@ spec:
   beSpec:
     replicas: 3
     image: selectdb/doris.be-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
     persistentVolumes:
     - mountPath: /opt/apache-doris/be/storage
       name: betest
