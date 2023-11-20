@@ -1,4 +1,6 @@
-## Debug `CrashLoopBackOff`
+English | [中文](doris_debug_crashloopbackoff_ch.md)
+
+# Debug `CrashLoopBackOff`
 Service will failed to startup on k8s for some unexpected reason.When pod in `CrashLoopBackOff` status, `kubectl describe` and `logs` will not provide support for fixing the issue.
 So operator provide a `debug` mode fo starting pod. Using debug mode to start, pod will always start successfully. But the service in pod will not start ok. The doc describe how to use `debug mode` to debug service issue.
 ## Start on Debug Mode

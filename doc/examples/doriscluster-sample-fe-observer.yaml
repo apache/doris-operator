@@ -14,6 +14,18 @@ spec:
     electionNumber: 3
     replicas: 5
     image: selectdb/doris.fe-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
   beSpec:
     replicas: 3
     image: selectdb/doris.be-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi

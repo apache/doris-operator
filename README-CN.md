@@ -10,6 +10,7 @@ Doris-Operator 用于在 Kubernetes 上创建、配置和管理 Doris 集群，�
 - 提供 HorizontalPodAutoscaler v1 和 v2 版本满足不同k8s环境计算节点的自动弹性扩缩容  
 ## 环境要求  
 - Kubernetes 1.19+  
+- Doris 的 FE 和 BE 组件正常启动至少需要8c和8G资源
 ## 安装  
 1. 安装 DorisCluster 资源定义：  
 ```  

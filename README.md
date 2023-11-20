@@ -13,6 +13,7 @@ Users custom `DorisCluster` CRD to deploy doris as demand.
 
 ## Requirements
 - Kubernetes 1.19+
+- Doris's components need 8c cpu and 8G memory at least to normal start.
 
 ## Installation
 1. Install custom resource definitions:  
