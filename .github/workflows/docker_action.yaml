@@ -12,7 +12,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: smiletan/doris-operator
+          images: selectdb/doris.k8s-operator
+
+      - name: Doris Debug meta
+        id: debug_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: selectdb/doris-debug-ubuntu
+
       - name: env 
         id: vars
         run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
