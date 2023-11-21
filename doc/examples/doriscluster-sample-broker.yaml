@@ -6,14 +6,31 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample
-  namespace: doris
 spec:
   feSpec:
     replicas: 1
     image: selectdb/doris.fe-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
   beSpec:
     replicas: 1
     image: selectdb/doris.be-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
   brokerSpec:
     replicas: 1
     image: selectdb/doris.broker-ubuntu:2.0.2
+    limits:
+      cpu: 2
+      memory: 4Gi
+    requests:
+      cpu: 2
+      memory: 4Gi

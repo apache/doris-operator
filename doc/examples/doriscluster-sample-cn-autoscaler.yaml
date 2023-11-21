@@ -7,7 +7,6 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample-cn
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample
-  namespace: doris
 spec:
   feSpec:
     replicas: 3
@@ -21,6 +20,12 @@ spec:
       configMapName: cn-configmap
       resolveKey: be.conf
     image: selectdb/doris.be-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
     autoScalingPolicy:
       # version have two values:v2,v1 response horizontalPodAutoscaler v1 and v2 versions.
       version: "v2"

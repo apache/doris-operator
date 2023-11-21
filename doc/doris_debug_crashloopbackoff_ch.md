@@ -1,3 +1,4 @@
+中文 | [English](doris_debug_crashloopbackoff.md)
 # Debug `CrashLoopBackOff`
 在k8s环境中服务因为一些预期之外的事情会进入`CrashLoopBackOff`状态，在这种状态下，单纯通过describe和log无法判定服务出问题的原因。当服务进入`CrashLoopBackOff`状态时，需要有一种机制允许部署服务的pod进入running状态方便用户通过`exec`进入容器内进行debug。
 doris-operator提供了`debug`的运行模式。下面描述了当服务进入`CrashLoopBackOff`时如何进入`debug`模式进行人工debug，以及解决后如何恢复到正常启动状态。

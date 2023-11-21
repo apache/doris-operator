@@ -1,6 +1,5 @@
 # this yaml describe `configmap` config in DorisCluster CRD.
 #Compareed to `doriscluster-sample.yaml`, It have `configmap` config for fe and be.
-
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:
@@ -9,11 +8,16 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample-configmap
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample-configmap
-  namespace: doris
 spec:
   feSpec:
     replicas: 3
     image: selectdb/doris.fe-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
     configMapInfo:
       # use kubectl create configmap fe-configmap --from-file=fe.conf
       configMapName: fe-configmap
@@ -21,6 +25,12 @@ spec:
   beSpec:
     replicas: 3
     image: selectdb/doris.be-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
     configMapInfo:
       # use kubectl create configmap be-configmap --from-file=be.conf
       configMapName: be-configmap

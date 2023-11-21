@@ -74,8 +74,14 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	st := be.buildBEStatefulSet(dcr)
+	if !be.PrepareReconcileResources(ctx, dcr, v1.Component_BE) {
+		klog.Infof("be controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
+		return nil
+	}
+
 	if err = k8s.ApplyStatefulSet(ctx, be.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
 		// if have restart annotation, we should exclude the interference for comparison.
+		be.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
 	}); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",

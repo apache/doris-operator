@@ -8,14 +8,25 @@ metadata:
     app.kubernetes.io/instance: doriscluster-sample
     app.kubernetes.io/part-of: doris-operator
   name: doriscluster-sample-system-params
-  namespace: doris
 spec:
   feSpec:
     replicas: 3
     image: selectdb/doris.fe-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
   beSpec:
     replicas: 3
     image: selectdb/doris.be-ubuntu:2.0.2
+    limits:
+      cpu: 8
+      memory: 16Gi
+    requests:
+      cpu: 8
+      memory: 16Gi
     systemInitialization:
       command: ["/sbin/sysctl", "-w", "vm.max_map_count=2000000"]
       # the default image use selectdb/alpine:2.0.2, if you k8s cluster not access internet, you can specify initImage by follow field.
