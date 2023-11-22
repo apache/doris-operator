@@ -1,0 +1,251 @@
+# This yaml have dorisCluster CRD all fields. The yaml only for reference how to config, not for deploy on kubernetes.
+
+apiVersion: doris.selectdb.com/v1
+kind: DorisCluster
+metadata:
+  annotations:
+    {{- toYaml .Values.dorisCluster.annotations | nindent 4 }}
+  labels:
+    app.kubernetes.io/name: {{ template "doriscluster.name" . }}
+    app.kubernetes.io/instance: {{ template "doriscluster.name" . }}-sample
+    app.kubernetes.io/part-of: {{ template "doriscluster.name" . }}-operator
+  name: {{ template "doriscluster.name" . }}-sample
+  namespace: {{ template "doriscluster.namespace" . }}
+spec:
+  {{- if .Values.dorisCluster.adminUser }}
+  adminUser:
+    {{- toYaml .Values.dorisCluster.adminUser | nindent 4 }}
+  {{- end }}
+  feSpec:
+    electionNumber: {{ .Values.feSpec.electionNumber }}
+    replicas: {{ .Values.feSpec.replicas }}
+    image: {{ .Values.dorisImage.feImage.repository }}:{{ .Values.dorisImage.feImage.tag }}
+    {{- if .Values.feSpec.service }}
+    service:
+      type: {{ .Values.feSpec.service.type }}
+      {{- if and (eq "LoadBalancer" .Values.feSpec.service.type) .Values.feSpec.service.loadbalancerIP }}
+      loadBalancerIP: {{ .Values.feSpec.service.loadbalancerIP }}
+      {{- end }}
+      {{- if .Values.feSpec.service.ports }}
+      servicePorts:
+      {{- toYaml .Values.feSpec.service.servicePorts | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.dorisImage.feImage.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.dorisImage.feImage.imagePullSecrets | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.configMapInfo }}
+    configMapInfo:
+    {{- toYaml .Values.feSpec.configMapInfo | nindent 6 }}
+    {{- end }}
+    {{- if .Values.feSpec.resource }}
+    {{- toYaml .Values.feSpec.resource | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml .Values.feSpec.nodeSelector | nindent 6 }}
+    {{- end }}
+    {{- if .Values.feSpec.env }}
+    envVars:
+    {{- toYaml .Values.feSpec.env | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.affinity }}
+    affinity:
+    {{- toYaml .Values.feSpec.affinity | nindent 6 }}
+    {{- end }}
+    {{- if .Values.feSpec.tolerations }}
+    tolerations:
+    {{- toYaml .Values.feSpec.tolerations | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.podLabels }}
+    podLabels:
+    {{- toYaml .Values.feSpec.podLabels | nindent 6 }}
+    {{- end }}
+    {{- if .Values.feSpec.hostAliases }}
+    hostAliases:
+    {{- toYaml .Values.feSpec.hostAliases | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.persistentVolumes }}
+    persistentVolumes:
+    {{- toYaml .Values.feSpec.persistentVolumes | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.systemInitializationCommand }}
+    systemInitialization:
+      command: {{ .Values.feSpec.systemInitializationCommand.command }}
+    {{- end }}
+  beSpec:
+    replicas: {{ .Values.beSpec.replicas }}
+    image: {{ .Values.dorisImage.beImage.repository }}:{{ .Values.dorisImage.beImage.tag }}
+    {{- if .Values.beSpec.service }}
+    service:
+      type: {{ .Values.beSpec.service.type }}
+      {{- if and (eq "LoadBalancer" .Values.beSpec.service.type) .Values.beSpec.service.loadbalancerIP }}
+      loadBalancerIP: {{ .Values.beSpec.service.loadbalancerIP }}
+      {{- end }}
+      {{- if .Values.beSpec.service.ports }}
+      servicePorts:
+        {{- toYaml .Values.beSpec.service.servicePorts | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.dorisImage.beImage.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.dorisImage.beImage.imagePullSecrets | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.configMapInfo }}
+    configMapInfo:
+    {{- toYaml .Values.beSpec.configMapInfo | nindent 6 }}
+    {{- end }}
+    {{- if .Values.beSpec.resource }}
+    {{- toYaml .Values.beSpec.resource | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml .Values.beSpec.nodeSelector | nindent 6 }}
+    {{- end }}
+    {{- if .Values.beSpec.env }}
+    envVars:
+    {{- toYaml .Values.beSpec.env | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.affinity }}
+    affinity:
+    {{- toYaml .Values.beSpec.affinity | nindent 6 }}
+    {{- end }}
+    {{- if .Values.beSpec.tolerations }}
+    tolerations:
+    {{- toYaml .Values.beSpec.tolerations | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.podLabels }}
+    podLabels:
+    {{- toYaml .Values.beSpec.podLabels | nindent 6 }}
+    {{- end }}
+    {{- if .Values.beSpec.hostAliases }}
+    hostAliases:
+    {{- toYaml .Values.beSpec.hostAliases | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.persistentVolumes }}
+    persistentVolumes:
+    {{- toYaml .Values.beSpec.persistentVolumes | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.systemInitializationCommand }}
+    systemInitialization:
+      command: {{ .Values.beSpec.systemInitializationCommand.command }}
+    {{- end }}
+
+
+  {{- if .Values.dorisCluster.enabledCn }}
+cnSpec:
+  replicas: {{ .Values.cnSpec.replicas }}
+  image: {{ .Values.dorisImage.beImage.repository }}:{{ .Values.dorisImage.beImage.tag }}
+  {{- if .Values.cnSpec.service }}
+  service:
+    type: {{ .Values.cnSpec.service.type }}
+    {{- if and (eq "LoadBalancer" .Values.cnSpec.service.type) .Values.cnSpec.service.loadbalancerIP }}
+    loadBalancerIP: {{ .Values.cnSpec.service.loadbalancerIP }}
+    {{- end }}
+    {{- if .Values.cnSpec.service.ports }}
+    servicePorts:
+      {{- toYaml .Values.cnSpec.service.servicePorts | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.dorisImage.cnImage.imagePullSecrets }}
+  imagePullSecrets:
+  {{- toYaml .Values.dorisImage.cnImage.imagePullSecrets | nindent 4 }}
+  {{- end }}
+  {{- if .Values.cnSpec.configMapInfo }}
+  configMapInfo:
+  {{- toYaml .Values.cnSpec.configMapInfo | nindent 6 }}
+  {{- end }}
+  {{- if .Values.cnSpec.resource }}
+  {{- toYaml .Values.cnSpec.resource | nindent 4 }}
+  {{- end }}
+  {{- if .Values.cnSpec.nodeSelector }}
+  nodeSelector:
+  {{- toYaml .Values.cnSpec.nodeSelector | nindent 6 }}
+  {{- end }}
+  {{- if .Values.cnSpec.env }}
+  envVars:
+  {{- toYaml .Values.cnSpec.env | nindent 4 }}
+  {{- end }}
+  {{- if .Values.cnSpec.affinity }}
+  affinity:
+  {{- toYaml .Values.cnSpec.affinity | nindent 6 }}
+  {{- end }}
+  {{- if .Values.cnSpec.tolerations }}
+  tolerations:
+  {{- toYaml .Values.cnSpec.tolerations | nindent 4 }}
+  {{- end }}
+  {{- if .Values.cnSpec.podLabels }}
+  podLabels:
+  {{- toYaml .Values.cnSpec.podLabels | nindent 6 }}
+  {{- end }}
+  {{- if .Values.cnSpec.hostAliases }}
+  hostAliases:
+  {{- toYaml .Values.cnSpec.hostAliases | nindent 4 }}
+  {{- end }}
+  {{- if .Values.cnSpec.persistentVolumes }}
+  persistentVolumes:
+  {{- toYaml .Values.cnSpec.persistentVolumes | nindent 4 }}
+  {{- end }}
+  {{- if .Values.cnSpec.systemInitializationCommand }}
+  systemInitialization:
+    command: {{ .Values.cnSpec.systemInitializationCommand.command }}
+  {{- end }}
+  {{- if .Values.cnSpec.autoScalingPolicy }}
+  autoScalingPolicy:
+    version: {{default .Values.cnSpec.autoScalingPolicy.version "v2" }}
+    minReplicas: {{ .Values.cnSpec.autoScalingPolicy.minReplicas}}
+    maxReplicas: {{ .Values.cnSpec.autoScalingPolicy.maxReplicas}}
+    hpaPolicy:
+    {{- toYaml .Values.cnSpec.autoScalingPolicy.hpaPolicy | nindent 8 }}
+  {{- end }}
+  {{- end }}
+
+  {{- if .Values.dorisCluster.enabledBroker }}
+brokerSpec:
+  replicas: {{ .Values.brokerSpec.replicas }}
+  image: {{ .Values.dorisImage.brokerImage.repository }}:{{ .Values.dorisImage.brokerImage.tag }}
+  {{- if .Values.dorisImage.brokerImage.imagePullSecrets }}
+  imagePullSecrets:
+  {{- toYaml .Values.dorisImage.brokerImage.imagePullSecrets | nindent 4 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.configMapInfo }}
+  configMapInfo:
+  {{- toYaml .Values.brokerSpec.configMapInfo | nindent 6 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.resource }}
+  {{- toYaml .Values.brokerSpec.resource | nindent 4 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.nodeSelector }}
+  nodeSelector:
+  {{- toYaml .Values.brokerSpec.nodeSelector | nindent 6 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.env }}
+  envVars:
+  {{- toYaml .Values.brokerSpec.env | nindent 4 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.affinity }}
+  affinity:
+  {{- toYaml .Values.brokerSpec.affinity | nindent 6 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.tolerations }}
+  tolerations:
+  {{- toYaml .Values.brokerSpec.tolerations | nindent 4 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.podLabels }}
+  podLabels:
+  {{- toYaml .Values.brokerSpec.podLabels | nindent 6 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.hostAliases }}
+  hostAliases:
+  {{- toYaml .Values.brokerSpec.hostAliases | nindent 4 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.persistentVolumes }}
+  persistentVolumes:
+  {{- toYaml .Values.brokerSpec.persistentVolumes | nindent 4 }}
+  {{- end }}
+  {{- if .Values.brokerSpec.systemInitializationCommand }}
+  systemInitialization:
+    command: {{ .Values.brokerSpec.systemInitializationCommand.command }}
+  {{- end }}
+  {{- end }}
