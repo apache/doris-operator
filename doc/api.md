@@ -587,20 +587,7 @@ BaseSpec
 <tbody>
 <tr>
 <td>
-<code>service</code><br/>
-<em>
-<a href="#doris.selectdb.com/v1.ExportService">
-ExportService
-</a>
-</em>
-</td>
-<td>
-<p>expose the cn listen ports</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>baseSpec</code><br/>
+<code>BaseSpec</code><br/>
 <em>
 <a href="#doris.selectdb.com/v1.BaseSpec">
 BaseSpec
@@ -608,7 +595,24 @@ BaseSpec
 </em>
 </td>
 <td>
-<p>the foundation spec for creating cn software services.</p>
+<p>
+(Members of <code>BaseSpec</code> are embedded into this type.)
+</p>
+<p>the foundation spec for creating cn software services.
+BaseSpec <code>json:&quot;baseSpec,omitempty&quot;</code></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kickOffAffinityBe</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>enable affinity with be , if kickoff affinity, the operator will set affinity on broker with be.
+The affinity is preferred not required.
+When the user custom affinity the switch does not take effect anymore.</p>
 </td>
 </tr>
 </tbody>
@@ -1306,7 +1310,7 @@ int
 <h3 id="doris.selectdb.com/v1.ExportService">ExportService
 </h3>
 <p>
-(<em>Appears on:</em><a href="#doris.selectdb.com/v1.BaseSpec">BaseSpec</a>, <a href="#doris.selectdb.com/v1.BrokerSpec">BrokerSpec</a>)
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.BaseSpec">BaseSpec</a>)
 </p>
 <div>
 <p>ExportService consisting of expose ports for user access to software service.</p>
@@ -2164,6 +2168,29 @@ MetricIdentifier
 </tr>
 </tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.PVCProvisioner">PVCProvisioner
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.PersistentVolume">PersistentVolume</a>)
+</p>
+<div>
+<p>PVCProvisioner defines PVC provisioner</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;Operator&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;StatefulSet&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.PersistentVolume">PersistentVolume
 </h3>
 <p>
@@ -2213,6 +2240,19 @@ string
 </td>
 <td>
 <p>the volume name associate with</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>provisioner</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.PVCProvisioner">
+PVCProvisioner
+</a>
+</em>
+</td>
+<td>
+<p>defines pvc provisioner</p>
 </td>
 </tr>
 </tbody>
@@ -2380,7 +2420,7 @@ string
 </em>
 </td>
 <td>
-<p>Image for doris initialization, default is alpine:latest.</p>
+<p>Image for doris initialization, default is selectdb/alpine:latest.</p>
 </td>
 </tr>
 <tr>
@@ -2410,5 +2450,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>211df42</code>.
+on git commit <code>002533a</code>.
 </em></p>
