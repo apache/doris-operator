@@ -47,11 +47,13 @@ ADD resource/apache-doris-x.x.x-bin-${TARGETARCH:-amd64}/be /opt/apache-doris/be
 
 COPY resource/be_*.sh /opt/apache-doris/
 
-COPY resource/doris-debug /opt/apache-doris/
+# COPY resource/doris-debug /opt/apache-doris/
 
 COPY --from=selectdb/doris-debug-ubuntu:latest /doris-debug /opt/apache-doris/
 
 COPY resource/entry_point.sh /usr/local/bin/
+
+COPY resource/init_be.sh /usr/local/bin/
 
 WORKDIR /opt/apache-doris
 

@@ -267,7 +267,7 @@ _main() {
     # Start Doris BE
     {
         set +e
-        bash init_be.sh 2>/dev/null
+        bash init_be.sh
     } &
     # check BE started status
     check_be_status
