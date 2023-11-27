@@ -50,7 +50,7 @@ ADD resource/init_fe.sh /opt/apache-doris/fe/bin/
 
 COPY resource/fe_*.sh /opt/apache-doris/
 
-COPY resource/doris-debug /opt/apache-doris/
+# COPY resource/doris-debug /opt/apache-doris/
 
 COPY --from=selectdb/doris-debug-ubuntu:latest /doris-debug /opt/apache-doris/
 

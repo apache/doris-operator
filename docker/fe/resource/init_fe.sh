@@ -310,10 +310,10 @@ _main() {
         doris_note "Ready to start CURRENT_FE！"
 
         if [ $CURRENT_FE_IS_MASTER == true ]; then
-            start_fe.sh &
+            start_fe.sh --console &
             child_pid=$!
         else
-            start_fe.sh --helper ${MASTER_FE_IP}:${MASTER_FE_EDIT_PORT} &
+            start_fe.sh --helper ${MASTER_FE_IP}:${MASTER_FE_EDIT_PORT} --console &
             child_pid=$!
         fi
     fi
