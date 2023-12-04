@@ -56,6 +56,10 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: manifests-v1beta1
+manifests-v1beta1: ##  generate v1beta1 CRD.
+	$(LOCALBIN)/controller-gen:0.6.0 rbac:roleName=manager-doris crd:preserveUnknownFields=false,allowDangerousTypes=true,maxDescLen=0,crdVersions=v1beta1 paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
+
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
