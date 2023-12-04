@@ -52,11 +52,14 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
+		//TODO: for icbc cancel
+		//defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
+		//TODO: for icbc cancel
+
+		//defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
@@ -481,9 +484,11 @@ func startupProbe(port int32, path string) *corev1.Probe {
 // livenessProbe returns a liveness.
 func livenessProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
-		PeriodSeconds:    5,
-		FailureThreshold: 3,
-		ProbeHandler:     getProbe(port, path),
+		PeriodSeconds:       5,
+		FailureThreshold:    3,
+		TimeoutSeconds:      180,
+		InitialDelaySeconds: 120,
+		ProbeHandler:        getProbe(port, path),
 	}
 }
 
@@ -492,6 +497,7 @@ func readinessProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
+		TimeoutSeconds:   180,
 		ProbeHandler:     getProbe(port, path),
 	}
 }
@@ -533,9 +539,9 @@ func getProbe(port int32, path string) corev1.ProbeHandler {
 func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
 	// default Affinity rule is :
 	// Pods of the same component should deploy on different hosts with Preferred scheduling.
-	// weight is 20, weight range is 1-100
+	// weight is 100, weight range is 1-100
 	podAffinityTerm := corev1.WeightedPodAffinityTerm{
-		Weight: 20,
+		Weight: 100,
 		PodAffinityTerm: corev1.PodAffinityTerm{
 			LabelSelector: &metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
