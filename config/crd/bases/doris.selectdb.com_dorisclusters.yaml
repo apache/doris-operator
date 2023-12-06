@@ -1426,6 +1426,12 @@ spec:
                   service:
                     description: expose the be listen ports
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider
@@ -2912,6 +2918,12 @@ spec:
                   service:
                     description: expose the be listen ports
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider
@@ -5071,6 +5083,12 @@ spec:
                   service:
                     description: expose the be listen ports
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider
@@ -6557,6 +6575,12 @@ spec:
                   service:
                     description: expose the be listen ports
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider

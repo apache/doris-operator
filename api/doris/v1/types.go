@@ -240,6 +240,9 @@ type ExportService struct {
 	//ServicePort config service for NodePort access mode.
 	ServicePorts []DorisServicePort `json:"servicePorts,omitempty"`
 
+	//Annotations for using function on different cloud platform.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Only applies to Service Type: LoadBalancer.
 	// This feature depends on whether the underlying cloud-provider supports specifying
 	// the loadBalancerIP when a load balancer is created.

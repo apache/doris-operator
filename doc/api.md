@@ -1353,6 +1353,17 @@ More info: <a href="https://kubernetes.io/docs/concepts/services-networking/serv
 </tr>
 <tr>
 <td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations for using function on different cloud platform.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>loadBalancerIP</code><br/>
 <em>
 string
@@ -2450,5 +2461,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>002533a</code>.
+on git commit <code>490a4cc</code>.
 </em></p>

@@ -18,7 +18,8 @@ type hashService struct {
 	selector  map[string]string
 	//deal with external access load balancer.
 	//serviceType corev1.ServiceType
-	labels map[string]string
+	labels      map[string]string
+	annotations map[string]string
 }
 
 func BuildInternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, config map[string]interface{}) corev1.Service {
@@ -79,13 +80,6 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 	//the k8s service type.
 	var ports []corev1.ServicePort
 	var exportService *v1.ExportService
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1.GenerateExternalServiceName(dcr, componentType),
-			Namespace: dcr.Namespace,
-			Labels:    labels,
-		},
-	}
 
 	switch componentType {
 	case v1.Component_FE:
@@ -102,12 +96,25 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 		klog.Infof("BuildExternalService componentType %s not supported.")
 	}
 
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1.GenerateExternalServiceName(dcr, componentType),
+			Namespace: dcr.Namespace,
+			Labels:    labels,
+		},
+	}
+
 	constructServiceSpec(exportService, &svc, selector, ports)
+	if exportService != nil {
+		svc.Annotations = exportService.Annotations
+	}
+
 	svc.OwnerReferences = []metav1.OwnerReference{getOwnerReference(dcr)}
-	hso := serviceHashObject(&svc)
-	anno := map[string]string{}
-	anno[v1.ComponentResourceHash] = hash.HashObject(hso)
-	svc.Annotations = anno
+	// the code is invalid, duplicate with ServiceDeepEqual
+	//hso := serviceHashObject(&svc)
+	//anno := map[string]string{}
+	//anno[v1.ComponentResourceHash] = hash.HashObject(hso)
+	//svc.Annotations = anno
 	return svc
 }
 
@@ -277,33 +284,46 @@ func setServiceType(svc *v1.ExportService, service *corev1.Service) {
 		service.Spec.LoadBalancerIP = svc.LoadBalancerIP
 	}
 }
-
-func ServiceDeepEqual(nsvc, oldsvc *corev1.Service) bool {
-	var nhsvcValue, ohsvcValue string
-	if _, ok := nsvc.Annotations[v1.ComponentResourceHash]; ok {
-		nhsvcValue = nsvc.Annotations[v1.ComponentResourceHash]
+func ServiceDeepEqual(newSvc, oldSvc *corev1.Service) bool {
+	var newHashValue, oldHashValue string
+	if _, ok := newSvc.Annotations[v1.ComponentResourceHash]; ok {
+		newHashValue = newSvc.Annotations[v1.ComponentResourceHash]
 	} else {
-		nhsvc := serviceHashObject(nsvc)
-		nhsvcValue = hash.HashObject(nhsvc)
+		newHashService := serviceHashObject(newSvc)
+		newHashValue = hash.HashObject(newHashService)
 	}
 
-	if _, ok := oldsvc.Annotations[v1.ComponentResourceHash]; ok {
-		ohsvcValue = oldsvc.Annotations[v1.ComponentResourceHash]
+	if _, ok := oldSvc.Annotations[v1.ComponentResourceHash]; ok {
+		oldHashValue = oldSvc.Annotations[v1.ComponentResourceHash]
 	} else {
-		ohsvc := serviceHashObject(oldsvc)
-		ohsvcValue = hash.HashObject(ohsvc)
+		oldHashService := serviceHashObject(oldSvc)
+		oldHashValue = hash.HashObject(oldHashService)
 	}
 
-	return nhsvcValue == ohsvcValue &&
-		nsvc.Namespace == oldsvc.Namespace /*&& oldGeneration == oldsvc.Generation*/
+	// set hash value in annotation for avoiding deep equal.
+	newSvc.Annotations = mergeMaps(newSvc.Annotations, map[string]string{v1.ComponentResourceHash: newHashValue})
+	return newHashValue == oldHashValue &&
+		newSvc.Namespace == oldSvc.Namespace
 }
 
+// hash service for diff new generate service and old service in kubernetes.
 func serviceHashObject(svc *corev1.Service) hashService {
+	annos := make(map[string]string, len(svc.Annotations))
+	//for support service annotations, avoid hash value in annotations interfere equal comparison.
+	for key, value := range svc.Annotations {
+		if key == v1.ComponentResourceHash {
+			continue
+		}
+
+		annos[key] = value
+	}
+
 	return hashService{
-		name:      svc.Name,
-		namespace: svc.Namespace,
-		ports:     svc.Spec.Ports,
-		selector:  svc.Spec.Selector,
-		labels:    svc.Labels,
+		name:        svc.Name,
+		namespace:   svc.Namespace,
+		ports:       svc.Spec.Ports,
+		selector:    svc.Spec.Selector,
+		labels:      svc.Labels,
+		annotations: annos,
 	}
 }

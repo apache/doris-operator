@@ -35,6 +35,10 @@ const (
 	DEFAULT_ROOT_PATH    = "/opt/apache-doris"
 	POD_INFO_PATH        = "/etc/podinfo"
 	POD_INFO_VOLUME_NAME = "podinfo"
+
+	NODE_TOPOLOGYKEY = "kubernetes.io/hostname"
+
+	DEFAULT_INIT_IMAGE = "selectdb/alpine:latest"
 )
 
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -52,11 +56,9 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
@@ -92,14 +94,26 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		},
 	}
 
-	if si != nil {
-		initContainer := newBaseInitContainer("init", si)
-		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
-	}
-
+	constructInitContainers(componentType, &pts.Spec, si)
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
+}
+
+func constructInitContainers(componentType v1.ComponentType, podSpec *corev1.PodSpec, si *v1.SystemInitialization) {
+	defaultImage := ""
+	var defaultInitContains []corev1.Container
+	if si != nil {
+		initContainer := newBaseInitContainer("init", si)
+		defaultImage = si.InitImage
+		defaultInitContains = append(defaultInitContains, initContainer)
+	}
+
+	// the init containers have sequence，should confirm use initial is always in the first priority.
+	if componentType == v1.Component_BE || componentType == v1.Component_CN {
+		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(defaultImage))
+	}
+	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
 }
 
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
@@ -168,7 +182,7 @@ func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Conta
 	enablePrivileged := true
 	initImage := si.InitImage
 	if initImage == "" {
-		initImage = "selectdb/alpine:latest"
+		initImage = DEFAULT_INIT_IMAGE
 	}
 	c := corev1.Container{
 		Image:           initImage,
@@ -483,7 +497,10 @@ func livenessProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
-		ProbeHandler:     getProbe(port, path),
+		// for pulling image and start doris
+		InitialDelaySeconds: 80,
+		TimeoutSeconds:      180,
+		ProbeHandler:        getProbe(port, path),
 	}
 }
 
@@ -542,7 +559,7 @@ func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
 					{Key: v1.ComponentLabelKey, Operator: metav1.LabelSelectorOpIn, Values: []string{string(componentType)}},
 				},
 			},
-			TopologyKey: "kubernetes.io/hostname",
+			TopologyKey: NODE_TOPOLOGYKEY,
 		},
 	}
 	return &corev1.Affinity{
@@ -571,12 +588,13 @@ func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentT
 	return affinity
 }
 
-func constructBeDefaultInitContainer() corev1.Container {
+func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 	return newBaseInitContainer(
 		"default-init",
 		&v1.SystemInitialization{
-			Command: []string{"/bin/sh"},
-			Args:    []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
+			Command:   []string{"/bin/sh"},
+			InitImage: defaultImage,
+			Args:      []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
 		},
 	)
 }
