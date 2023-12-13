@@ -1,4 +1,3 @@
-{{ if and .Values.dorisOperator.enabled .Values.global.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -18,4 +17,3 @@ subjects:
   - kind: ServiceAccount
     name: {{ template "kube-doris.name" . }}-operator
     namespace: {{ template "operator.namespace" . }}
-{{- end }}

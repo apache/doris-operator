@@ -1,12 +1,12 @@
 
 {{- define "doriscluster.name" -}}
-{{ default (include "kube-doris.name" .) .Values.dorisCluster.name }}
+{{ default .Chart.Name .Values.dorisCluster.name }}
 {{- end }}
 
 {{- define "doriscluster.namespace" -}}
 {{ default .Release.Namespace .Values.dorisCluster.namespace }}
 {{- end }}
 
-{{- define "kube-doris.name" -}}
-{{- default .Chart.Name .Values.nameOverride -}}
+{{- define "kube-control.name" -}}
+{{- print "doris-operator" }}
 {{- end }}

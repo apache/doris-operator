@@ -1,4 +1,3 @@
-{{- if .Values.dorisOperator.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,14 +14,11 @@ spec:
   selector:
     matchLabels:
       control-plane: {{ template "kube-doris.name" . }}-operator
-  replicas: {{ .Values.dorisOperator.replicaCount }}
+  replicas: 1
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: {{ template "kube-doris.name" . }}-operator
-      {{- if .Values.dorisOperator.annotations }}
-        {{- toYaml .Values.dorisOperator.annotations | nindent 8 }}
-      {{- end }}
       labels:
         control-plane: {{ template "kube-doris.name" . }}-operator
     spec:
@@ -85,4 +81,3 @@ spec:
             {{- toYaml .Values.dorisOperator.resources | nindent 12 }}
       serviceAccountName: {{ template  "operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
-  {{- end }}

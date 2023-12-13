@@ -1,17 +1,12 @@
 
-
-nameOverride: "doris"
-
-
 # deploy a doris cluster
 dorisCluster:
   # the name of doriscluster cluster, if not set, the chart name will be used.
-  name: "doris"
+  name: "doriscluster-helm"
   # the namespace of doriscluster cluster, if not set, the release namespace will be used.
   namespace: "doris"
   # annotations for doris cluster.
-  annotations:
-    selectdb/doriscluster: doriscluster-sample
+  annotations: {}
   # specify the cn deploy or not.
   enabledCn: true
   # specify the broker deploy or not.

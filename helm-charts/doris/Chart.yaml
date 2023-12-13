@@ -1,5 +1,5 @@
 apiVersion: v2
-name: doris
+name: doriscluster
 description: A Helm chart for Apache Doris cluster
 
 # A chart can be either an 'application' or a 'library' chart.
