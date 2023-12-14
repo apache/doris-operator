@@ -2,24 +2,30 @@ apiVersion: v1
 entries:
   doriscluster:
   - apiVersion: v2
-    appVersion: 1.16.0
-    created: "2023-12-14T10:44:02.76955+08:00"
+    appVersion: 1.3.0
+    created: "2023-12-14T15:06:59.424478+08:00"
     description: A Helm chart for Apache Doris cluster
-    digest: 2d7f747d51a42c6f588a5fbcaa85820ab924358d3b774f16f8f609aa0e4ea4e1
+    digest: 339a07f707d66ec1de1bb9a94cb83975db796851f5a42c9d8292e0dd6af5308e
+    home: https://github.com/selectdb/doris-operator
     name: doriscluster
+    sources:
+    - https://github.com/apache/doris
     type: application
     urls:
     - https://charts.selectdb.com/doriscluster-0.1.0.tgz
     version: 0.1.0
   operator:
   - apiVersion: v2
-    appVersion: 1.16.0
-    created: "2023-12-14T10:44:02.771002+08:00"
+    appVersion: 1.3.0
+    created: "2023-12-14T15:06:59.426447+08:00"
     description: A Helm chart for Apache Doris Kubernetes Operator
-    digest: 24bd398b7c49ba70db8f4613d02cb324ad2764177f538ac084e0f4b6ced719c8
+    digest: f61c8d94518aadf289c05a805f6af653484cf151a3c61c5ebd4afb57624365f6
+    home: https://github.com/selectdb/doris-operator
     name: operator
+    sources:
+    - https://github.com/apache/doris
     type: application
     urls:
     - https://charts.selectdb.com/operator-0.1.0.tgz
     version: 0.1.0
-generated: "2023-12-14T10:44:02.768626+08:00"
+generated: "2023-12-14T15:06:59.42314+08:00"
