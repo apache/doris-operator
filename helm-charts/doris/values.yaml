@@ -12,7 +12,7 @@ dorisCluster:
   # specify the broker deploy or not.
   enabledBroker: true
 
-  # specify the doris adminuser or not.
+  # specify the doriscluster adminuser or not.
   adminUser: {}
   # name: root
   # password: "12345"
@@ -268,8 +268,6 @@ cnSpec:
             target:
               type: Utilization
               averageUtilization: 30
-
-
 brokerSpec:
   replicas: 3
   configMapInfo: {}
