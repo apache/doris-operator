@@ -1,23 +1,18 @@
 
-
-nameOverride: "doris"
-
-
 # deploy a doris cluster
 dorisCluster:
   # the name of doriscluster cluster, if not set, the chart name will be used.
-  name: "doris"
+  name: "doriscluster-helm"
   # the namespace of doriscluster cluster, if not set, the release namespace will be used.
   namespace: "doris"
   # annotations for doris cluster.
-  annotations:
-    selectdb/doriscluster: doriscluster-sample
+  annotations: {}
   # specify the cn deploy or not.
   enabledCn: true
   # specify the broker deploy or not.
   enabledBroker: true
 
-  # specify the doris adminuser or not.
+  # specify the doriscluster adminuser or not.
   adminUser: {}
   # name: root
   # password: "12345"
@@ -273,8 +268,6 @@ cnSpec:
             target:
               type: Utilization
               averageUtilization: 30
-
-
 brokerSpec:
   replicas: 3
   configMapInfo: {}
