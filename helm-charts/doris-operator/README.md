@@ -43,5 +43,5 @@
 ## Uninstall operator Chart
 
 ```Bash
-helm uninstall doris-operator
+helm uninstall operator
 ```
