@@ -2,17 +2,11 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-nameOverride: "doris"
-
 dorisOperator:
   namespaceOverride: "doris"
   image:
     repository: selectdb/doris.k8s-operator
     tag: latest
   resources:
-    limits:
-      cpu: "2"
-      memory: 4Gi
-    requests:
-      cpu: "2"
-      memory: 4Gi
+    cpu: "2"
+    memory: 4Gi

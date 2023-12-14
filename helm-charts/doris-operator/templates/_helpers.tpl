@@ -11,5 +11,5 @@
 {{- end }}
 
 {{- define "kube-doris.name" -}}
-{{- default .Chart.Name .Values.nameOverride -}}
+{{- print "doris" }}
 {{- end }}

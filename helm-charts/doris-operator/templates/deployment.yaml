@@ -78,6 +78,11 @@ spec:
           # TODO(user): Configure the resources accordingly based on the project requirements.
           # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
           resources:
-            {{- toYaml .Values.dorisOperator.resources | nindent 12 }}
+            limits:
+              cpu: {{ .Values.dorisOperator.resources.cpu}}
+              memory: {{ .Values.dorisOperator.resources.memory}}
+            requests:
+              cpu: {{ .Values.dorisOperator.resources.cpu}}
+              memory: {{ .Values.dorisOperator.resources.memory}}
       serviceAccountName: {{ template  "operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10

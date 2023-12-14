@@ -1,0 +1,25 @@
+apiVersion: v1
+entries:
+  doriscluster:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2023-12-14T10:44:02.76955+08:00"
+    description: A Helm chart for Apache Doris cluster
+    digest: 2d7f747d51a42c6f588a5fbcaa85820ab924358d3b774f16f8f609aa0e4ea4e1
+    name: doriscluster
+    type: application
+    urls:
+    - https://charts.selectdb.com/doriscluster-0.1.0.tgz
+    version: 0.1.0
+  operator:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2023-12-14T10:44:02.771002+08:00"
+    description: A Helm chart for Apache Doris Kubernetes Operator
+    digest: 24bd398b7c49ba70db8f4613d02cb324ad2764177f538ac084e0f4b6ced719c8
+    name: operator
+    type: application
+    urls:
+    - https://charts.selectdb.com/operator-0.1.0.tgz
+    version: 0.1.0
+generated: "2023-12-14T10:44:02.768626+08:00"
