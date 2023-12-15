@@ -38,35 +38,88 @@ dorisImage:
     tag: 2.0.2
 #    imagePullSecrets:
 #      - name: imagePullSecret
+
+
+service:
+  feService:
+    # config the service port for fe service.
+    # if you want to use a dedicated port for fe service, you can config the port.
+    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+    # the fe service type, only supported ClusterIP, NodePort, LoadBalancer
+    type: NodePort
+    servicePorts:
+      - nodePort: 9030
+        targetPort: 9030
+      - nodePort: 8030
+        targetPort: 8030
+    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+    # type: "LoadBalancer"
+    # loadbalancerIP: "127.0.0.1"
+    # use LoadBalancer on cloud platform, try to configure it using annotations，like:
+    # annotations:
+    #   service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"
+    annotations: {}
+  beService:
+    # config the service port for be service.
+    # if you want to use a dedicated port for be service, you can config the port.
+    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+    # the be service type, only supported ClusterIP, NodePort, LoadBalancer
+    type: NodePort
+    servicePorts:
+      - nodePort: 9040
+        targetPort: 9040
+      - nodePort: 8040
+        targetPort: 8040
+    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+    # type: "LoadBalancer"
+    # loadbalancerIP: "127.0.0.1"
+    # use LoadBalancer on cloud platform, try to configure it using annotations，like:
+    # annotations:
+    #   service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"
+    annotations: {}
+  cnService:
+    # config the service port for cn service.
+    # if you want to use a dedicated port for cn service, you can config the port.
+    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+    # the cn service type, only supported ClusterIP, NodePort, LoadBalancer
+    type: NodePort
+    servicePorts:
+      - nodePort: 9040
+        targetPort: 9040
+      - nodePort: 8040
+        targetPort: 8040
+    # type: "LoadBalancer"
+    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+    # loadbalancerIP: "127.0.0.1"
+    # use LoadBalancer on cloud platform, try to configure it using annotations，like:
+    # annotations:
+    #   service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"
+    annotations: {}
+
+resource:
+  # The four types of node：fe, be, cn, broker, all follow the above resource configuration,
+  # unless overridden one of them by the below configuration at feSpec/beSpec/cnSpec/brokerSpec.resource:
+  requests:
+    cpu: 8
+    memory: 16Gi
+    storage: 256Gi
+  limits:
+    cpu: 16
+    memory: 32Gi
+    storage: 512Gi
+
 feSpec:
   replicas: 3
   # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
   electionNumber: 3
-  service: {}
-    # the fe service type, only supported ClusterIP, NodePort, LoadBalancer
-#    type: "LoadBalancer"
-    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
-#    loadbalancerIP: "127.0.0.1"
-    # config the service port for fe service.
-    # if you want to use a dedicated port for fe service, you can config the port.
-    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
-#    servicePorts:
-#      - nodePort: 9030
-#        targetPort: 9030
-#      - nodePort: 8030
-#        targetPort: 8030
+  # the pod labels for user select or classify pods.
+  labels: { }
   configMapInfo: {}
 #    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
 #    configMapName: "fe-configmap"
 #    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
 #    resolveKey: "fe.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
+  resource: {}
   nodeSelector: {}
     # kubernetes.io/arch: amd64
   # kubernetes.io/os: linux
@@ -83,8 +136,6 @@ feSpec:
   # Node tolerations for fe pod scheduling to nodes with taints
   # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations: []
-  # the pod labels for user select or classify pods.
-  podLabels: {}
   ## hostAliases allows adding entries to /etc/hosts inside the containers
   hostAliases: []
   # - ip: "127.0.0.1"
@@ -101,35 +152,20 @@ feSpec:
   #       requests:
   #         storage: 10Gi
   systemInitializationCommand: []
+  # initImage: "selectdb/alpine:latest"
   # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
 beSpec:
   replicas: 3
-  service: {}
-#    # the be service type, only supported ClusterIP, NodePort, LoadBalancer
-#    type: "LoadBalancer"
-#    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
-#    loadbalancerIP: "127.0.0.1"
-#    # config the service port for be service.
-#    # if you want to use a dedicated port for be service, you can config the port.
-#    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
-#    servicePorts:
-#      - nodePort: 9040
-#        targetPort: 9040
-#      - nodePort: 8040
-#        targetPort: 8040
+  # the pod labels for user select or classify pods.
+  podLabels: { }
+  # selectdb.app.classify: "classify-1"
   configMapInfo: {}
 #    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
 #    configMapName: "be-configmap"
 #    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
 #    resolveKey: "be.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
+  resource: {}
   nodeSelector: {}
     # kubernetes.io/arch: amd64
     # kubernetes.io/os: linux
@@ -148,9 +184,6 @@ beSpec:
   tolerations: []
   # key: "toleration"
   # value: "master"
-  # the pod labels for user select or classify pods.
-  podLabels: {}
-  # selectdb.app.classify: "classify-1"
   ## hostAliases allows adding entries to /etc/hosts inside the containers
   hostAliases: []
   # - ip: "127.0.0.1"
@@ -177,36 +210,21 @@ beSpec:
   #       requests:
   #         storage: 1024Gi
   systemInitializationCommand: []
+  # initImage: "selectdb/alpine:latest"
   # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
 
 cnSpec:
   replicas: 3
-  service: {}
-#    # the be service type, only supported ClusterIP, NodePort, LoadBalancer
-#    type: "LoadBalancer"
-#    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
-#    loadbalancerIP: "127.0.0.1"
-#    # config the service port for be service.
-#    # if you want to use a dedicated port for be service, you can config the port.
-#    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
-#    servicePorts:
-#      - nodePort: 9040
-#        targetPort: 9040
-#      - nodePort: 8040
-#        targetPort: 8040
+  # the pod labels for user select or classify pods.
+  podLabels: { }
+  # selectdb.app.classify: "classify-1"
   configMapInfo: {}
 #    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
 #    configMapName: "be-configmap"
 #    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
 #    resolveKey: "be.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
+  resource: {}
   nodeSelector: {}
   # kubernetes.io/arch: amd64
   # kubernetes.io/os: linux
@@ -225,9 +243,6 @@ cnSpec:
   tolerations: []
   # key: "toleration"
   # value: "master"
-  # the pod labels for user select or classify pods.
-  podLabels: {}
-  # selectdb.app.classify: "classify-1"
   ## hostAliases allows adding entries to /etc/hosts inside the containers
   hostAliases: []
   # - ip: "127.0.0.1"
@@ -254,6 +269,7 @@ cnSpec:
   #       requests:
   #         storage: 1024Gi
   systemInitializationCommand: []
+  # initImage: "selectdb/alpine:latest"
   # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
   autoScalingPolicy:
     # version: v2
@@ -270,18 +286,15 @@ cnSpec:
               averageUtilization: 30
 brokerSpec:
   replicas: 3
+  # the pod labels for user select or classify pods.
+  podLabels: { }
+  # selectdb.app.classify: "classify-1"
   configMapInfo: {}
 #    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
 #    configMapName: "broker-configmap"
 #    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
 #    resolveKey: "broker.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
+  resource: {}
   nodeSelector: {}
   # kubernetes.io/arch: amd64
   # kubernetes.io/os: linux
@@ -300,9 +313,6 @@ brokerSpec:
   tolerations: []
   # - key: "toleration"
   #   value: "master"
-  # the pod labels for user select or classify pods.
-  podLabels: {}
-  # selectdb.app.classify: "classify-1"
   ## hostAliases allows adding entries to /etc/hosts inside the containers
   hostAliases: []
   # - ip: "127.0.0.1"
@@ -329,6 +339,7 @@ brokerSpec:
   #       requests:
   #         storage: 1024Gi
   systemInitializationCommand: []
+  # initImage: "selectdb/alpine:latest"
   # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
 
