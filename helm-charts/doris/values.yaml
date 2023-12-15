@@ -97,7 +97,7 @@ service:
     annotations: {}
 
 resource:
-  # The four types of node：fe, be, cn, broker, all follow the above resource configuration,
+  # The four types of node：fe, be, cn, broker, all follow this resource configuration,
   # unless overridden one of them by the below configuration at feSpec/beSpec/cnSpec/brokerSpec.resource:
   requests:
     cpu: 8
