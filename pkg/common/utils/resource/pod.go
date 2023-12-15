@@ -41,6 +41,14 @@ const (
 	DEFAULT_INIT_IMAGE = "selectdb/alpine:latest"
 )
 
+type probeType string
+
+var (
+	httpGet   probeType = "httpGet"
+	tcpSocket probeType = "tcpSocket"
+	exec      probeType = "exec"
+)
+
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
 	var volumes []corev1.Volume
@@ -238,32 +246,36 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		Resources:       spec.ResourceRequirements,
 	}
 
-	var healthPort int32
+	//livenessPort use heartbeat port for probe service alive.
+	var livenessPort int32
+	//readnessPort use http port for confirm the service can provider service to client.
+	var readnessPort int32
 	var prestopScript string
 	var health_api_path string
 	switch componentType {
 	case v1.Component_FE:
-		healthPort = GetPort(config, HTTP_PORT)
+		readnessPort = GetPort(config, HTTP_PORT)
+		livenessPort = GetPort(config, QUERY_PORT)
 		prestopScript = FE_PRESTOP
 		health_api_path = HEALTH_API_PATH
 	case v1.Component_BE, v1.Component_CN:
-		healthPort = GetPort(config, WEBSERVER_PORT)
+		readnessPort = GetPort(config, WEBSERVER_PORT)
+		livenessPort = GetPort(config, HEARTBEAT_SERVICE_PORT)
 		prestopScript = BE_PRESTOP
 		health_api_path = HEALTH_API_PATH
 	case v1.Component_Broker:
-		healthPort = GetPort(config, BROKER_IPC_PORT)
+		livenessPort = GetPort(config, BROKER_IPC_PORT)
+		readnessPort = GetPort(config, BROKER_IPC_PORT)
 		prestopScript = BROKER_PRESTOP
 		health_api_path = ""
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
 
-	if healthPort != 0 {
-		c.LivenessProbe = livenessProbe(healthPort, health_api_path)
-		c.StartupProbe = startupProbe(healthPort, health_api_path)
-		c.ReadinessProbe = readinessProbe(healthPort, health_api_path)
-		c.Lifecycle = lifeCycle(prestopScript)
-	}
+	c.LivenessProbe = livenessProbe(livenessPort, "")
+	c.StartupProbe = startupProbe(readnessPort, health_api_path)
+	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
+	c.Lifecycle = lifeCycle(prestopScript)
 
 	return c
 }
@@ -488,7 +500,7 @@ func startupProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		FailureThreshold: 60,
 		PeriodSeconds:    5,
-		ProbeHandler:     getProbe(port, path),
+		ProbeHandler:     getProbe(port, path, httpGet),
 	}
 }
 
@@ -500,7 +512,7 @@ func livenessProbe(port int32, path string) *corev1.Probe {
 		// for pulling image and start doris
 		InitialDelaySeconds: 80,
 		TimeoutSeconds:      180,
-		ProbeHandler:        getProbe(port, path),
+		ProbeHandler:        getProbe(port, path, tcpSocket),
 	}
 }
 
@@ -509,7 +521,7 @@ func readinessProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
-		ProbeHandler:     getProbe(port, path),
+		ProbeHandler:     getProbe(port, path, httpGet),
 	}
 }
 
@@ -524,7 +536,27 @@ func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
 	}
 }
 
-func getProbe(port int32, path string) corev1.ProbeHandler {
+// getProbe describe a health check.
+func getProbe(port int32, path string, probeType probeType) corev1.ProbeHandler {
+	switch probeType {
+	case tcpSocket:
+		return getTcpSocket(port)
+	case httpGet:
+		return getHttpProbe(port, path)
+	default:
+	}
+	return corev1.ProbeHandler{}
+}
+
+func getTcpSocket(port int32) corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		TCPSocket: &corev1.TCPSocketAction{
+			Port: intstr.FromInt(int(port)),
+		},
+	}
+}
+
+func getHttpProbe(port int32, path string) corev1.ProbeHandler {
 	var p corev1.ProbeHandler
 	if path != "" {
 		p = corev1.ProbeHandler{

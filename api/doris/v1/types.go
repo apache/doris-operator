@@ -142,11 +142,6 @@ type BaseSpec struct {
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 
-	//+optional
-	//set the fe service for register cn, when not set, will use the fe config to find.
-	//Deprecated,
-	//FeServiceName string `json:"feServiceName,omitempty"`
-
 	//the reference for cn configMap.
 	//+optional
 	ConfigMapInfo ConfigMapInfo `json:"configMapInfo,omitempty"`
@@ -227,6 +222,7 @@ type ConfigMapInfo struct {
 	ConfigMapName string `json:"configMapName,omitempty"`
 
 	//the config response key in configmap.
+	//the config file name for
 	ResolveKey string `json:"resolveKey,omitempty"`
 }
 

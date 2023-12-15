@@ -967,7 +967,8 @@ spec:
                         description: the config info for start progress.
                         type: string
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: the config response key in configmap. the config
+                          file name for
                         type: string
                     type: object
                   envVars:
@@ -2453,7 +2454,8 @@ spec:
                         description: the config info for start progress.
                         type: string
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: the config response key in configmap. the config
+                          file name for
                         type: string
                     type: object
                   envVars:
@@ -4624,7 +4626,8 @@ spec:
                         description: the config info for start progress.
                         type: string
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: the config response key in configmap. the config
+                          file name for
                         type: string
                     type: object
                   envVars:
@@ -6111,7 +6114,8 @@ spec:
                         description: the config info for start progress.
                         type: string
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: the config response key in configmap. the config
+                          file name for
                         type: string
                     type: object
                   electionNumber:
