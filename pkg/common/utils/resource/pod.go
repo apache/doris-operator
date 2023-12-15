@@ -35,6 +35,18 @@ const (
 	DEFAULT_ROOT_PATH    = "/opt/apache-doris"
 	POD_INFO_PATH        = "/etc/podinfo"
 	POD_INFO_VOLUME_NAME = "podinfo"
+
+	NODE_TOPOLOGYKEY = "kubernetes.io/hostname"
+
+	DEFAULT_INIT_IMAGE = "selectdb/alpine:latest"
+)
+
+type probeType string
+
+var (
+	httpGet   probeType = "httpGet"
+	tcpSocket probeType = "tcpSocket"
+	exec      probeType = "exec"
 )
 
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -52,11 +64,9 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
-		defaultInitContainers = append(defaultInitContainers, constructBeDefaultInitContainer())
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
@@ -92,14 +102,26 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		},
 	}
 
-	if si != nil {
-		initContainer := newBaseInitContainer("init", si)
-		pts.Spec.InitContainers = append(pts.Spec.InitContainers, initContainer)
-	}
-
+	constructInitContainers(componentType, &pts.Spec, si)
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
+}
+
+func constructInitContainers(componentType v1.ComponentType, podSpec *corev1.PodSpec, si *v1.SystemInitialization) {
+	defaultImage := ""
+	var defaultInitContains []corev1.Container
+	if si != nil {
+		initContainer := newBaseInitContainer("init", si)
+		defaultImage = si.InitImage
+		defaultInitContains = append(defaultInitContains, initContainer)
+	}
+
+	// the init containers have sequence，should confirm use initial is always in the first priority.
+	if componentType == v1.Component_BE || componentType == v1.Component_CN {
+		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(defaultImage))
+	}
+	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
 }
 
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
@@ -168,7 +190,7 @@ func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Conta
 	enablePrivileged := true
 	initImage := si.InitImage
 	if initImage == "" {
-		initImage = "selectdb/alpine:latest"
+		initImage = DEFAULT_INIT_IMAGE
 	}
 	c := corev1.Container{
 		Image:           initImage,
@@ -224,32 +246,36 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		Resources:       spec.ResourceRequirements,
 	}
 
-	var healthPort int32
+	//livenessPort use heartbeat port for probe service alive.
+	var livenessPort int32
+	//readnessPort use http port for confirm the service can provider service to client.
+	var readnessPort int32
 	var prestopScript string
 	var health_api_path string
 	switch componentType {
 	case v1.Component_FE:
-		healthPort = GetPort(config, HTTP_PORT)
+		readnessPort = GetPort(config, HTTP_PORT)
+		livenessPort = GetPort(config, QUERY_PORT)
 		prestopScript = FE_PRESTOP
 		health_api_path = HEALTH_API_PATH
 	case v1.Component_BE, v1.Component_CN:
-		healthPort = GetPort(config, WEBSERVER_PORT)
+		readnessPort = GetPort(config, WEBSERVER_PORT)
+		livenessPort = GetPort(config, HEARTBEAT_SERVICE_PORT)
 		prestopScript = BE_PRESTOP
 		health_api_path = HEALTH_API_PATH
 	case v1.Component_Broker:
-		healthPort = GetPort(config, BROKER_IPC_PORT)
+		livenessPort = GetPort(config, BROKER_IPC_PORT)
+		readnessPort = GetPort(config, BROKER_IPC_PORT)
 		prestopScript = BROKER_PRESTOP
 		health_api_path = ""
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
 
-	if healthPort != 0 {
-		c.LivenessProbe = livenessProbe(healthPort, health_api_path)
-		c.StartupProbe = startupProbe(healthPort, health_api_path)
-		c.ReadinessProbe = readinessProbe(healthPort, health_api_path)
-		c.Lifecycle = lifeCycle(prestopScript)
-	}
+	c.LivenessProbe = livenessProbe(livenessPort, "")
+	c.StartupProbe = startupProbe(readnessPort, health_api_path)
+	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
+	c.Lifecycle = lifeCycle(prestopScript)
 
 	return c
 }
@@ -474,7 +500,7 @@ func startupProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		FailureThreshold: 60,
 		PeriodSeconds:    5,
-		ProbeHandler:     getProbe(port, path),
+		ProbeHandler:     getProbe(port, path, httpGet),
 	}
 }
 
@@ -483,7 +509,10 @@ func livenessProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
-		ProbeHandler:     getProbe(port, path),
+		// for pulling image and start doris
+		InitialDelaySeconds: 80,
+		TimeoutSeconds:      180,
+		ProbeHandler:        getProbe(port, path, tcpSocket),
 	}
 }
 
@@ -492,7 +521,7 @@ func readinessProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
-		ProbeHandler:     getProbe(port, path),
+		ProbeHandler:     getProbe(port, path, httpGet),
 	}
 }
 
@@ -507,7 +536,27 @@ func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
 	}
 }
 
-func getProbe(port int32, path string) corev1.ProbeHandler {
+// getProbe describe a health check.
+func getProbe(port int32, path string, probeType probeType) corev1.ProbeHandler {
+	switch probeType {
+	case tcpSocket:
+		return getTcpSocket(port)
+	case httpGet:
+		return getHttpProbe(port, path)
+	default:
+	}
+	return corev1.ProbeHandler{}
+}
+
+func getTcpSocket(port int32) corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		TCPSocket: &corev1.TCPSocketAction{
+			Port: intstr.FromInt(int(port)),
+		},
+	}
+}
+
+func getHttpProbe(port int32, path string) corev1.ProbeHandler {
 	var p corev1.ProbeHandler
 	if path != "" {
 		p = corev1.ProbeHandler{
@@ -542,7 +591,7 @@ func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
 					{Key: v1.ComponentLabelKey, Operator: metav1.LabelSelectorOpIn, Values: []string{string(componentType)}},
 				},
 			},
-			TopologyKey: "kubernetes.io/hostname",
+			TopologyKey: NODE_TOPOLOGYKEY,
 		},
 	}
 	return &corev1.Affinity{
@@ -571,12 +620,13 @@ func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentT
 	return affinity
 }
 
-func constructBeDefaultInitContainer() corev1.Container {
+func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 	return newBaseInitContainer(
 		"default-init",
 		&v1.SystemInitialization{
-			Command: []string{"/bin/sh"},
-			Args:    []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
+			Command:   []string{"/bin/sh"},
+			InitImage: defaultImage,
+			Args:      []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
 		},
 	)
 }

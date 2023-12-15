@@ -2,6 +2,7 @@ package be
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
@@ -11,12 +12,39 @@ import (
 
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_BE)
+	be.addFeAntiAffinity(&podTemplateSpec)
+
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
+}
+
+// be pods add fe anti affinity for prefer deploy fe and be on different nodes.
+func (be *Controller) addFeAntiAffinity(tplSpec *corev1.PodTemplateSpec) {
+	preferedScheduleTerm := corev1.WeightedPodAffinityTerm{
+		Weight: 80,
+		PodAffinityTerm: corev1.PodAffinityTerm{
+			TopologyKey: resource.NODE_TOPOLOGYKEY,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					resource.NODE_TOPOLOGYKEY: string(v1.Component_FE),
+				},
+			},
+		},
+	}
+
+	if tplSpec.Spec.Affinity == nil {
+		tplSpec.Spec.Affinity = &corev1.Affinity{}
+	}
+	if tplSpec.Spec.Affinity.PodAntiAffinity == nil {
+		tplSpec.Spec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+	}
+
+	tplSpec.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(tplSpec.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		preferedScheduleTerm)
 }
 
 func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {

@@ -24,7 +24,7 @@ func main() {
 
 	fmt.Println("start component " + componentType + "for debugging.....")
 	listenPort := readConfigListenPort()
-	registerMockApiHealth()
+	//registerMockApiHealth()
 	if err := http.ListenAndServe(":"+listenPort, nil); err != nil {
 		fmt.Println("listenAndServe failed," + err.Error())
 		os.Exit(1)
@@ -57,9 +57,9 @@ func readConfigListenPort() string {
 
 	var listenPort string
 	if componentType == "fe" {
-		listenPort = viper.GetString(resource.HTTP_PORT)
+		listenPort = viper.GetString(resource.QUERY_PORT)
 	} else if componentType == "be" {
-		listenPort = viper.GetString(resource.WEBSERVER_PORT)
+		listenPort = viper.GetString(resource.HEARTBEAT_SERVICE_PORT)
 	}
 
 	return listenPort
