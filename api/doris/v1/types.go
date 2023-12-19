@@ -115,7 +115,8 @@ type BaseSpec struct {
 	//serviceAccount for cn access cloud service.
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
-	//expose the be listen ports
+	//expose doris components for accessing.
+	//example: if you want to use `stream load` to load data into doris out k8s, you can use be service and config different service type for loading data.
 	Service *ExportService `json:"service,omitempty"`
 
 	//A special supplemental group that applies to all containers in a pod.
@@ -221,8 +222,8 @@ type ConfigMapInfo struct {
 	//the config info for start progress.
 	ConfigMapName string `json:"configMapName,omitempty"`
 
-	//the config response key in configmap.
-	//the config file name for
+	//represents the key of configMap. for doris it refers to the config file name for start doris component.
+	//example: if deploy fe, the resolveKey = fe.conf, if deploy be  resolveKey = be.conf, etc.
 	ResolveKey string `json:"resolveKey,omitempty"`
 }
 
