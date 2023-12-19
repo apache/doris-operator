@@ -330,7 +330,7 @@ ExportService
 </td>
 <td>
 <p>expose doris components for accessing.
-example: if you want to use <code>stream load</code> to load data into doris, you can select different type of be service to load data.</p>
+example: if you want to use <code>stream load</code> to load data into doris out k8s, you can use be service and config different service type for loading data.</p>
 </td>
 </tr>
 <tr>
@@ -2463,5 +2463,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>e2a84e3</code>.
+on git commit <code>06139b0</code>.
 </em></p>

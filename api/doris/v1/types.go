@@ -116,7 +116,7 @@ type BaseSpec struct {
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
 	//expose doris components for accessing.
-	//example: if you want to use `stream load` to load data into doris, you can select different type of be service to load data.
+	//example: if you want to use `stream load` to load data into doris out k8s, you can use be service and config different service type for loading data.
 	Service *ExportService `json:"service,omitempty"`
 
 	//A special supplemental group that applies to all containers in a pod.
