@@ -142,6 +142,7 @@ func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
 	return false
 }
 
+// Control the conditions for comparing.
 func (d *SubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, est *appv1.StatefulSet) {
 	//shield persistent volume update when the pvcProvider=Operator
 	//in webhook should intercept the volume spec updated when use statefulset pvc.
