@@ -115,7 +115,8 @@ type BaseSpec struct {
 	//serviceAccount for cn access cloud service.
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
-	//expose the be listen ports
+	//expose doris components for accessing.
+	//example: if you want to use `stream load` to load data into doris, you can select different type of be service to load data.
 	Service *ExportService `json:"service,omitempty"`
 
 	//A special supplemental group that applies to all containers in a pod.

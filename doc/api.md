@@ -329,7 +329,8 @@ ExportService
 </em>
 </td>
 <td>
-<p>expose the be listen ports</p>
+<p>expose doris components for accessing.
+example: if you want to use <code>stream load</code> to load data into doris, you can select different type of be service to load data.</p>
 </td>
 </tr>
 <tr>
@@ -938,7 +939,8 @@ string
 </em>
 </td>
 <td>
-<p>the config response key in configmap.</p>
+<p>the config response key in configmap.
+the config file name for</p>
 </td>
 </tr>
 </tbody>
@@ -2461,5 +2463,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>490a4cc</code>.
+on git commit <code>e2a84e3</code>.
 </em></p>
