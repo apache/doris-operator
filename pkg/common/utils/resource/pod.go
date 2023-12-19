@@ -273,7 +273,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	}
 
 	c.LivenessProbe = livenessProbe(livenessPort, "")
-	c.StartupProbe = startupProbe(readnessPort, health_api_path)
+	c.StartupProbe = startupProbe(livenessPort, health_api_path)
 	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
 	c.Lifecycle = lifeCycle(prestopScript)
 
@@ -500,7 +500,7 @@ func startupProbe(port int32, path string) *corev1.Probe {
 	return &corev1.Probe{
 		FailureThreshold: 60,
 		PeriodSeconds:    5,
-		ProbeHandler:     getProbe(port, path, httpGet),
+		ProbeHandler:     getProbe(port, path, tcpSocket),
 	}
 }
 

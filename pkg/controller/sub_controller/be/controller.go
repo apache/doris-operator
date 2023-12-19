@@ -37,12 +37,6 @@ func (be *Controller) GetControllerName() string {
 
 func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if dcr.Spec.BeSpec == nil {
-		//TODO: 测试
-		//if _, err := be.ClearResources(ctx, dcr); err != nil {
-		//	klog.Errorf("beController sync clearResource namespace=%s,srcName=%s, err=%s\n", dcr.Namespace, dcr.Name, err.Error())
-		//	return err
-		//}
-
 		return nil
 	}
 
