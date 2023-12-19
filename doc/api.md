@@ -939,8 +939,8 @@ string
 </em>
 </td>
 <td>
-<p>the config response key in configmap.
-the config file name for</p>
+<p>represents the key of configMap. for doris it refers to the config file name for start doris component.
+example: if deploy fe, the resolveKey = fe.conf, if deploy be  resolveKey = be.conf, etc.</p>
 </td>
 </tr>
 </tbody>
@@ -2463,5 +2463,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>06139b0</code>.
+on git commit <code>8305ac1</code>.
 </em></p>

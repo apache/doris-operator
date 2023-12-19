@@ -222,8 +222,8 @@ type ConfigMapInfo struct {
 	//the config info for start progress.
 	ConfigMapName string `json:"configMapName,omitempty"`
 
-	//the config response key in configmap.
-	//the config file name for
+	//represents the key of configMap. for doris it refers to the config file name for start doris component.
+	//example: if deploy fe, the resolveKey = fe.conf, if deploy be  resolveKey = be.conf, etc.
 	ResolveKey string `json:"resolveKey,omitempty"`
 }
 
