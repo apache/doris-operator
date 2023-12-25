@@ -3,10 +3,25 @@
 # Declare variables to be passed into your templates.
 
 dorisOperator:
-  namespaceOverride: "doris"
+  namespace: "doris"
   image:
     repository: selectdb/doris.k8s-operator
     tag: latest
-  resources:
-    cpu: "2"
-    memory: 4Gi
+    # imagePullSecrets:
+    #  - name: imagePullSecret
+
+  # Map of nodeSelectors to match when scheduling pods on nodes
+  nodeSelector: {}
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+
+  # node affinity for operator pod scheduling.
+  nodeAffinity: {}
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #       - matchFields:
+  #           - key: metadata.name
+  #             operator: In
+  #             values:
+  #               - target-host-name

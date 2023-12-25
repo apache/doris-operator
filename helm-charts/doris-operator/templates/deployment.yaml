@@ -26,6 +26,11 @@ spec:
       # according to the platforms which are supported by your solution.
       # It is considered best practice to support multiple architectures. You can
       # build your manager image using the makefile target docker-buildx.
+      {{- if .Values.dorisOperator.nodeAffinity }}
+      affinity:
+        nodeAffinity:
+          {{- toYaml .Values.dorisOperator.nodeAffinity | nindent 10 }}
+      {{- end }}
       # affinity:
       #   nodeAffinity:
       #     requiredDuringSchedulingIgnoredDuringExecution:
@@ -78,11 +83,10 @@ spec:
           # TODO(user): Configure the resources accordingly based on the project requirements.
           # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
           resources:
-            limits:
-              cpu: {{ .Values.dorisOperator.resources.cpu}}
-              memory: {{ .Values.dorisOperator.resources.memory}}
-            requests:
-              cpu: {{ .Values.dorisOperator.resources.cpu}}
-              memory: {{ .Values.dorisOperator.resources.memory}}
+            {{- include "operator.default.resource" . | indent 8 }}
       serviceAccountName: {{ template  "operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
+      {{- if .Values.dorisOperator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.dorisOperator.nodeSelector | nindent 8 }}
+      {{- end }}

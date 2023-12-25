@@ -7,9 +7,21 @@
 {{- end }}
 
 {{- define "operator.namespace" -}}
-{{- default .Release.Namespace .Values.dorisOperator.namespaceOverride }}
+{{- default .Release.Namespace .Values.dorisOperator.namespace }}
 {{- end }}
 
 {{- define "kube-doris.name" -}}
 {{- print "doris" }}
+{{- end }}
+
+{{/*
+doris operator pod default resource.
+*/}}
+{{- define "operator.default.resource" }}
+    requests:
+      cpu: 2
+      memory: 4Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
 {{- end }}

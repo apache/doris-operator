@@ -3,47 +3,65 @@
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
 metadata:
-  {{- if .Values.dorisCluster.annotations }}
-  annotations:
-    {{- toYaml .Values.dorisCluster.annotations | nindent 4 }}
-  {{- end }}
+  name: {{ template "doriscluster.name" . }}
+  namespace: {{ template "doriscluster.namespace" . }}
   labels:
     app.kubernetes.io/name: doriscluster
     app.kubernetes.io/instance: {{ template "doriscluster.name" . }}
     app.kubernetes.io/part-of: {{ template "kube-control.name" . }}
-  name: {{ template "doriscluster.name" . }}
-  namespace: {{ template "doriscluster.namespace" . }}
+  {{- if .Values.dorisCluster.annotations }}
+  annotations:
+    {{- toYaml .Values.dorisCluster.annotations | nindent 4 }}
+  {{- end }}
 spec:
   {{- if .Values.dorisCluster.adminUser }}
   adminUser:
     {{- toYaml .Values.dorisCluster.adminUser | nindent 4 }}
   {{- end }}
   feSpec:
-    electionNumber: {{ .Values.feSpec.electionNumber }}
     replicas: {{ .Values.feSpec.replicas }}
-    image: {{ .Values.dorisImage.feImage.repository }}:{{ .Values.dorisImage.feImage.tag }}
+    {{- if .Values.feSpec.electionNumber }}
+    electionNumber: {{ .Values.feSpec.electionNumber }}
+    {{- end }}
+    {{- if .Values.feSpec.labels }}
+    podLabels:
+    {{- toYaml .Values.feSpec.labels | nindent 6 }}
+    {{- end }}
+    image: {{ .Values.feSpec.image.repository }}:{{ .Values.feSpec.image.tag }}
+    {{- if .Values.feSpec.image.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.feSpec.image.imagePullSecrets | nindent 4 }}
+    {{- end }}
+
     {{- if .Values.feSpec.service }}
     service:
       type: {{ .Values.feSpec.service.type }}
       {{- if and (eq "LoadBalancer" .Values.feSpec.service.type) .Values.feSpec.service.loadbalancerIP }}
       loadBalancerIP: {{ .Values.feSpec.service.loadbalancerIP }}
       {{- end }}
-      {{- if .Values.feSpec.service.ports }}
+      {{- if .Values.feSpec.service.servicePorts }}
       servicePorts:
       {{- toYaml .Values.feSpec.service.servicePorts | nindent 6 }}
       {{- end }}
+      {{- if .Values.feSpec.service.annotations }}
+      annotations:
+      {{- toYaml .Values.feSpec.service.annotations | nindent 8 }}
+      {{- end }}
     {{- end }}
-    {{- if .Values.dorisImage.feImage.imagePullSecrets }}
-    imagePullSecrets:
-    {{- toYaml .Values.dorisImage.feImage.imagePullSecrets | nindent 4 }}
-    {{- end }}
-    {{- if .Values.feSpec.configMapInfo }}
+
+    {{- if .Values.feSpec.configMap }}
     configMapInfo:
-    {{- toYaml .Values.feSpec.configMapInfo | nindent 6 }}
+      configMapName: {{ template "doriscluster.default.configMap.name" . }}
+      resolveKey: {{ template "doriscluster.default.feConfig.resolveKey" . }}
     {{- end }}
+
     {{- if .Values.feSpec.resource }}
     {{- toYaml .Values.feSpec.resource | nindent 4 }}
+    {{- else }}
+    {{- include "doriscluster.default.resource" .}}
     {{- end }}
+
+
     {{- if .Values.feSpec.nodeSelector }}
     nodeSelector:
     {{- toYaml .Values.feSpec.nodeSelector | nindent 6 }}
@@ -60,47 +78,63 @@ spec:
     tolerations:
     {{- toYaml .Values.feSpec.tolerations | nindent 4 }}
     {{- end }}
-    {{- if .Values.feSpec.podLabels }}
-    podLabels:
-    {{- toYaml .Values.feSpec.podLabels | nindent 6 }}
-    {{- end }}
     {{- if .Values.feSpec.hostAliases }}
     hostAliases:
     {{- toYaml .Values.feSpec.hostAliases | nindent 4 }}
     {{- end }}
-    {{- if .Values.feSpec.persistentVolumes }}
+    {{- if .Values.feSpec.persistentVolumeClaim }}
     persistentVolumes:
-    {{- toYaml .Values.feSpec.persistentVolumes | nindent 4 }}
+    {{- template "doriscluster.fe.pvc" . }}
     {{- end }}
-    {{- if .Values.feSpec.systemInitializationCommand }}
+    {{- if .Values.feSpec.systemInitialization }}
     systemInitialization:
-      command: {{ .Values.feSpec.systemInitializationCommand.command }}
+    {{- if .Values.feSpec.systemInitialization.initImage }}
+      initImage: {{ .Values.feSpec.systemInitialization.initImage }}
+    {{- end }}
+    {{- if .Values.feSpec.systemInitialization.command }}
+      command: {{ .Values.feSpec.systemInitialization.command }}
+    {{- end }}
     {{- end }}
   beSpec:
     replicas: {{ .Values.beSpec.replicas }}
-    image: {{ .Values.dorisImage.beImage.repository }}:{{ .Values.dorisImage.beImage.tag }}
+    {{- if .Values.beSpec.labels }}
+    podLabels:
+    {{- toYaml .Values.beSpec.labels | nindent 6 }}
+    {{- end }}
+    image: {{ .Values.beSpec.image.repository }}:{{ .Values.beSpec.image.tag }}
+    {{- if .Values.beSpec.image.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.beSpec.image.imagePullSecrets | nindent 4 }}
+    {{- end }}
+
     {{- if .Values.beSpec.service }}
     service:
       type: {{ .Values.beSpec.service.type }}
       {{- if and (eq "LoadBalancer" .Values.beSpec.service.type) .Values.beSpec.service.loadbalancerIP }}
       loadBalancerIP: {{ .Values.beSpec.service.loadbalancerIP }}
       {{- end }}
-      {{- if .Values.beSpec.service.ports }}
+      {{- if .Values.beSpec.service.servicePorts }}
       servicePorts:
         {{- toYaml .Values.beSpec.service.servicePorts | nindent 6 }}
       {{- end }}
+      {{- if .Values.beSpec.service.annotations }}
+      annotations:
+      {{- toYaml .Values.beSpec.service.annotations | nindent 8 }}
+      {{- end }}
     {{- end }}
-    {{- if .Values.dorisImage.beImage.imagePullSecrets }}
-    imagePullSecrets:
-    {{- toYaml .Values.dorisImage.beImage.imagePullSecrets | nindent 4 }}
-    {{- end }}
-    {{- if .Values.beSpec.configMapInfo }}
+
+    {{- if .Values.beSpec.configMap }}
     configMapInfo:
-    {{- toYaml .Values.beSpec.configMapInfo | nindent 6 }}
+      configMapName: {{ include "doriscluster.default.configMap.name" . }}
+      resolveKey: {{ template "doriscluster.default.beConfig.resolveKey" . }}
     {{- end }}
+
     {{- if .Values.beSpec.resource }}
     {{- toYaml .Values.beSpec.resource | nindent 4 }}
+    {{- else }}
+    {{- include "doriscluster.default.resource" .}}
     {{- end }}
+
     {{- if .Values.beSpec.nodeSelector }}
     nodeSelector:
     {{- toYaml .Values.beSpec.nodeSelector | nindent 6 }}
@@ -117,48 +151,66 @@ spec:
     tolerations:
     {{- toYaml .Values.beSpec.tolerations | nindent 4 }}
     {{- end }}
-    {{- if .Values.beSpec.podLabels }}
-    podLabels:
-    {{- toYaml .Values.beSpec.podLabels | nindent 6 }}
-    {{- end }}
     {{- if .Values.beSpec.hostAliases }}
     hostAliases:
     {{- toYaml .Values.beSpec.hostAliases | nindent 4 }}
     {{- end }}
-    {{- if .Values.beSpec.persistentVolumes }}
+    {{- if .Values.beSpec.persistentVolumeClaim }}
     persistentVolumes:
-    {{- toYaml .Values.beSpec.persistentVolumes | nindent 4 }}
+    {{- template "doriscluster.be.pvc" . }}
     {{- end }}
-    {{- if .Values.beSpec.systemInitializationCommand }}
+
+    {{- if .Values.beSpec.systemInitialization }}
     systemInitialization:
-      command: {{ .Values.beSpec.systemInitializationCommand.command }}
+    {{- if .Values.beSpec.systemInitialization.initImage }}
+      initImage: {{ .Values.beSpec.systemInitialization.initImage }}
+    {{- end }}
+    {{- if .Values.beSpec.systemInitialization.command }}
+      command: {{ .Values.beSpec.systemInitialization.command }}
+    {{- end }}
     {{- end }}
   {{- if .Values.dorisCluster.enabledCn }}
   cnSpec:
     replicas: {{ .Values.cnSpec.replicas }}
-    image: {{ .Values.dorisImage.beImage.repository }}:{{ .Values.dorisImage.beImage.tag }}
+
+    {{- if .Values.cnSpec.labels }}
+    podLabels:
+    {{- toYaml .Values.cnSpec.labels | nindent 6 }}
+    {{- end }}
+    image: {{ .Values.cnSpec.image.repository }}:{{ .Values.cnSpec.image.tag }}
+    {{- if .Values.cnSpec.image.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.cnSpec.image.imagePullSecrets | nindent 4 }}
+    {{- end }}
+
     {{- if .Values.cnSpec.service }}
     service:
       type: {{ .Values.cnSpec.service.type }}
       {{- if and (eq "LoadBalancer" .Values.cnSpec.service.type) .Values.cnSpec.service.loadbalancerIP }}
       loadBalancerIP: {{ .Values.cnSpec.service.loadbalancerIP }}
       {{- end }}
-      {{- if .Values.cnSpec.service.ports }}
+      {{- if .Values.cnSpec.service.servicePorts }}
       servicePorts:
         {{- toYaml .Values.cnSpec.service.servicePorts | nindent 6 }}
       {{- end }}
+      {{- if .Values.cnSpec.service.annotations }}
+      annotations:
+      {{- toYaml .Values.cnSpec.service.annotations | nindent 8 }}
+      {{- end }}
     {{- end }}
-    {{- if .Values.dorisImage.cnImage.imagePullSecrets }}
-    imagePullSecrets:
-    {{- toYaml .Values.dorisImage.cnImage.imagePullSecrets | nindent 4 }}
-    {{- end }}
-    {{- if .Values.cnSpec.configMapInfo }}
+
+    {{- if .Values.cnSpec.configMap }}
     configMapInfo:
-    {{- toYaml .Values.cnSpec.configMapInfo | nindent 6 }}
+      configMapName: {{ include "doriscluster.default.configMap.name" . }}
+      resolveKey: {{ template "doriscluster.default.cnConfig.resolveKey" . }}
     {{- end }}
+
     {{- if .Values.cnSpec.resource }}
     {{- toYaml .Values.cnSpec.resource | nindent 4 }}
+    {{- else }}
+    {{- include "doriscluster.default.resource" .}}
     {{- end }}
+
     {{- if .Values.cnSpec.nodeSelector }}
     nodeSelector:
     {{- toYaml .Values.cnSpec.nodeSelector | nindent 6 }}
@@ -175,25 +227,27 @@ spec:
     tolerations:
     {{- toYaml .Values.cnSpec.tolerations | nindent 4 }}
     {{- end }}
-    {{- if .Values.cnSpec.podLabels }}
-    podLabels:
-    {{- toYaml .Values.cnSpec.podLabels | nindent 6 }}
-    {{- end }}
     {{- if .Values.cnSpec.hostAliases }}
     hostAliases:
     {{- toYaml .Values.cnSpec.hostAliases | nindent 4 }}
     {{- end }}
-    {{- if .Values.cnSpec.persistentVolumes }}
+
+    {{- if .Values.cnSpec.persistentVolumeClaim }}
     persistentVolumes:
-    {{- toYaml .Values.cnSpec.persistentVolumes | nindent 4 }}
+    {{- template "doriscluster.cn.pvc" . }}
     {{- end }}
-    {{- if .Values.cnSpec.systemInitializationCommand }}
+    {{- if .Values.cnSpec.systemInitialization }}
     systemInitialization:
-      command: {{ .Values.cnSpec.systemInitializationCommand.command }}
+    {{- if .Values.cnSpec.systemInitialization.initImage }}
+      initImage: {{ .Values.cnSpec.systemInitialization.initImage }}
     {{- end }}
-    {{- if .Values.cnSpec.autoScalingPolicy }}
+    {{- if .Values.cnSpec.systemInitialization.command }}
+      command: {{ .Values.cnSpec.systemInitialization.command }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.cnSpec.autoScalingPolicy.enable }}
     autoScalingPolicy:
-      version: {{default .Values.cnSpec.autoScalingPolicy.version "v2" }}
+      version: {{default ( include "doriscluster.default.autoScalerVersion" . ) .Values.cnSpec.autoScalingPolicy.version }}
       minReplicas: {{ .Values.cnSpec.autoScalingPolicy.minReplicas}}
       maxReplicas: {{ .Values.cnSpec.autoScalingPolicy.maxReplicas}}
       hpaPolicy:
@@ -204,18 +258,29 @@ spec:
   {{- if .Values.dorisCluster.enabledBroker }}
   brokerSpec:
     replicas: {{ .Values.brokerSpec.replicas }}
-    image: {{ .Values.dorisImage.brokerImage.repository }}:{{ .Values.dorisImage.brokerImage.tag }}
-    {{- if .Values.dorisImage.brokerImage.imagePullSecrets }}
+
+    {{- if .Values.brokerSpec.labels }}
+    podLabels:
+    {{- toYaml .Values.brokerSpec.labels | nindent 6 }}
+    {{- end }}
+    image: {{ .Values.brokerSpec.image.repository }}:{{ .Values.brokerSpec.image.tag }}
+    {{- if .Values.brokerSpec.image.imagePullSecrets }}
     imagePullSecrets:
-    {{- toYaml .Values.dorisImage.brokerImage.imagePullSecrets | nindent 4 }}
+    {{- toYaml .Values.brokerSpec.image.imagePullSecrets | nindent 4 }}
     {{- end }}
-    {{- if .Values.brokerSpec.configMapInfo }}
+
+    {{- if .Values.brokerSpec.configMap }}
     configMapInfo:
-    {{- toYaml .Values.brokerSpec.configMapInfo | nindent 6 }}
+      configMapName: {{ include "doriscluster.default.configMap.name" . }}
+      resolveKey: {{ include "doriscluster.default.brokerConfig.resolveKey" . }}
     {{- end }}
+
     {{- if .Values.brokerSpec.resource }}
     {{- toYaml .Values.brokerSpec.resource | nindent 4 }}
+    {{- else }}
+    {{- include "doriscluster.default.resource" .}}
     {{- end }}
+
     {{- if .Values.brokerSpec.nodeSelector }}
     nodeSelector:
     {{- toYaml .Values.brokerSpec.nodeSelector | nindent 6 }}
@@ -232,20 +297,21 @@ spec:
     tolerations:
     {{- toYaml .Values.brokerSpec.tolerations | nindent 4 }}
     {{- end }}
-    {{- if .Values.brokerSpec.podLabels }}
-    podLabels:
-    {{- toYaml .Values.brokerSpec.podLabels | nindent 6 }}
-    {{- end }}
     {{- if .Values.brokerSpec.hostAliases }}
     hostAliases:
     {{- toYaml .Values.brokerSpec.hostAliases | nindent 4 }}
     {{- end }}
-    {{- if .Values.brokerSpec.persistentVolumes }}
+    {{- if .Values.brokerSpec.persistentVolumeClaim }}
     persistentVolumes:
-    {{- toYaml .Values.brokerSpec.persistentVolumes | nindent 4 }}
+    {{- template "doriscluster.broker.pvc" . }}
     {{- end }}
-    {{- if .Values.brokerSpec.systemInitializationCommand }}
+    {{- if .Values.brokerSpec.systemInitialization }}
     systemInitialization:
-      command: {{ .Values.brokerSpec.systemInitializationCommand.command }}
+    {{- if .Values.brokerSpec.systemInitialization.initImage }}
+      initImage: {{ .Values.brokerSpec.systemInitialization.initImage }}
+    {{- end }}
+    {{- if .Values.brokerSpec.systemInitialization.command }}
+      command: {{ .Values.brokerSpec.systemInitialization.command }}
+    {{- end }}
     {{- end }}
   {{- end }}
