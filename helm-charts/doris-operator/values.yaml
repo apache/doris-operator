@@ -3,7 +3,8 @@
 # Declare variables to be passed into your templates.
 
 dorisOperator:
-  namespace: "doris"
+  # the namespace of dorisoperator, if not set, the release namespace will be used.
+  namespace: ""
   image:
     repository: selectdb/doris.k8s-operator
     tag: latest
