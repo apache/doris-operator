@@ -40,10 +40,6 @@
 
    Please see  [values.yaml](./values.yaml)  for more details.
 
-
-##### then Install  [doris cluster](../doris/README.md)  charts
-###### <div class="artifacthub-widget" data-url="https://artifacthub.io/packages/helm/doris/doriscluster" data-theme="light" data-header="true" data-stars="true" data-responsive="false"><blockquote><p lang="en" dir="ltr"><b>doriscluster</b>: A Helm chart for Apache Doris cluster</p>&mdash; Open in <a href="https://artifacthub.io/packages/helm/doris/doriscluster">Artifact Hub</a></blockquote></div><script async src="https://artifacthub.io/artifacthub-widget.js"></script>
-
 ## Uninstall operator Chart
 
 ```Bash
