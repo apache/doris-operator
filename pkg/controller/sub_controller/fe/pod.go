@@ -32,6 +32,7 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 		queryPort = strconv.FormatInt(int64(port), 10)
 	}
 
+	//TODO: bug
 	if dcr.Spec.FeSpec.ElectionNumber == nil {
 		if *dcr.Spec.FeSpec.Replicas >= 3 {
 			dcr.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(3)
