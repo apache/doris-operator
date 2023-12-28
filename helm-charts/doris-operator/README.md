@@ -1,6 +1,6 @@
 # Deploy Operator by doris-operator Chart
 
-[Helm](https://helm.sh/) is a package manager for Kubernetes. A [Helm Chart](https://helm.sh/docs/topics/charts/) is a Helm package and contains all of the resource definitions necessary to run an application on a Kubernetes cluster. This topic describes how to use Helm to automatically deploy a Doris operator on a Kubernetes cluster.
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/doris)](https://artifacthub.io/packages/search?repo=doris)
 
 ## Install doris-operator Chart
 
@@ -28,8 +28,8 @@
        ```Bash
        $ helm search repo selectdb
        NAME                         CHART VERSION    APP VERSION  DESCRIPTION
-       selectdb/operator            0.1.0            1.3.0        A Helm chart for Apache Doris Kubernetes Operator
-       selectdb/doriscluster        0.1.0            2.0.2        A Helm chart for Apache Doris cluster
+       selectdb/operator            1.3.1            1.3.1        A Helm chart for Apache Doris Kubernetes Operator
+       selectdb/doriscluster        1.3.1            2.0.3        A Helm chart for Apache Doris cluster
        ```
 
 2. Install the operator Chart.
@@ -38,7 +38,7 @@
    helm install --namespace doris operator selectdb/operator
    ```
 
-   Please see [values.yaml](./values.yaml) for more details.
+   Please see  [values.yaml](./values.yaml)  for more details.
 
 ## Uninstall operator Chart
 
