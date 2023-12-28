@@ -28,8 +28,8 @@
        ```Bash
        $ helm search repo selectdb
        NAME                         CHART VERSION    APP VERSION  DESCRIPTION
-       selectdb/operator            0.1.0            1.3.1        A Helm chart for Apache Doris Kubernetes Operator
-       selectdb/doriscluster        0.1.0            2.0.3        A Helm chart for Apache Doris cluster
+       selectdb/operator            1.3.1            1.3.1        A Helm chart for Apache Doris Kubernetes Operator
+       selectdb/doriscluster        1.3.1            2.0.3        A Helm chart for Apache Doris cluster
        ```
 
 2. Install the operator Chart.
