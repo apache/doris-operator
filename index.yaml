@@ -3,9 +3,9 @@ entries:
   doriscluster:
   - apiVersion: v2
     appVersion: 2.0.3
-    created: "2023-12-28T11:57:59.400619+08:00"
+    created: "2023-12-28T12:15:32.051944+08:00"
     description: A Helm chart for Apache Doris cluster
-    digest: 94061ca5ff73234f5d4be69edcb32ba0c054bdd6c4a2b632c96f8a8aa47b1821
+    digest: e1e3819b2aa525fcb64ba9c51797483521e390a1ac5bd87c642e6b263ce80807
     home: https://github.com/selectdb/doris-operator
     name: doriscluster
     sources:
@@ -17,9 +17,9 @@ entries:
   operator:
   - apiVersion: v2
     appVersion: 1.3.1
-    created: "2023-12-28T11:57:59.40156+08:00"
+    created: "2023-12-28T12:15:32.052858+08:00"
     description: A Helm chart for Apache Doris Kubernetes Operator
-    digest: c86922237e695853604a43337542426fc170f91af406a5df69451018784224f4
+    digest: fd1de78b68021182a004e43fdb3de014b072660585045f68e8296bb6a5a4025e
     home: https://github.com/selectdb/doris-operator
     name: operator
     sources:
@@ -28,4 +28,4 @@ entries:
     urls:
     - https://charts.selectdb.com/operator-1.3.1.tgz
     version: 1.3.1
-generated: "2023-12-28T11:57:59.398566+08:00"
+generated: "2023-12-28T12:15:32.051471+08:00"
