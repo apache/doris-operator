@@ -32,7 +32,7 @@ Doris-Operator is plugins of Kubernetes controller for providing doris to user. 
    ```Bash
    helm install --namespace doris operator selectdb/doris-operator
    ```
-- The repo defines the basic function for running doris-operator, Please use next command to deploy operator, when you have completed customization of [`values.yaml`](./values.yaml).
+- The repo defines the basic function for running doris-operator, Please use next command to deploy doris-operator, when you have completed customization of [`values.yaml`](./values.yaml).
    ```Bash
    helm install --namespace doris -f values.yaml operator selectdb/doris-operator 
    ```
