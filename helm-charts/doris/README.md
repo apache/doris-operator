@@ -1,27 +1,33 @@
-# Deploy Doris Cluster by doriscluster Chart
-
+# Deploy Doris Cluster by Helm
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/doris)](https://artifacthub.io/packages/search?repo=doris)
 
-## Install doriscluster Chart
+This chart for deploying doris on kubernetes use Doris-Operator. Before using this chart, please install doris-operator as [install doc]().  
 
-1. [Add the selectdb Helm repository and Install doris-operator Chart](../doris-operator/README.md).
+## Install doris on Kubernetes
 
-    ```bash
-    $ helm repo add selectdb https://charts.selectdb.com
-    ```
-    
-2. Install the [doris opreator](../doris-operator/README.md) Chart.
+1. Add helm-chart repo of Doris-Operator in helm.  
+```bash
+helm repo add selectdb https://charts.selectdb.com
+```
+2. please create namespace for deploying doris in kubernetes. example use `doris` as namespace's name.  
+```bash
+kubectl create namespace doris
+```
 
-3. Install the doriscluster Chart.
-
-    ```bash
-    helm install --namespace doris doriscluster selectdb/doriscluster
-    ```
-
-   Please see  [values.yaml](./values.yaml)  for more details.
+3. Install the doris use doriscluster chart.
+- use default config for deploying doris.
+  This deploy only deploy fe and be components using default storageClass for providing persistent volume.
+  ```bash
+  helm install --namespace doris doriscluster selectdb/doriscluster
+  ```
+- custom doris deploying.   
+  when you want to specify resources or different deployment type, please custom the values.yaml and use next command for deploying.  
+  ```bash
+  helm install --namespace doris doriscluster -f values.yaml
+  ```
 
 ## Uninstall doriscluster Chart
-
+Please confirm the doris cluster is not used, When using next command to uninstall doris.   
 ```bash
 helm uninstall doriscluster
 ```
