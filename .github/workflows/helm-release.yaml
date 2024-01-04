@@ -1,0 +1,34 @@
+name: Release Charts
+on:
+  push:
+    tags: "*.*.*"
+jobs:
+  release:
+    # depending on default permission settings for your org (contents being read-only or read-write for workloads), you will have to add permissions
+    # see: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+      - name: package and index
+        run: |
+          cd helm-charts
+          helm package doris -d package
+          helm package doris-operator -d package
+          helm repo index ./package --url  https://charts.selectdb.com  --merge  ./index.yaml
+      - name: install ossutil
+        uses:  manyuanrong/setup-ossutil@v2.0
+        with:
+          endpoint: "oss-cn-beijing.aliyuncs.com"
+          access-key-id: ${{ secrets.OSS_KEY_ID }}
+          access-key-secret: ${{ secrets.OSS_KEY_SECRET }}
+      - name: upload files
+        run: |
+          ossutil cp helm-charts/package oss://selectdb-charts -r
+
