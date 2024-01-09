@@ -4,7 +4,7 @@ dorisCluster:
   # the name of doriscluster, if not set, the chart name will be used.
   name: "doriscluster-helm"
   # the namespace of doriscluster, if not set, the release namespace will be used.
-  namespace: ""
+  namespace: "doris"
   # annotations for doris cluster.
   annotations: {}
   # specify the cn deploy or not.
