@@ -57,5 +57,5 @@ Observe that the Pod of `doriscluster` is in the `Running` state and all contain
 ## Uninstall doriscluster
 Please confirm the Doris is not used, when using next command to uninstall `doriscluster`.
 ```bash
-helm uninstall doriscluster
+$ helm uninstall doriscluster
 ```
