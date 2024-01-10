@@ -1,0 +1,13 @@
+{{- if .Values.feSpec.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "doriscluster.default.feConfigMap.name" . }}
+  namespace: {{ template "doriscluster.namespace" . }}
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: {{ template "doriscluster.name" . }}
+    app.kubernetes.io/part-of: {{ template "kube-control.name" . }}
+data:
+  {{- toYaml .Values.feSpec.configMap | nindent 2}}
+{{- end }}

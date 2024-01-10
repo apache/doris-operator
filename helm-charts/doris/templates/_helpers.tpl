@@ -22,12 +22,28 @@ doris cluster pod default resource.
       memory: 32Gi
 {{- end }}
 
+
+
 {{/*
-doris cluster pod default configMap resolve file.
+doris cluster fe configMap default name.
+*/}}
+{{- define "doriscluster.default.feConfigMap.name" -}}
+    {{ template "doriscluster.name" . }}-fe-configmap
+{{- end -}}
+
+{{/*
+doris cluster fe pod default configMap resolve file.
 */}}
 {{- define "doriscluster.default.feConfig.resolveKey" }}
 {{- print "fe.conf" }}
 {{- end }}
+
+{{/*
+doris cluster be configMap default name.
+*/}}
+{{- define "doriscluster.default.beConfigMap.name" -}}
+    {{ template "doriscluster.name" . }}-be-configmap
+{{- end -}}
 
 {{/*
 doris cluster pod default configMap resolve file.
@@ -37,14 +53,28 @@ doris cluster pod default configMap resolve file.
 {{- end }}
 
 {{/*
-doris cluster pod default configMap resolve file.
+doris cluster cn  configMap default name.
+*/}}
+{{- define "doriscluster.default.cnConfigMap.name" -}}
+    {{ template "doriscluster.name" . }}-cn-configmap
+{{- end -}}
+
+{{/*
+doris cluster cn pod default configMap resolve file.
 */}}
 {{- define "doriscluster.default.cnConfig.resolveKey" }}
-{{- print "cn.conf" }}
+{{- print "be.conf" }}
 {{- end }}
 
 {{/*
-doris cluster pod default configMap resolve file.
+doris cluster broker configMap default name.
+*/}}
+{{- define "doriscluster.default.brokerConfigMap.name" -}}
+    {{ template "doriscluster.name" . }}-broker-configmap
+{{- end -}}
+
+{{/*
+doris cluster broker pod default configMap resolve file.
 */}}
 {{- define "doriscluster.default.brokerConfig.resolveKey" }}
 {{- print "apache_hdfs_broker.conf" }}
@@ -56,16 +86,6 @@ doris cluster cn pod autoscaler default version.
 {{- define "doriscluster.default.autoScalerVersion" -}}
 {{- print "v2" }}
 {{- end -}}
-
-
-
-{{/*
-doris cluster configMap default name.
-*/}}
-{{- define "doriscluster.default.configMap.name" -}}
-    {{ template "doriscluster.name" . }}-configmap
-{{- end -}}
-
 
 {{/*
 doris cluster fe PVC
