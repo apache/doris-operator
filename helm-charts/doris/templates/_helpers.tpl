@@ -76,8 +76,8 @@ doris cluster fe PVC
     - mountPath: /opt/apache-doris/fe/doris-meta
       name: fe-meta
       persistentVolumeClaimSpec:
-        {{- if .Values.feSpec.persistentVolumeClaim.metaPersistentVolume.storageClassName}}
-        storageClassName: {{ .Values.feSpec.persistentVolumeClaim.metaPersistentVolume.storageClassName }}
+        {{- if or .Values.feSpec.persistentVolumeClaim.metaPersistentVolume.storageClassName .Values.feSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        storageClassName: {{ default .Values.feSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName .Values.feSpec.persistentVolumeClaim.metaPersistentVolume.storageClassName }}
         {{- end }}
         accessModes:
         - ReadWriteOnce
@@ -89,8 +89,8 @@ doris cluster fe PVC
     - mountPath: /opt/apache-doris/fe/log
       name: fe-log
       persistentVolumeClaimSpec:
-        {{- if .Values.feSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName}}
-        storageClassName: {{ .Values.feSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        {{- if or .Values.feSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName .Values.feSpec.persistentVolumeClaim.metaPersistentVolume.storageClassName}}
+        storageClassName: {{ default .Values.feSpec.persistentVolumeClaim.metaPersistentVolume.storageClassName .Values.feSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
         {{- end }}
         accessModes:
         - ReadWriteOnce
@@ -110,8 +110,8 @@ doris cluster be PVC
     - mountPath: /opt/apache-doris/be/storage
       name: be-storage
       persistentVolumeClaimSpec:
-        {{- if .Values.beSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName}}
-        storageClassName: {{ .Values.beSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName }}
+        {{- if or .Values.beSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName .Values.beSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        storageClassName: {{ default .Values.beSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName .Values.beSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName }}
         {{- end }}
         accessModes:
         - ReadWriteOnce
@@ -123,8 +123,8 @@ doris cluster be PVC
     - mountPath: /opt/apache-doris/be/log
       name: be-log
       persistentVolumeClaimSpec:
-        {{- if .Values.beSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName}}
-        storageClassName: {{ .Values.beSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        {{- if or .Values.beSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName .Values.beSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        storageClassName: {{ default .Values.beSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName .Values.beSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
         {{- end }}
         accessModes:
         - ReadWriteOnce
@@ -144,8 +144,8 @@ doris cluster cn PVC
     - mountPath: /opt/apache-doris/be/storage
       name: cn-storage
       persistentVolumeClaimSpec:
-        {{- if .Values.cnSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName}}
-        storageClassName: {{ .Values.cnSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName }}
+        {{- if or .Values.cnSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName .Values.cnSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        storageClassName: {{ default .Values.cnSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName .Values.cnSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName }}
         {{- end }}
         accessModes:
         - ReadWriteOnce
@@ -157,8 +157,8 @@ doris cluster cn PVC
     - mountPath: /opt/apache-doris/be/log
       name: cn-log
       persistentVolumeClaimSpec:
-        {{- if .Values.cnSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName}}
-        storageClassName: {{ .Values.cnSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        {{- if or .Values.cnSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName .Values.cnSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
+        storageClassName: {{ default .Values.cnSpec.persistentVolumeClaim.dataPersistentVolume.storageClassName .Values.cnSpec.persistentVolumeClaim.logsPersistentVolume.storageClassName }}
         {{- end }}
         accessModes:
         - ReadWriteOnce
