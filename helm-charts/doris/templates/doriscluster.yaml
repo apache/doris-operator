@@ -51,7 +51,7 @@ spec:
 
     {{- if .Values.feSpec.configMap }}
     configMapInfo:
-      configMapName: {{ template "doriscluster.default.configMap.name" . }}
+      configMapName: {{ template "doriscluster.default.feConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.feConfig.resolveKey" . }}
     {{- end }}
 
@@ -125,7 +125,7 @@ spec:
 
     {{- if .Values.beSpec.configMap }}
     configMapInfo:
-      configMapName: {{ include "doriscluster.default.configMap.name" . }}
+      configMapName: {{ template "doriscluster.default.beConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.beConfig.resolveKey" . }}
     {{- end }}
 
@@ -201,7 +201,7 @@ spec:
 
     {{- if .Values.cnSpec.configMap }}
     configMapInfo:
-      configMapName: {{ include "doriscluster.default.configMap.name" . }}
+      configMapName: {{ template "doriscluster.default.cnConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.cnConfig.resolveKey" . }}
     {{- end }}
 
@@ -271,8 +271,8 @@ spec:
 
     {{- if .Values.brokerSpec.configMap }}
     configMapInfo:
-      configMapName: {{ include "doriscluster.default.configMap.name" . }}
-      resolveKey: {{ include "doriscluster.default.brokerConfig.resolveKey" . }}
+      configMapName: {{ template "doriscluster.default.brokerConfigMap.name" . }}
+      resolveKey: {{ template "doriscluster.default.brokerConfig.resolveKey" . }}
     {{- end }}
 
     {{- if .Values.brokerSpec.resource }}
