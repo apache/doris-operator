@@ -4,7 +4,7 @@
 
 dorisOperator:
   # the namespace of dorisoperator, if not set, the release namespace will be used.
-  namespace: ""
+  namespace: "doris"
   image:
     repository: selectdb/doris.k8s-operator
     tag: 1.3.1
