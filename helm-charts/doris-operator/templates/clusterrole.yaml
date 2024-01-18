@@ -61,6 +61,16 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
       - secrets
     verbs:
       - get
