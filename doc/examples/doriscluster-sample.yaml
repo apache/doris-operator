@@ -13,8 +13,8 @@ spec:
   feSpec:
     replicas: 3
     limits:
-      cpu: 8
-      memory: 16Gi
+      cpu: 6
+      memory: 12Gi
     requests:
       cpu: 8
       memory: 16Gi
