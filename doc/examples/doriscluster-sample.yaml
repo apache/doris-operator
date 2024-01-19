@@ -16,8 +16,8 @@ spec:
       cpu: 6
       memory: 12Gi
     requests:
-      cpu: 8
-      memory: 16Gi
+      cpu: 6
+      memory: 12Gi
     image: selectdb/doris.fe-ubuntu:2.0.2
   beSpec:
     replicas: 3
