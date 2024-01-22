@@ -36,7 +36,7 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 		return nil
 	}
 
-	return PatchClientObject(ctx, k8sclient, svc)
+	return UpdateClientObject(ctx, k8sclient, svc)
 }
 
 // ApplyStatefulSet when the object is not exist, create object. if exist and statefulset have been updated, patch the statefulset.

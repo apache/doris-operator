@@ -27,7 +27,8 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 ```
 
 ## Get Started to Deploy Doris
-The [Quick Start Guide](./doc/examples) have some examples to deploy doris on kubernetes. they represent some mode to deploy doris on different situation.
+The [Quick Start Guide](./doc/examples) have some examples to deploy doris on kubernetes. they represent some mode to deploy doris on different situation.   
+Example specify 8 cores and 16GB of memory for every fe or be, and deployed 3 fe and 3 be. Please confirm the K8s cluster have enough resources.  
 for only deploy fe and be without persistentVolume:
 ```
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/doriscluster-sample.yaml
