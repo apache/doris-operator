@@ -22,6 +22,7 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 ```
 ## 部署 Doris  
 [部署范例](./doc/examples)中提供了一些使用Kubernetes特性部署 Doris 的范例。  
+默认的部署样例中，每个 fe 和 be 最少需要8核和16G的内存，且每个服务部署3个实例。 在使用默认部署之前，确保 K8s 集群有足够的资源能够部署成功。  
 部署使用容器自身存储(重启丢失数据属易失性介质)包含 fe,be 服务的 Doris 集群，命令如下：  
 ```  
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/doriscluster-sample.yaml  
