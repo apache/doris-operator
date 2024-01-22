@@ -55,6 +55,8 @@ COPY resource/entry_point.sh /usr/local/bin/
 
 COPY resource/init_be.sh /usr/local/bin/
 
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
 WORKDIR /opt/apache-doris
 
 ENTRYPOINT ["bash","entry_point.sh"]

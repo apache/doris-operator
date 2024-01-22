@@ -17,7 +17,7 @@ type hashService struct {
 	ports     []corev1.ServicePort
 	selector  map[string]string
 	//deal with external access load balancer.
-	//serviceType corev1.ServiceType
+	serviceType corev1.ServiceType
 	labels      map[string]string
 	annotations map[string]string
 }
@@ -136,6 +136,11 @@ func constructServiceSpec(exportService *v1.ExportService, svc *corev1.Service, 
 		Selector: selector,
 		Ports:    ports,
 	}
+
+	if exportService != nil && exportService.Type == corev1.ServiceTypeLoadBalancer {
+		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
+	}
+
 	setServiceType(exportService, svc)
 }
 
@@ -323,6 +328,7 @@ func serviceHashObject(svc *corev1.Service) hashService {
 		namespace:   svc.Namespace,
 		ports:       svc.Spec.Ports,
 		selector:    svc.Spec.Selector,
+		serviceType: svc.Spec.Type,
 		labels:      svc.Labels,
 		annotations: annos,
 	}
