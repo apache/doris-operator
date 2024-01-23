@@ -30,5 +30,5 @@ jobs:
           access-key-secret: ${{ secrets.OSS_KEY_SECRET }}
       - name: upload files
         run: |
-          ossutil cp helm-charts/package oss://selectdb-charts -r
+          ossutil cp helm-charts/package oss://selectdb-charts -rf
 
