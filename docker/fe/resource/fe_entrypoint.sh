@@ -177,6 +177,13 @@ probe_master_for_pod()
     do
         memlist=`show_frontends $svc`
 	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+
+        if [[ "x$master" == "x" ]]; then
+           # compatible 2.1.0
+           log_stderr "probe number 9!"
+           master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($9=="true") print $2}'`
+        fi
+
         if [[ "x$master" != "x" ]] ; then
             # has master, done
             log_stderr "Find master: $master!"
