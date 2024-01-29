@@ -113,6 +113,13 @@ add_self()
         # check fe cluster have master, if fe have not master wait.
         fe_memlist=`show_frontends $svc`
         local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+
+        if [[ "x$leader" == "x" ]]; then
+           # compatible 2.1.0
+           log_stderr "probe number 9!"
+           leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($9=="true") print $2}'`
+        fi
+
         if [[ "x$leader" != "x" ]]; then
             log_stderr "Check myself ($MY_SELF:$HEARTBEAT_PORT)  not exist in FE and fe have leader register myself..."
 
