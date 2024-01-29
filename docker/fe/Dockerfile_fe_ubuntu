@@ -54,7 +54,8 @@ COPY resource/fe_*.sh /opt/apache-doris/
 
 COPY --from=selectdb/doris-debug-ubuntu:latest /doris-debug /opt/apache-doris/
 
-RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+# when you use beijing zone, please enable the set. 
+# RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
 
 WORKDIR /opt/apache-doris
