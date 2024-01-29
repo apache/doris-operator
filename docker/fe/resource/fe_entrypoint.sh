@@ -6,7 +6,7 @@ DORIS_HOME=${DORIS_ROOT}/fe
 ELECT_NUMBER=${ELECT_NUMBER:=3}
 # query port for mysql connection.
 QUERY_PORT=${FE_QUERY_PORT:-9030}
-EDIT_LOG_PORT=9050
+EDIT_LOG_PORT=9010
 # location of fe config store.
 FE_CONFFILE=$DORIS_HOME/conf/fe.conf
 # represents the type for fe communication: domain or IP.
