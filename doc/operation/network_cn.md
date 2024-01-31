@@ -1,19 +1,17 @@
-[中文](network_cn.md) | English
+中文 | [English](network.md)
 
+# 访问 Doris 集群
 
-# Access the Doris cluster
+在 Kubernetes 中，Service 是用于定义一组 pod，并提供对这组 pod 的稳定访问能力的资源，因此它可以与一组 Pod 关联。
+通过 Doris-Operator 部署集群，会根据 `spec.*Spec.service` 配置自动生成对应的 Service 资源，目前支持 ClusterIP、LoadBalancer 和 NodePort 模式。支持用户不同场景的访问需求。
 
-
-In Kubernetes, a Service is a resource that defines a set of pods and provides stable access to this set of pods, so it can be associated with a set of pods.
-Deploying a cluster through Doris-Operator will automatically generate corresponding Service resources according to the `spec.*Spec.service` configuration. Currently, ClusterIP, LoadBalancer and NodePort modes are supported. Support users’ access needs in different scenarios.
-
-## Access within the Kubernetes cluster
-### ClusterIP mode
-Doris provides `ClusterIP` access within the kubernetes cluster by default on kubernetes. For FE and BE components, we provide corresponding Service resources for users to use on demand on kubernetes. Use the following command to view the Service of the corresponding component. The Service naming rule provided by Doris-Operator is `{clusterName}-{fe/be}-service`.
+## 在 Kubernetes 集群内部访问
+### ClusterIP 模式
+Doris 在 kubernetes 上默认提供 kubernetes 集群内部 `ClusterIP` 的访问方式，对于 FE 和 BE 组件我们分别提供相应的 Service 资源供用户在 kubernetes 上按需使用。使用如下命令查看对应组件的 Service，Doris-Operator 提供的 Service 命名规则为 `{clusterName}-{fe/be}-service` 的方式。
 ```shell
 $ kubectl -n {namespace} get service
 ```
-During use, please replace {namespace} with the namespace specified during deployment. Take our default sample deployed Doris cluster as an example:
+在使用过程中，请将 {namespace} 替换成部署时候指定的 namespace。以我们默认的样例部署的 Doris 集群为例：
 ```yaml
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
@@ -43,7 +41,7 @@ spec:
       memory: 16Gi
     image: selectdb/doris.be-ubuntu:2.0.2
 ```
-We view `kubectl get service` through the command as follows:
+我们通过命令查看 `kubectl get service` 如下：
 ```shell
 $ kubectl get service
 NAME                              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                               AGE
@@ -52,18 +50,18 @@ doriscluster-sample-be-service    ClusterIP   172.20.217.234   <none>        906
 doriscluster-sample-fe-internal   ClusterIP   None             <none>        9030/TCP                              12h
 doriscluster-sample-fe-service    ClusterIP   172.20.183.136   <none>        8030/TCP,9020/TCP,9030/TCP,9010/TCP   12h
 ```
-There are two types of services, FE and BE, displayed through the command. The service with the suffix `internal` is the service used by Doris for internal communication and is not available externally. The suffix `-service` is a Service for users to use.
-In this example, the `CLUSTER-IP` corresponding to `doriscluster-sample-fe-service` and the corresponding `PORT` can be used on the K8s cluster to access different port services of FE. Using `doriscluster-sample-be-service` Service
-And the corresponding `PORT` port to access BE's services.
+通过命令展示有 FE 和 BE 的两类 Service，后缀为 `internal` 的 Service 为 Doris 内部通信使用的 Service，外部不可用。后缀为 `-service` 为供用户使用的 Service。  
+在这个例子中， 在 Kubernetes 集群之上可以使用 `doriscluster-sample-fe-service` 对应的 `CLUSTER-IP` 以及后面对应的 `PORT` 来访问 FE 的不同端口服务。使用 `doriscluster-sample-be-service` Service
+以及对应的 `PORT` 的端口来访问 BE 的服务。
 
-## Access outside the Kubernetes cluster
-### LoadBalancer Mode
-If the cluster is created on a relevant cloud platform, it is recommended to use the `LoadBalancer` mode to access the FE and BE services within the cluster. The `ClusterIP` mode is used by default. If you want to use the `LoadBalancer` mode, please configure the following configuration in the spec of each component:
+## 在 Kubernetes 集群外部访问
+### LoadBalancer 模式
+如果集群在相关云平台创建，建议使用 `LoadBalancer` 的模式来访问集群内部的 FE 和 BE 服务。 默认情况下使用的是 `ClusterIP` 的模式，如果想要使用 `LoadBalancer` 模式，请在每个组件的 spec 配置如下配置：
 ```yaml
 service:
   type: LoadBalancer
 ```
-Taking the default configuration as a modification blueprint for example, we use `LoadBalancer` as the access mode of FE and BE on the cloud platform. The deployment configuration is as follows:
+以默认的配置作为修改蓝本为例，我们在云平台上使用 `LoadBalancer` 作为 FE 和 BE 的访问模式，部署配置如下：
 ```yaml
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
@@ -97,7 +95,7 @@ spec:
       memory: 16Gi
     image: selectdb/doris.be-ubuntu:2.0.2
 ```
-By viewing the `kubectl get service` command, view the corresponding Service display as follows:
+通过查看 `kubectl get service` 的命令，查看相应的 Service 展示如下：
 ```shell
 $ kubectl get service
 NAME                              TYPE           CLUSTER-IP       EXTERNAL-IP                                                               PORT(S)                                                       AGE
@@ -106,12 +104,12 @@ doriscluster-sample-be-service    LoadBalancer   172.20.217.234   a46bbcd6998c74
 doriscluster-sample-fe-internal   ClusterIP      None             <none>                                                                    9030/TCP                                                      14h
 doriscluster-sample-fe-service    LoadBalancer   172.20.183.136   ac48284932b044251bfac389b453118f-1412731848.us-east-1.elb.amazonaws.com   8030:32213/TCP,9020:31080/TCP,9030:31433/TCP,9010:30585/TCP   14h
 ```
-External ports corresponding to `EXTERNAL-IP` and `PORT` can be used outside K8s to access the services of various components within K8s. For example, to access the `mysql` client service corresponding to FE's 9030, you can use the following command to connect:
+在 Kubernetes 外部可以使用 `EXTERNAL-IP` 以及 `PORT` 对应的外部端口来访问 Kubernetes 内部各个组件的服务。 比如访问 FE 的 9030 对应的 `mysql` client 服务，就可以用如下命令连接：
 ```shell
 mysql -h ac48284932b044251bfac389b453118f-1412731848.us-east-1.elb.amazonaws.com -P 9030 -uroot
 ```
-### NodePort Mode
-In a private network environment, to access internal services outside K8s, it is recommended to use the `NodePort` mode of K8s. Use the default configuration as a blueprint to configure the `NodePort` access mode in the private network as follows:
+### NodePort 模式
+私网环境下，在 Kubernetes 外部访问内部服务，推荐使用 Kubernetes 的 `NodePort` 模式， 使用默认的配置为蓝本配置私网下 `NodePort` 访问模式如下：
 ```yaml
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
@@ -145,7 +143,7 @@ spec:
       memory: 16Gi
     image: selectdb/doris.be-ubuntu:2.0.2
 ```
-After deployment, view the corresponding Service by viewing the `kubectl get service` command:
+部署后，通过查看 `kubectl get service` 的命令查看相应的 Service ：
 ```shell
 $ kubectl get service
 NAME                              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                                                       AGE
@@ -155,20 +153,20 @@ doriscluster-sample-fe-service    NodePort    10.152.183.58    <none>        803
 doriscluster-sample-be-internal   ClusterIP   None             <none>        9050/TCP                                                      2d
 doriscluster-sample-be-service    NodePort    10.152.183.244   <none>        9060:30940/TCP,8040:32713/TCP,9050:30621/TCP,8060:30926/TCP   2d
 ```
-The above command obtains the port that can be used outside K8s, and obtains the host managed by K8s through the following command:
+上述命令获取到在 Kubernetes 外部可使用的端口，通过如下命令获取 Kubernetes 管理的宿主机：
 ```shell
 $ kubectl get nodes -owide
 NAME             STATUS   ROLES    AGE    VERSION                     INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION       CONTAINER-RUNTIME
 vm-10-7-centos   Ready    <none>   88d    v1.23.17-2+40cc20cc310518   10.16.10.7    <none>        TencentOS Server 3.1 (Final)   5.4.119-19.0009.25   containerd://1.5.13
 vm-10-8-centos   Ready    <none>   169d   v1.23.17-2+40cc20cc310518   10.16.10.8    <none>        TencentOS Server 3.1 (Final)   5.4.119-19-0009.3    containerd://1.5.13
 ```
-In a private network environment, use the K8s host and mapped ports to access K8s internal services. For example, we use the host's IP and FE's 9030 mapped port (31545) to connect to `mysql`:
+私网环境下，使用 Kubernetes 的宿主机和映射端口访问 Kubernetes 内部的服务。例如，我们使用宿主机的 IP 和 FE 的 9030 映射端口（31545）进行 `mysql` 的连接：
 ```shell
 $ mysql -h 10.16.10.8 -P 31545 -uroot
 ```
 
-In addition, you can specify the nodePort you need according to your own platform needs.
-The Kubernetes master will allocate a port from the given configuration range (general default: 30000-32767) and each Node will proxy to the Service from that port (the same port on each Node). Like the example above, a random port will be automatically generated if not specified.
+另外，可以根据自身平台需要，指定自己需要的 nodePort。
+Kubernetes master 将从给定的配置范围内（一般默认：30000-32767）分配端口，每个 Node 将从该端口（每个 Node 上的同一端口）代理到 Service。像上面的例子那样如果不指定的话会自动生成一个随机的端口。
 ```yaml
 apiVersion: doris.selectdb.com/v1
 kind: DorisCluster
@@ -220,7 +218,7 @@ spec:
       memory: 16Gi
     image: selectdb/doris.be-ubuntu:2.0.2
 ```
-After deployment, check the corresponding Service by viewing the `kubectl get service` command. For access methods, please refer to the above:
+部署后，通过查看 `kubectl get service` 的命令查看相应的 Service，访问方式可以参考上文 ：
 ```shell
 $ kubectl get service
 NAME                              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                                                       AGE
@@ -231,25 +229,25 @@ doriscluster-sample-be-internal   ClusterIP   None             <none>        905
 doriscluster-sample-be-service    NodePort    10.152.183.24    <none>        9060:31005/TCP,8040:31006/TCP,9050:31007/TCP,8060:31008/TCP   2d
 ```
 
-## Doris data exchange
+## Doris 数据交互
 ### Stream load
-[Stream load](https://doris.apache.org/docs/dev/data-operate/import/import-way/stream-load-manual) is a synchronous import method. Users send requests to import local files or data streams into Doris by sending HTTP protocol.
-In a regular deployment, users submit import commands via the HTTP protocol. Generally, users will submit the request to FE, and FE will forward the request to a certain BE through the HTTP redirect command. However, in a Kubernetes-based deployment scenario, it is recommended that users **directly submit the import command to BE's Srevice**, and then the Service will be load balanced to a certain BE pod based on Kubernetes rules.
-The actual effects of these two operations are the same. When Flink or Spark uses the official connector to submit, the write request can also be submitted to the BE Service.
+[Stream load](https://doris.apache.org/zh-CN/docs/dev/data-operate/import/import-way/stream-load-manual) 是一个同步的导入方式，用户通过发送 HTTP 协议发送请求将本地文件或数据流导入到 Doris 中。
+在常规部署中，用户通过 HTTP 协议提交导入命令。一般用户会将请求提交到 FE，则 FE 会通过 HTTP redirect 指令将请求转发给某一个 BE。但是，在基于 Kubernetes 部署的场景下，推荐用户 **直接提交导入命令 BE 的 Srevice** ，再由 Service 依据 Kubernetes 规则负载均衡到某一 BE 的 pod 上。
+这两种操作效果的实际效果都是一样的，在 Flink 或 Spark 使用官方 connecter 提交的时候，也可以将写入请求提交给 BE Service。
 
-### ErrorURL
-When import methods such as [Stream load](https://doris.apache.org/docs/dev/data-operate/import/import-way/stream-load-manual) and [Routine load](https://doris.apache.org/docs/dev/data-operate/import/import-way/routine-load-manual)
-These import methods will print `errorURL` or `tracking_url` in the return structure or log when encountering errors such as incorrect data format. You can locate the cause of the import error by visiting this link.
-However, this URL is only accessible within the internal environment of a specific BE node container in a Kubernetes deployed cluster.
+### ErrorURL 查看
+诸如 [Stream load](https://doris.apache.org/zh-CN/docs/dev/data-operate/import/import-way/stream-load-manual) ，[Routine load](https://doris.apache.org/zh-CN/docs/dev/data-operate/import/import-way/routine-load-manual)
+这些导入方式，在遇到像数据格式有误等错误的时候，会在返回结构体或者日志中打印 `errorURL` 或 `tracking_url`。 通过访问此链接可以定位导入错误原因。
+但是此 URL 是仅在 Kubernetes 部署的集群中某一个特定的 BE 节点容器内部环境可访问。
 
-The following scenario takes the errorURL returned by Doris as an example:
+以下方案，以 Doris 返回的 errorURL 为例展开：
 ```http://doriscluster-sample-be-2.doriscluster-sample-be-internal.doris.svc.cluster.local:8040/api/_load_error_log?file=__shard_1/error_log_insert_stmt_af474190276a2e9c-49bb9d175b8e968e_af474190276a2e9c_49bb9d175b8e968e```
 
-**1. Kubernetes cluster internal access**
+**1. Kubernetes 集群内部访问**
 
-You need to obtain the access method of BE's Service or pod through the `kubectl get service` or `kubectl get pod -o wide` command, replace the domain name and port of the original URL, and then access again.
+需要通过 `kubectl get service` 或 `kubectl get pod -o wide` 命令获取 BE 的 Service 或 pod 的访问方式来进行原 URL 的域名端口替换，然后再访问。
 
-for example:
+比如：
 ```shell
 $ kubectl get pod -o wide
 NAME                       READY   STATUS    RESTARTS     AGE   IP           NODE                      NOMINATED NODE   READINESS GATES
@@ -260,14 +258,14 @@ doriscluster-sample-fe-0   1/1     Running   0            9h    10.0.2.102   10-
 doriscluster-sample-fe-1   1/1     Running   0            9h    10.0.2.101   10-0-2-5.ec2.internal     <none>           <none>
 doriscluster-sample-fe-2   1/1     Running   0            9h    10.0.2.100   10-0-2-6.ec2.internal     <none>           <none>
 ```
-The above errorURL is changed to:
+上述 errorURL 则改为：
 ```http://10.0.2.103:8040/api/_load_error_log?file=__shard_1/error_log_insert_stmt_af474190276a2e9c-49bb9d175b8e968e_af474190276a2e9c_49bb9d175b8e968e```
 
 
-**2. NodePort mode for external access to Kubernetes cluster**
+**2. Kubernetes 集群外部访问 NodePort 模式**
 
-Obtaining error report details from outside Kubernetes requires additional bridging means. The following are the processing steps for using NodePort mode Service when deploying Doris. Obtain error report details by creating a new Service:
-Handle Service template be_streamload_errror_service.yaml:
+从 Kubernetes 外部获取报错详情 需要额外的桥接⼿段实现，以下是在部署 Doris 时采用 NodePort 模式的 Service 的处理步骤，通过新建 Service 的⽅式来获取报错详情：
+处理 Service 模板 be_streamload_errror_service.yaml :
 ```yaml
 apiVersion: v1
 kind: Service
@@ -293,20 +291,29 @@ spec:
   sessionAffinity: None
   type: NodePort
 ```
-Use the following command to view the mapping of Service 8040 port on the host machine
+
+`podName` 则替换为 errorURL 的最⾼级域名：`doriscluster-sample-be-2`。
+
+在 Doris 部署的 `namespace`（一般默认 `doris` ， 以下操作使用 `doris`） 使⽤如下命令部署上述处理过的 Service：
+
+```shell
+$ kubectl apply -n doris -f be_streamload_errror_service.yaml 
+```
+
+通过如下命令查看 Service 8040 端⼝在宿主机的映射
 ```shell
 $ kubectl get service -n doris doriscluster-detail-error
-NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE
-doriscluster-detail-error NodePort 10.152.183.35 <none> 8040:31201/TCP 32s
+NAME                              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)            AGE
+doriscluster-detail-error         NodePort    10.152.183.35    <none>        8040:31201/TCP     32s
 ```
-Use the IP of any host and the NodePort (31201) port obtained above to access and replace errorURL to obtain a detailed error report.
-The above errorURL is changed to:
+使⽤任何⼀台宿主机的 IP 和上面获得的 NodePort（31201）端⼝访问 替换 errorURL 获取详细报错报告。
+上述 errorURL 则改为：
 ```http://10.152.183.35:31201/api/_load_error_log?file=__shard_1/error_log_insert_stmt_af474190276a2e9c-49bb9d175b8e968e_af474190276a2e9c_49bb9d175b8e968e```
 
-**3. Access LoadBalancer mode from outside the Kubernetes cluster**
+**3. Kubernetes 集群外部访问 LoadBalancer 模式**
 
-Obtaining error report details from outside Kubernetes requires additional bridging means. The following are the processing steps for using the LoadBalancer mode Service when deploying Doris. Obtain error report details by creating a new Service:
-Handle Service template be_streamload_errror_service.yaml:
+从 Kubernetes 外部获取报错详情 需要额外的桥接⼿段实现，以下是在部署 Doris 时采用 LoadBalancer 模式的 Service 的处理步骤，通过新建 Service 的⽅式来获取报错详情：
+处理 Service 模板 be_streamload_errror_service.yaml :
 ```yaml
 apiVersion: v1
 kind: Service
@@ -332,26 +339,27 @@ spec:
   sessionAffinity: None
   type: LoadBalancer
 ```
-`podName` is replaced with the highest-level domain name of errorURL: `doriscluster-sample-be-2`.
 
-In the `namespace` deployed by Doris (generally the default is `doris`, use `doris` for the following operations), use the following command to deploy the service processed above:
+`podName` 则替换为 errorURL 的最⾼级域名：`doriscluster-sample-be-2`。
+
+在 Doris 部署的 `namespace`（一般默认 `doris` ， 以下操作使用 `doris`） 使⽤如下命令部署上述处理过的 Service：
 
 ```shell
-$ kubectl apply -n doris -f be_streamload_errror_service.yaml
+$ kubectl apply -n doris -f be_streamload_errror_service.yaml 
 ```
 
-Use the following command to view the mapping of Service 8040 port on the host machine
+通过如下命令查看 Service 8040 端⼝在宿主机的映射
 ```shell
 $ kubectl get service -n doris doriscluster-detail-error
 NAME                         TYPE          CLUSTER-IP       EXTERNAL-IP                                                              PORT(S)           AGE
 doriscluster-detail-error    LoadBalancer  172.20.183.136   ac4828493dgrftb884g67wg4tb68gyut-1137856348.us-east-1.elb.amazonaws.com  8040:32003/TCP    14s
 ```
 
-Use `EXTERNAL-IP` and Port (8040) port access to replace errorURL to obtain a detailed error report.
-The above errorURL is changed to:
-```http://ac4828493dgrftb884g67wg4tb68gyut-1137856348.us-east-1.elb.amazonaws.com:8040/api/_load_error_log?file=__shard_1/error_log_insert_stmt_af474190276a2e9c-49bb9d175b8e968 e_af474190276a2e9c_49bb9d175b8e968e```
+使⽤ `EXTERNAL-IP` 和 Port（8040）端⼝访问 替换 errorURL 获取详细报错报告。
+上述 errorURL 则改为：
+```http://ac4828493dgrftb884g67wg4tb68gyut-1137856348.us-east-1.elb.amazonaws.com:8040/api/_load_error_log?file=__shard_1/error_log_insert_stmt_af474190276a2e9c-49bb9d175b8e968e_af474190276a2e9c_49bb9d175b8e968e```
 
-Note: For the above method of setting up access outside the cluster, it is recommended to clear the current Service after use. The reference command is as follows:
+注意：上述设置集群外访问的方法，建议使用完毕后清除掉当前 Service，参考命令如下：
 ```shell
 $ kubectl delete service -n doris doriscluster-detail-error
 ```
