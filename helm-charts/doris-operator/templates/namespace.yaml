@@ -1,3 +1,5 @@
+{{ $namespacefind := (lookup "v1" "Namespace" "" (printf ( include "operator.namespace" .))) }}
+{{ if not $namespacefind }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -7,4 +9,5 @@ metadata:
     app.kubernetes.io/instance: {{ template "kube-doris.name" . }}
     app.kubernetes.io/component: {{ template "kube-doris.name" . }}-operator
     app.kubernetes.io/part-of: {{ template "kube-doris.name" . }}-operator
-  name: {{ template "operator.namespace" . }}
+  name: {{ template "operator.namespace"  . }}
+{{ end }}
