@@ -37,6 +37,12 @@ update_conf_from_configmap()
         log_stderr "$CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
         return 0
     fi
+
+    if [[ -f $CONFIGMAP_MOUNT_PATH/hosts ]] ; then
+        log_stderr "load hosts to etc/hosts!"
+        cat $CONFIGMAP_MOUNT_PATH/hosts >> /etc/hosts
+    fi
+
     local tgtconfdir=$DORIS_HOME/conf
     for conffile in `ls $CONFIGMAP_MOUNT_PATH`
     do

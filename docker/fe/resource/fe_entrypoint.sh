@@ -284,6 +284,12 @@ update_conf_from_configmap()
         add_fqdn_config
         return 0
     fi
+
+    if [[ -f $CONFIGMAP_MOUNT_PATH/hosts ]] ; then
+        log_stderr "load hosts to etc/hosts!"
+        cat $CONFIGMAP_MOUNT_PATH/hosts >> /etc/hosts
+    fi
+
     if ! test -d $CONFIGMAP_MOUNT_PATH ; then
         log_stderr "$CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
         add_fqdn_config
