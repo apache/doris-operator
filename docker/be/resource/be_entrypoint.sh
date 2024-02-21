@@ -65,9 +65,9 @@ function show_frontends()
 {
     local addr=$1
     if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
-        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'show frontends;'
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;'
     else
-        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'show frontends;'
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER --batch -e 'show frontends;'
     fi
 }
 
@@ -112,8 +112,13 @@ add_self()
 
         # check fe cluster have master, if fe have not master wait.
         fe_memlist=`show_frontends $svc`
-        local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+	local pos=`echo "$fe_memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
+        local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
 
+	if [[ "x$leader" == "x" ]]; then
+           log_stderr "probe number 8!"
+           leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+	fi
         if [[ "x$leader" == "x" ]]; then
            # compatible 2.1.0
            log_stderr "probe number 9!"
@@ -160,6 +165,7 @@ function check_and_register()
     if [[ $REGISTERED ]]; then
         return 0
     else
+        log_stderr  "not find master in fe cluster, please use mysql connect to fe for verfing the master exist and verify domain connectivity with two pods in different node. "
         exit 1
     fi
 }
