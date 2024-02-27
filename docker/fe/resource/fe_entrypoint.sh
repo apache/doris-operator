@@ -96,9 +96,9 @@ function show_frontends()
 {
     local addr=$1
     if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
-        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'show frontends;'
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;'
     else
-        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e 'show frontends;'
+        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER --batch -e 'show frontends;'
     fi
 }
 
@@ -177,7 +177,14 @@ probe_master_for_pod()
     while true
     do
         memlist=`show_frontends $svc`
-	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+	# find master by column `IsMaster`
+	local pos=`echo "$memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
+	local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
+
+	if [[ "x$master" == "x" ]]; then
+	   log_stderr "probe number 8!"
+           master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+	fi
 
         if [[ "x$master" == "x" ]]; then
            # compatible 2.1.0
@@ -200,7 +207,7 @@ probe_master_for_pod()
         # no master yet, check if needs timeout and quit
         log_stderr "No master yet, has_member: $has_member ..."
         local timeout=$PROBE_MASTER_POD0_TIMEOUT
-        if $has_member ; then
+        if  "$has_member" == true || [ "$POD_INDEX" -ne "0" ] ; then
             # set timeout to the same as PODX since there are other members
             timeout=$PROBE_MASTER_PODX_TIMEOUT
         fi
@@ -269,6 +276,7 @@ probe_master()
         if [[ "$POD_INDEX" -eq 0 ]]; then
             return 0
         else
+            log_stderr "the pod can't connect to pod 0, the network may be not work. please verify domain connectivity with two pods in different node and verify the pod 0 ready or not."
             exit 1
         fi
     fi
