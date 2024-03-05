@@ -41,7 +41,12 @@ type DorisClusterSpec struct {
 	BrokerSpec *BrokerSpec `json:"brokerSpec,omitempty"`
 
 	//administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.
+	//+Deprecated, from 1.4.1 please use secret config username and password.
 	AdminUser *AdminUser `json:"adminUser,omitempty"`
+
+	// the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
+	// the password key is `password`. the username defaults to `root` and is omitempty.
+	AuthSecret string `json:"authSecret,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.

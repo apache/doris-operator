@@ -62,6 +62,12 @@ spec:
                     description: password, login to doris db.
                     type: string
                 type: object
+              authSecret:
+                description: the name of secret that type is `kubernetes.io/basic-auth`
+                  and contains keys username, password for management doris node in
+                  cluster as fe, be register. the password key is `password`. the
+                  username defaults to `root` and is omitempty.
+                type: string
               beSpec:
                 description: defines the be cluster state pod that will be created
                   by operator.
