@@ -134,6 +134,18 @@ AdminUser
 <p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>authSecret</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
+the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -1137,6 +1149,18 @@ AdminUser
 </td>
 <td>
 <p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authSecret</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
+the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
 </td>
 </tr>
 </tbody>
@@ -2463,5 +2487,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>8305ac1</code>.
+on git commit <code>07b1c97</code>.
 </em></p>

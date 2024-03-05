@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 var (
@@ -57,10 +58,18 @@ func readConfigListenPort() string {
 
 	var listenPort string
 	if componentType == "fe" {
-		listenPort = viper.GetString(resource.QUERY_PORT)
+		configQueryPort := viper.GetString(resource.QUERY_PORT)
+		if configQueryPort == "" {
+			listenPort = strconv.Itoa(int(resource.GetDefaultPort(resource.QUERY_PORT)))
+		}
 	} else if componentType == "be" {
-		listenPort = viper.GetString(resource.HEARTBEAT_SERVICE_PORT)
+		configHeartbeatPort := viper.GetString(resource.HEARTBEAT_SERVICE_PORT)
+		fmt.Println("component be" + configHeartbeatPort)
+		if configHeartbeatPort == "" {
+			listenPort = strconv.Itoa(int(resource.GetDefaultPort(resource.HEARTBEAT_SERVICE_PORT)))
+		}
 	}
+	fmt.Println("component listen port " + listenPort)
 
 	return listenPort
 }

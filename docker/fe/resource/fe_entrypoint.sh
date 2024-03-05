@@ -1,5 +1,7 @@
 #!/bin/bash
 DORIS_ROOT=${DORIS_ROOT:-"/opt/apache-doris"}
+# if config secret for basic auth about operate node of doris, the path must be `/etc/doris/basic_auth`. This is set by operator and the key of password must be `password`.
+AUTH_PATH="/etc/basic_auth"
 # fe location
 DORIS_HOME=${DORIS_ROOT}/fe
 # participant election number of fe.
@@ -27,7 +29,6 @@ DB_ADMIN_USER=${USER:-"root"}
 DB_ADMIN_PASSWD=$PASSWD
 # myself as IP or FQDN
 MYSELF=
-
 
 function log_stderr()
 {
@@ -95,31 +96,54 @@ collect_env_info()
 function show_frontends()
 {
     local addr=$1
-    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
-        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;'
-    else
-        timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER --batch -e 'show frontends;'
+    # fist start use root and no password check. avoid use pre setted username and password.
+    frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -uroot --batch -e 'show frontends;' 2>&1`
+    log_stderr "[info] use root no password show frotends result '$frontends'"
+    if echo $frontends | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
+	log_stderr "[info] use username and password that configured show frontends."
+        frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;' 2>&1`
     fi
+   echo "$frontends"
+
+    #if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+    #    timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;'
+    #else
+    #    timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER --batch -e 'show frontends;'
+    #fi
 }
 
 # add myself in cluster for FOLLOWER.
 function add_self_follower()
 {
-    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+    add_result=`mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";" 2>&1`
+    log_stderr "[info] use root no password to add follower result '$add_result'"
+    if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
+	log_stderr "[info] use username and password that configured to add self as follower."
         mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
-    else
-        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
     fi
+
+    #if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+    #    mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+    #else
+    #    mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
+    #fi
 }
 
 # add myself in cluster for OBSERVER.
 function add_self_observer()
 {
-    if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
-        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
-    else
-        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+    add_result=`mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";" 2>&1`
+    log_stderr "[info] use root no password to add self as observer result '$add_result'."
+    if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
+	log_stderr "[info] use username and password that configed to add self as observer."
+	mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
     fi
+
+    #if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
+    #    mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+    #else
+    #    mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+    #fi
 }
 
 # `dori-meta/image` not exist start as first time.
@@ -181,14 +205,15 @@ probe_master_for_pod()
 	local pos=`echo "$memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
 	local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
 
+	log_stderr "'IsMaster' sequence in columns is $pos, master=$master."
 	if [[ "x$master" == "x" ]]; then
-	   log_stderr "probe number 8!"
+	   log_stderr "[info] resolve the eighth column for finding master !"
            master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
 	fi
 
         if [[ "x$master" == "x" ]]; then
            # compatible 2.1.0
-           log_stderr "probe number 9!"
+           log_stderr "[info] resoluve the ninth column for finding master!"
            master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($9=="true") print $2}'`
         fi
 
@@ -199,13 +224,14 @@ probe_master_for_pod()
             return 0
         fi
 
-        if [[ "x$memlist" != "x" ]] ; then
+	# show frontens has members
+        if [[ "x$memlist" != "x" && "x$pos" != "x" ]] ; then
             # has member list ever before
             has_member=true
         fi
 
         # no master yet, check if needs timeout and quit
-        log_stderr "No master yet, has_member: $has_member ..."
+        log_stderr "[info] master is not elected, has_member: $has_member, this may be first start or master changing, wait $PROBE_INTERVAL s to next probe..."
         local timeout=$PROBE_MASTER_POD0_TIMEOUT
         if  "$has_member" == true || [ "$POD_INDEX" -ne "0" ] ; then
             # set timeout to the same as PODX since there are other members
@@ -215,7 +241,7 @@ probe_master_for_pod()
         local now=`date +%s`
         let "expire=start+timeout"
         if [[ $expire -le $now ]] ; then
-            log_stderr "Timed out, exit probe master .."
+            log_stderr "[info]  exit probe master for probing timeout, if it is the first pod will start as master. .."
             # empty FE_MASTER
             FE_MASTER=""
             return 0
@@ -223,36 +249,6 @@ probe_master_for_pod()
         sleep $PROBE_INTERVAL
     done
 }
-
-# ordinal greater than 0, start as `FOLLOWER` or `OBSERVER`
-#probe_master_for_podX()
-#{
-#    # wait until find a master or timeout
-#    local svc=$1
-#    local start=`date +%s`
-#    while true
-#    do
-#        memlist=`show_frontends $svc`
-#	    local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-#        if [[ "x$master" != "x" ]] ; then
-#            # has master done
-#            log_stderr "Find master: $master!"
-#            FE_MASTER=$master
-#            return 0
-#        fi
-#        # no master yet, check if needs timeout and quit
-#        log_stderr "No master wait ${PROBE_INTERVAL}s..."
-#
-#        local now=`date +%s`
-#        let "expire=start+PROBE_MASTER_PODX_TIMEOUT"
-#        if [[ $expire -le $now ]] ; then
-#            log_stderr "Probe master timeout, abort!"
-#            return 0
-#        fi
-#
-#        sleep $PROBE_INTERVAL
-#    done
-#}
 
 # when not meta exist, fe start should probe
 probe_master()
@@ -296,19 +292,19 @@ function add_fqdn_config()
 update_conf_from_configmap()
 {
     if [[ "x$CONFIGMAP_MOUNT_PATH" == "x" ]] ; then
-        log_stderr 'Empty $CONFIGMAP_MOUNT_PATH env var, skip it!'
+        log_stderr '[info] Empty $CONFIGMAP_MOUNT_PATH env var, skip it!'
         add_fqdn_config
         return 0
     fi
     if ! test -d $CONFIGMAP_MOUNT_PATH ; then
-        log_stderr "$CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
+        log_stderr "[info] $CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
         add_fqdn_config
         return 0
     fi
     local tgtconfdir=$DORIS_HOME/conf
     for conffile in `ls $CONFIGMAP_MOUNT_PATH`
     do
-        log_stderr "Process conf file $conffile ..."
+        log_stderr "[info] Process conf file $conffile ..."
         local tgt=$tgtconfdir/$conffile
         if test -e $tgt ; then
             # make a backup
@@ -317,6 +313,18 @@ update_conf_from_configmap()
         ln -sfT $CONFIGMAP_MOUNT_PATH/$conffile $tgt
     done
     add_fqdn_config
+}
+
+# resolve password for root
+resolve_password_from_secret()
+{
+    if [[ -f "$AUTH_PATH/password" ]]; then
+        DB_ADMIN_PASSWD=`cat $AUTH_PATH/password`
+    fi
+
+    if [[ -f "$AUTH_PATH/username" ]]; then
+	DB_ADMIN_USER=`cat $AUTH_PATH/username`
+    fi
 }
 
 start_fe_with_meta()
@@ -336,6 +344,8 @@ if [[ "x$fe_addrs" == "x" ]]; then
 fi
 
 update_conf_from_configmap
+# resolve password for root to manage nodes in doris.
+resolve_password_from_secret
 if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
     log_stderr "start fe with exist meta."
     ./doris-debug --component fe

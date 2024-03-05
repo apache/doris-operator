@@ -40,6 +40,10 @@ var defMap = map[string]int32{
 	BROKER_IPC_PORT:        8000,
 }
 
+func GetDefaultPort(key string) int32 {
+	return defMap[key]
+}
+
 func ResolveConfigMap(configMap *corev1.ConfigMap, key string) (map[string]interface{}, error) {
 	res := make(map[string]interface{})
 	data := configMap.Data

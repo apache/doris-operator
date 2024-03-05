@@ -10,12 +10,14 @@ import (
 )
 
 const (
-	config_env_path = "/etc/doris"
-	config_env_name = "CONFIGMAP_MOUNT_PATH"
-	be_storage_name = "be-storage"
-	be_storage_path = "/opt/apache-doris/be/storage"
-	fe_meta_path    = "/opt/apache-doris/fe/doris-meta"
-	fe_meta_name    = "fe-meta"
+	config_env_path  = "/etc/doris"
+	config_env_name  = "CONFIGMAP_MOUNT_PATH"
+	basic_auth_path  = "/etc/basic_auth"
+	auth_volume_name = "basic-auth"
+	be_storage_name  = "be-storage"
+	be_storage_path  = "/opt/apache-doris/be/storage"
+	fe_meta_path     = "/opt/apache-doris/fe/doris-meta"
+	fe_meta_name     = "fe-meta"
 
 	HEALTH_API_PATH            = "/api/health"
 	HEALTH_BROKER_LIVE_COMMAND = "/opt/apache-doris/broker_is_alive.sh"
@@ -77,7 +79,18 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	if len(volumes) == 0 {
 		volumes, _ = getDefaultVolumesVolumeMounts(componentType)
 	}
+	//map pod labels and annotations into pod
 	volumes, _ = appendPodInfoVolumesVolumeMounts(volumes, nil)
+	if dcr.Spec.AuthSecret != "" {
+		volumes = append(volumes, corev1.Volume{
+			Name: auth_volume_name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: dcr.Spec.AuthSecret,
+				},
+			},
+		})
+	}
 
 	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
 		configVolume, _ := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
@@ -234,6 +247,14 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		volumeMounts = append(volumeMounts, volumeMount)
 	}
 
+	// add basic auth secret volumeMount
+	if dcr.Spec.AuthSecret != "" {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      auth_volume_name,
+			MountPath: basic_auth_path,
+		})
+	}
+
 	c := corev1.Container{
 		Image:           spec.Image,
 		Name:            string(componentType),
@@ -273,7 +294,9 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	}
 
 	c.LivenessProbe = livenessProbe(livenessPort, "")
-	c.StartupProbe = startupProbe(readnessPort, health_api_path)
+	// use liveness as startup, when in debugging mode will not be killed
+	//c.StartupProbe = startupProbe(readnessPort, health_api_path)
+	c.StartupProbe = startupProbe(livenessPort, "")
 	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
 	c.Lifecycle = lifeCycle(prestopScript)
 
@@ -497,6 +520,14 @@ func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.Co
 
 // StartupProbe returns a startup probe.
 func startupProbe(port int32, path string) *corev1.Probe {
+	if path == "" {
+		return &corev1.Probe{
+			FailureThreshold: 60,
+			PeriodSeconds:    5,
+			ProbeHandler:     getProbe(port, path, tcpSocket),
+		}
+	}
+
 	return &corev1.Probe{
 		FailureThreshold: 60,
 		PeriodSeconds:    5,
@@ -506,18 +537,36 @@ func startupProbe(port int32, path string) *corev1.Probe {
 
 // livenessProbe returns a liveness.
 func livenessProbe(port int32, path string) *corev1.Probe {
+	if path == "" {
+		return &corev1.Probe{
+			PeriodSeconds:    5,
+			FailureThreshold: 3,
+			// for pulling image and start doris
+			InitialDelaySeconds: 80,
+			TimeoutSeconds:      180,
+			ProbeHandler:        getProbe(port, path, tcpSocket),
+		}
+	}
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		// for pulling image and start doris
 		InitialDelaySeconds: 80,
 		TimeoutSeconds:      180,
-		ProbeHandler:        getProbe(port, path, tcpSocket),
+		ProbeHandler:        getProbe(port, path, httpGet),
 	}
 }
 
 // ReadinessProbe returns a readiness probe.
 func readinessProbe(port int32, path string) *corev1.Probe {
+	if path == "" {
+		return &corev1.Probe{
+			PeriodSeconds:    5,
+			FailureThreshold: 3,
+			ProbeHandler:     getProbe(port, path, tcpSocket),
+		}
+	}
+
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
