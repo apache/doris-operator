@@ -1,6 +1,6 @@
 #!/bin/bash
 DORIS_ROOT=${DORIS_ROOT:-"/opt/apache-doris"}
-# if config secret for basic auth about operate node of doris, the path must be `/etc/doris/basic_auth`. This is set by operator and the key of password must be `password`.
+# if config secret for basic auth about operate node of doris, the path must be `/etc/basic_auth`. This is set by operator and the key of password must be `password`.
 AUTH_PATH="/etc/basic_auth"
 # fe location
 DORIS_HOME=${DORIS_ROOT}/fe
