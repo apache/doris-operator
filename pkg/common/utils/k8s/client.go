@@ -36,6 +36,8 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 		return nil
 	}
 
+	//resolve the bug: metadata.resourceversion invalid value '' must be specified for an update
+	svc.ResourceVersion = esvc.ResourceVersion
 	return UpdateClientObject(ctx, k8sclient, svc)
 }
 
