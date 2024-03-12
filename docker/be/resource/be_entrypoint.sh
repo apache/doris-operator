@@ -69,8 +69,8 @@ show_backends(){
     backends=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -uroot --skip-column-names --batch -e 'SHOW BACKENDS;' 2>&1`
     log_stderr "[info] use root no password show backends result $backends ."
     if echo $backends | grep -w "1045" | grep -q -w "28000" &>/dev/null; then
-       log_stderr "[info] use username and password that configured to show backends."
-       backends=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'SHOW BACKENDS;'`
+        log_stderr "[info] use username and password that configured to show backends."
+        backends=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e 'SHOW BACKENDS;'`
     fi
 
     echo "$backends"
@@ -89,7 +89,7 @@ function show_frontends()
     frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -uroot --batch -e 'show frontends;' 2>&1`
     log_stderr "[info] use root no password show frontends result $frontends ."
     if echo $frontends | grep -w "1045" | grep -q -w "28000" &>/dev/null; then
-	log_stderr "[info] use username and passwore that configured to show frontends."
+        log_stderr "[info] use username and passwore that configured to show frontends."
         frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;'`
     fi
 
@@ -142,26 +142,26 @@ add_self()
 
         # check fe cluster have master, if fe have not master wait.
         fe_memlist=`show_frontends $svc`
-	local pos=`echo "$fe_memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
+        local pos=`echo "$fe_memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
         local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
-	log_stderr "'IsMaster' sequence in columns is $pos master=$leader ."
+        log_stderr "'IsMaster' sequence in columns is $pos master=$leader ."
 
-	if [[ "x$leader" == "x" ]]; then
-           log_stderr "[info] resolve the eighth column for finding master !"
-           leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-	fi
         if [[ "x$leader" == "x" ]]; then
-           # compatible 2.1.0
-           log_stderr "[info] resoluve the ninth column for finding master!"
-           leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($9=="true") print $2}'`
+            log_stderr "[info] resolve the eighth column for finding master !"
+            leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+        fi
+        if [[ "x$leader" == "x" ]]; then
+            # compatible 2.1.0
+            log_stderr "[info] resoluve the ninth column for finding master!"
+            leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($9=="true") print $2}'`
         fi
 
         if [[ "x$leader" != "x" ]]; then
             log_stderr "[info] myself ($MY_SELF:$HEARTBEAT_PORT)  not exist in FE and fe have leader register myself into fe."
-	    add_result=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";" 2>&1`
+            add_result=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";" 2>&1`
             if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
                 timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";"
-	    fi
+            fi
 
             #if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
             #    timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD BACKEND \"$MY_SELF:$HEARTBEAT_PORT\";"

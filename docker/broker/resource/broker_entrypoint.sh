@@ -132,15 +132,15 @@ add_self()
         fe_memlist=`show_frontends $svc`
 
         #local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-	local pos=`echo "$fe_memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
-	local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
+        local pos=`echo "$fe_memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
+        local leader=`echo "$fe_memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
         if [[ "x$leader" != "x" ]]; then
             log_stderr "[info] myself ($MY_SELF:$IPC_PORT)  not exist in FE and fe have leader register myself into fe..."
 
-	    add_result=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";" 2>&1`
-	    if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
+            add_result=`timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";" 2>&1`
+            if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
                 timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";"
-	    fi
+            fi
 
             #if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
             #    timeout 15 mysql --connect-timeout 2 -h $svc -P $FE_QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD BROKER $BK_NAME \"$MY_SELF:$IPC_PORT\";"
