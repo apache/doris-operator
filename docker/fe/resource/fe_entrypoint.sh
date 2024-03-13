@@ -1,7 +1,10 @@
 #!/bin/bash
 DORIS_ROOT=${DORIS_ROOT:-"/opt/apache-doris"}
-# if config secret for basic auth about operate node of doris, the path must be `/etc/basic_auth`. This is set by operator and the key of password must be `password`.
+# if config secret for basic auth about operate node of doris, the path must be `/etc/doris/basic_auth`. This is set by operator and the key of password must be `password`.
 AUTH_PATH="/etc/basic_auth"
+# annotations_for_recovery_start
+ANNOTATION_PATH="/etc/podinfo/annotations"
+RECOVERY_KEY=""
 # fe location
 DORIS_HOME=${DORIS_ROOT}/fe
 # participant election number of fe.
@@ -100,7 +103,7 @@ function show_frontends()
     frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -uroot --batch -e 'show frontends;' 2>&1`
     log_stderr "[info] use root no password show frotends result '$frontends'"
     if echo $frontends | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
-	log_stderr "[info] use username and password that configured show frontends."
+        log_stderr "[info] use username and password that configured show frontends."
         frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;' 2>&1`
     fi
    echo "$frontends"
@@ -118,7 +121,7 @@ function add_self_follower()
     add_result=`mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";" 2>&1`
     log_stderr "[info] use root no password to add follower result '$add_result'"
     if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
-	log_stderr "[info] use username and password that configured to add self as follower."
+        log_stderr "[info] use username and password that configured to add self as follower."
         mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD FOLLOWER \"$MYSELF:$EDIT_LOG_PORT\";"
     fi
 
@@ -135,8 +138,8 @@ function add_self_observer()
     add_result=`mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -uroot --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";" 2>&1`
     log_stderr "[info] use root no password to add self as observer result '$add_result'."
     if echo $add_result | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
-	log_stderr "[info] use username and password that configed to add self as observer."
-	mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
+        log_stderr "[info] use username and password that configed to add self as observer."
+        mysql --connect-timeout 2 -h $FE_MASTER -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --skip-column-names --batch -e "ALTER SYSTEM ADD OBSERVER \"$MYSELF:$EDIT_LOG_PORT\";"
     fi
 
     #if [[ "x$DB_ADMIN_PASSWD" != "x" ]]; then
@@ -201,15 +204,15 @@ probe_master_for_pod()
     while true
     do
         memlist=`show_frontends $svc`
-	# find master by column `IsMaster`
-	local pos=`echo "$memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
-	local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
+        # find master by column `IsMaster`
+        local pos=`echo "$memlist" | grep '\<IsMaster\>' | awk -F '\t' '{for(i=1;i<NF;i++) {if ($i == "IsMaster") print i}}'`
+        local master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -v p="$pos" -F '\t' '{if ($p=="true") print $2}'`
 
-	log_stderr "'IsMaster' sequence in columns is $pos, master=$master."
-	if [[ "x$master" == "x" ]]; then
-	   log_stderr "[info] resolve the eighth column for finding master !"
-           master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
-	fi
+        log_stderr "'IsMaster' sequence in columns is $pos, master=$master."
+        if [[ "x$master" == "x" ]]; then
+            log_stderr "[info] resolve the eighth column for finding master !"
+            master=`echo "$memlist" | grep '\<FOLLOWER\>' | awk -F '\t' '{if ($8=="true") print $2}'`
+        fi
 
         if [[ "x$master" == "x" ]]; then
            # compatible 2.1.0
@@ -224,7 +227,7 @@ probe_master_for_pod()
             return 0
         fi
 
-	# show frontens has members
+        # show frontens has members
         if [[ "x$memlist" != "x" && "x$pos" != "x" ]] ; then
             # has member list ever before
             has_member=true
@@ -280,13 +283,13 @@ probe_master()
 
 function add_fqdn_config()
 {
-      # TODO(user):since selectdb/doris.fe-ubuntu:2.0.2 , `enable_fqdn_mode` is forced to set `true` for starting doris. (enable_fqdn_mode = true).
-      local enable_fqdn=`parse_confval_from_fe_conf "enable_fqdn_mode"`
-      log_stderr "enable_fqdn is : $enable_fqdn"
-      if [[ "x$enable_fqdn" != "xtrue" ]] ; then
-          log_stderr "add enable_fqdn_mode = true to ${DORIS_HOME}/conf/fe.conf"
-          echo "enable_fqdn_mode = true" >>${DORIS_HOME}/conf/fe.conf
-      fi
+    # TODO(user):since selectdb/doris.fe-ubuntu:2.0.2 , `enable_fqdn_mode` is forced to set `true` for starting doris. (enable_fqdn_mode = true).
+    local enable_fqdn=`parse_confval_from_fe_conf "enable_fqdn_mode"`
+    log_stderr "enable_fqdn is : $enable_fqdn"
+    if [[ "x$enable_fqdn" != "xtrue" ]] ; then
+        log_stderr "add enable_fqdn_mode = true to ${DORIS_HOME}/conf/fe.conf"
+        echo "enable_fqdn_mode = true" >>${DORIS_HOME}/conf/fe.conf
+    fi
 }
 
 update_conf_from_configmap()
@@ -323,7 +326,7 @@ resolve_password_from_secret()
     fi
 
     if [[ -f "$AUTH_PATH/username" ]]; then
-	DB_ADMIN_USER=`cat $AUTH_PATH/username`
+        DB_ADMIN_USER=`cat $AUTH_PATH/username`
     fi
 }
 
@@ -332,9 +335,25 @@ start_fe_with_meta()
     # the server will start in the current terminal session, and the log output and console interaction will be printed to that terminal
     # befor doris 2.0.2 ,doris start with : start_xx.sh
     local opts="--console"
+    local recovery=`grep "\<selectdb.com.doris/recovery\>" $ANNOTATION_PATH | grep -v '^\s*#' | sed 's|^\s*'$confkey'\s*=\s*\(.*\)\s*$|\1|g'`
+    if [[ "x$recovery" != "x" ]]; then
+        opts=${opts}" --metadata_failure_recovery"
+    fi
+
     log_stderr "start with meta run start_fe.sh with additional options: '$opts'"
      # sine doris 2.0.2 ,doris start with : start_xx.sh --console  doc: https://doris.apache.org/docs/dev/install/standard-deployment/#version--202
     $DORIS_HOME/bin/start_fe.sh  $opts
+}
+
+print_vlsn()
+{
+    local doirs_meta_path=`parse_confval_from_fe_conf "meta_dir"`
+    if [[ "x$doirs_meta_path" == "x" ]] ; then
+        doris_meta_path="/opt/apache-doris/fe/doris-meta"
+    fi
+
+    vlsns=`grep -rn "VLSN:" $doris_meta_path/bdb/je* | tail -n 10`
+    echo "$vlsns"
 }
 
 fe_addrs=$1
@@ -349,6 +368,7 @@ resolve_password_from_secret
 if [[ -f "/opt/apache-doris/fe/doris-meta/image/ROLE" ]]; then
     log_stderr "start fe with exist meta."
     ./doris-debug --component fe
+    print_vlsn
     start_fe_with_meta
 else
     log_stderr "first start fe with meta not exist."
