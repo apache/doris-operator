@@ -8,6 +8,7 @@ import (
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,6 +105,22 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	if !fc.PrepareReconcileResources(ctx, cluster, v1.Component_FE) {
 		klog.Infof("fe controller sync preparing resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
 		return nil
+	}
+
+	var est appv1.StatefulSet
+	if err := fc.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &est); err == nil {
+		replicas := *est.Spec.Replicas
+		var electionNumber = replicas
+
+		if cluster.Spec.FeSpec.ElectionNumber != nil && replicas > *cluster.Spec.FeSpec.ElectionNumber {
+			electionNumber = *cluster.Spec.FeSpec.ElectionNumber
+		}
+
+		if *st.Spec.Replicas < electionNumber {
+			*cluster.Spec.FeSpec.Replicas = electionNumber
+			*st.Spec.Replicas = electionNumber
+			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("The replicas of fe cannot be modified if it is less than the number of followers."))
+		}
 	}
 
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
