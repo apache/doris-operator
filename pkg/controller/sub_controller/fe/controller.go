@@ -107,6 +107,15 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
+		//It is not allowed to set replicas smaller than electionNumber when scale down
+		electionNumber := *cluster.Spec.FeSpec.ElectionNumber
+		if *st.Spec.Replicas < electionNumber && *st.Spec.Replicas < *est.Spec.Replicas {
+			//if electionNumber > *est.Spec.Replicas ,Replicas should be corrected to *est.Spec.Replicas
+			//if electionNumber < *est.Spec.Replicas ,Replicas should be corrected to electionNumber
+			*cluster.Spec.FeSpec.Replicas = min(electionNumber, *est.Spec.Replicas)
+			*st.Spec.Replicas = min(electionNumber, *est.Spec.Replicas)
+			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, "Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to min(electionNumber, currentReplicas): "+string(min(electionNumber, *est.Spec.Replicas)))
+		}
 		fc.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
 	}); err != nil {
@@ -116,4 +125,11 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	return nil
+}
+
+func min(a, b int32) int32 {
+	if a < b {
+		return a
+	}
+	return b
 }

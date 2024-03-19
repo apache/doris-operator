@@ -9,6 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+var (
+	Default_Election_Number int32 = 3
+)
+
 func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
 	var containers []corev1.Container
@@ -32,11 +36,8 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 		queryPort = strconv.FormatInt(int64(port), 10)
 	}
 
-	//TODO: bug
 	if dcr.Spec.FeSpec.ElectionNumber == nil {
-		if *dcr.Spec.FeSpec.Replicas >= 3 {
-			dcr.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(3)
-		}
+		dcr.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(Default_Election_Number)
 	}
 
 	ports := resource.GetContainerPorts(config, v1.Component_FE)
