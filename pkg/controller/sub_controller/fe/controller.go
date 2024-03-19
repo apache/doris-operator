@@ -6,7 +6,6 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
-	"github.com/spf13/cast"
 	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -115,7 +114,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 			//if electionNumber < *est.Spec.Replicas ,Replicas should be corrected to electionNumber
 			*cluster.Spec.FeSpec.Replicas = min(electionNumber, *est.Spec.Replicas)
 			*st.Spec.Replicas = min(electionNumber, *est.Spec.Replicas)
-			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to min(electionNumber, currentReplicas): "+cast.ToString(min(electionNumber, *est.Spec.Replicas))))
+			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to min(electionNumber, currentReplicas): "+string(min(electionNumber, *est.Spec.Replicas))))
 		}
 		fc.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
