@@ -8,7 +8,6 @@ import (
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -107,27 +106,15 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return nil
 	}
 
-	var est appv1.StatefulSet
-	if err := fc.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &est); err == nil {
-		estReplicas := *est.Spec.Replicas
-		var estFollowerNumber int32
-		if cluster.Spec.FeSpec.ElectionNumber != nil {
-			estFollowerNumber = *cluster.Spec.FeSpec.ElectionNumber
-		} else if estReplicas > 3 {
-			estFollowerNumber = 3
-		} else {
-			estFollowerNumber = estReplicas
-		}
-
-		if *st.Spec.Replicas < estFollowerNumber {
-			*cluster.Spec.FeSpec.ElectionNumber = estFollowerNumber
-			*cluster.Spec.FeSpec.Replicas = estFollowerNumber
-			*st.Spec.Replicas = estFollowerNumber
-			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("It is not allowed to set the replicas of FE to be less than the ElectionNumber of the current cluster. The replicas will be set to ElectionNumber."))
-		}
-	}
-
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
+		electionNumber := *cluster.Spec.FeSpec.ElectionNumber
+		if *st.Spec.Replicas < electionNumber && *st.Spec.Replicas < *est.Spec.Replicas {
+			//if electionNumber > *est.Spec.Replicas ,Replicas should be corrected to *est.Spec.Replicas
+			//if electionNumber < *est.Spec.Replicas ,Replicas should be corrected to electionNumber
+			*cluster.Spec.FeSpec.Replicas = min(electionNumber, *est.Spec.Replicas)
+			*st.Spec.Replicas = min(electionNumber, *est.Spec.Replicas)
+			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to ElectionNumber."))
+		}
 		fc.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
 	}); err != nil {
@@ -137,4 +124,11 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	return nil
+}
+
+func min(a, b int32) int32 {
+	if a < b {
+		return a
+	}
+	return b
 }
