@@ -109,17 +109,21 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 
 	var est appv1.StatefulSet
 	if err := fc.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &est); err == nil {
-		replicas := *est.Spec.Replicas
-		var electionNumber = replicas
-
-		if cluster.Spec.FeSpec.ElectionNumber != nil && replicas > *cluster.Spec.FeSpec.ElectionNumber {
-			electionNumber = *cluster.Spec.FeSpec.ElectionNumber
+		estReplicas := *est.Spec.Replicas
+		var estFollowerNumber int32
+		if cluster.Spec.FeSpec.ElectionNumber != nil {
+			estFollowerNumber = *cluster.Spec.FeSpec.ElectionNumber
+		} else if estReplicas > 3 {
+			estFollowerNumber = 3
+		} else {
+			estFollowerNumber = estReplicas
 		}
 
-		if *st.Spec.Replicas < electionNumber {
-			*cluster.Spec.FeSpec.Replicas = electionNumber
-			*st.Spec.Replicas = electionNumber
-			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("The replicas of fe cannot be modified if it is less than the number of followers."))
+		if *st.Spec.Replicas < estFollowerNumber {
+			*cluster.Spec.FeSpec.ElectionNumber = estFollowerNumber
+			*cluster.Spec.FeSpec.Replicas = estFollowerNumber
+			*st.Spec.Replicas = estFollowerNumber
+			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("It is not allowed to set the replicas of FE to be less than the ElectionNumber of the current cluster. The replicas will be set to ElectionNumber."))
 		}
 	}
 
