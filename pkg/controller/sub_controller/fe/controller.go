@@ -107,6 +107,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
+		//It is not allowed to set replicas smaller than electionNumber when scale down
 		electionNumber := *cluster.Spec.FeSpec.ElectionNumber
 		if *st.Spec.Replicas < electionNumber && *st.Spec.Replicas < *est.Spec.Replicas {
 			//if electionNumber > *est.Spec.Replicas ,Replicas should be corrected to *est.Spec.Replicas
