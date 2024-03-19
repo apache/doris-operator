@@ -114,7 +114,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 			//if electionNumber < *est.Spec.Replicas ,Replicas should be corrected to electionNumber
 			*cluster.Spec.FeSpec.Replicas = min(electionNumber, *est.Spec.Replicas)
 			*st.Spec.Replicas = min(electionNumber, *est.Spec.Replicas)
-			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, string("Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to min(electionNumber, currentReplicas): "+string(min(electionNumber, *est.Spec.Replicas))))
+			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, "Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to min(electionNumber, currentReplicas): "+string(min(electionNumber, *est.Spec.Replicas)))
 		}
 		fc.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
