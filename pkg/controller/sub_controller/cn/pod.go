@@ -15,6 +15,8 @@ func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)
 	containers = append(containers, cnContainer)
+
+	containers = resource.ApplySecurityContext(containers, dcr.Spec.CnSpec.ContainerSecurityContext)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }

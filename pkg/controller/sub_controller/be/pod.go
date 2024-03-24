@@ -18,6 +18,7 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
+	containers = resource.ApplySecurityContext(containers, dcr.Spec.BeSpec.ContainerSecurityContext)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }

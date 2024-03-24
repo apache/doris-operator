@@ -57,21 +57,26 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	var si *v1.SystemInitialization
 	var dcrAffinity *corev1.Affinity
 	var defaultInitContainers []corev1.Container
+	var SecurityContext *corev1.PodSecurityContext
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
 		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.FeSpec.BaseSpec.Affinity
+		SecurityContext = dcr.Spec.FeSpec.BaseSpec.SecurityContext
 	case v1.Component_BE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
+		SecurityContext = dcr.Spec.BeSpec.BaseSpec.SecurityContext
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
+		SecurityContext = dcr.Spec.CnSpec.BaseSpec.SecurityContext
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
+		SecurityContext = dcr.Spec.BrokerSpec.BaseSpec.SecurityContext
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -113,6 +118,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 			Tolerations:        spec.Tolerations,
 			HostAliases:        spec.HostAliases,
 			InitContainers:     defaultInitContainers,
+			SecurityContext:    SecurityContext,
 		},
 	}
 
@@ -120,6 +126,23 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
+}
+
+// ApplySecurityContext applies the container security context to all containers in the pod (if not already set).
+func ApplySecurityContext(containers []corev1.Container, securityContext *corev1.SecurityContext) []corev1.Container {
+	if securityContext == nil {
+		return containers
+	}
+
+	for i := range containers {
+		if containers[i].SecurityContext == nil {
+			containers[i].SecurityContext = securityContext
+		} else {
+			klog.Info("SecurityContext already exists in container" + containers[i].Name + "! Not overwriting it.")
+		}
+	}
+
+	return containers
 }
 
 func constructInitContainers(componentType v1.ComponentType, podSpec *corev1.PodSpec, si *v1.SystemInitialization) {

@@ -16,6 +16,7 @@ func (broker *Controller) buildBrokerPodTemplateSpec(dcr *v1.DorisCluster) corev
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	bkContainer := broker.brokerContainer(dcr)
 	containers = append(containers, bkContainer)
+	containers = resource.ApplySecurityContext(containers, dcr.Spec.BrokerSpec.ContainerSecurityContext)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }

@@ -20,6 +20,7 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_FE)
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
+	containers = resource.ApplySecurityContext(containers, dcr.Spec.FeSpec.ContainerSecurityContext)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }
