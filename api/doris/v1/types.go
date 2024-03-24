@@ -183,6 +183,14 @@ type BaseSpec struct {
 
 	//SystemInitialization for fe, be and cn setting system parameters.
 	SystemInitialization *SystemInitialization `json:"systemInitialization,omitempty"`
+
+	//Pod security context for cn pod.
+	//+optional
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+
+	//Container security context for cn container.
+	//+optional
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 }
 
 type SystemInitialization struct {
