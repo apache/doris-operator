@@ -979,6 +979,62 @@ spec:
                           be  resolveKey = be.conf, etc.'
                         type: string
                     type: object
+                  containerSecurityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      seccompProfile:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                      allowPrivilegeEscalation:
+                        type: boolean
+                      capabilities:
+                        properties:
+                          add:
+                            items:
+                              type: string
+                            type: array
+                          drop:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      privileged:
+                        type: boolean
+                      procMount:
+                        type: string
+                      readOnlyRootFilesystem:
+                        type: boolean
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   envVars:
                     description: cnEnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.
@@ -1116,12 +1172,6 @@ spec:
                             type: integer
                         type: object
                     type: object
-                  fsGroup:
-                    description: 'A special supplemental group that applies to all
-                      containers in a pod. Some volume types allow the Kubelet to
-                      change the ownership of that volume to be owned by the pod:'
-                    format: int64
-                    type: integer
                   hostAliases:
                     description: HostAliases is an optional list of hosts and IPs
                       that will be injected into the pod's hosts file if specified.
@@ -1432,6 +1482,58 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: 'expose doris components for accessing. example:
                       if you want to use `stream load` to load data into doris out
@@ -2471,6 +2573,62 @@ spec:
                           be  resolveKey = be.conf, etc.'
                         type: string
                     type: object
+                  containerSecurityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      seccompProfile:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                      allowPrivilegeEscalation:
+                        type: boolean
+                      capabilities:
+                        properties:
+                          add:
+                            items:
+                              type: string
+                            type: array
+                          drop:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      privileged:
+                        type: boolean
+                      procMount:
+                        type: string
+                      readOnlyRootFilesystem:
+                        type: boolean
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   envVars:
                     description: cnEnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.
@@ -2608,12 +2766,6 @@ spec:
                             type: integer
                         type: object
                     type: object
-                  fsGroup:
-                    description: 'A special supplemental group that applies to all
-                      containers in a pod. Some volume types allow the Kubelet to
-                      change the ownership of that volume to be owned by the pod:'
-                    format: int64
-                    type: integer
                   hostAliases:
                     description: HostAliases is an optional list of hosts and IPs
                       that will be injected into the pod's hosts file if specified.
@@ -2930,6 +3082,58 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: 'expose doris components for accessing. example:
                       if you want to use `stream load` to load data into doris out
@@ -4648,6 +4852,62 @@ spec:
                           be  resolveKey = be.conf, etc.'
                         type: string
                     type: object
+                  containerSecurityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      seccompProfile:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                      allowPrivilegeEscalation:
+                        type: boolean
+                      capabilities:
+                        properties:
+                          add:
+                            items:
+                              type: string
+                            type: array
+                          drop:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      privileged:
+                        type: boolean
+                      procMount:
+                        type: string
+                      readOnlyRootFilesystem:
+                        type: boolean
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   envVars:
                     description: cnEnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.
@@ -4785,12 +5045,6 @@ spec:
                             type: integer
                         type: object
                     type: object
-                  fsGroup:
-                    description: 'A special supplemental group that applies to all
-                      containers in a pod. Some volume types allow the Kubelet to
-                      change the ownership of that volume to be owned by the pod:'
-                    format: int64
-                    type: integer
                   hostAliases:
                     description: HostAliases is an optional list of hosts and IPs
                       that will be injected into the pod's hosts file if specified.
@@ -5101,6 +5355,58 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: 'expose doris components for accessing. example:
                       if you want to use `stream load` to load data into doris out
@@ -6141,6 +6447,62 @@ spec:
                           be  resolveKey = be.conf, etc.'
                         type: string
                     type: object
+                  containerSecurityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      seccompProfile:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                      allowPrivilegeEscalation:
+                        type: boolean
+                      capabilities:
+                        properties:
+                          add:
+                            items:
+                              type: string
+                            type: array
+                          drop:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      privileged:
+                        type: boolean
+                      procMount:
+                        type: string
+                      readOnlyRootFilesystem:
+                        type: boolean
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   electionNumber:
                     description: the number of fe in election. electionNumber <= replicas,
                       left as observers. default value=3
@@ -6283,12 +6645,6 @@ spec:
                             type: integer
                         type: object
                     type: object
-                  fsGroup:
-                    description: 'A special supplemental group that applies to all
-                      containers in a pod. Some volume types allow the Kubelet to
-                      change the ownership of that volume to be owned by the pod:'
-                    format: int64
-                    type: integer
                   hostAliases:
                     description: HostAliases is an optional list of hosts and IPs
                       that will be injected into the pod's hosts file if specified.
@@ -6599,6 +6955,58 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: 'expose doris components for accessing. example:
                       if you want to use `stream load` to load data into doris out

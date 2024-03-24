@@ -347,19 +347,6 @@ example: if you want to use <code>stream load</code> to load data into doris out
 </tr>
 <tr>
 <td>
-<code>fsGroup</code><br/>
-<em>
-int64
-</em>
-</td>
-<td>
-<p>A special supplemental group that applies to all containers in a pod.
-Some volume types allow the Kubelet to change the ownership of that volume
-to be owned by the pod:</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>feAddress</code><br/>
 <em>
 <a href="#doris.selectdb.com/v1.FeAddress">
@@ -544,6 +531,34 @@ SystemInitialization
 </td>
 <td>
 <p>SystemInitialization for fe, be and cn setting system parameters.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>securityContext</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podsecuritycontext-v1-core">
+Kubernetes core/v1.PodSecurityContext
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Pod security context for cn pod.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>containerSecurityContext</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#securitycontext-v1-core">
+Kubernetes core/v1.SecurityContext
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Container security context for cn container.</p>
 </td>
 </tr>
 </tbody>
@@ -2487,5 +2502,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>07b1c97</code>.
+on git commit <code>efc7eb3</code>.
 </em></p>
