@@ -29,5 +29,5 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 ```  
 [doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml) 展示使用 [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/) 模式提供存储卷部署 doris 的样例。  
 ## 注意  
-1. 目前 Doris-operator 限定 Doris 在 Kubernetes 上必须使用 FQDN 模式启动和通信。 在使用 [DockerHub selectdb](https://hub.docker.com/?namespace=selectdb) 组织下的官方镜像部署时，`enable_fqdn_mode` 会被默认设置为 `true`。其他方式使用镜像时， fqdn 默认仍然是 false 。详细配置请参考文档 [example/doriscluster-sample-comfigmap.yaml](./doc/examples/doriscluster-sample-configmap.yaml)。  
+1. 目前 Doris-operator 限定 Doris 在 Kubernetes 上必须使用 FQDN 模式启动和通信。 在使用 [DockerHub selectdb](https://hub.docker.com/?namespace=selectdb) 组织下的官方镜像部署时，`enable_fqdn_mode` 会被默认设置为 `true`。其他方式使用镜像时， fqdn 默认仍然是 false 。详细配置请参考文档 [example/doriscluster-sample-configmap.yaml](./doc/examples/doriscluster-sample-configmap.yaml)。  
 2. 服务正常运行时，可以通过 `kubectl -n doris logs -f {pod_name}` 命令查看日志，也可以到容器内部的 `/opt/apache-doris/fe/log` 或 `/opt/apache-doris/be/log` 中查看日志。当 k8s 上没有日志处理系统时，建议为日志目录挂载存储盘，便于追溯较早的大量运行日志。为日志挂载存储盘可以参考文档 [example/doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml)。  
