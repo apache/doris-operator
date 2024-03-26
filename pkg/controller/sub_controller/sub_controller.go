@@ -79,20 +79,21 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	return nil
 }
 
-func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	if configMapInfo.ConfigMapName == "" {
+func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	cms := configMapInfo.GetConfMapNameInfo()
+	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
-
-	configMap, err := k8s.GetConfigMap(ctx, d.K8sclient, namespace, configMapInfo.ConfigMapName)
+	configMaps, faileName, err := k8s.GetConfigMaps(ctx, d.K8sclient, namespace, cms)
 	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("SubDefaultController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)
+		klog.Info("SubDefaultController GetCnConfig config is not exist namespace ", namespace, " configmapName ", faileName)
+		klog.Info(err)
 		return make(map[string]interface{}), nil
 	} else if err != nil {
 		return make(map[string]interface{}), err
 	}
 
-	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
+	res, err := resource.ResolveConfigMaps(configMaps, componentType)
 	return res, err
 }
 

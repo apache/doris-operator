@@ -46,9 +46,9 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	beSpec := dcr.Spec.BeSpec
 	//get the be configMap for resolve ports.
 	//2. get config for generate statefulset and service.
-	config, err := be.GetConfig(ctx, &beSpec.ConfigMapInfo, dcr.Namespace)
+	config, err := be.GetConfig(ctx, &beSpec.ConfigMapInfo, dcr.Namespace, v1.Component_BE)
 	if err != nil {
-		klog.Error("BeController Sync ", "resolve cn configmap failed, namespace ", dcr.Namespace, " configmapName ", beSpec.ConfigMapInfo.ConfigMapName, " configMapKey ", beSpec.ConfigMapInfo.ResolveKey, " error ", err)
+		klog.Error("BeController Sync ", "resolve be configmap failed, namespace ", dcr.Namespace, " error :", err)
 		return err
 	}
 

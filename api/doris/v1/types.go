@@ -224,12 +224,27 @@ const (
 
 // ConfigMapInfo specify configmap to mount for component.
 type ConfigMapInfo struct {
-	//the config info for start progress.
+
+	// ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+	// such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+	// doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+	// links them to the 'conf/' directory of the doris component through soft links.
 	ConfigMapName string `json:"configMapName,omitempty"`
 
-	//represents the key of configMap. for doris it refers to the config file name for start doris component.
-	//example: if deploy fe, the resolveKey = fe.conf, if deploy be  resolveKey = be.conf, etc.
+	// Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+	// It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+	// It is no longer effective. the configuration content will not take effect.
+	// +optional
 	ResolveKey string `json:"resolveKey,omitempty"`
+
+	//the config file for any path as Customize，but MountPath does not allow duplicates
+	// +optional
+	ConfigMaps []MountConfigMapInfo `json:"configMaps,omitempty"`
+}
+
+type MountConfigMapInfo struct {
+	ConfigMapName string `json:"configMapName,omitempty"`
+	MountPath     string `json:"mountPath,omitempty"`
 }
 
 // ExportService consisting of expose ports for user access to software service.
@@ -382,4 +397,22 @@ type DorisClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&DorisCluster{}, &DorisClusterList{})
+}
+
+func (c *ConfigMapInfo) GetConfMapNameInfo() (finalConfigMaps []MountConfigMapInfo) {
+
+	if c.ConfigMapName != "" {
+		finalConfigMaps = append(
+			finalConfigMaps,
+			MountConfigMapInfo{
+				c.ConfigMapName,
+				"",
+			},
+		)
+	}
+
+	for _, cm := range c.ConfigMaps {
+		finalConfigMaps = append(finalConfigMaps, cm)
+	}
+	return finalConfigMaps
 }

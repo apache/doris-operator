@@ -21,7 +21,7 @@ func (broker *Controller) buildBrokerPodTemplateSpec(dcr *v1.DorisCluster) corev
 }
 
 func (broker *Controller) brokerContainer(dcr *v1.DorisCluster) corev1.Container {
-	config, _ := broker.GetConfig(context.Background(), &dcr.Spec.BrokerSpec.ConfigMapInfo, dcr.Namespace)
+	config, _ := broker.GetConfig(context.Background(), &dcr.Spec.BrokerSpec.ConfigMapInfo, dcr.Namespace, v1.Component_Broker)
 	c := resource.NewBaseMainContainer(dcr, config, v1.Component_Broker)
 	addr, port := v1.GetConfigFEAddrForAccess(dcr, v1.Component_Broker)
 	var feConfig map[string]interface{}

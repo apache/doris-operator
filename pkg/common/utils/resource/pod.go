@@ -2,6 +2,7 @@ package resource
 
 import (
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils/tools"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -92,9 +93,9 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		})
 	}
 
-	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
-		configVolume, _ := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
-		volumes = append(volumes, configVolume)
+	if len(spec.ConfigMapInfo.GetConfMapNameInfo()) != 0 {
+		configVolumes, _ := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumes = append(volumes, configVolumes...)
 	}
 
 	pts := corev1.PodTemplateSpec{
@@ -237,14 +238,15 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
-	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
+
+	if len(spec.ConfigMapInfo.GetConfMapNameInfo()) != 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  config_env_name,
 			Value: config_env_path,
 		})
 
-		_, volumeMount := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
-		volumeMounts = append(volumeMounts, volumeMount)
+		_, volumeMount := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumeMounts = append(volumeMounts, volumeMount...)
 	}
 
 	// add basic auth secret volumeMount
@@ -489,33 +491,58 @@ func getBeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 	return volumes, volumeMounts
 }
 
-func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.ComponentType) (corev1.Volume, corev1.VolumeMount) {
-	var volume corev1.Volume
-	var volumeMount corev1.VolumeMount
-	if cmInfo.ConfigMapName != "" && cmInfo.ResolveKey != "" {
-		volume = corev1.Volume{
-			Name: cmInfo.ConfigMapName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cmInfo.ConfigMapName,
-					},
-				},
-			},
-		}
-		volumeMount = corev1.VolumeMount{
-			Name: cmInfo.ConfigMapName,
-		}
+func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
 
+	cms := cmInfo.GetConfMapNameInfo()
+
+	if len(cms) != 0 {
+
+		mountConfigPath := ""
 		switch componentType {
 		case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
-			volumeMount.MountPath = config_env_path
+			mountConfigPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
 		}
-	}
 
-	return volume, volumeMount
+		var paths []string
+
+		for _, cm := range cms {
+			path := cm.MountPath
+			if tools.IsElementInArray(paths, path) {
+				klog.Errorf("DCR error, 'MountConfigMapInfo.MountPath' in 'ConfigMapInfo.ConfigMaps' cannot be repeated, the MountPath %s is repeated, please check.", path)
+			}
+			paths = append(paths, path)
+
+			if cm.MountPath == "" {
+				path = mountConfigPath
+			}
+			volumes = append(
+				volumes,
+				corev1.Volume{
+					Name: cm.ConfigMapName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cm.ConfigMapName,
+							},
+						},
+					},
+				},
+			)
+
+			volumeMounts = append(
+				volumeMounts,
+				corev1.VolumeMount{
+					Name:      cm.ConfigMapName,
+					MountPath: path,
+				},
+			)
+		}
+	}
+	return volumes, volumeMounts
 }
 
 // StartupProbe returns a startup probe.

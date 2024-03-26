@@ -28,7 +28,7 @@ func (cn *Controller) cnContainer(dcr *v1.DorisCluster) corev1.Container {
 	if address == "" {
 		if dcr.Spec.FeSpec != nil {
 			//if fe exist, get fe config.
-			feConfig, _ = cn.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+			feConfig, _ = cn.getFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 		}
 
 		address = v1.GenerateExternalServiceName(dcr, v1.Component_FE)
