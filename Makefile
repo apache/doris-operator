@@ -54,7 +54,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases output:crd:artifacts:config=helm-charts/doris-operator/crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
