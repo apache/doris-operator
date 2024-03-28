@@ -987,9 +987,9 @@ spec:
                               description: ConfigMap Name
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. MountConfigMapInfo
-                                belonging to the same ConfigMapInfo, their MountPath
-                                cannot be repeated
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
                               type: string
                           type: object
                         type: array
@@ -2501,9 +2501,9 @@ spec:
                               description: ConfigMap Name
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. MountConfigMapInfo
-                                belonging to the same ConfigMapInfo, their MountPath
-                                cannot be repeated
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
                               type: string
                           type: object
                         type: array
@@ -4700,9 +4700,9 @@ spec:
                               description: ConfigMap Name
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. MountConfigMapInfo
-                                belonging to the same ConfigMapInfo, their MountPath
-                                cannot be repeated
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
                               type: string
                           type: object
                         type: array
@@ -6215,9 +6215,9 @@ spec:
                               description: ConfigMap Name
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. MountConfigMapInfo
-                                belonging to the same ConfigMapInfo, their MountPath
-                                cannot be repeated
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
                               type: string
                           type: object
                         type: array

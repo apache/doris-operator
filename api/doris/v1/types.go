@@ -247,7 +247,7 @@ type MountConfigMapInfo struct {
 	ConfigMapName string `json:"configMapName,omitempty"`
 
 	// Current ConfigMap Mount Path.
-	// MountConfigMapInfo belonging to the same ConfigMapInfo, their MountPath cannot be repeated
+	// If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
 	MountPath string `json:"mountPath,omitempty"`
 }
 
