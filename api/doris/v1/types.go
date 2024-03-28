@@ -237,14 +237,18 @@ type ConfigMapInfo struct {
 	// +optional
 	ResolveKey string `json:"resolveKey,omitempty"`
 
-	//the config file for any path as Customize，but MountPath does not allow duplicates
+	//Supports multiple configmap for mounting custom path
 	// +optional
 	ConfigMaps []MountConfigMapInfo `json:"configMaps,omitempty"`
 }
 
 type MountConfigMapInfo struct {
+	// ConfigMap Name
 	ConfigMapName string `json:"configMapName,omitempty"`
-	MountPath     string `json:"mountPath,omitempty"`
+
+	// Current ConfigMap Mount Path.
+	// MountConfigMapInfo belonging to the same ConfigMapInfo, their MountPath cannot be repeated
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // ExportService consisting of expose ports for user access to software service.
@@ -397,22 +401,4 @@ type DorisClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&DorisCluster{}, &DorisClusterList{})
-}
-
-func (c *ConfigMapInfo) GetConfMapNameInfo() (finalConfigMaps []MountConfigMapInfo) {
-
-	if c.ConfigMapName != "" {
-		finalConfigMaps = append(
-			finalConfigMaps,
-			MountConfigMapInfo{
-				c.ConfigMapName,
-				"",
-			},
-		)
-	}
-
-	for _, cm := range c.ConfigMaps {
-		finalConfigMaps = append(finalConfigMaps, cm)
-	}
-	return finalConfigMaps
 }

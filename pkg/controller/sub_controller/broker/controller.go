@@ -54,7 +54,7 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		klog.Error("BrokerController Sync ", "resolve broker configmap failed, namespace ", dcr.Namespace, " error ", err)
 		return err
 	}
-
+	bk.CheckConfigMountPath(dcr, v1.Component_Broker)
 	internalService := resource.BuildInternalService(dcr, v1.Component_Broker, config)
 	if err := k8s.ApplyService(ctx, bk.K8sclient, &internalService, resource.ServiceDeepEqual); err != nil {
 		klog.Errorf("broker controller sync apply internalService name=%s, namespace=%s, clusterName=%s failed.message=%s.",
@@ -114,14 +114,13 @@ func (bk *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) 
 }
 
 func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	cms := feconfigMapInfo.GetConfMapNameInfo()
-
+	cms := resource.GetMountConfigMapInfo(feconfigMapInfo)
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
-	feconfigMaps, faileName, err := k8s.GetConfigMaps(ctx, bk.K8sclient, namespace, cms)
+	feconfigMaps, err := k8s.GetConfigMaps(ctx, bk.K8sclient, namespace, cms)
 	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("BrokerController getFeConfig fe config not exist namespace ", namespace, " configmapName ", faileName)
+		klog.Info("BrokerController getFeConfig fe config not exist namespace ", namespace)
 		return make(map[string]interface{}), nil
 	} else if err != nil {
 		return make(map[string]interface{}), err

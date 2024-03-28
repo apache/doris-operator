@@ -56,7 +56,7 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s ，err :", dcr.Namespace, err)
 		return err
 	}
-
+	cn.CheckConfigMountPath(dcr, dorisv1.Component_CN)
 	svc := resource.BuildExternalService(dcr, dorisv1.Component_CN, config)
 	internalSVC := resource.BuildInternalService(dcr, dorisv1.Component_CN, config)
 
@@ -233,15 +233,15 @@ func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCl
 }
 
 func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	cms := configMapInfo.GetConfMapNameInfo()
+	cms := resource.GetMountConfigMapInfo(configMapInfo)
 
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
 
-	configMaps, faileName, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
+	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
 	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("cnController GetCnConfig config is not exist namespace ", namespace, " configmapName ", faileName)
+		klog.Info("cnController GetCnConfig config is not exist namespace ", namespace)
 		return make(map[string]interface{}), nil
 	} else if err != nil {
 		return make(map[string]interface{}), err
@@ -251,15 +251,15 @@ func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.Conf
 }
 
 func (cn *Controller) getFeConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	cms := configMapInfo.GetConfMapNameInfo()
+	cms := resource.GetMountConfigMapInfo(configMapInfo)
 
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
 
-	configMaps, faileName, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
+	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
 	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("CnController GetFeConfig config is not exist namespace ", namespace, " configmapName ", faileName)
+		klog.Info("CnController GetFeConfig config is not exist namespace ", namespace)
 		return make(map[string]interface{}), nil
 	} else if err != nil {
 		return make(map[string]interface{}), err

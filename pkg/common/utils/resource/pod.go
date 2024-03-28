@@ -2,7 +2,6 @@ package resource
 
 import (
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/tools"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -93,7 +92,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		})
 	}
 
-	if len(spec.ConfigMapInfo.GetConfMapNameInfo()) != 0 {
+	if len(GetMountConfigMapInfo(&spec.ConfigMapInfo)) != 0 {
 		configVolumes, _ := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
 		volumes = append(volumes, configVolumes...)
 	}
@@ -239,14 +238,14 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
 
-	if len(spec.ConfigMapInfo.GetConfMapNameInfo()) != 0 {
+	if len(GetMountConfigMapInfo(&spec.ConfigMapInfo)) != 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  config_env_name,
 			Value: config_env_path,
 		})
 
-		_, volumeMount := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
-		volumeMounts = append(volumeMounts, volumeMount...)
+		_, configMolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumeMounts = append(volumeMounts, configMolumeMounts...)
 	}
 
 	// add basic auth secret volumeMount
@@ -495,7 +494,11 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 
-	cms := cmInfo.GetConfMapNameInfo()
+	if cmInfo == nil {
+		return volumes, volumeMounts
+	}
+
+	cms := GetMountConfigMapInfo(cmInfo)
 
 	if len(cms) != 0 {
 
@@ -507,15 +510,8 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
 		}
 
-		var paths []string
-
 		for _, cm := range cms {
 			path := cm.MountPath
-			if tools.IsElementInArray(paths, path) {
-				klog.Errorf("DCR error, 'MountConfigMapInfo.MountPath' in 'ConfigMapInfo.ConfigMaps' cannot be repeated, the MountPath %s is repeated, please check.", path)
-			}
-			paths = append(paths, path)
-
 			if cm.MountPath == "" {
 				path = mountConfigPath
 			}

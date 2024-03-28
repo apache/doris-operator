@@ -17,4 +17,5 @@ const (
 	PVCCreate               = "PVCCreate"
 	PVCCreateFailed         = "PVCCreateFailed"
 	FollowerScaleDownFailed = "FollowerScaleDownFailed"
+	ConfigMapPathRepeated   = "ConfigMapPathRepeated"
 )

@@ -2,10 +2,11 @@ package resource
 
 import (
 	"bytes"
+	"errors"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/tools"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 // the fe ports key
@@ -64,27 +65,38 @@ func getDefaultResolveKey(componentType dorisv1.ComponentType) string {
 	case dorisv1.Component_Broker:
 		return BROKER_RESOLVEKEY
 	default:
+		klog.Infof("get default ResolveKey componentType not support, type=", componentType)
 	}
 	return ""
 }
 
 func ResolveConfigMaps(configMaps *[]corev1.ConfigMap, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
-
 	key := getDefaultResolveKey(componentType)
-
-	res := make(map[string]interface{})
-	data := make(map[string]string)
 	for _, configMap := range *configMaps {
-		data = tools.MergeMaps(data, configMap.Data)
+		if value, ok := configMap.Data[key]; ok {
+			viper.SetConfigType("properties")
+			viper.ReadConfig(bytes.NewBuffer([]byte(value)))
+			return viper.AllSettings(), nil
+		}
 	}
-	if _, ok := data[key]; !ok {
-		return res, nil
+	err := errors.New("not fund configmap ResolveKey: " + key)
+	return nil, err
+}
+
+func GetMountConfigMapInfo(c *dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.MountConfigMapInfo) {
+
+	if c.ConfigMapName != "" {
+		finalConfigMaps = append(
+			finalConfigMaps,
+			dorisv1.MountConfigMapInfo{
+				ConfigMapName: c.ConfigMapName,
+				MountPath:     "",
+			},
+		)
 	}
 
-	value, _ := data[key]
-
-	viper.SetConfigType("properties")
-	viper.ReadConfig(bytes.NewBuffer([]byte(value)))
-
-	return viper.AllSettings(), nil
+	for _, cm := range c.ConfigMaps {
+		finalConfigMaps = append(finalConfigMaps, cm)
+	}
+	return finalConfigMaps
 }

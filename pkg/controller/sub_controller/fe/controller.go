@@ -84,6 +84,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " error :", err)
 		return err
 	}
+	fc.CheckConfigMountPath(cluster, v1.Component_FE)
 
 	//generate new fe service.
 	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)

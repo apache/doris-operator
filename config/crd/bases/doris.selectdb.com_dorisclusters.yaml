@@ -979,13 +979,17 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: the config file for any path as Customize，but
-                          MountPath does not allow duplicates
+                        description: Supports multiple configmap for mounting custom
+                          path
                         items:
                           properties:
                             configMapName:
+                              description: ConfigMap Name
                               type: string
                             mountPath:
+                              description: Current ConfigMap Mount Path. MountConfigMapInfo
+                                belonging to the same ConfigMapInfo, their MountPath
+                                cannot be repeated
                               type: string
                           type: object
                         type: array
@@ -2489,13 +2493,17 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: the config file for any path as Customize，but
-                          MountPath does not allow duplicates
+                        description: Supports multiple configmap for mounting custom
+                          path
                         items:
                           properties:
                             configMapName:
+                              description: ConfigMap Name
                               type: string
                             mountPath:
+                              description: Current ConfigMap Mount Path. MountConfigMapInfo
+                                belonging to the same ConfigMapInfo, their MountPath
+                                cannot be repeated
                               type: string
                           type: object
                         type: array
@@ -4684,13 +4692,17 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: the config file for any path as Customize，but
-                          MountPath does not allow duplicates
+                        description: Supports multiple configmap for mounting custom
+                          path
                         items:
                           properties:
                             configMapName:
+                              description: ConfigMap Name
                               type: string
                             mountPath:
+                              description: Current ConfigMap Mount Path. MountConfigMapInfo
+                                belonging to the same ConfigMapInfo, their MountPath
+                                cannot be repeated
                               type: string
                           type: object
                         type: array
@@ -6195,13 +6207,17 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: the config file for any path as Customize，but
-                          MountPath does not allow duplicates
+                        description: Supports multiple configmap for mounting custom
+                          path
                         items:
                           properties:
                             configMapName:
+                              description: ConfigMap Name
                               type: string
                             mountPath:
+                              description: Current ConfigMap Mount Path. MountConfigMapInfo
+                                belonging to the same ConfigMapInfo, their MountPath
+                                cannot be repeated
                               type: string
                           type: object
                         type: array

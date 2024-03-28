@@ -187,16 +187,17 @@ func GetConfigMap(ctx context.Context, k8scient client.Client, namespace, name s
 	return &configMap, nil
 }
 
-// GetConfigMap get the configmap name=name, namespace=namespace.
-func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []dorisv1.MountConfigMapInfo) (*[]corev1.ConfigMap, string, error) {
+// GetConfigMaps get the configmap name=name, namespace=namespace.
+func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []dorisv1.MountConfigMapInfo) (*[]corev1.ConfigMap, error) {
 	var configMaps []corev1.ConfigMap
+	var err error
 	for _, cm := range cms {
 		var configMap corev1.ConfigMap
 		if err := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cm.ConfigMapName}, &configMap); err != nil {
-			return nil, cm.ConfigMapName, err
+			err = errors.New("Failed to get configmap , namespace: " + namespace + ", name: " + cm.ConfigMapName)
 		}
 		configMaps = append(configMaps, configMap)
 	}
 
-	return &configMaps, "", nil
+	return &configMaps, err
 }
