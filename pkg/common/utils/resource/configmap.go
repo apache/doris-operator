@@ -65,14 +65,17 @@ func getDefaultResolveKey(componentType dorisv1.ComponentType) string {
 	case dorisv1.Component_Broker:
 		return BROKER_RESOLVEKEY
 	default:
-		klog.Infof("get default ResolveKey componentType not support, type=", componentType)
+		klog.Infof("the componentType: %s have not default ResolveKey", componentType)
 	}
 	return ""
 }
 
-func ResolveConfigMaps(configMaps *[]corev1.ConfigMap, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+func ResolveConfigMaps(configMaps []*corev1.ConfigMap, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
 	key := getDefaultResolveKey(componentType)
-	for _, configMap := range *configMaps {
+	for _, configMap := range configMaps {
+		if configMap == nil {
+			continue
+		}
 		if value, ok := configMap.Data[key]; ok {
 			viper.SetConfigType("properties")
 			viper.ReadConfig(bytes.NewBuffer([]byte(value)))
@@ -94,9 +97,7 @@ func GetMountConfigMapInfo(c dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.M
 			},
 		)
 	}
+	finalConfigMaps = append(finalConfigMaps, c.ConfigMaps...)
 
-	for _, cm := range c.ConfigMaps {
-		finalConfigMaps = append(finalConfigMaps, cm)
-	}
 	return finalConfigMaps
 }

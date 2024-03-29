@@ -238,14 +238,14 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
 
-	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
-		envs = append(envs, corev1.EnvVar{
-			Name:  config_env_name,
-			Value: config_env_path,
-		})
+	envs = append(envs, corev1.EnvVar{
+		Name:  config_env_name,
+		Value: config_env_path,
+	})
 
-		_, configMolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
-		volumeMounts = append(volumeMounts, configMolumeMounts...)
+	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
+		_, configVolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumeMounts = append(volumeMounts, configVolumeMounts...)
 	}
 
 	// add basic auth secret volumeMount

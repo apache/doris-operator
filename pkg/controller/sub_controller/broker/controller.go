@@ -119,7 +119,7 @@ func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.Confi
 	}
 	feconfigMaps, err := k8s.GetConfigMaps(ctx, bk.K8sclient, namespace, cms)
 	if err != nil {
-		klog.Error("BrokerController getFeConfig fe config failed, namespace: %s,err: %+v ", namespace, err)
+		klog.Errorf("BrokerController getFeConfig fe config failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
 	res, errResolve := resource.ResolveConfigMaps(feconfigMaps, v1.Component_FE)
 

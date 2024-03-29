@@ -239,7 +239,7 @@ func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.Conf
 	}
 	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
 	if err != nil {
-		klog.Error("CnController GetConfig get configmap failed, namespace: %s,err: %+v ", namespace, err)
+		klog.Errorf("CnController GetConfig get configmap failed, namespace: %s, err: %s \n", namespace, err.Error())
 	}
 	res, errResolve := resource.ResolveConfigMaps(configMaps, dorisv1.Component_CN)
 	return res, sub_controller.MergeError(err, errResolve)
@@ -247,14 +247,12 @@ func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.Conf
 
 func (cn *Controller) getFeConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
 	cms := resource.GetMountConfigMapInfo(*configMapInfo)
-
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
-
 	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
 	if err != nil {
-		klog.Error("CnController GetFeConfig get configmap failed, namespace: %s,err: %+v ", namespace, err)
+		klog.Errorf("CnController GetFeConfig get configmap failed, namespace: %s, err: %s \n", namespace, err.Error())
 	}
 	res, errResolve := resource.ResolveConfigMaps(configMaps, dorisv1.Component_FE)
 	return res, sub_controller.MergeError(err, errResolve)

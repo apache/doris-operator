@@ -90,7 +90,7 @@ func MergeError(err1 error, err2 error) error {
 	if err2 == nil {
 		return err1
 	}
-	return errors.New(err1.Error() + "\n" + err2.Error())
+	return errors.New(err1.Error() + "; " + err2.Error())
 }
 
 func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
@@ -100,10 +100,10 @@ func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dor
 	}
 	configMaps, err := k8s.GetConfigMaps(ctx, d.K8sclient, namespace, cms)
 	if err != nil {
-		klog.Error("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %+v ", namespace, err)
+		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
-	res, errResolve := resource.ResolveConfigMaps(configMaps, componentType)
-	return res, MergeError(err, errResolve)
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
+	return res, MergeError(err, resolveErr)
 }
 
 func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
@@ -125,8 +125,8 @@ func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, c
 	for _, cm := range cms {
 		path := cm.MountPath
 		if m, exist := mountsMap[path]; exist {
-			klog.Errorf(" Check Config MountPath error at CheckConfigMountPath: 'MountConfigMapInfo.MountPath' in 'ConfigMapInfo.ConfigMaps' cannot be repeated, the MountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
-			d.K8srecorder.Event(dcr, EventWarning, ConfigMapPathRepeated, fmt.Sprintf(" the MountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
+			klog.Errorf("CheckConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
+			d.K8srecorder.Event(dcr, EventWarning, ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
 		}
 		mountsMap[path] = cm
 	}
