@@ -83,7 +83,7 @@ func ResolveConfigMaps(configMaps *[]corev1.ConfigMap, componentType dorisv1.Com
 	return nil, err
 }
 
-func GetMountConfigMapInfo(c *dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.MountConfigMapInfo) {
+func GetMountConfigMapInfo(c dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.MountConfigMapInfo) {
 
 	if c.ConfigMapName != "" {
 		finalConfigMaps = append(

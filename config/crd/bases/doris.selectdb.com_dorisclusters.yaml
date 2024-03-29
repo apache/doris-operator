@@ -979,12 +979,13 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: Supports multiple configmap for mounting custom
-                          path
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
                         items:
                           properties:
                             configMapName:
-                              description: ConfigMap Name
+                              description: name of configmap that needs to mount.
                               type: string
                             mountPath:
                               description: Current ConfigMap Mount Path. If MountConfigMapInfo
@@ -2493,12 +2494,13 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: Supports multiple configmap for mounting custom
-                          path
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
                         items:
                           properties:
                             configMapName:
-                              description: ConfigMap Name
+                              description: name of configmap that needs to mount.
                               type: string
                             mountPath:
                               description: Current ConfigMap Mount Path. If MountConfigMapInfo
@@ -4692,12 +4694,13 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: Supports multiple configmap for mounting custom
-                          path
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
                         items:
                           properties:
                             configMapName:
-                              description: ConfigMap Name
+                              description: name of configmap that needs to mount.
                               type: string
                             mountPath:
                               description: Current ConfigMap Mount Path. If MountConfigMapInfo
@@ -6207,12 +6210,13 @@ spec:
                           soft links.
                         type: string
                       configMaps:
-                        description: Supports multiple configmap for mounting custom
-                          path
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
                         items:
                           properties:
                             configMapName:
-                              description: ConfigMap Name
+                              description: name of configmap that needs to mount.
                               type: string
                             mountPath:
                               description: Current ConfigMap Mount Path. If MountConfigMapInfo

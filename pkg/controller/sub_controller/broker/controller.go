@@ -7,7 +7,6 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -114,18 +113,15 @@ func (bk *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) 
 }
 
 func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	cms := resource.GetMountConfigMapInfo(feconfigMapInfo)
+	cms := resource.GetMountConfigMapInfo(*feconfigMapInfo)
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
 	feconfigMaps, err := k8s.GetConfigMaps(ctx, bk.K8sclient, namespace, cms)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("BrokerController getFeConfig fe config not exist namespace ", namespace)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+	if err != nil {
+		klog.Error("BrokerController getFeConfig fe config failed, namespace: %s,err: %+v ", namespace, err)
 	}
-	res, err := resource.ResolveConfigMaps(feconfigMaps, v1.Component_FE)
+	res, errResolve := resource.ResolveConfigMaps(feconfigMaps, v1.Component_FE)
 
-	return res, err
+	return res, sub_controller.MergeError(err, errResolve)
 }

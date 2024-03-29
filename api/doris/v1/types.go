@@ -237,13 +237,14 @@ type ConfigMapInfo struct {
 	// +optional
 	ResolveKey string `json:"resolveKey,omitempty"`
 
-	//Supports multiple configmap for mounting custom path
+	// ConfigMaps can mount multiple configmaps to the specified path.
+	// The mounting path of configmap cannot be repeated.
 	// +optional
 	ConfigMaps []MountConfigMapInfo `json:"configMaps,omitempty"`
 }
 
 type MountConfigMapInfo struct {
-	// ConfigMap Name
+	// name of configmap that needs to mount.
 	ConfigMapName string `json:"configMapName,omitempty"`
 
 	// Current ConfigMap Mount Path.

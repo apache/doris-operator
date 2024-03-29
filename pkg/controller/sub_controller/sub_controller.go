@@ -2,11 +2,11 @@ package sub_controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	"github.com/selectdb/doris-operator/pkg/common/utils/tools"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -80,22 +80,30 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	return nil
 }
 
+func MergeError(err1 error, err2 error) error {
+	if err1 == nil && err2 == nil {
+		return nil
+	}
+	if err1 == nil {
+		return err2
+	}
+	if err2 == nil {
+		return err1
+	}
+	return errors.New(err1.Error() + "\n" + err2.Error())
+}
+
 func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
-	cms := resource.GetMountConfigMapInfo(configMapInfo)
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
 	configMaps, err := k8s.GetConfigMaps(ctx, d.K8sclient, namespace, cms)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("SubDefaultController Get configmap is not exist namespace ", namespace)
-		klog.Error(err)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+	if err != nil {
+		klog.Error("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %+v ", namespace, err)
 	}
-
-	res, err := resource.ResolveConfigMaps(configMaps, componentType)
-	return res, err
+	res, errResolve := resource.ResolveConfigMaps(configMaps, componentType)
+	return res, MergeError(err, errResolve)
 }
 
 func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
@@ -112,15 +120,15 @@ func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, c
 	default:
 		klog.Infof("the componentType %s is not supported.", componentType)
 	}
-	cms := resource.GetMountConfigMapInfo(&configMapInfo)
-	var paths []string
+	cms := resource.GetMountConfigMapInfo(configMapInfo)
+	var mountsMap = make(map[string]dorisv1.MountConfigMapInfo)
 	for _, cm := range cms {
 		path := cm.MountPath
-		if tools.IsElementInArray(paths, path) {
-			klog.Errorf("DCR error, 'MountConfigMapInfo.MountPath' in 'ConfigMapInfo.ConfigMaps' cannot be repeated, the MountPath %s is repeated, please check.", path)
-			d.K8srecorder.Event(dcr, EventWarning, ConfigMapPathRepeated, fmt.Sprintf("DCR error, 'MountConfigMapInfo.MountPath' in 'ConfigMapInfo.ConfigMaps' cannot be repeated, the MountPath %s is repeated, please check.", path))
+		if m, exist := mountsMap[path]; exist {
+			klog.Errorf(" Check Config MountPath error at CheckConfigMountPath: 'MountConfigMapInfo.MountPath' in 'ConfigMapInfo.ConfigMaps' cannot be repeated, the MountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
+			d.K8srecorder.Event(dcr, EventWarning, ConfigMapPathRepeated, fmt.Sprintf(" the MountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
 		}
-		paths = append(paths, path)
+		mountsMap[path] = cm
 	}
 }
 

@@ -233,37 +233,29 @@ func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCl
 }
 
 func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	cms := resource.GetMountConfigMapInfo(configMapInfo)
-
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
-
 	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("cnController GetCnConfig config is not exist namespace ", namespace)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+	if err != nil {
+		klog.Error("CnController GetConfig get configmap failed, namespace: %s,err: %+v ", namespace, err)
 	}
-	res, err := resource.ResolveConfigMaps(configMaps, dorisv1.Component_CN)
-	return res, err
+	res, errResolve := resource.ResolveConfigMaps(configMaps, dorisv1.Component_CN)
+	return res, sub_controller.MergeError(err, errResolve)
 }
 
 func (cn *Controller) getFeConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	cms := resource.GetMountConfigMapInfo(configMapInfo)
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
 
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
 
 	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("CnController GetFeConfig config is not exist namespace ", namespace)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+	if err != nil {
+		klog.Error("CnController GetFeConfig get configmap failed, namespace: %s,err: %+v ", namespace, err)
 	}
-	res, err := resource.ResolveConfigMaps(configMaps, dorisv1.Component_FE)
-	return res, err
+	res, errResolve := resource.ResolveConfigMaps(configMaps, dorisv1.Component_FE)
+	return res, sub_controller.MergeError(err, errResolve)
 }

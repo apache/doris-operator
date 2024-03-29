@@ -92,7 +92,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		})
 	}
 
-	if len(GetMountConfigMapInfo(&spec.ConfigMapInfo)) != 0 {
+	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		configVolumes, _ := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
 		volumes = append(volumes, configVolumes...)
 	}
@@ -238,7 +238,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
 
-	if len(GetMountConfigMapInfo(&spec.ConfigMapInfo)) != 0 {
+	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  config_env_name,
 			Value: config_env_path,
@@ -498,7 +498,7 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 		return volumes, volumeMounts
 	}
 
-	cms := GetMountConfigMapInfo(cmInfo)
+	cms := GetMountConfigMapInfo(*cmInfo)
 
 	if len(cms) != 0 {
 
