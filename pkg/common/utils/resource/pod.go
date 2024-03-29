@@ -330,6 +330,10 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 			},
 		},
+		{
+			Name:  config_env_name,
+			Value: config_env_path,
+		},
 	}
 
 	if dcr.Spec.AdminUser != nil {
@@ -502,10 +506,10 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 
 	if len(cms) != 0 {
 
-		mountConfigPath := ""
+		defaultMountPath := ""
 		switch componentType {
 		case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
-			mountConfigPath = config_env_path
+			defaultMountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
 		}
@@ -513,7 +517,7 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 		for _, cm := range cms {
 			path := cm.MountPath
 			if cm.MountPath == "" {
-				path = mountConfigPath
+				path = defaultMountPath
 			}
 			volumes = append(
 				volumes,

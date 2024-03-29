@@ -2,9 +2,9 @@ package sub_controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
@@ -80,19 +80,6 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	return nil
 }
 
-func MergeError(err1 error, err2 error) error {
-	if err1 == nil && err2 == nil {
-		return nil
-	}
-	if err1 == nil {
-		return err2
-	}
-	if err2 == nil {
-		return err1
-	}
-	return errors.New(err1.Error() + "; " + err2.Error())
-}
-
 func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
 	cms := resource.GetMountConfigMapInfo(*configMapInfo)
 	if len(cms) == 0 {
@@ -103,7 +90,7 @@ func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dor
 		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
 	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
-	return res, MergeError(err, resolveErr)
+	return res, utils.MergeError(err, resolveErr)
 }
 
 func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {

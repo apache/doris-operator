@@ -3,6 +3,7 @@ package cn
 import (
 	"context"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
@@ -241,8 +242,8 @@ func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.Conf
 	if err != nil {
 		klog.Errorf("CnController GetConfig get configmap failed, namespace: %s, err: %s \n", namespace, err.Error())
 	}
-	res, errResolve := resource.ResolveConfigMaps(configMaps, dorisv1.Component_CN)
-	return res, sub_controller.MergeError(err, errResolve)
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, dorisv1.Component_CN)
+	return res, utils.MergeError(err, resolveErr)
 }
 
 func (cn *Controller) getFeConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
@@ -254,6 +255,6 @@ func (cn *Controller) getFeConfig(ctx context.Context, configMapInfo *dorisv1.Co
 	if err != nil {
 		klog.Errorf("CnController GetFeConfig get configmap failed, namespace: %s, err: %s \n", namespace, err.Error())
 	}
-	res, errResolve := resource.ResolveConfigMaps(configMaps, dorisv1.Component_FE)
-	return res, sub_controller.MergeError(err, errResolve)
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, dorisv1.Component_FE)
+	return res, utils.MergeError(err, resolveErr)
 }

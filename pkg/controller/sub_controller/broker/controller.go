@@ -3,6 +3,7 @@ package broker
 import (
 	"context"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
@@ -121,7 +122,7 @@ func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.Confi
 	if err != nil {
 		klog.Errorf("BrokerController getFeConfig fe config failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
-	res, errResolve := resource.ResolveConfigMaps(feconfigMaps, v1.Component_FE)
+	res, resolveErr := resource.ResolveConfigMaps(feconfigMaps, v1.Component_FE)
 
-	return res, sub_controller.MergeError(err, errResolve)
+	return res, utils.MergeError(err, resolveErr)
 }
