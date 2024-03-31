@@ -92,9 +92,9 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		})
 	}
 
-	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
-		configVolume, _ := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
-		volumes = append(volumes, configVolume)
+	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
+		configVolumes, _ := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumes = append(volumes, configVolumes...)
 	}
 
 	pts := corev1.PodTemplateSpec{
@@ -237,14 +237,15 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
-	if spec.ConfigMapInfo.ConfigMapName != "" && spec.ConfigMapInfo.ResolveKey != "" {
-		envs = append(envs, corev1.EnvVar{
-			Name:  config_env_name,
-			Value: config_env_path,
-		})
 
-		_, volumeMount := getConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
-		volumeMounts = append(volumeMounts, volumeMount)
+	envs = append(envs, corev1.EnvVar{
+		Name:  config_env_name,
+		Value: config_env_path,
+	})
+
+	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
+		_, configVolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
+		volumeMounts = append(volumeMounts, configVolumeMounts...)
 	}
 
 	// add basic auth secret volumeMount
@@ -328,6 +329,10 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 			},
+		},
+		{
+			Name:  config_env_name,
+			Value: config_env_path,
 		},
 	}
 
@@ -489,33 +494,55 @@ func getBeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 	return volumes, volumeMounts
 }
 
-func getConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.ComponentType) (corev1.Volume, corev1.VolumeMount) {
-	var volume corev1.Volume
-	var volumeMount corev1.VolumeMount
-	if cmInfo.ConfigMapName != "" && cmInfo.ResolveKey != "" {
-		volume = corev1.Volume{
-			Name: cmInfo.ConfigMapName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cmInfo.ConfigMapName,
-					},
-				},
-			},
-		}
-		volumeMount = corev1.VolumeMount{
-			Name: cmInfo.ConfigMapName,
-		}
+func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
 
+	if cmInfo == nil {
+		return volumes, volumeMounts
+	}
+
+	cms := GetMountConfigMapInfo(*cmInfo)
+
+	if len(cms) != 0 {
+
+		defaultMountPath := ""
 		switch componentType {
 		case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
-			volumeMount.MountPath = config_env_path
+			defaultMountPath = config_env_path
 		default:
 			klog.Infof("getConfigVolumeAndVolumeMount componentType %s not supported.", componentType)
 		}
-	}
 
-	return volume, volumeMount
+		for _, cm := range cms {
+			path := cm.MountPath
+			if cm.MountPath == "" {
+				path = defaultMountPath
+			}
+			volumes = append(
+				volumes,
+				corev1.Volume{
+					Name: cm.ConfigMapName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cm.ConfigMapName,
+							},
+						},
+					},
+				},
+			)
+
+			volumeMounts = append(
+				volumeMounts,
+				corev1.VolumeMount{
+					Name:      cm.ConfigMapName,
+					MountPath: path,
+				},
+			)
+		}
+	}
+	return volumes, volumeMounts
 }
 
 // StartupProbe returns a startup probe.

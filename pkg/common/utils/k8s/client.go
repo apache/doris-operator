@@ -186,3 +186,20 @@ func GetConfigMap(ctx context.Context, k8scient client.Client, namespace, name s
 
 	return &configMap, nil
 }
+
+// GetConfigMaps get the configmap by the array of MountConfigMapInfo and namespace.
+func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []dorisv1.MountConfigMapInfo) ([]*corev1.ConfigMap, error) {
+	var configMaps []*corev1.ConfigMap
+	errMessage := ""
+	for _, cm := range cms {
+		var configMap corev1.ConfigMap
+		if getErr := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cm.ConfigMapName}, &configMap); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", cm.ConfigMapName, namespace, getErr.Error())
+		}
+		configMaps = append(configMaps, &configMap)
+	}
+	if errMessage != "" {
+		return configMaps, errors.New("Failed to get configmap: " + errMessage)
+	}
+	return configMaps, nil
+}

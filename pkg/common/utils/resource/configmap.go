@@ -2,9 +2,11 @@ package resource
 
 import (
 	"bytes"
-	"github.com/selectdb/doris-operator/api/doris/v1"
+	"errors"
+	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 // the fe ports key
@@ -22,6 +24,14 @@ const (
 	WEBSERVER_PORT         = "webserver_port"
 	HEARTBEAT_SERVICE_PORT = "heartbeat_service_port"
 	BRPC_PORT              = "brpc_port"
+)
+
+// the default ResolveKey
+const (
+	FE_RESOLVEKEY     = "fe.conf"
+	BE_RESOLVEKEY     = "be.conf"
+	CN_RESOLVEKEY     = "be.conf"
+	BROKER_RESOLVEKEY = "apache_hdfs_broker.conf"
 )
 
 const BROKER_IPC_PORT = "broker_ipc_port"
@@ -44,41 +54,50 @@ func GetDefaultPort(key string) int32 {
 	return defMap[key]
 }
 
-func ResolveConfigMap(configMap *corev1.ConfigMap, key string) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
-	data := configMap.Data
-	if _, ok := data[key]; !ok {
-		return res, nil
+func getDefaultResolveKey(componentType dorisv1.ComponentType) string {
+	switch componentType {
+	case dorisv1.Component_FE:
+		return FE_RESOLVEKEY
+	case dorisv1.Component_BE:
+		return BE_RESOLVEKEY
+	case dorisv1.Component_CN:
+		return CN_RESOLVEKEY
+	case dorisv1.Component_Broker:
+		return BROKER_RESOLVEKEY
+	default:
+		klog.Infof("the componentType: %s have not default ResolveKey", componentType)
 	}
-
-	value, _ := data[key]
-
-	viper.SetConfigType("properties")
-	viper.ReadConfig(bytes.NewBuffer([]byte(value)))
-
-	return viper.AllSettings(), nil
+	return ""
 }
 
-func MountConfigMap(cmInfo v1.ConfigMapInfo) (corev1.Volume, corev1.VolumeMount) {
-	var volume corev1.Volume
-	var volumeMount corev1.VolumeMount
-
-	if cmInfo.ConfigMapName != "" && cmInfo.ResolveKey != "" {
-		volume = corev1.Volume{
-			Name: cmInfo.ConfigMapName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cmInfo.ConfigMapName,
-					},
-				},
-			},
+func ResolveConfigMaps(configMaps []*corev1.ConfigMap, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	key := getDefaultResolveKey(componentType)
+	for _, configMap := range configMaps {
+		if configMap == nil {
+			continue
 		}
-		volumeMount = corev1.VolumeMount{
-			Name:      cmInfo.ConfigMapName,
-			MountPath: "/etc/doris",
+		if value, ok := configMap.Data[key]; ok {
+			viper.SetConfigType("properties")
+			viper.ReadConfig(bytes.NewBuffer([]byte(value)))
+			return viper.AllSettings(), nil
 		}
 	}
+	err := errors.New("not fund configmap ResolveKey: " + key)
+	return nil, err
+}
 
-	return volume, volumeMount
+func GetMountConfigMapInfo(c dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.MountConfigMapInfo) {
+
+	if c.ConfigMapName != "" {
+		finalConfigMaps = append(
+			finalConfigMaps,
+			dorisv1.MountConfigMapInfo{
+				ConfigMapName: c.ConfigMapName,
+				MountPath:     "",
+			},
+		)
+	}
+	finalConfigMaps = append(finalConfigMaps, c.ConfigMaps...)
+
+	return finalConfigMaps
 }
