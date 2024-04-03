@@ -3,6 +3,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   labels:
     control-plane: {{ template "kube-doris.name" . }}-operator
     app.kubernetes.io/name: namespace
