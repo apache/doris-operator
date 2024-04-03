@@ -17,6 +17,8 @@ spec:
   {{- if .Values.dorisCluster.adminUser }}
   adminUser:
     {{- toYaml .Values.dorisCluster.adminUser | nindent 4 }}
+  {{- else if .Values.dorisCluster.authSecret }}
+  authSecret: {{ template "doriscluster.secret.name" . }}
   {{- end }}
   feSpec:
     replicas: {{ .Values.feSpec.replicas }}
@@ -51,8 +53,16 @@ spec:
 
     {{- if .Values.feSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.feSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.feConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.feConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.feSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.feConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.feSpec.resource }}

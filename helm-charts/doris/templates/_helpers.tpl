@@ -23,6 +23,12 @@ doris cluster pod default resource.
 {{- end }}
 
 
+{{/*
+doris cluster admin user and password secret name.
+*/}}
+{{- define "doriscluster.secret.name" -}}
+    {{ template "doriscluster.name" . }}-Secret-base64
+{{- end -}}
 
 {{/*
 doris cluster fe configMap default name.
@@ -208,3 +214,11 @@ doris cluster broker PVC
             storage: {{ .Values.brokerSpec.persistentVolumeClaim.logsPersistentVolume.storage}}
     {{- end }}
 {{- end -}}
+
+
+{{- define "doriscluster.feConfig.configMaps" }}
+    {{- range .Values.feSpec.configMap.mountConfigMaps }}
+        - configMapName: {{ .configMapName }}
+          mountPath: {{ .mountPath }}
+    {{- end }}
+{{- end }}
