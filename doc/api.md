@@ -558,7 +558,7 @@ Kubernetes core/v1.SecurityContext
 </td>
 <td>
 <em>(Optional)</em>
-<p>Container security context for cn container.</p>
+<p>Security context for all containers running in the pod (unless they override it).</p>
 </td>
 </tr>
 </tbody>
@@ -955,7 +955,10 @@ string
 </em>
 </td>
 <td>
-<p>the config info for start progress.</p>
+<p>ConfigMapName mapped the configuration files in the doris &lsquo;conf/&rsquo; directory.
+such as &lsquo;fe.conf&rsquo;, &lsquo;be.conf&rsquo;. If HDFS access is involved, there may also be &lsquo;core-site.xml&rsquo; and other files.
+doris-operator mounts these configuration files in the &lsquo;/etc/doris&rsquo; directory by default.
+links them to the &lsquo;conf/&rsquo; directory of the doris component through soft links.</p>
 </td>
 </tr>
 <tr>
@@ -966,8 +969,25 @@ string
 </em>
 </td>
 <td>
-<p>represents the key of configMap. for doris it refers to the config file name for start doris component.
-example: if deploy fe, the resolveKey = fe.conf, if deploy be  resolveKey = be.conf, etc.</p>
+<em>(Optional)</em>
+<p>Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+It is currently forced to be &lsquo;fe.conf&rsquo;, &lsquo;be.conf&rsquo;, &lsquo;apache_hdfs_broker.conf&rsquo;
+It is no longer effective. the configuration content will not take effect.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>configMaps</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.MountConfigMapInfo">
+[]MountConfigMapInfo
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ConfigMaps can mount multiple configmaps to the specified path.
+The mounting path of configmap cannot be repeated.</p>
 </td>
 </tr>
 </tbody>
@@ -2162,6 +2182,46 @@ Currently only valid for Resource metric source type</p>
 <td><p>ValueMetricType declares a MetricTarget is a raw value</p>
 </td>
 </tr></tbody>
+</table>
+<h3 id="doris.selectdb.com/v1.MountConfigMapInfo">MountConfigMapInfo
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.ConfigMapInfo">ConfigMapInfo</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>configMapName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>name of configmap that needs to mount.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mountPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Current ConfigMap Mount Path.
+If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.</p>
+</td>
+</tr>
+</tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.ObjectMetricSource">ObjectMetricSource
 </h3>

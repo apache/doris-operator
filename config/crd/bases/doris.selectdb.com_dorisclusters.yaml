@@ -881,36 +881,33 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: ConfigMapName mapped the configuration files
-                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
-                          If HDFS access is involved, there may also be 'core-site.xml'
-                          and other files. doris-operator mounts these configuration
-                          files in the '/etc/doris' directory by default. links them
-                          to the 'conf/' directory of the doris component through
-                          soft links.
+                        description: |-
+                          ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+                          such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+                          doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+                          links them to the 'conf/' directory of the doris component through soft links.
                         type: string
                       configMaps:
-                        description: ConfigMaps can mount multiple configmaps to the
-                          specified path. The mounting path of configmap cannot be
-                          repeated.
+                        description: |-
+                          ConfigMaps can mount multiple configmaps to the specified path.
+                          The mounting path of configmap cannot be repeated.
                         items:
                           properties:
                             configMapName:
                               description: name of configmap that needs to mount.
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
-                                belongs to the same ConfigMapInfo, their MountPath
-                                cannot be repeated.
+                              description: |-
+                                Current ConfigMap Mount Path.
+                                If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
                               type: string
                           type: object
                         type: array
                       resolveKey:
-                        description: 'Deprecated: This configuration has been abandoned
-                          and will be cleared in version 1.7.0. It is currently forced
-                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
-                          It is no longer effective. the configuration content will
-                          not take effect.'
+                        description: |-
+                          Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+                          It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+                          It is no longer effective. the configuration content will not take effect.
                         type: string
                     type: object
                   containerSecurityContext:
@@ -2642,36 +2639,33 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: ConfigMapName mapped the configuration files
-                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
-                          If HDFS access is involved, there may also be 'core-site.xml'
-                          and other files. doris-operator mounts these configuration
-                          files in the '/etc/doris' directory by default. links them
-                          to the 'conf/' directory of the doris component through
-                          soft links.
+                        description: |-
+                          ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+                          such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+                          doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+                          links them to the 'conf/' directory of the doris component through soft links.
                         type: string
                       configMaps:
-                        description: ConfigMaps can mount multiple configmaps to the
-                          specified path. The mounting path of configmap cannot be
-                          repeated.
+                        description: |-
+                          ConfigMaps can mount multiple configmaps to the specified path.
+                          The mounting path of configmap cannot be repeated.
                         items:
                           properties:
                             configMapName:
                               description: name of configmap that needs to mount.
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
-                                belongs to the same ConfigMapInfo, their MountPath
-                                cannot be repeated.
+                              description: |-
+                                Current ConfigMap Mount Path.
+                                If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
                               type: string
                           type: object
                         type: array
                       resolveKey:
-                        description: 'Deprecated: This configuration has been abandoned
-                          and will be cleared in version 1.7.0. It is currently forced
-                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
-                          It is no longer effective. the configuration content will
-                          not take effect.'
+                        description: |-
+                          Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+                          It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+                          It is no longer effective. the configuration content will not take effect.
                         type: string
                     type: object
                   containerSecurityContext:
@@ -5026,36 +5020,33 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: ConfigMapName mapped the configuration files
-                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
-                          If HDFS access is involved, there may also be 'core-site.xml'
-                          and other files. doris-operator mounts these configuration
-                          files in the '/etc/doris' directory by default. links them
-                          to the 'conf/' directory of the doris component through
-                          soft links.
+                        description: |-
+                          ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+                          such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+                          doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+                          links them to the 'conf/' directory of the doris component through soft links.
                         type: string
                       configMaps:
-                        description: ConfigMaps can mount multiple configmaps to the
-                          specified path. The mounting path of configmap cannot be
-                          repeated.
+                        description: |-
+                          ConfigMaps can mount multiple configmaps to the specified path.
+                          The mounting path of configmap cannot be repeated.
                         items:
                           properties:
                             configMapName:
                               description: name of configmap that needs to mount.
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
-                                belongs to the same ConfigMapInfo, their MountPath
-                                cannot be repeated.
+                              description: |-
+                                Current ConfigMap Mount Path.
+                                If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
                               type: string
                           type: object
                         type: array
                       resolveKey:
-                        description: 'Deprecated: This configuration has been abandoned
-                          and will be cleared in version 1.7.0. It is currently forced
-                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
-                          It is no longer effective. the configuration content will
-                          not take effect.'
+                        description: |-
+                          Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+                          It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+                          It is no longer effective. the configuration content will not take effect.
                         type: string
                     type: object
                   containerSecurityContext:
@@ -6788,36 +6779,33 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: ConfigMapName mapped the configuration files
-                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
-                          If HDFS access is involved, there may also be 'core-site.xml'
-                          and other files. doris-operator mounts these configuration
-                          files in the '/etc/doris' directory by default. links them
-                          to the 'conf/' directory of the doris component through
-                          soft links.
+                        description: |-
+                          ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+                          such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+                          doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+                          links them to the 'conf/' directory of the doris component through soft links.
                         type: string
                       configMaps:
-                        description: ConfigMaps can mount multiple configmaps to the
-                          specified path. The mounting path of configmap cannot be
-                          repeated.
+                        description: |-
+                          ConfigMaps can mount multiple configmaps to the specified path.
+                          The mounting path of configmap cannot be repeated.
                         items:
                           properties:
                             configMapName:
                               description: name of configmap that needs to mount.
                               type: string
                             mountPath:
-                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
-                                belongs to the same ConfigMapInfo, their MountPath
-                                cannot be repeated.
+                              description: |-
+                                Current ConfigMap Mount Path.
+                                If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
                               type: string
                           type: object
                         type: array
                       resolveKey:
-                        description: 'Deprecated: This configuration has been abandoned
-                          and will be cleared in version 1.7.0. It is currently forced
-                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
-                          It is no longer effective. the configuration content will
-                          not take effect.'
+                        description: |-
+                          Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+                          It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+                          It is no longer effective. the configuration content will not take effect.
                         type: string
                     type: object
                   containerSecurityContext:
