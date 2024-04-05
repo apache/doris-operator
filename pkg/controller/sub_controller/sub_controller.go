@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
@@ -79,21 +80,43 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	return nil
 }
 
-func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	if configMapInfo.ConfigMapName == "" {
+func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
+	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
-
-	configMap, err := k8s.GetConfigMap(ctx, d.K8sclient, namespace, configMapInfo.ConfigMapName)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("SubDefaultController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+	configMaps, err := k8s.GetConfigMaps(ctx, d.K8sclient, namespace, cms)
+	if err != nil {
+		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
+	return res, utils.MergeError(err, resolveErr)
+}
 
-	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
-	return res, err
+func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	var configMapInfo dorisv1.ConfigMapInfo
+	switch componentType {
+	case dorisv1.Component_FE:
+		configMapInfo = dcr.Spec.FeSpec.ConfigMapInfo
+	case dorisv1.Component_BE:
+		configMapInfo = dcr.Spec.BeSpec.ConfigMapInfo
+	case dorisv1.Component_CN:
+		configMapInfo = dcr.Spec.CnSpec.ConfigMapInfo
+	case dorisv1.Component_Broker:
+		configMapInfo = dcr.Spec.BrokerSpec.ConfigMapInfo
+	default:
+		klog.Infof("the componentType %s is not supported.", componentType)
+	}
+	cms := resource.GetMountConfigMapInfo(configMapInfo)
+	var mountsMap = make(map[string]dorisv1.MountConfigMapInfo)
+	for _, cm := range cms {
+		path := cm.MountPath
+		if m, exist := mountsMap[path]; exist {
+			klog.Errorf("CheckConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
+			d.K8srecorder.Event(dcr, EventWarning, ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
+		}
+		mountsMap[path] = cm
+	}
 }
 
 // ClearCommonResources clear common resources all component have, as statefulset, service.

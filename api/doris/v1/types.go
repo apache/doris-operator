@@ -228,12 +228,32 @@ const (
 
 // ConfigMapInfo specify configmap to mount for component.
 type ConfigMapInfo struct {
-	//the config info for start progress.
+
+	// ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+	// such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+	// doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+	// links them to the 'conf/' directory of the doris component through soft links.
 	ConfigMapName string `json:"configMapName,omitempty"`
 
-	//represents the key of configMap. for doris it refers to the config file name for start doris component.
-	//example: if deploy fe, the resolveKey = fe.conf, if deploy be  resolveKey = be.conf, etc.
+	// Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+	// It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+	// It is no longer effective. the configuration content will not take effect.
+	// +optional
 	ResolveKey string `json:"resolveKey,omitempty"`
+
+	// ConfigMaps can mount multiple configmaps to the specified path.
+	// The mounting path of configmap cannot be repeated.
+	// +optional
+	ConfigMaps []MountConfigMapInfo `json:"configMaps,omitempty"`
+}
+
+type MountConfigMapInfo struct {
+	// name of configmap that needs to mount.
+	ConfigMapName string `json:"configMapName,omitempty"`
+
+	// Current ConfigMap Mount Path.
+	// If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // ExportService consisting of expose ports for user access to software service.

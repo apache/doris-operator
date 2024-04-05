@@ -17,7 +17,7 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
 	var containers []corev1.Container
 	//containers = append(containers, podTemplateSpec.Spec.Containers...)
-	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_FE)
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.FeSpec.ContainerSecurityContext)

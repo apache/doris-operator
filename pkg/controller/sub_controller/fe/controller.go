@@ -79,11 +79,12 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 
 	feSpec := cluster.Spec.FeSpec
 	//get the fe configMap for resolve ports.
-	config, err := fc.GetConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace)
+	config, err := fc.GetConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace, v1.Component_FE)
 	if err != nil {
-		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " configmapName ", feSpec.BaseSpec.ConfigMapInfo.ConfigMapName, " configMapKey ", feSpec.ConfigMapInfo.ResolveKey, " error ", err)
+		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " error :", err)
 		return err
 	}
+	fc.CheckConfigMountPath(cluster, v1.Component_FE)
 
 	//generate new fe service.
 	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)
@@ -123,7 +124,6 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 			st.Name, st.Namespace)
 		return err
 	}
-
 	return nil
 }
 
