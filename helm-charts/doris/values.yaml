@@ -83,7 +83,7 @@ feSpec:
     # but please note that the mounting path cannot be repeated.
     # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
     # in the following example, the user needs to manually create configmap 'cm-1'
-    mountConfigMaps: {}
+    # mountConfigMaps: {}
     # - configMapName: cm-1
     #   mountPath: /etc/cm1
     # - configMapName: cm-2
@@ -248,7 +248,7 @@ beSpec:
     # but please note that the mounting path cannot be repeated.
     # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
     # in the following example, the user needs to manually create configmap 'cm-1'
-    mountConfigMaps: {}
+    # mountConfigMaps: {}
     # - configMapName: cm-1
     #   mountPath: /etc/cm1
     # - configMapName: cm-2
@@ -413,7 +413,7 @@ cnSpec:
     # but please note that the mounting path cannot be repeated.
     # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
     # in the following example, the user needs to manually create configmap 'cm-1'
-    mountConfigMaps: {}
+    # mountConfigMaps: {}
     # - configMapName: cm-1
     #   mountPath: /etc/cm1
     # - configMapName: cm-2
@@ -572,7 +572,7 @@ brokerSpec:
     # but please note that the mounting path cannot be repeated.
     # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
     # in the following example, the user needs to manually create configmap 'cm-1'
-    mountConfigMaps: {}
+    # mountConfigMaps: {}
     # - configMapName: cm-1
     #   mountPath: /etc/cm1
     # - configMapName: cm-2
