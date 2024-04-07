@@ -135,8 +135,16 @@ spec:
 
     {{- if .Values.beSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.beSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.beConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.beConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.beSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.beConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.beSpec.resource }}
@@ -211,8 +219,16 @@ spec:
 
     {{- if .Values.cnSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.cnSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.cnConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.cnConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.cnSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.cnConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.cnSpec.resource }}
@@ -281,8 +297,16 @@ spec:
 
     {{- if .Values.brokerSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.brokerSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.brokerConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.brokerConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.brokerSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.brokerConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.brokerSpec.resource }}
