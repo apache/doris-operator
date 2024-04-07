@@ -17,6 +17,8 @@ spec:
   {{- if .Values.dorisCluster.adminUser }}
   adminUser:
     {{- toYaml .Values.dorisCluster.adminUser | nindent 4 }}
+  {{- else if .Values.dorisCluster.authSecret }}
+  authSecret: {{ template "doriscluster.secret.name" . }}
   {{- end }}
   feSpec:
     replicas: {{ .Values.feSpec.replicas }}
@@ -51,8 +53,16 @@ spec:
 
     {{- if .Values.feSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.feSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.feConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.feConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.feSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.feConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.feSpec.resource }}
@@ -125,8 +135,16 @@ spec:
 
     {{- if .Values.beSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.beSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.beConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.beConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.beSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.beConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.beSpec.resource }}
@@ -201,8 +219,16 @@ spec:
 
     {{- if .Values.cnSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.cnSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.cnConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.cnConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.cnSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.cnConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.cnSpec.resource }}
@@ -271,8 +297,16 @@ spec:
 
     {{- if .Values.brokerSpec.configMap }}
     configMapInfo:
+    {{- $originalMap := .Values.brokerSpec.configMap }}
+    {{- $defaultMap := omit $originalMap "mountConfigMaps" }}
+    {{- if $defaultMap }}
       configMapName: {{ template "doriscluster.default.brokerConfigMap.name" . }}
       resolveKey: {{ template "doriscluster.default.brokerConfig.resolveKey" . }}
+    {{- end }}
+    {{- if .Values.brokerSpec.configMap.mountConfigMaps }}
+      configMaps:
+        {{- template "doriscluster.brokerConfig.configMaps" . }}
+    {{- end }}
     {{- end }}
 
     {{- if .Values.brokerSpec.resource }}

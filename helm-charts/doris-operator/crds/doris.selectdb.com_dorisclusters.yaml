@@ -62,6 +62,12 @@ spec:
                     description: password, login to doris db.
                     type: string
                 type: object
+              authSecret:
+                description: the name of secret that type is `kubernetes.io/basic-auth`
+                  and contains keys username, password for management doris node in
+                  cluster as fe, be register. the password key is `password`. the
+                  username defaults to `root` and is omitempty.
+                type: string
               beSpec:
                 description: defines the be cluster state pod that will be created
                   by operator.
@@ -964,10 +970,36 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: the config info for start progress.
+                        description: ConfigMapName mapped the configuration files
+                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
+                          If HDFS access is involved, there may also be 'core-site.xml'
+                          and other files. doris-operator mounts these configuration
+                          files in the '/etc/doris' directory by default. links them
+                          to the 'conf/' directory of the doris component through
+                          soft links.
                         type: string
+                      configMaps:
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
+                        items:
+                          properties:
+                            configMapName:
+                              description: name of configmap that needs to mount.
+                              type: string
+                            mountPath:
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
+                              type: string
+                          type: object
+                        type: array
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: 'Deprecated: This configuration has been abandoned
+                          and will be cleared in version 1.7.0. It is currently forced
+                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
+                          It is no longer effective. the configuration content will
+                          not take effect.'
                         type: string
                     type: object
                   envVars:
@@ -1424,8 +1456,17 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                   service:
-                    description: expose the be listen ports
+                    description: 'expose doris components for accessing. example:
+                      if you want to use `stream load` to load data into doris out
+                      k8s, you can use be service and config different service type
+                      for loading data.'
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider
@@ -2444,10 +2485,36 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: the config info for start progress.
+                        description: ConfigMapName mapped the configuration files
+                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
+                          If HDFS access is involved, there may also be 'core-site.xml'
+                          and other files. doris-operator mounts these configuration
+                          files in the '/etc/doris' directory by default. links them
+                          to the 'conf/' directory of the doris component through
+                          soft links.
                         type: string
+                      configMaps:
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
+                        items:
+                          properties:
+                            configMapName:
+                              description: name of configmap that needs to mount.
+                              type: string
+                            mountPath:
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
+                              type: string
+                          type: object
+                        type: array
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: 'Deprecated: This configuration has been abandoned
+                          and will be cleared in version 1.7.0. It is currently forced
+                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
+                          It is no longer effective. the configuration content will
+                          not take effect.'
                         type: string
                     type: object
                   envVars:
@@ -2910,8 +2977,17 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                   service:
-                    description: expose the be listen ports
+                    description: 'expose doris components for accessing. example:
+                      if you want to use `stream load` to load data into doris out
+                      k8s, you can use be service and config different service type
+                      for loading data.'
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider
@@ -4609,10 +4685,36 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: the config info for start progress.
+                        description: ConfigMapName mapped the configuration files
+                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
+                          If HDFS access is involved, there may also be 'core-site.xml'
+                          and other files. doris-operator mounts these configuration
+                          files in the '/etc/doris' directory by default. links them
+                          to the 'conf/' directory of the doris component through
+                          soft links.
                         type: string
+                      configMaps:
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
+                        items:
+                          properties:
+                            configMapName:
+                              description: name of configmap that needs to mount.
+                              type: string
+                            mountPath:
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
+                              type: string
+                          type: object
+                        type: array
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: 'Deprecated: This configuration has been abandoned
+                          and will be cleared in version 1.7.0. It is currently forced
+                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
+                          It is no longer effective. the configuration content will
+                          not take effect.'
                         type: string
                     type: object
                   envVars:
@@ -5069,8 +5171,17 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                   service:
-                    description: expose the be listen ports
+                    description: 'expose doris components for accessing. example:
+                      if you want to use `stream load` to load data into doris out
+                      k8s, you can use be service and config different service type
+                      for loading data.'
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider
@@ -6090,10 +6201,36 @@ spec:
                     description: the reference for cn configMap.
                     properties:
                       configMapName:
-                        description: the config info for start progress.
+                        description: ConfigMapName mapped the configuration files
+                          in the doris 'conf/' directory. such as 'fe.conf', 'be.conf'.
+                          If HDFS access is involved, there may also be 'core-site.xml'
+                          and other files. doris-operator mounts these configuration
+                          files in the '/etc/doris' directory by default. links them
+                          to the 'conf/' directory of the doris component through
+                          soft links.
                         type: string
+                      configMaps:
+                        description: ConfigMaps can mount multiple configmaps to the
+                          specified path. The mounting path of configmap cannot be
+                          repeated.
+                        items:
+                          properties:
+                            configMapName:
+                              description: name of configmap that needs to mount.
+                              type: string
+                            mountPath:
+                              description: Current ConfigMap Mount Path. If MountConfigMapInfo
+                                belongs to the same ConfigMapInfo, their MountPath
+                                cannot be repeated.
+                              type: string
+                          type: object
+                        type: array
                       resolveKey:
-                        description: the config response key in configmap.
+                        description: 'Deprecated: This configuration has been abandoned
+                          and will be cleared in version 1.7.0. It is currently forced
+                          to be ''fe.conf'', ''be.conf'', ''apache_hdfs_broker.conf''
+                          It is no longer effective. the configuration content will
+                          not take effect.'
                         type: string
                     type: object
                   electionNumber:
@@ -6555,8 +6692,17 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                   service:
-                    description: expose the be listen ports
+                    description: 'expose doris components for accessing. example:
+                      if you want to use `stream load` to load data into doris out
+                      k8s, you can use be service and config different service type
+                      for loading data.'
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       loadBalancerIP:
                         description: 'Only applies to Service Type: LoadBalancer.
                           This feature depends on whether the underlying cloud-provider

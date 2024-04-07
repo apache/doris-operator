@@ -12,6 +12,7 @@ dorisCluster:
   # specify the broker deploy or not.
   enabledBroker: false
   # specify the doriscluster adminuser or not.
+  # set adminUser will record the password in clear text. This method has been abandoned and is not recommended.
   # When adding adminuser. should follow the steps:
   # 1. Start dorisclusert without adminUser
   # 2. Run 'CREATE USER ...' or 'SET PASSWORD ...' in mysql client
@@ -19,6 +20,14 @@ dorisCluster:
   adminUser: {}
   # name: root
   # password: "12345"
+  # use authSecret can encrypt and save passwords, recommend this method
+  # 1. run shell:  echo -n '{your_password}' | base64    to get password base64 string
+  # 2. run shell:  echo -n '{your_user}' | base64        to get user base64 string
+  # 3. Fill the encrypted string into the corresponding position
+  # as follow, username is 'root' , password is 't0p-Secre'
+  authSecret: {}
+  # username: cm9vdA==
+  # password: dDBwLVNlY3JldA==
 
 feSpec:
   replicas: 3
@@ -53,7 +62,7 @@ feSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap: {}
+  configMap:
     # 'fe.conf' is the startup config file of fe, and the name must be 'fe.conf'.
     # fe.conf: |
     #   http_port = 8030
@@ -69,6 +78,21 @@ feSpec:
     #       <name>dfs.nameservices</name>
     #       <value>ns</value>
     #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
 
   # If configured separately here, it will overwrite the total resources configuration default.
   # but the default configuration of other types will still take effect.
@@ -202,7 +226,7 @@ beSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap: {}
+  configMap:
     # 'be.conf' is the startup config file of be, and the name must be 'be.conf'.
     # be.conf: |
     #   be_port = 9060
@@ -219,6 +243,22 @@ beSpec:
     #       <name>dfs.nameservices</name>
     #       <value>ns</value>
     #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
+
   # If configured separately here, it will overwrite the total resources configuration default.
   # but the default configuration of other types will still take effect.
   resource: {}
@@ -351,7 +391,7 @@ cnSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap: {}
+  configMap:
     # 'be.conf' is the startup config file of cn, and the name must be 'be.conf'.
     # be.conf: |
     #   be_port = 9060
@@ -368,6 +408,22 @@ cnSpec:
     #       <name>dfs.nameservices</name>
     #       <value>ns</value>
     #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
+
   # If configured separately here, it will overwrite the total resources configuration default.
   # but the default configuration of other types will still take effect.
   resource: {}
@@ -497,7 +553,7 @@ brokerSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap: {}
+  configMap:
     # 'apache_hdfs_broker.conf' is the startup config file of broker, and the name must be 'apache_hdfs_broker.conf'.
     # apache_hdfs_broker.conf: |
     #   broker_ipc_port: 8000
@@ -511,6 +567,22 @@ brokerSpec:
     #       <name>dfs.nameservices</name>
     #       <value>ns</value>
     #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
+
   # If configured separately here, it will overwrite the total resources configuration default.
   # but the default configuration of other types will still take effect.
   resource: {}

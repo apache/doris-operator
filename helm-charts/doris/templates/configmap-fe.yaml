@@ -1,4 +1,5 @@
-{{- if .Values.feSpec.configMap }}
+{{- $originalMap := omit .Values.feSpec.configMap "mountConfigMaps" }}
+{{- if $originalMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,5 +10,5 @@ metadata:
     app.kubernetes.io/instance: {{ template "doriscluster.name" . }}
     app.kubernetes.io/part-of: {{ template "kube-control.name" . }}
 data:
-  {{- toYaml .Values.feSpec.configMap | nindent 2}}
+  {{- toYaml $originalMap | nindent 2}}
 {{- end }}

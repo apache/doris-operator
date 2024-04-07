@@ -1,0 +1,39 @@
+{{$cmDatas := list }}
+{{- range $cp := .Values.feSpec.configMap.mountConfigMaps }}
+{{- if $cp.data }}
+{{- $cmDatas = append $cmDatas $cp }}
+{{- end }}
+{{- end }}
+
+{{- range $index, $cp := .Values.beSpec.configMap.mountConfigMaps }}
+{{- if $cp.data }}
+{{- $cmDatas = append $cmDatas $cp }}
+{{- end }}
+{{- end }}
+
+{{- range $index, $cp := .Values.brokerSpec.configMap.mountConfigMaps }}
+{{- if $cp.data }}
+{{- $cmDatas = append $cmDatas $cp }}
+{{- end }}
+{{- end }}
+
+{{- range $index, $cp := .Values.cnSpec.configMap.mountConfigMaps }}
+{{- if $cp.data }}
+{{- $cmDatas = append $cmDatas $cp }}
+{{- end }}
+{{- end }}
+
+{{- range $cp := $cmDatas }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $cp.configMapName }}
+  namespace: {{ template "doriscluster.namespace" $ }}
+  labels:
+    app.kubernetes.io/name: doriscluster
+    app.kubernetes.io/instance: {{ template "doriscluster.name" $ }}
+    app.kubernetes.io/part-of: {{ template "kube-control.name" $ }}
+data:
+  {{- toYaml $cp.data | nindent 2 }}
+---
+{{- end }}
