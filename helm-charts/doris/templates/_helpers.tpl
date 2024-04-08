@@ -3,7 +3,7 @@
 {{- end }}
 
 {{- define "doriscluster.namespace" -}}
-{{ default .Release.Namespace .Values.dorisCluster.namespace }}
+{{ print .Release.Namespace }}
 {{- end }}
 
 {{- define "kube-control.name" -}}
