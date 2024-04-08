@@ -7,7 +7,7 @@
 {{- end }}
 
 {{- define "operator.namespace" -}}
-{{- default .Release.Namespace .Values.dorisOperator.namespace }}
+{{ print .Release.Namespace }}
 {{- end }}
 
 {{- define "kube-doris.name" -}}
