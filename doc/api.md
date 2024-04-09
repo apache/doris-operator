@@ -544,7 +544,7 @@ Kubernetes core/v1.PodSecurityContext
 </td>
 <td>
 <em>(Optional)</em>
-<p>Pod security context for cn pod.</p>
+<p>Security context for pod.</p>
 </td>
 </tr>
 <tr>
@@ -2562,5 +2562,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>efc7eb3</code>.
+on git commit <code>4e2ea72</code>.
 </em></p>
