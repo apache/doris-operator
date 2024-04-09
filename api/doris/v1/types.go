@@ -124,10 +124,6 @@ type BaseSpec struct {
 	//example: if you want to use `stream load` to load data into doris out k8s, you can use be service and config different service type for loading data.
 	Service *ExportService `json:"service,omitempty"`
 
-	//A special supplemental group that applies to all containers in a pod.
-	// Some volume types allow the Kubelet to change the ownership of that volume
-	// to be owned by the pod:
-	FsGroup *int64 `json:"fsGroup,omitempty"`
 	// specify register fe addresses
 	FeAddress *FeAddress `json:"feAddress,omitempty"`
 
