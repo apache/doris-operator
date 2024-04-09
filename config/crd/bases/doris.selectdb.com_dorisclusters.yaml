@@ -1704,6 +1704,58 @@ spec:
                             type: string
                         type: object
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: |-
                       expose doris components for accessing.
@@ -3468,6 +3520,58 @@ spec:
                             type: string
                         type: object
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: |-
                       expose doris components for accessing.
@@ -5843,6 +5947,58 @@ spec:
                             type: string
                         type: object
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: |-
                       expose doris components for accessing.
@@ -7607,6 +7763,58 @@ spec:
                             type: string
                         type: object
                     type: object
+                  securityContext:
+                    description: 'See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
+                    properties:
+                      fsGroup:
+                        format: int64
+                        type: integer
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      supplementalGroups:
+                        items:
+                          format: int64
+                          type: integer
+                        type: array
+                      sysctls:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          runAsUserName:
+                            type: string
+                        type: object
+                      type: object
                   service:
                     description: |-
                       expose doris components for accessing.
