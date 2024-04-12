@@ -35,6 +35,7 @@ const (
 )
 
 const BROKER_IPC_PORT = "broker_ipc_port"
+const GRACE_SHUTDOWN_WAIT_SECONDS = "grace_shutdown_wait_seconds"
 
 // defMap the default port about abilities.
 var defMap = map[string]int32{
