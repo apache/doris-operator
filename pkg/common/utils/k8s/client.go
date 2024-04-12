@@ -38,7 +38,9 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 
 	//resolve the bug: metadata.resourceversion invalid value '' must be specified for an update
 	svc.ResourceVersion = esvc.ResourceVersion
-	return UpdateClientObject(ctx, k8sclient, svc)
+
+	// TODO : Verify and figure out the difference between update and patch
+	return PatchClientObject(ctx, k8sclient, svc)
 }
 
 // ApplyStatefulSet when the object is not exist, create object. if exist and statefulset have been updated, patch the statefulset.
@@ -74,17 +76,6 @@ func UpdateClientObject(ctx context.Context, k8sclient client.Client, object cli
 	if err := k8sclient.Update(ctx, object); err != nil {
 		return err
 	}
-	return nil
-}
-
-func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
-	klog.V(4).Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
-	if err := k8sclient.Update(ctx, object); apierrors.IsNotFound(err) {
-		return k8sclient.Create(ctx, object)
-	} else if err != nil {
-		return err
-	}
-
 	return nil
 }
 

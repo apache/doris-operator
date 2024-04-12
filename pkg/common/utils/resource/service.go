@@ -133,10 +133,12 @@ func constructServiceSpec(exportService *v1.ExportService, svc *corev1.Service, 
 	}
 
 	svc.Spec = corev1.ServiceSpec{
-		Selector: selector,
-		Ports:    ports,
+		Selector:        selector,
+		Ports:           ports,
+		SessionAffinity: corev1.ServiceAffinityClientIP,
 	}
 
+	// The external load balancer provided by the cloud provider may cause the client IP received by the service to change.
 	if exportService != nil && exportService.Type == corev1.ServiceTypeLoadBalancer {
 		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
 	}
