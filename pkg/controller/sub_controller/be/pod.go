@@ -13,6 +13,7 @@ import (
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_BE)
 	be.addFeAntiAffinity(&podTemplateSpec)
+	be.addTerminationGracePeriodSeconds(dcr, &podTemplateSpec)
 
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
@@ -79,4 +80,15 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	})
 
 	return c
+}
+
+// Only configure the TerminationGracePeriodSeconds when grace_shutdown_wait_seconds configured in be.conf
+func (be *Controller) addTerminationGracePeriodSeconds(dcr *v1.DorisCluster, tplSpec *corev1.PodTemplateSpec) {
+	config, _ := be.GetConfig(context.Background(), &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_BE)
+	seconds := resource.GetTerminationGracePeriodSeconds(config)
+	if seconds > 0 {
+		tplSpec.Spec.TerminationGracePeriodSeconds = &seconds
+		return
+	}
+	return
 }
