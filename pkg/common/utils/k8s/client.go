@@ -79,6 +79,17 @@ func UpdateClientObject(ctx context.Context, k8sclient client.Client, object cli
 	return nil
 }
 
+func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
+	klog.V(4).Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
+	if err := k8sclient.Update(ctx, object); apierrors.IsNotFound(err) {
+		return k8sclient.Create(ctx, object)
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // PatchClientObject patch object when the object exist. if not return error.
 func PatchClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
 	klog.V(4).Infof("patch resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
