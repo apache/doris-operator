@@ -80,7 +80,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return resource.StatefulSetDeepEqual(new, est, false)
 	}); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
-			st.Name, st.Namespace)
+			st.Name, st.Namespace, dcr.Name, err.Error())
 		return err
 	}
 

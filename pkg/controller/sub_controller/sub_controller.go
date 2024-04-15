@@ -165,10 +165,14 @@ func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
 	return false
 }
 
-// Control the conditions for comparing.
+// RestrictConditionsEqual adds two StatefulSet,
+// It is used to control the conditions for comparing.
+// nst StatefulSet - a new StatefulSet
+// est StatefulSet - an old StatefulSet
 func (d *SubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, est *appv1.StatefulSet) {
 	//shield persistent volume update when the pvcProvider=Operator
 	//in webhook should intercept the volume spec updated when use statefulset pvc.
+	// TODO: updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden
 	nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
 }
 

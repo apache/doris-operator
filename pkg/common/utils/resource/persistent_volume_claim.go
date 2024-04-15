@@ -18,14 +18,14 @@ func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespa
 		pvcName = volume.Name + "-" + pvcName
 	}
 
-	finalAnnotations := buildPVCAnnotations(volume)
+	annotations := buildPVCAnnotations(volume)
 
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pvcName,
 			Namespace:   namespace,
 			Labels:      labels,
-			Annotations: finalAnnotations,
+			Annotations: annotations,
 			Finalizers:  []string{pvc_finalizer},
 		},
 		Spec: volume.PersistentVolumeClaimSpec,
@@ -35,12 +35,13 @@ func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespa
 
 // finalAnnotations is a combination of user annotations and operator default annotations
 func buildPVCAnnotations(volume dorisv1.PersistentVolume) Annotations {
-	finalAnnotations := Annotations{
+	annotations := Annotations{
+		// TODO is need pvc_manager_annotation?
 		pvc_manager_annotation:        "operator",
 		dorisv1.ComponentResourceHash: hash.HashObject(volume.PersistentVolumeClaimSpec),
 	}
 	if volume.Annotations != nil && len(volume.Annotations) > 0 {
-		finalAnnotations.AddAnnotation(volume.Annotations)
+		annotations.AddAnnotation(volume.Annotations)
 	}
-	return finalAnnotations
+	return annotations
 }

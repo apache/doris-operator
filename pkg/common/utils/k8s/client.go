@@ -38,8 +38,6 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 
 	//resolve the bug: metadata.resourceversion invalid value '' must be specified for an update
 	svc.ResourceVersion = esvc.ResourceVersion
-
-	// TODO : Verify and figure out the difference between update and patch
 	return PatchClientObject(ctx, k8sclient, svc)
 }
 
