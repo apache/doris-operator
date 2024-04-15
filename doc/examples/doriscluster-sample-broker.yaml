@@ -9,7 +9,7 @@ metadata:
 spec:
   feSpec:
     replicas: 1
-    image: selectdb/doris.fe-ubuntu:2.0.2
+    image: selectdb/doris.fe-ubuntu:2.1.1
     limits:
       cpu: 8
       memory: 16Gi
@@ -18,7 +18,7 @@ spec:
       memory: 16Gi
   beSpec:
     replicas: 1
-    image: selectdb/doris.be-ubuntu:2.0.2
+    image: selectdb/doris.be-ubuntu:2.1.1
     limits:
       cpu: 8
       memory: 16Gi
@@ -27,7 +27,7 @@ spec:
       memory: 16Gi
   brokerSpec:
     replicas: 1
-    image: selectdb/doris.broker-ubuntu:2.0.2
+    image: selectdb/doris.broker-ubuntu:2.1.1
     limits:
       cpu: 2
       memory: 4Gi
