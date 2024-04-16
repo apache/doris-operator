@@ -35,10 +35,12 @@ func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespa
 
 // finalAnnotations is a combination of user annotations and operator default annotations
 func buildPVCAnnotations(volume dorisv1.PersistentVolume) Annotations {
-	annotations := Annotations{
-		pvc_manager_annotation:        "operator",
-		dorisv1.ComponentResourceHash: hash.HashObject(volume.PersistentVolumeClaimSpec),
+	annotations := Annotations{}
+	if volume.PVCProvisioner == dorisv1.PVCProvisionerOperator {
+		annotations.Add(pvc_manager_annotation, "operator")
+		annotations.Add(dorisv1.ComponentResourceHash, hash.HashObject(volume.PersistentVolumeClaimSpec))
 	}
+
 	if volume.Annotations != nil && len(volume.Annotations) > 0 {
 		annotations.AddAnnotation(volume.Annotations)
 	}

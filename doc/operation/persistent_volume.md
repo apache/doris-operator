@@ -48,6 +48,8 @@ spec:
     persistentVolumes:
     - mountPath: /opt/apache-doris/fe/doris-meta
       name: storage0
+        "csi.storage.k8s.io/node-publish-secret-name": "fe-data"
+        "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
         # when use specific storageclass, the storageClassName should reConfig, example as annotation.
         storageClassName: ${your_storageclass}
@@ -59,6 +61,8 @@ spec:
             storage: 100Gi
     - mountPath: /opt/apache-doris/fe/log
       name: storage1
+        "csi.storage.k8s.io/node-publish-secret-name": "fe-data"
+        "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
         # when use specific storageclass, the storageClassName should reConfig, example as annotation.
         storageClassName: ${your_storageclass}
@@ -79,6 +83,8 @@ spec:
     persistentVolumes:
     - mountPath: /opt/apache-doris/be/storage
       name: storage2
+        "csi.storage.k8s.io/node-publish-secret-name": "be-data"
+        "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
         # when use specific storageclass, the storageClassName should reConfig, example as annotation.
         storageClassName: ${your_storageclass}
@@ -89,6 +95,8 @@ spec:
             storage: 100Gi
     - mountPath: /opt/apache-doris/be/log
       name: storage3
+        "csi.storage.k8s.io/node-publish-secret-name": "be-data"
+        "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
         # when use specific storageclass, the storageClassName should reConfig, example as annotation.
         storageClassName: ${your_storageclass}

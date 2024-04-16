@@ -18,7 +18,7 @@ Users custom `DorisCluster` CRD to deploy doris as demand.
 ## Installation
 1. Install custom resource definitions:  
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s  https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/doris.selectdb.com_dorisclusters.yaml
+kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s  https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/doris.selectdb.com_dorisclusters.yaml
 ```
 2. Install the operator with its RBAC rules:  
 the default deployed namespace is doris, when deploy on specific namespace, please pull yaml and update `namespace` field.
