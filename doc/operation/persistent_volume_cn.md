@@ -63,6 +63,7 @@ spec:
             storage: 100Gi
     - mountPath: /opt/apache-doris/fe/log
       name: storage1
+      annotations:
         "csi.storage.k8s.io/node-publish-secret-name": "fe-data"
         "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
@@ -85,6 +86,7 @@ spec:
     persistentVolumes:
     - mountPath: /opt/apache-doris/be/storage
       name: storage2
+      annotations:
         "csi.storage.k8s.io/node-publish-secret-name": "be-data"
         "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
@@ -97,6 +99,7 @@ spec:
             storage: 100Gi
     - mountPath: /opt/apache-doris/be/log
       name: storage3
+      annotations:
         "csi.storage.k8s.io/node-publish-secret-name": "be-data"
         "csi.storage.k8s.io/node-publish-secret-namesspace": "doris"
       persistentVolumeClaimSpec:
