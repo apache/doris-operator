@@ -30,10 +30,10 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	for _, vct := range bSpec.PersistentVolumes {
-		name := vct.Name
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
+				Name:        vct.Name,
+				Annotations: buildPVCAnnotations(vct),
 			},
 			Spec: vct.PersistentVolumeClaimSpec,
 		}

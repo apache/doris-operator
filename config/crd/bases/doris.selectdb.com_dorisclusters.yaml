@@ -1367,6 +1367,14 @@ spec:
                       description: PersistentVolume defines volume information and
                         container mount information.
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: Annotation for PVC pods. Users can adapt the
+                            storage authentication and pv binding of the cloud platform
+                            through configuration. It only takes effect in the first
+                            configuration and cannot be added or modified later.
+                          type: object
                         mountPath:
                           description: the mount path for component service.
                           type: string
@@ -3225,6 +3233,14 @@ spec:
                       description: PersistentVolume defines volume information and
                         container mount information.
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: Annotation for PVC pods. Users can adapt the
+                            storage authentication and pv binding of the cloud platform
+                            through configuration. It only takes effect in the first
+                            configuration and cannot be added or modified later.
+                          type: object
                         mountPath:
                           description: the mount path for component service.
                           type: string
@@ -5756,6 +5772,14 @@ spec:
                       description: PersistentVolume defines volume information and
                         container mount information.
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: Annotation for PVC pods. Users can adapt the
+                            storage authentication and pv binding of the cloud platform
+                            through configuration. It only takes effect in the first
+                            configuration and cannot be added or modified later.
+                          type: object
                         mountPath:
                           description: the mount path for component service.
                           type: string
@@ -7614,6 +7638,14 @@ spec:
                       description: PersistentVolume defines volume information and
                         container mount information.
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: Annotation for PVC pods. Users can adapt the
+                            storage authentication and pv binding of the cloud platform
+                            through configuration. It only takes effect in the first
+                            configuration and cannot be added or modified later.
+                          type: object
                         mountPath:
                           description: the mount path for component service.
                           type: string

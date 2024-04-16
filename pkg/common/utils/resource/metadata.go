@@ -35,13 +35,13 @@ func (l Labels) AddLabel(label Labels) {
 type Annotations map[string]string
 
 func NewAnnotations(annotations ...Annotations) Annotations {
-	anotation := Annotations{}
+	annotation := Annotations{}
 	for _, a := range annotations {
 		for k, v := range a {
-			anotation[k] = v
+			annotation[k] = v
 		}
 	}
-	return anotation
+	return annotation
 }
 
 func (a Annotations) Add(key, value string) {

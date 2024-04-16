@@ -212,6 +212,10 @@ type PersistentVolume struct {
 	//the volume name associate with
 	Name string `json:"name,omitempty"`
 
+	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
+	//It only takes effect in the first configuration and cannot be added or modified later.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	//defines pvc provisioner
 	PVCProvisioner PVCProvisioner `json:"provisioner,omitempty"`
 }

@@ -109,7 +109,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	//subControllers reconcile for create or update sub resource.
 	for _, rc := range r.Scs {
 		if err := rc.Sync(ctx, dcr); err != nil {
-			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace ", dcr.Namespace, " name ", dcr.Name, " controller ", rc.GetControllerName(), " faield ", err)
+			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace: ", dcr.Namespace, " name: ", dcr.Name, " controller: ", rc.GetControllerName(), " error: ", err)
 			return requeueIfError(err)
 		}
 	}
