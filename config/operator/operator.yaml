@@ -321,7 +321,7 @@ spec:
           args:
             - --leader-elect
           image: selectdb/doris.k8s-operator:latest
-          imagePullSecrets: Always
+          imagePullPolicy: Always
           name: dorisoperator
           securityContext:
             allowPrivilegeEscalation: false
