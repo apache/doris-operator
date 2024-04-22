@@ -60,7 +60,7 @@ feSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap:
+  configMap: {}
     # 'fe.conf' is the startup config file of fe, and the name must be 'fe.conf'.
     # fe.conf: |
     #   http_port = 8030
@@ -224,7 +224,7 @@ beSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap:
+  configMap: {}
     # 'be.conf' is the startup config file of be, and the name must be 'be.conf'.
     # be.conf: |
     #   be_port = 9060
@@ -389,7 +389,7 @@ cnSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap:
+  configMap: {}
     # 'be.conf' is the startup config file of cn, and the name must be 'be.conf'.
     # be.conf: |
     #   be_port = 9060
@@ -397,6 +397,7 @@ cnSpec:
     #   heartbeat_service_port = 9050
     #   brpc_port = 8060
     #   storage_root_path = /data/doris/be/storage
+    #   be_node_role=computation
     # Other config files can also be specified here
     # hdfs-site.xml: |
     #   <?xml version="1.0" encoding="UTF-8"?>
@@ -551,7 +552,7 @@ brokerSpec:
   # specify the configMap, as a dictionary.
   # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
   # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
-  configMap:
+  configMap: {}
     # 'apache_hdfs_broker.conf' is the startup config file of broker, and the name must be 'apache_hdfs_broker.conf'.
     # apache_hdfs_broker.conf: |
     #   broker_ipc_port: 8000
