@@ -177,6 +177,26 @@ func PodIsReady(status *corev1.PodStatus) bool {
 	return true
 }
 
+// get the secret by namespace and name.
+func GetSecret(ctx context.Context, k8sclient client.Client, namespace, name string) (*corev1.Secret, error) {
+	var secret corev1.Secret
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &secret); err != nil {
+		return nil, err
+	}
+	return &secret, nil
+}
+
+func CreateSecret(ctx context.Context, k8sclient client.Client, secret *corev1.Secret) error {
+	return k8sclient.Create(ctx, secret)
+}
+
+func UpdateSecret(ctx context.Context, k8sclient client.Client, secret *corev1.Secret) error {
+	if err := k8sclient.Update(ctx, secret); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetConfigMap get the configmap name=name, namespace=namespace.
 func GetConfigMap(ctx context.Context, k8scient client.Client, namespace, name string) (*corev1.ConfigMap, error) {
 	var configMap corev1.ConfigMap
