@@ -17,13 +17,19 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/cmd/operator/conf"
+	"github.com/selectdb/doris-operator/pkg/common/utils/certificate"
 	"github.com/selectdb/doris-operator/pkg/controller"
+	"github.com/selectdb/doris-operator/pkg/controller/unnamedwatches"
 	"io"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
 	"os"
+	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -39,10 +45,9 @@ import (
 )
 
 var (
-	scheme        = runtime.NewScheme()
-	setupLog      = ctrl.Log.WithName("setup")
-	printVar      bool
-	enableWebHook = true
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
+	printVar bool
 )
 
 var (
@@ -64,41 +69,31 @@ func init() {
 
 	utilruntime.Must(dorisv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{})
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var namespace string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&namespace, "namespace", v12.NamespaceAll, "The namespace to watch for changes.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&printVar, "version", false, "Prints current version.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
+	//parse then parameters from console.
+	f := conf.ParseFlags()
+	//parse env
+	envs := conf.ParseEnvs()
+	//print version infos.
+	printVersionInfos(f.PrintVar)
 
-	if printVar {
-		Print(os.Stdout)
-		return
-	}
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&f.Opts)))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     f.MetricsAddr,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		Namespace:              namespace,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: f.ProbeAddr,
+		Namespace:              f.Namespace,
+		LeaderElection:         f.EnableLeaderElection,
 		LeaderElectionID:       "e1370669.selectdb.com",
+		//if one reconcile failed, others will not be affected.
+		Controller: v1alpha1.ControllerConfigurationSpec{
+			RecoverPanic: pointer.Bool(true),
+		},
+
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -116,16 +111,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	options := conf.NewControllerOptions(envs)
 	//initial all controllers
 	for _, c := range controller.Controllers {
-		c.Init(mgr)
+		c.Init(mgr, options)
 	}
-
-	////TODO: modify to config
-	//(&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr)
-
-	//+kubebuilder:scaffold:builder
-
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -134,10 +124,38 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+	//wait for the secret have
+	interval := time.Second * 1
+	timeout := time.Second * 30
+	keyPath := filepath.Join(mgr.GetWebhookServer().CertDir, certificate.TLsCertName)
+	err = wait.PollImmediate(interval, timeout, func() (bool, error) {
+		_, err := os.Stat(keyPath)
+		if os.IsNotExist(err) {
+			setupLog.Info("webhook certificate have not present waiting kubelet update", "file", keyPath)
+			return false, nil
+		} else if err != nil {
+			setupLog.Info("check webhook certificate ", "path", keyPath, "err=", err.Error())
+			return false, err
+		}
 
-	setupLog.Info("starting manager")
+		setupLog.Info("webhook certificate file exit.")
+		return true, nil
+	})
+
+	if err != nil {
+		setupLog.Error(err, "check webhook certificate failed")
+		os.Exit(1)
+	}
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+// print version information of now operator.
+func printVersionInfos(print bool) {
+	if print {
+		Print(os.Stdout)
+		os.Exit(0)
 	}
 }

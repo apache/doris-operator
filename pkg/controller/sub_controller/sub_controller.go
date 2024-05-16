@@ -93,6 +93,7 @@ func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dor
 	return res, utils.MergeError(err, resolveErr)
 }
 
+// generate map for mountpath:configmap
 func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
 	var configMapInfo dorisv1.ConfigMapInfo
 	switch componentType {
