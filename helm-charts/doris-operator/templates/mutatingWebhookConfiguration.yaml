@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: doris-operator-mutate-webhook
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: {{ template "webhook.serviceName" . }}
+        namespace: {{ template "operator.namespace" . }}
+        path: /mutate-doris-selectdb-com-v1-doriscluster
+    failurePolicy: Ignore
+    name: mdoriscluster.kb.io
+    rules:
+      - apiGroups:
+          - doris.selectdb.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisclusters
+    sideEffects: None
