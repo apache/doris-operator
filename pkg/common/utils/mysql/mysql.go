@@ -16,12 +16,10 @@ type DBConfig struct {
 	Database string
 }
 
-// DB 封装了*sql.DB的接口，以便添加自定义方法
 type DB struct {
 	*sqlx.DB
 }
 
-// NewDB 初始化DB结构，返回*DB的指针
 func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
 	db, err := sqlx.Open("mysql", dsn)
