@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: doris-operator-validate-webhook
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: {{ template "webhook.serviceName" . }}
+        namespace: {{ template "operator.namespace" . }}
+        path: /validate-doris-selectdb-com-v1-doriscluster
+    failurePolicy: Ignore
+    name: vdoriscluster.kb.io
+    rules:
+      - apiGroups:
+          - doris.selectdb.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisclusters
+    sideEffects: None
