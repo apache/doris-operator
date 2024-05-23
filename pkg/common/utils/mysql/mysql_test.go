@@ -23,6 +23,13 @@ func TestAPIs(t *testing.T) {
 	}
 	defer db.Close()
 
+	// get master
+	master, err := db.GetMaster()
+	if err != nil {
+		fmt.Printf("get master err:%s \n", err.Error())
+	}
+	fmt.Printf("getmaster :%+v \n", master)
+
 	// ShowFrontends
 	frontends, err := db.ShowFrontends()
 	if err != nil {
@@ -38,9 +45,9 @@ func TestAPIs(t *testing.T) {
 	fmt.Printf("ShowBackends :%+v \n", bes)
 
 	// DropObserver
-	arr := []FrontEnd{
-		FrontEnd{Host: "doriscluster-sample-fe-1.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
-		FrontEnd{Host: "doriscluster-sample-fe-2.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
+	arr := []Frontend{
+		Frontend{Host: "doriscluster-sample-fe-1.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
+		Frontend{Host: "doriscluster-sample-fe-2.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
 	}
 
 	db.DropObserver(arr)
@@ -58,8 +65,8 @@ func TestAPIs(t *testing.T) {
 	}
 	db.DecommissionBE(arr1)
 	for i := 0; i < 20000; i++ {
-		finished, err := db.DecommissionBECheck(arr1)
-		fmt.Printf("DecommissionBE check for : {%d : %t \n}", i, finished)
+		finished, err := db.CheckDecommissionBE(arr1)
+		fmt.Printf("DecommissionBE check %d : is_finished=%t } \n", i, finished)
 		if err != nil {
 			fmt.Printf("DecommissionBEcheck err:%s \n", err.Error())
 		}
