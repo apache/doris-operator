@@ -148,7 +148,7 @@ type BaseSpec struct {
 	//+optional
 	ConfigMapInfo ConfigMapInfo `json:"configMapInfo,omitempty"`
 
-	//defines the specification of resource cpu and mem.
+	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "16Gi"},"limits":{"cpu":4,"memory":"16Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 	// (Optional) If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
 	// +optional
@@ -389,7 +389,6 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
-// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`
