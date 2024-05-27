@@ -17,7 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -56,8 +58,26 @@ func (r *DorisCluster) ValidateCreate() error {
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 	klog.Info("validate update", "name", r.Name)
+	var errors []error
+	oldCluster, ok := old.(*DorisCluster)
+	if !ok {
+		klog.Info(fmt.Sprintf("unexpected old CRD cluster type %T", old))
+	} else {
+		if oldCluster.Spec.FeSpec.ElectionNumber != r.Spec.FeSpec.ElectionNumber {
+			errors = append(errors, fmt.Errorf("changes in the number of ElectionNumber are not allowed"))
+		}
 
-	// TODO(user): fill in your validation logic upon object update.
+		if *r.Spec.FeSpec.Replicas < *oldCluster.Spec.FeSpec.Replicas && *r.Spec.FeSpec.Replicas < *r.Spec.FeSpec.ElectionNumber {
+			//if electionNumber > *est.Spec.Replicas ,Replicas should be corrected to *est.Spec.Replicas
+			//if electionNumber < *est.Spec.Replicas ,Replicas should be corrected to electionNumber
+			// ...
+		}
+
+	}
+	if len(errors) != 0 {
+		return kerrors.NewAggregate(errors)
+	}
+
 	return nil
 }
 

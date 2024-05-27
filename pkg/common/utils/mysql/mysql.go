@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -25,12 +24,12 @@ func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
-		klog.Errorf("failed open doris sql client connection, err: %s \n", err)
+		klog.Errorf("failed open doris sql client connection, err: %s \n", err.Error())
 		return nil, err
 	}
 
 	if err = db.Ping(); err != nil {
-		klog.Errorf("failed ping doris sql client connection, err: %s\n", err.Error())
+		klog.Errorf("failed ping doris sql client connection, err: %s \n", err.Error())
 		return nil, err
 	}
 	return &DB{db}, nil
@@ -90,17 +89,37 @@ func (db *DB) DropObserver(nodes []Frontend) error {
 	return err
 }
 
-func (db *DB) GetMaster() (*Frontend, error) {
+func (db *DB) GetObserves() (*[]Frontend, error) {
 	frontends, err := db.ShowFrontends()
 	if err != nil {
-		klog.Errorf("GetMaster show frontends failed, err: %s\n", err.Error())
+		klog.Errorf("GetObserves show frontends failed, err: %s\n", err.Error())
 		return nil, err
 	}
+	var res []Frontend
 	for _, fe := range frontends {
-		if fe.IsMaster {
-			return &fe, nil
+		if fe.Role == FE_OBSERVE_ROLE {
+			res = append(res, fe)
 		}
 	}
-	errMessage := fmt.Sprintf("GetMaster note not find fe master, all of fe nodes info as such: %+v", frontends)
-	return nil, errors.New(errMessage)
+	return &res, nil
+}
+
+// GetFollowers return fe master,all followers(including master) and err
+func (db *DB) GetFollowers() (*Frontend, *[]Frontend, error) {
+	frontends, err := db.ShowFrontends()
+	if err != nil {
+		klog.Errorf("GetFollowers show frontends failed, err: %s\n", err.Error())
+		return nil, nil, err
+	}
+	var res []Frontend
+	var master Frontend
+	for _, fe := range frontends {
+		if fe.Role == FE_FOLLOWER_ROLE {
+			res = append(res, fe)
+			if fe.IsMaster {
+				master = fe
+			}
+		}
+	}
+	return &master, &res, nil
 }

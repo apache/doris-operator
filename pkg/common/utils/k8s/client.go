@@ -223,3 +223,12 @@ func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string
 	}
 	return configMaps, nil
 }
+
+// get the Service by namespace and name.
+func GetService(ctx context.Context, k8sclient client.Client, namespace, name string) (*corev1.Service, error) {
+	var svc corev1.Service
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &svc); err != nil {
+		return nil, err
+	}
+	return &svc, nil
+}

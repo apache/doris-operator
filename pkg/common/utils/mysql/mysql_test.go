@@ -23,12 +23,12 @@ func TestAPIs(t *testing.T) {
 	}
 	defer db.Close()
 
-	// get master
-	master, err := db.GetMaster()
-	if err != nil {
-		fmt.Printf("get master err:%s \n", err.Error())
-	}
-	fmt.Printf("getmaster :%+v \n", master)
+	//// get master
+	//master, err := db.GetMaster()
+	//if err != nil {
+	//	fmt.Printf("get master err:%s \n", err.Error())
+	//}
+	//fmt.Printf("getmaster :%+v \n", master)
 
 	// ShowFrontends
 	frontends, err := db.ShowFrontends()

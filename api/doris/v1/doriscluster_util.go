@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"strings"
 )
@@ -330,4 +331,11 @@ func getFeAddrForBroker(dcr *DorisCluster) (string, int) {
 	}
 
 	return getFEAccessAddrForFEADD(dcr)
+}
+
+func GetClusterSecret(secret *corev1.Secret) (adminUserName, password string) {
+	if secret != nil && secret.Data != nil {
+		return string(secret.Data["username"]), string(secret.Data["password"])
+	}
+	return "root", ""
 }

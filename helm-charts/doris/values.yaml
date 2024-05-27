@@ -22,7 +22,7 @@ dorisCluster:
   # 1. run shell:  echo -n '{your_password}' | base64    to get password base64 string
   # 2. run shell:  echo -n '{your_user}' | base64        to get user base64 string
   # 3. Fill the encrypted string into the corresponding position
-  # as follow, username is 'root' , password is 't0p-Secre'
+  # as follow, username is 'root' , password is 't0p-Secret'
   authSecret: {}
   # username: cm9vdA==
   # password: dDBwLVNlY3JldA==
