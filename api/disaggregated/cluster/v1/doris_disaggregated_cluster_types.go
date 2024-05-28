@@ -23,7 +23,7 @@ type DorisDisaggregatedClusterSpec struct {
 	FeSpec FeSpec `json:"feSpec,omitempty"`
 
 	//ComputeGroups describe a list of computeGroup, computeGroup is a group of compute node to do same thing.
-	ComputeGroups ComputeGroups `json:"computeGroups,omitempty"`
+	ComputeGroups []ComputeGroup `json:"computeGroups,omitempty"`
 }
 
 type MetaService struct {
@@ -34,32 +34,11 @@ type MetaService struct {
 	//MsPort specify the port of ms listen.
 	MsPort int32 `json:"msPort,omitempty"`
 }
-type ComputeGroups struct {
-	//image specify the fist choice for compute group, if computegroup not set image, operator will use this `image` to set computegroup image.
-	Image string `json:"image,omitempty"`
-
-	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
-	// If specified, these secrets will be passed to individual puller implementations for them to use.
-	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
-	// +optional
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-
-	//ComputeGroupList contains a list of computegroup.
-	ComputeGroupList []ComputeGroup `json:"computeGroupList,omitempty"`
-}
 
 type FeSpec struct {
 	//Image is the fe of Disaggregated docker image to deploy. please reference the selectdb repository to find.
 	Image string `json:"image,omitempty"`
 
-	//Replicas represent the number of fe. default is 2. fe is master-slave architecture only one is master.
-	Replicas *int32 `json:"replicas,omitempty"`
-
-	//ClusterId is the unique identifier of fe. if not set, operator will set as `cluster_fe`.
-	ClusterId string `json:"ClusterId,omitempty"`
-
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
@@ -67,6 +46,9 @@ type FeSpec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	//Replicas represent the number of fe. default is 2. fe is master-slave architecture only one is master.
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	// usually not need config, operator will set default {"requests": {"cpu": 4, "memory": "8Gi"}, "limits": {"cpu": 4, "memory": "8Gi"}}
@@ -89,6 +71,12 @@ type FeSpec struct {
 	// (Optional) Tolerations for scheduling pods onto some dedicated nodes
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// export metaservice for accessing from outside k8s.
+	Service *ExportService `json:"service,omitempty"`
+
+	// ConfigMaps describe all configmaps that need to be mounted.
+	ConfigMaps []ConfigMap `json:"configMaps,omitempty"`
 }
 
 // ComputeGroup describe the specification that a group of compute node.
@@ -142,7 +130,8 @@ type ConfigMap struct {
 	//Name specify the configmap in deployed namespace that need to be mounted in pod.
 	Name string `json:"name,omitempty"`
 
-	//MountPath specify the position of configmap be mounted.
+	//MountPath specify the position of configmap be mounted. the component start conf please mount to /etc/doris, ep: fe-configmap contains 'fe.conf', mountPath must be '/etc/doris'.
+	// key in configMap's data is file name.
 	MountPath string `json:"mountPath,omitempty"`
 }
 
