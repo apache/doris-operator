@@ -70,7 +70,7 @@ func (wr *WResource) ReconcileResource(ctx context.Context) error {
 
 func (wr *WResource) Init(mgr ctrl.Manager, options *pc.Options) {
 	if !options.EnableWebHook {
-		klog.Infof("wresource init not enable.")
+		klog.Infof("wresource init not enable and WebHook not enable.")
 		return
 	}
 

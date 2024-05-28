@@ -280,7 +280,7 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 		klog.Error(err, " unable to create controller ", "controller ", "DorisCluster ")
 		os.Exit(1)
 	}
-	klog.Infof("dorisclusterreconcile %s", options.EnableWebHook)
+	klog.Infof("dorisclusterreconcile %t", options.EnableWebHook)
 	if options.EnableWebHook {
 		if err := (&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			klog.Error(err, " unable to create unnamedwatches ", " controller ", " DorisCluster ")

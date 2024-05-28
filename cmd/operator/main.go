@@ -124,28 +124,33 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
-	//wait for the secret have
-	interval := time.Second * 1
-	timeout := time.Second * 30
-	keyPath := filepath.Join(mgr.GetWebhookServer().CertDir, certificate.TLsCertName)
-	err = wait.PollImmediate(interval, timeout, func() (bool, error) {
-		_, err := os.Stat(keyPath)
-		if os.IsNotExist(err) {
-			setupLog.Info("webhook certificate have not present waiting kubelet update", "file", keyPath)
-			return false, nil
-		} else if err != nil {
-			setupLog.Info("check webhook certificate ", "path", keyPath, "err=", err.Error())
-			return false, err
+
+	// enable webhook, check webhook certificate
+	if options.EnableWebHook {
+		//wait for the secret have
+		interval := time.Second * 1
+		timeout := time.Second * 30
+		keyPath := filepath.Join(mgr.GetWebhookServer().CertDir, certificate.TLsCertName)
+		err = wait.PollImmediate(interval, timeout, func() (bool, error) {
+			_, err := os.Stat(keyPath)
+			if os.IsNotExist(err) {
+				setupLog.Info("webhook certificate have not present waiting kubelet update", "file", keyPath)
+				return false, nil
+			} else if err != nil {
+				setupLog.Info("check webhook certificate ", "path", keyPath, "err=", err.Error())
+				return false, err
+			}
+
+			setupLog.Info("webhook certificate file exit.")
+			return true, nil
+		})
+
+		if err != nil {
+			setupLog.Error(err, "check webhook certificate failed")
+			os.Exit(1)
 		}
-
-		setupLog.Info("webhook certificate file exit.")
-		return true, nil
-	})
-
-	if err != nil {
-		setupLog.Error(err, "check webhook certificate failed")
-		os.Exit(1)
 	}
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
