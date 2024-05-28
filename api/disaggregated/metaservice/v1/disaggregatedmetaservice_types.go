@@ -55,13 +55,14 @@ type FoundationDB struct {
 	// usually not need config, operator will set default {"requests": {"cpu": 4, "memory": "8Gi"}, "limits": {"cpu": 4, "memory": "8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 
+	// VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
+	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
+
 	//Labels for organize and categorize objects
 	Labels map[string]string `json:"labels,omitempty"`
 	//Annotations is an unstructured key value map stored with a resource that may be
 	// set by external tools to store and retrieve arbitrary metadata.
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
-	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 
 	//+optional
 	// Affinity is a group of affinity scheduling rules.
@@ -84,7 +85,7 @@ type MetaService struct {
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
-	//Replicas represent the number of metaservice. default is 1. anytime only one working, config replicas=2 is high availability, more than 2 is unnecessary.
+	//Replicas represent the number of metaservice. default is 2. anytime only one working, config replicas=2 is high availability, more than 2 is unnecessary.
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
