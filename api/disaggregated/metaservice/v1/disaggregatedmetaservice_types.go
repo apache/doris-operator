@@ -248,3 +248,7 @@ const (
 	//Creating represents service in creating stage.
 	Creating MetaServicePhase = "Creating"
 )
+
+func init() {
+	SchemeBuilder.Register(&DorisDisaggregatedMetaService{}, &DorisDisaggregatedMetaServiceList{})
+}
