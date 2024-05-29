@@ -90,6 +90,8 @@ type ComputeGroup struct {
 	//CloudUniqueId represents the cloud code, if deployed in cloud platform. default cloudUniqueId=clusterId.
 	CloudUniqueId string `json:"cloudUniqueId,omitempty"`
 
+	//Image is the be of Disaggregated docker image to deploy. please reference the selectdb repository to find.
+	Image string `json:"image,omitempty"`
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod

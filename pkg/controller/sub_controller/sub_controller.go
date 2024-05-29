@@ -33,6 +33,19 @@ type SubController interface {
 	UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 }
 
+type DisaggregatedSubController interface {
+	//Sync reconcile for sub controller. bool represent the component have updated.
+	Sync(ctx context.Context, obj client.Object) error
+	//clear all resource about sub-component.
+	ClearResources(ctx context.Context, obj client.Object) (bool, error)
+
+	//return the controller name, beController, feController,cnController for log.
+	GetControllerName() string
+
+	//UpdateStatus update the component status on src.
+	UpdateComponentStatus(obj client.Object) error
+}
+
 // SubDefaultController define common function for all component about doris.
 type SubDefaultController struct {
 	K8sclient   client.Client
