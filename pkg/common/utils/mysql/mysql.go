@@ -35,6 +35,10 @@ func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
 	return &DB{db}, nil
 }
 
+func (db *DB) Close() error {
+	return db.DB.Close()
+}
+
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return db.DB.Exec(query, args...)
 }
@@ -85,6 +89,8 @@ func (db *DB) DropObserver(nodes []Frontend) error {
 	for _, node := range nodes {
 		alter = alter + fmt.Sprintf(`ALTER SYSTEM DROP OBSERVER "%s:%d";`, node.Host, node.EditLogPort)
 	}
+	klog.Errorf("drop sql is :%s", alter)
+	//return errors.New("print err")
 	_, err := db.Exec(alter)
 	return err
 }

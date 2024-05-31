@@ -131,6 +131,13 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 	return cn.ClassifyPodsByStatus(cluster.Namespace, &cs.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas)
 }
 
+func (cn *Controller) GetComponentStatus(cluster *dorisv1.DorisCluster) dorisv1.ComponentPhase {
+	if cluster.Status.CnStatus != nil {
+		return cluster.Status.CnStatus.ComponentCondition.Phase
+	}
+	return dorisv1.Available
+}
+
 // autoscaler represents start autoscaler or not.
 func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSet, autoscaler bool) error {
 	//create or update the status. create statefulset return, must ensure the

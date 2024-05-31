@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
+	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/autoscaling/v1"
 	v2 "k8s.io/api/autoscaling/v2"
@@ -231,4 +233,62 @@ func GetService(ctx context.Context, k8sclient client.Client, namespace, name st
 		return nil, err
 	}
 	return &svc, nil
+}
+
+func GetPods(ctx context.Context, k8sclient client.Client, namespace string) (corev1.PodList, error) {
+	pods := corev1.PodList{}
+
+	options := client.ListOptions{
+		Namespace: namespace,
+	}
+
+	err := k8sclient.List(ctx, &pods, &options)
+	if err != nil {
+		return pods, err
+	}
+
+	for _, pod := range pods.Items {
+		fmt.Printf("pod --- Name: %s,  pod: %s \n", pod.GetName(), pod.Status.PodIP)
+	}
+	return pods, nil
+}
+
+func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
+	if len(cms) == 0 {
+		return make(map[string]interface{}), nil
+	}
+
+	configMaps, err := GetConfigMaps(ctx, k8sclient, namespace, cms)
+	if err != nil {
+		klog.Errorf("GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
+	}
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
+	return res, utils.MergeError(err, resolveErr)
+}
+
+func GetDorisClusterSituation(ctx context.Context, k8sclient client.Client, dcrName, namespace string) (*dorisv1.ClusterSituation, error) {
+	var edcr dorisv1.DorisCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
+		return nil, err
+	}
+	return &edcr.Status.ClusterSituation, nil
+}
+
+func SetDorisClusterSituation(
+	ctx context.Context,
+	k8sclient client.Client,
+	dcrName, namespace string,
+	situation dorisv1.ClusterSituation,
+) error {
+	var edcr dorisv1.DorisCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
+		return err
+	}
+	if edcr.Status.ClusterSituation.Situation == situation.Situation && edcr.Status.ClusterSituation.Retry == situation.Retry {
+		klog.Infof("UpdateDorisClusterSituation will not change cluster situation, it is already %s ,DCR name: %s, namespace: %s,", situation.Situation, dcrName, namespace)
+		return nil
+	}
+	edcr.Status.ClusterSituation = situation
+	return k8sclient.Status().Update(ctx, &edcr)
 }

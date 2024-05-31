@@ -122,3 +122,10 @@ func (be *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) 
 
 	return true, nil
 }
+
+func (be *Controller) GetComponentStatus(cluster *v1.DorisCluster) v1.ComponentPhase {
+	if cluster.Status.BEStatus != nil {
+		return cluster.Status.BEStatus.ComponentCondition.Phase
+	}
+	return v1.Available
+}

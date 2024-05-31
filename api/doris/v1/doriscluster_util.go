@@ -333,9 +333,35 @@ func getFeAddrForBroker(dcr *DorisCluster) (string, int) {
 	return getFEAccessAddrForFEADD(dcr)
 }
 
-func GetClusterSecret(secret *corev1.Secret) (adminUserName, password string) {
+func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, password string) {
 	if secret != nil && secret.Data != nil {
 		return string(secret.Data["username"]), string(secret.Data["password"])
 	}
+	// AdminUser was deprecated since 1.4.1
+	if dcr.Spec.AdminUser != nil {
+		return dcr.Spec.AdminUser.Name, dcr.Spec.AdminUser.Password
+	}
 	return "root", ""
+}
+
+func IsOperable(dcr *DorisCluster) bool {
+	return dcr.Status.ClusterSituation.Situation == SITUATION_OPERABLE
+}
+
+func setSituationOperable(dcr *DorisCluster) {
+	dcr.Status.ClusterSituation.Situation = SITUATION_OPERABLE
+	dcr.Status.ClusterSituation.Retry = RETRY_OPERATOR_NO
+}
+
+// SetSituationInit if Situation is ""
+func SetSituationInit(dcr *DorisCluster) {
+	if dcr.Status.ClusterSituation.Situation == "" {
+		dcr.Status.ClusterSituation.Situation = SITUATION_INITIALIZING
+	}
+}
+
+func SetSituationAfterInit(dcr *DorisCluster) {
+	if dcr.Status.ClusterSituation.Situation == SITUATION_INITIALIZING {
+		setSituationOperable(dcr)
+	}
 }

@@ -7,7 +7,7 @@ import (
 
 const (
 	FE_FOLLOWER_ROLE = "FOLLOWER"
-	FE_OBSERVE_ROLE  = "OBSERVE"
+	FE_OBSERVE_ROLE  = "OBSERVER"
 )
 
 type Frontend struct {

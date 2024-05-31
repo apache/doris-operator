@@ -37,6 +37,8 @@ const (
 const BROKER_IPC_PORT = "broker_ipc_port"
 const GRACE_SHUTDOWN_WAIT_SECONDS = "grace_shutdown_wait_seconds"
 
+const ENABLE_FQDN = "enable_fqdn_mode"
+
 // defMap the default port about abilities.
 var defMap = map[string]int32{
 	HTTP_PORT:              8030,
@@ -49,6 +51,21 @@ var defMap = map[string]int32{
 	HEARTBEAT_SERVICE_PORT: 9050,
 	BRPC_PORT:              8060,
 	BROKER_IPC_PORT:        8000,
+}
+
+func IsFQDN(config map[string]interface{}) bool {
+	// not use configmap
+	if len(config) == 0 {
+		return true
+	}
+
+	// use configmap
+	if v, ok := config[ENABLE_FQDN]; ok {
+		return v.(string) == "true"
+	} else {
+		return false
+	}
+
 }
 
 func GetDefaultPort(key string) int32 {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
@@ -29,6 +28,9 @@ type SubController interface {
 
 	//UpdateStatus update the component status on src.
 	UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
+
+	//get the component status on src.
+	GetComponentStatus(cluster *dorisv1.DorisCluster) dorisv1.ComponentPhase
 }
 
 // SubDefaultController define common function for all component about doris.
@@ -81,16 +83,11 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 }
 
 func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
-	cms := resource.GetMountConfigMapInfo(*configMapInfo)
-	if len(cms) == 0 {
-		return make(map[string]interface{}), nil
-	}
-	configMaps, err := k8s.GetConfigMaps(ctx, d.K8sclient, namespace, cms)
+	config, err := k8s.GetConfig(ctx, d.K8sclient, configMapInfo, namespace, componentType)
 	if err != nil {
 		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
-	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
-	return res, utils.MergeError(err, resolveErr)
+	return config, nil
 }
 
 // generate map for mountpath:configmap

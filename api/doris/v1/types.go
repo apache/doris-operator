@@ -312,6 +312,36 @@ type DorisServicePort struct {
 	TargetPort int32 `json:"targetPort,omitempty"`
 }
 
+// Cluster operation and maintenance status
+// The cluster can only be adjusted in the operable state
+type Situation string
+
+const (
+	SITUATION_INITIALIZING Situation = "initializing"
+	SITUATION_OPERABLE     Situation = "operable"
+	SITUATION_UPGRADING    Situation = "upgrading"
+	SITUATION_SCALING      Situation = "scaling"
+	SITUATION_RESTARTING   Situation = "restarting"
+)
+
+type RetrySign string
+
+const (
+	RETRY_OPERATOR_FE     RetrySign = "fe"
+	RETRY_OPERATOR_BE     RetrySign = "be"
+	RETRY_OPERATOR_CN     RetrySign = "cn"
+	RETRY_OPERATOR_BROKER RetrySign = "broker"
+	RETRY_OPERATOR_NO     RetrySign = ""
+)
+
+type ClusterSituation struct {
+	//describe the current status of the doris cluster, record operable, scaling, upgrading and restarting.
+	Situation Situation `json:"situation,omitempty"`
+
+	// describe change status task of the doris cluster need retry
+	Retry RetrySign `json:"retry,omitempty"`
+}
+
 // DorisClusterStatus defines the observed state of DorisCluster
 type DorisClusterStatus struct {
 	//describe fe cluster status, record running, creating and failed pods.
@@ -325,6 +355,9 @@ type DorisClusterStatus struct {
 
 	//describe broker cluster status, record running, creating and failed pods.
 	BrokerStatus *ComponentStatus `json:"brokerStatus,omitempty"`
+
+	//describe the current status of the doris cluster, record operable, scaling, upgrading and restarting.
+	ClusterSituation ClusterSituation `json:"clusterSituation,omitempty"`
 }
 
 type CnStatus struct {
@@ -386,6 +419,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="ClusterSituation",type=string,JSONPath=`.status.clusterSituation.situation`
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`

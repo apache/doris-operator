@@ -2,12 +2,15 @@ package fe
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,6 +57,10 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 	fs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_FE)
 
 	return fc.ClassifyPodsByStatus(cluster.Namespace, fs, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
+}
+
+func (fc *Controller) GetComponentStatus(cluster *v1.DorisCluster) v1.ComponentPhase {
+	return cluster.Status.FEStatus.ComponentCondition.Phase
 }
 
 // New construct a FeController.
@@ -107,37 +114,86 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return nil
 	}
 
-	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
-		//It is not allowed to set replicas smaller than electionNumber when scale down
-		// this Event warning will move to webhook
-		electionNumber := *cluster.Spec.FeSpec.ElectionNumber
-		if *st.Spec.Replicas < electionNumber && *st.Spec.Replicas < *est.Spec.Replicas {
-			//if electionNumber > *est.Spec.Replicas ,Replicas should be corrected to *est.Spec.Replicas
-			//if electionNumber < *est.Spec.Replicas ,Replicas should be corrected to electionNumber
-			*cluster.Spec.FeSpec.Replicas = min(electionNumber, *est.Spec.Replicas)
-			*st.Spec.Replicas = min(electionNumber, *est.Spec.Replicas)
-			fc.K8srecorder.Event(cluster, sub_controller.EventWarning, sub_controller.FollowerScaleDownFailed, "Replicas is not allow less than ElectionNumber,may violation of consistency agreement cause FE to be unavailable, replicas set to min(electionNumber, currentReplicas): "+string(min(electionNumber, *est.Spec.Replicas)))
-		}
+	// fe cluster operator
+	if err2 := fc.operator(ctx, st, *cluster); err2 != nil {
+		return err
+	}
 
-		//TODO：Here, need to add code to determine the amount of scale out observer, instead of writing the number 10
-		err2 := fc.ScaleOutObserver(ctx, fc.K8sclient, new, cluster, 10)
-		if err2 != nil {
-			klog.Errorf("ScaleOutObserver failed, err:%s ", err2.Error())
-		}
-		fc.RestrictConditionsEqual(new, est)
-
-		return resource.StatefulSetDeepEqual(new, est, false)
+	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
+		fc.RestrictConditionsEqual(new, old)
+		return resource.StatefulSetDeepEqual(new, old, false)
 	}); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, cluster.Name, err.Error())
 		return err
 	}
+
+	currentSituation, err := k8s.GetDorisClusterSituation(ctx, fc.K8sclient, cluster.Name, cluster.Namespace)
+	if err != nil {
+		klog.Errorf("after cluster operation GetDorisClusterSituation failed, err:%s ", err.Error())
+	}
+
+	if currentSituation.Situation != v1.SITUATION_INITIALIZING && currentSituation.Situation != "" {
+		err = k8s.SetDorisClusterSituation(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.ClusterSituation{v1.SITUATION_OPERABLE, v1.RETRY_OPERATOR_NO})
+		if err != nil {
+			klog.Errorf("SetDorisClusterSituation 'OPERABLE' failed, err:%s ", err.Error())
+		}
+	}
+
 	return nil
 }
 
-func min(a, b int32) int32 {
-	if a < b {
-		return a
+func (fc *Controller) operator(ctx context.Context, st appv1.StatefulSet, cluster v1.DorisCluster) error {
+	var oldSt appv1.StatefulSet
+	err := fc.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &oldSt)
+	situation, _ := k8s.GetDorisClusterSituation(ctx, fc.K8sclient, cluster.Name, cluster.Namespace)
+
+	if err != nil || situation == nil || situation.Situation == v1.SITUATION_INITIALIZING {
+		klog.Infof("skip cluster operation, cluster is in INITIALIZING situation")
+		return nil
 	}
-	return b
+
+	// update cluster not start cluster
+
+	//klog.Errorf("new.Spec.Replicas: %d ", *(st.Spec.Replicas))
+	//klog.Errorf("old.Spec.Replicas: %d ", *(oldSt.Spec.Replicas))
+	//klog.Errorf("cluster.Spec.FeSpec.Replicas: %d ", *(cluster.Spec.FeSpec.Replicas))
+	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
+	//klog.Errorf("scaleNumber : %d ", scaleNumber)
+
+	if situation.Situation != v1.SITUATION_OPERABLE && situation.Retry != v1.RETRY_OPERATOR_FE {
+		// means other task running, send Event warning
+		fc.K8srecorder.Eventf(
+			&cluster, sub_controller.EventWarning,
+			sub_controller.ClusterOperationalConflicts,
+			"There is a conflict in crd operation. currently, cluster situation is %+v ", situation.Situation,
+		)
+		return errors.New(fmt.Sprintf("There is a conflict in crd operation. currently, cluster situation is %+v ", situation.Situation))
+	}
+
+	if situation.Situation == v1.SITUATION_OPERABLE || situation.Retry == v1.RETRY_OPERATOR_FE {
+
+		// fe scale
+		if scaleNumber != 0 { // set Situation as SCALING
+			if err := k8s.SetDorisClusterSituation(ctx, fc.K8sclient, cluster.Name, cluster.Namespace,
+				v1.ClusterSituation{
+					Situation: v1.SITUATION_SCALING,
+					Retry:     v1.RETRY_OPERATOR_FE, // must set Retry as RETRY_OPERATOR_FE for an error occurs, Retry will be reset as RETRY_OPERATOR_NO after a success.
+				},
+			); err != nil {
+				klog.Errorf("SetDorisClusterSituation 'SCALING' failed err:%s ", err.Error())
+				return err
+			}
+		}
+		if scaleNumber < 0 {
+			if err := fc.ScaleDownObserver(ctx, fc.K8sclient, &st, &cluster, -scaleNumber); err != nil {
+				klog.Errorf("ScaleDownObserver failed, err:%s ", err.Error())
+				return err
+			}
+		}
+
+		//TODO check upgrade ,restart
+	}
+
+	return nil
 }

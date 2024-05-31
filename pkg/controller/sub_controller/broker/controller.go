@@ -113,6 +113,13 @@ func (bk *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) 
 	return true, nil
 }
 
+func (bk *Controller) GetComponentStatus(cluster *v1.DorisCluster) v1.ComponentPhase {
+	if cluster.Status.BrokerStatus != nil {
+		return cluster.Status.BrokerStatus.ComponentCondition.Phase
+	}
+	return v1.Available
+}
+
 func (bk *Controller) getFeConfig(ctx context.Context, feconfigMapInfo *v1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
 	cms := resource.GetMountConfigMapInfo(*feconfigMapInfo)
 	if len(cms) == 0 {

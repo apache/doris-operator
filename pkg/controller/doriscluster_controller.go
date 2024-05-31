@@ -108,6 +108,8 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	dcr := edcr.DeepCopy()
+	// Set Situation 'initializing' if it was first starting
+	dorisv1.SetSituationInit(dcr)
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
@@ -125,10 +127,21 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	r.clearNoEffectResources(ctx, dcr)
 	for _, rc := range r.Scs {
 		//update component status.
+
 		if err := rc.UpdateComponentStatus(dcr); err != nil {
 			klog.Errorf("DorisClusterReconciler reconcile update component %s status failed.err=%s\n", rc.GetControllerName(), err.Error())
 			return requeueIfError(err)
 		}
+	}
+
+	status := true
+	for _, rc := range r.Scs {
+		//check component status to cluster.
+		status = status && rc.GetComponentStatus(dcr) == dorisv1.Available
+	}
+
+	if status && dcr.Status.ClusterSituation.Situation == dorisv1.SITUATION_INITIALIZING {
+		dorisv1.SetSituationAfterInit(dcr)
 	}
 
 	return r.updateDorisClusterStatus(ctx, dcr)
@@ -186,6 +199,10 @@ func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
 		if dcr.Status.BrokerStatus.ComponentCondition.Phase != dorisv1.Available {
 			return true
 		}
+	}
+
+	if dcr.Status.ClusterSituation.Situation != dorisv1.SITUATION_OPERABLE {
+		return true
 	}
 
 	return false
