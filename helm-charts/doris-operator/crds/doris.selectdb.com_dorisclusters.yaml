@@ -18,6 +18,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.clusterSituation.situation
+      name: ClusterSituation
+      type: string
     - jsonPath: .status.feStatus.componentCondition.phase
       name: FeStatus
       type: string
@@ -8303,6 +8306,19 @@ spec:
                     type: array
                 required:
                 - componentCondition
+                type: object
+              clusterSituation:
+                description: describe the current status of the doris cluster, record
+                  operable, scaling, upgrading and restarting.
+                properties:
+                  retry:
+                    description: describe change status task of the doris cluster
+                      need retry
+                    type: string
+                  situation:
+                    description: describe the current status of the doris cluster,
+                      record operable, scaling, upgrading and restarting.
+                    type: string
                 type: object
               cnStatus:
                 description: describe cn cluster status, record running, creating
