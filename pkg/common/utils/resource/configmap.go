@@ -38,6 +38,8 @@ const BROKER_IPC_PORT = "broker_ipc_port"
 const GRACE_SHUTDOWN_WAIT_SECONDS = "grace_shutdown_wait_seconds"
 
 const ENABLE_FQDN = "enable_fqdn_mode"
+const START_MODEL_FQDN = "FQDN"
+const START_MODEL_IP = "IP"
 
 // defMap the default port about abilities.
 var defMap = map[string]int32{
@@ -53,17 +55,19 @@ var defMap = map[string]int32{
 	BROKER_IPC_PORT:        8000,
 }
 
-func IsFQDN(config map[string]interface{}) bool {
+// GetStartMode return fe host type, fqdn(host) or ip, from 'fe.conf' enable_fqdn_mode
+func GetStartMode(config map[string]interface{}) string {
 	// not use configmap
 	if len(config) == 0 {
-		return true
+		return START_MODEL_FQDN
 	}
 
 	// use configmap
-	if v, ok := config[ENABLE_FQDN]; ok {
-		return v.(string) == "true"
+	v, ok := config[ENABLE_FQDN]
+	if ok && v.(string) == "true" {
+		return START_MODEL_FQDN
 	} else {
-		return false
+		return START_MODEL_IP
 	}
 
 }

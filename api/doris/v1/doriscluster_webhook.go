@@ -65,22 +65,22 @@ func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 
 	// fe follower not allowed scale down
 	if *oldCluster.Spec.FeSpec.ElectionNumber > *r.Spec.FeSpec.ElectionNumber {
-		errors = append(errors, fmt.Errorf("scale down in the number of ElectionNumber are not allowed"))
+		errors = append(errors, fmt.Errorf("'FeSpec.ElectionNumber' error: scale down in the number of ElectionNumber are not allowed"))
 	}
 
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
 	if *r.Spec.FeSpec.Replicas < *r.Spec.FeSpec.ElectionNumber {
-		errors = append(errors, fmt.Errorf("changes in the number of FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber"))
+		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: changes in the number of FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber"))
 	}
 
-	if oldCluster.Status.ClusterSituation.Situation != SITUATION_OPERABLE && oldCluster.Status.ClusterSituation.Retry != RETRY_OPERATOR_FE && *r.Spec.FeSpec.Replicas != *oldCluster.Spec.FeSpec.Replicas {
-		errors = append(errors, fmt.Errorf("there is a conflict in CRD modify. currently, cluster situation is %+v ", oldCluster.Status.ClusterSituation))
+	if oldCluster.Status.ClusterPhase.Phase != PHASE_OPERABLE && oldCluster.Status.ClusterPhase.Retry != RETRY_OPERATOR_FE && *r.Spec.FeSpec.Replicas != *oldCluster.Spec.FeSpec.Replicas {
+		errors = append(errors, fmt.Errorf("ClusterOperationalConflicts error: there is a conflict in CRD modify. currently, cluster Phase is %+v ", oldCluster.Status.ClusterPhase))
 	}
 
-	if oldCluster.Status.ClusterSituation.Situation != SITUATION_OPERABLE &&
-		oldCluster.Status.ClusterSituation.Retry != RETRY_OPERATOR_BE &&
+	if oldCluster.Status.ClusterPhase.Phase != PHASE_OPERABLE &&
+		oldCluster.Status.ClusterPhase.Retry != RETRY_OPERATOR_BE &&
 		*r.Spec.BeSpec.Replicas != *oldCluster.Spec.BeSpec.Replicas {
-		errors = append(errors, fmt.Errorf("there is a conflict in CRD modify. currently, cluster situation is %+v ", oldCluster.Status.ClusterSituation))
+		errors = append(errors, fmt.Errorf("there is a conflict in CRD modify. currently, cluster Phase is %+v ", oldCluster.Status.ClusterPhase))
 	}
 
 	if len(errors) != 0 {

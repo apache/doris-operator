@@ -108,8 +108,8 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	dcr := edcr.DeepCopy()
-	// Set Situation 'initializing' if it was first starting
-	dorisv1.SetSituationInit(dcr)
+	// Set Phase 'initializing' if it was first starting
+	dorisv1.SetPhaseInit(dcr)
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
@@ -137,11 +137,12 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	status := true
 	for _, rc := range r.Scs {
 		//check component status to cluster.
-		status = status && rc.GetComponentStatus(dcr) == dorisv1.Available
+		if rc.GetComponentStatus(dcr) != dorisv1.Available {
+			status = false
+		}
 	}
-
-	if status && dcr.Status.ClusterSituation.Situation == dorisv1.SITUATION_INITIALIZING {
-		dorisv1.SetSituationAfterInit(dcr)
+	if status && dcr.Status.ClusterPhase.Phase == dorisv1.PHASE_INITIALIZING {
+		dorisv1.SetPhaseAfterInit(dcr)
 	}
 
 	return r.updateDorisClusterStatus(ctx, dcr)
@@ -201,7 +202,7 @@ func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
 		}
 	}
 
-	if dcr.Status.ClusterSituation.Situation != dorisv1.SITUATION_OPERABLE {
+	if dcr.Status.ClusterPhase.Phase != dorisv1.PHASE_OPERABLE {
 		return true
 	}
 

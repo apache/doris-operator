@@ -12,6 +12,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -235,14 +236,10 @@ func GetService(ctx context.Context, k8sclient client.Client, namespace, name st
 	return &svc, nil
 }
 
-func GetPods(ctx context.Context, k8sclient client.Client, namespace string) (corev1.PodList, error) {
+func GetPods(ctx context.Context, k8sclient client.Client, targetDCR dorisv1.DorisCluster) (corev1.PodList, error) {
 	pods := corev1.PodList{}
 
-	options := client.ListOptions{
-		Namespace: namespace,
-	}
-
-	err := k8sclient.List(ctx, &pods, &options)
+	err := k8sclient.List(ctx, &pods, client.InNamespace(targetDCR.Namespace), client.MatchingLabels(dorisv1.GetPodLabels(&targetDCR, dorisv1.Component_FE)))
 	if err != nil {
 		return pods, err
 	}
@@ -250,9 +247,11 @@ func GetPods(ctx context.Context, k8sclient client.Client, namespace string) (co
 	for _, pod := range pods.Items {
 		fmt.Printf("pod --- Name: %s,  pod: %s \n", pod.GetName(), pod.Status.PodIP)
 	}
+
 	return pods, nil
 }
 
+// GetConfig get conf from configmap by componentType , if not use configmap get an empty map.
 func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
 	cms := resource.GetMountConfigMapInfo(*configMapInfo)
 	if len(cms) == 0 {
@@ -267,28 +266,72 @@ func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dori
 	return res, utils.MergeError(err, resolveErr)
 }
 
-func GetDorisClusterSituation(ctx context.Context, k8sclient client.Client, dcrName, namespace string) (*dorisv1.ClusterSituation, error) {
+func GetDorisClusterPhase(ctx context.Context, k8sclient client.Client, dcrName, namespace string) (*dorisv1.ClusterPhase, error) {
 	var edcr dorisv1.DorisCluster
 	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
 		return nil, err
 	}
-	return &edcr.Status.ClusterSituation, nil
+	return &edcr.Status.ClusterPhase, nil
 }
 
-func SetDorisClusterSituation(
+func SetDorisClusterPhase(
 	ctx context.Context,
 	k8sclient client.Client,
 	dcrName, namespace string,
-	situation dorisv1.ClusterSituation,
+	phase dorisv1.ClusterPhase,
 ) error {
 	var edcr dorisv1.DorisCluster
 	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
 		return err
 	}
-	if edcr.Status.ClusterSituation.Situation == situation.Situation && edcr.Status.ClusterSituation.Retry == situation.Retry {
-		klog.Infof("UpdateDorisClusterSituation will not change cluster situation, it is already %s ,DCR name: %s, namespace: %s,", situation.Situation, dcrName, namespace)
+	if edcr.Status.ClusterPhase.Phase == phase.Phase && edcr.Status.ClusterPhase.Retry == phase.Retry {
+		klog.Infof("UpdateDorisClusterPhase will not change cluster Phase, it is already %s ,DCR name: %s, namespace: %s,", phase.Phase, dcrName, namespace)
 		return nil
 	}
-	edcr.Status.ClusterSituation = situation
+	edcr.Status.ClusterPhase = phase
 	return k8sclient.Status().Update(ctx, &edcr)
+}
+
+// DeletePVC delete pvc .
+func DeletePVCs(ctx context.Context, k8sclient client.Client, namespace string, pvcs []corev1.PersistentVolumeClaim) error {
+
+	// 60 seconds was picked arbitrarily
+	gracePeriod := int64(60)
+	propagationPolicy := metav1.DeletePropagationForeground
+
+	for _, pvc := range pvcs {
+		// Ensure that our context is still active. It will be canceled if a
+		// change to sts.Spec.Replicas is detected.
+		select {
+		case <-ctx.Done():
+			return errors.New("concurrent statefulset modification detected")
+		default:
+		}
+
+		options := client.DeleteOptions{
+			GracePeriodSeconds: &gracePeriod,
+			// Wait for the underlying PV to be deleted before moving on to
+			// the next volume.
+			PropagationPolicy: &propagationPolicy,
+			Preconditions: &metav1.Preconditions{
+				// Ensure that this PVC is the same PVC that we slated for
+				// deletion. If for some reason there are concurrent scale jobs
+				// running, this will prevent us from re-deleting a PVC that
+				// was removed and recreated.
+				UID: &pvc.UID,
+				// Ensure that this PVC has not changed since we fetched it.
+				// This check doesn't help very much as a PVC is not actually
+				// modified when it's mounted to a pod.
+				ResourceVersion: &pvc.ResourceVersion,
+			},
+		}
+
+		klog.Infof("DeletePVCs deleting PVC name: %s", pvc.Name)
+		if err := k8sclient.Delete(ctx, &pvc, &options); err != nil {
+			return nil
+		}
+	}
+
+	return nil
+
 }

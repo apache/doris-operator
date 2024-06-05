@@ -2,8 +2,8 @@ package mysql
 
 // DecommissionInfo Decommission task info
 type DecommissionInfo struct {
-	SuccessBes         []Backend
-	DecommissioningBes []Backend
+	SuccessBes         []*Backend
+	DecommissioningBes []*Backend
 }
 
 func (di *DecommissionInfo) IsFinished() bool {
@@ -15,10 +15,10 @@ func (di *DecommissionInfo) IsFinished() bool {
 
 // NewDecommissionInfo build DecommissionInfo check successes nodes and dropping nodes
 // currentNodes is show backends res, decommissionBes is decommissioned target be nodes
-func NewDecommissionInfo(currentNodes []Backend, decommissionBes []Backend) *DecommissionInfo {
-	var successBes []Backend
-	var decommissioningBes []Backend
-	decommissioningMap := make(map[string]Backend)
+func NewDecommissionInfo(currentNodes []*Backend, decommissionBes []*Backend) *DecommissionInfo {
+	var successBes []*Backend
+	var decommissioningBes []*Backend
+	decommissioningMap := make(map[string]*Backend)
 
 	for _, node := range currentNodes {
 		if node.SystemDecommissioned {

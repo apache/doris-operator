@@ -345,23 +345,23 @@ func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, 
 }
 
 func IsOperable(dcr *DorisCluster) bool {
-	return dcr.Status.ClusterSituation.Situation == SITUATION_OPERABLE
+	return dcr.Status.ClusterPhase.Phase == PHASE_OPERABLE
 }
 
-func setSituationOperable(dcr *DorisCluster) {
-	dcr.Status.ClusterSituation.Situation = SITUATION_OPERABLE
-	dcr.Status.ClusterSituation.Retry = RETRY_OPERATOR_NO
+func setPhaseOperable(dcr *DorisCluster) {
+	dcr.Status.ClusterPhase.Phase = PHASE_OPERABLE
+	dcr.Status.ClusterPhase.Retry = RETRY_OPERATOR_NO
 }
 
-// SetSituationInit if Situation is ""
-func SetSituationInit(dcr *DorisCluster) {
-	if dcr.Status.ClusterSituation.Situation == "" {
-		dcr.Status.ClusterSituation.Situation = SITUATION_INITIALIZING
+// SetPhaseInit if Phase is ""
+func SetPhaseInit(dcr *DorisCluster) {
+	if dcr.Status.ClusterPhase.Phase == "" {
+		dcr.Status.ClusterPhase.Phase = PHASE_INITIALIZING
 	}
 }
 
-func SetSituationAfterInit(dcr *DorisCluster) {
-	if dcr.Status.ClusterSituation.Situation == SITUATION_INITIALIZING {
-		setSituationOperable(dcr)
+func SetPhaseAfterInit(dcr *DorisCluster) {
+	if dcr.Status.ClusterPhase.Phase == PHASE_INITIALIZING {
+		setPhaseOperable(dcr)
 	}
 }

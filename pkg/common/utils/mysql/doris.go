@@ -2,7 +2,6 @@ package mysql
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"sort"
 )
 
 const (
@@ -59,24 +58,4 @@ type Backend struct {
 	Status                  string `json:"status" db:"Status"`
 	HeartbeatFailureCounter int    `json:"heartbeat_failure_counter" db:"HeartbeatFailureCounter"`
 	NodeRole                string `json:"node_role" db:"NodeRole"`
-}
-
-func SortAndSliceObserves(nodes []Frontend, scaleNumber int) []Frontend {
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Host < nodes[j].Host
-	})
-	if scaleNumber >= len(nodes) {
-		return nodes
-	}
-	return nodes[:scaleNumber]
-}
-
-func SortAndSliceBackends(nodes []Backend, scaleNumber int) []Backend {
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Host < nodes[j].Host
-	})
-	if scaleNumber >= len(nodes) {
-		return nodes
-	}
-	return nodes[:scaleNumber]
 }
