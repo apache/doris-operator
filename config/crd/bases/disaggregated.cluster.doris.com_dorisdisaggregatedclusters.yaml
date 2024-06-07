@@ -12,6 +12,8 @@ spec:
     kind: DorisDisaggregatedCluster
     listKind: DorisDisaggregatedClusterList
     plural: dorisdisaggregatedclusters
+    shortNames:
+    - ddc
     singular: dorisdisaggregatedcluster
   scope: Namespaced
   versions:

@@ -235,6 +235,7 @@ type FEStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=ddc
 // +kubebuilder:storageversion
 // DorisDisaggregatedCluster defined as CRD format, have type, metadata, spec, status, fields.
 type DorisDisaggregatedCluster struct {

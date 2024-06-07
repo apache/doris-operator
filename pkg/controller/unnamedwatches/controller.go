@@ -3,6 +3,7 @@ package unnamedwatches
 import (
 	"context"
 	pc "github.com/selectdb/doris-operator/pkg/controller"
+	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +34,9 @@ type WResource struct {
 }
 
 var (
-	WebhookWatchSecretName                    = "doris-operator-webhook-secret-watch"
+	WatchSecretWebhookName                    = "doris-operator-webhook-secret-watch"
+	WatchValidatingWebhookConfigurationName   = "doris-operator-validate-webhook-watch"
+	WatchMutatingWebhookConfigurationName     = "doris-operator-mutate-webhook-watch"
 	DefaultMutatingWebhookConfigurationName   = "doris-operator-mutate-webhook"
 	DefaultValidatingWebhookConfigurationName = "doris-operator-validate-webhook"
 )
@@ -83,7 +86,7 @@ func (wr *WResource) Init(mgr ctrl.Manager, options *pc.Options) {
 
 	ws := &WatchSecret{
 		client: clientset,
-		Name:   WebhookWatchSecretName,
+		Name:   WatchSecretWebhookName,
 		NamespaceName: types.NamespacedName{
 			Name:      options.SecretName,
 			Namespace: options.Namespace,
@@ -94,7 +97,29 @@ func (wr *WResource) Init(mgr ctrl.Manager, options *pc.Options) {
 		ValidatingWebhookConfigurationName: DefaultValidatingWebhookConfigurationName,
 	}
 
-	wr.watches = append(wr.watches, ws)
+	wv := &WatchValidatingWebhookConfiguration{
+		client: clientset,
+		Name:   WatchValidatingWebhookConfigurationName,
+		SecretNamespaceName: types.NamespacedName{
+			Name:      options.SecretName,
+			Namespace: options.Namespace,
+		},
+		ValidatingWebhookConfigurationName: DefaultValidatingWebhookConfigurationName,
+		Type:                               &v1.ValidatingWebhookConfiguration{},
+	}
+
+	wm := &WatchMutationWebhookConfiguration{
+		client: clientset,
+		Name:   WatchMutatingWebhookConfigurationName,
+		SecretNamespaceName: types.NamespacedName{
+			Name:      options.SecretName,
+			Namespace: options.Namespace,
+		},
+		MutationWebhookConfigurationName: DefaultMutatingWebhookConfigurationName,
+		Type:                             &v1.MutatingWebhookConfiguration{},
+	}
+
+	wr.watches = append(wr.watches, ws, wv, wm)
 
 	//force a first reconciliation to create the resources
 	if err := wr.ReconcileResource(context.Background()); err != nil {

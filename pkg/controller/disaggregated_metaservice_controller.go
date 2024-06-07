@@ -53,6 +53,13 @@ func (dms *DisaggregatedMetaServiceReconciler) Init(mgr ctrl.Manager, options *O
 		klog.Error(err, "unable to create controller ", "disaggregatedMetaServiceReconciler")
 		os.Exit(1)
 	}
+
+	if options.EnableWebHook {
+		if err := (&mv1.DorisDisaggregatedMetaService{}).SetupWebhookWithManager(mgr); err != nil {
+			klog.Error(err, "  unable to create unamedwatches ", " controller ", " DorisDisaggregatedMetaService ")
+			os.Exit(1)
+		}
+	}
 }
 
 func (dms *DisaggregatedMetaServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -1,0 +1,52 @@
+package v1
+
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+)
+
+// log is for logging in this package.
+func (ddc *DorisDisaggregatedCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(ddc).
+		Complete()
+}
+
+// +kubebuilder:unnamedwatches:path=/mutate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster,mutating=true,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update;delete,versions=v1,name=mdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
+var _ webhook.Defaulter = &DorisDisaggregatedCluster{}
+
+// Default implements webhook.Defaulter so a unnamedwatches will be registered for the type
+func (ddc *DorisDisaggregatedCluster) Default() {
+	klog.Infof("disaggregatedwebhook mutate disaggregated doris cluster name=%s.", ddc.Name)
+	// TODO(user): fill in your defaulting logic.
+}
+
+// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
+// +kubebuilder:unnamedwatches:path=/validate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster,mutating=false,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update,versions=v1,name=vdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
+var _ webhook.Validator = &DorisDisaggregatedCluster{}
+
+// ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
+func (ddc *DorisDisaggregatedCluster) ValidateCreate() error {
+	klog.Info("validate create", "name", ddc.Name)
+
+	// TODO(user): fill in your validation logic upon object creation.
+	return nil
+}
+
+// ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
+func (ddc *DorisDisaggregatedCluster) ValidateUpdate(old runtime.Object) error {
+	klog.Info("validate update", "name", ddc.Name)
+
+	// TODO(user): fill in your validation logic upon object update.
+	return nil
+}
+
+// ValidateDelete implements webhook.Validator so a unnamedwatches will be registered for the type
+func (ddc *DorisDisaggregatedCluster) ValidateDelete() error {
+	klog.Info("validate delete", "name", ddc.Name)
+
+	// TODO(user): fill in your validation logic upon object deletion.
+	return nil
+}
