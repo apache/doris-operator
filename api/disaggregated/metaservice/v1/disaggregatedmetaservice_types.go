@@ -12,6 +12,7 @@ import (
 // +kubebuilder:printcolumn:name="MSStatus",type=string,JSONPath=`.status.msStatus.phase`
 // +kubebuilder:printcolumn:name="RecycleStatus",type=string,JSONPath=`.status.recycleStatus.phase`
 // +kubebuilder:storageversion
+// +kubebuilder:resource:shortName=ddms
 // DorisDisaggregatedMetaService is the Schema for the DorisDisaggregatedMetaServices API
 type DorisDisaggregatedMetaService struct {
 	metav1.TypeMeta   `json:",inline"`

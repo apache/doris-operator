@@ -49,6 +49,8 @@ func inconsistentComponentStatus(eStatus *v1.ComponentStatus, nStatus *v1.Compon
 		return false
 	}
 
+	//&{AccessService:doriscluster-sample-fe-service FailedMembers:[] CreatingMembers:[doriscluster-sample-fe-0 doriscluster-sample-fe-1] RunningMembers:[] ComponentCondition:{SubResourceName:doriscluster-sample-fe Phase:initializing LastTransitionTime:2024-06-17 15:06:27.277201 +0800 CST m=+9.790029793 Reason: Message:}},
+	//&{AccessService:doriscluster-sample-fe-service FailedMembers:[] CreatingMembers:[doriscluster-sample-fe-0 doriscluster-sample-fe-1] RunningMembers:[] ComponentCondition:{SubResourceName:doriscluster-sample-fe Phase:initializing LastTransitionTime:2024-06-17 15:06:27 T Reason: Message:}}
 	// check resource status, if status not equal return true.
 	if (eStatus == nil || nStatus == nil) ||
 		eStatus.ComponentCondition != nStatus.ComponentCondition ||

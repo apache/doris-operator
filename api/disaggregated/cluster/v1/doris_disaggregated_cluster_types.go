@@ -211,7 +211,9 @@ const (
 
 type ComputeGroupStatus struct {
 	//Phase represent the stage of reconciling.
-	Phase Phase `json:"phase,omitempty"`
+	Phase            Phase  `json:"phase,omitempty"`
+	StatefulsetName  string `json:"statefulsetName,omitempty"`
+	ComputeGroupName string `json:"ComputeGroupName,omitempty"`
 	//AvailableStatus represents the compute group available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of compute group in meta.
@@ -235,6 +237,7 @@ type FEStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=ddc
 // +kubebuilder:storageversion
 // DorisDisaggregatedCluster defined as CRD format, have type, metadata, spec, status, fields.
 type DorisDisaggregatedCluster struct {

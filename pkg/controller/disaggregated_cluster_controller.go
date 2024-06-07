@@ -49,6 +49,13 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 		klog.Error(err, "unable to create controller ", "disaggregatedClusterReconciler")
 		os.Exit(1)
 	}
+
+	if options.EnableWebHook {
+		if err := (&dv1.DorisDisaggregatedCluster{}).SetupWebhookWithManager(mgr); err != nil {
+			klog.Error(err, " unable to create unnamedwatches ", " controller ", " DorisDisaggregatedCluster ")
+			os.Exit(1)
+		}
+	}
 }
 
 func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
