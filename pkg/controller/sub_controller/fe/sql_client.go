@@ -84,10 +84,8 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 	adminUserName, password := v1.GetClusterSecret(targetDCR, secret)
 	// get host and port
 	serviceName := v1.GenerateExternalServiceName(targetDCR, v1.Component_FE)
-
 	maps, _ := k8s.GetConfig(ctx, k8sclient, &targetDCR.Spec.FeSpec.ConfigMapInfo, targetDCR.Namespace, v1.Component_FE)
 	queryPort := resource.GetPort(maps, resource.QUERY_PORT)
-	fmt.Printf("queryPort : %d \n", queryPort)
 	// connect to doris sql
 	dbConf := mysql.DBConfig{
 		User:     adminUserName,
