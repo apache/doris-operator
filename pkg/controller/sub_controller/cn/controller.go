@@ -84,6 +84,11 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return err
 	}
 
+	if err := cn.RecycleResources(ctx, dcr, dorisv1.Component_CN); err != nil {
+		klog.Infof("CN controller sync recycle pvc resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
+		return nil
+	}
+
 	//create autoscaler.
 	if cnSpec.AutoScalingPolicy != nil {
 		err = cn.deployAutoScaler(ctx, *cnSpec.AutoScalingPolicy, &cnStatefulSet, dcr)

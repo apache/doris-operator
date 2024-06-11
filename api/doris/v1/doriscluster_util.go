@@ -333,6 +333,7 @@ func getFeAddrForBroker(dcr *DorisCluster) (string, int) {
 	return getFEAccessAddrForFEADD(dcr)
 }
 
+// GetClusterSecret get the cluster's adminuser and password through the cluster management account and password configuration in crd
 func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, password string) {
 	if secret != nil && secret.Data != nil {
 		return string(secret.Data["username"]), string(secret.Data["password"])
@@ -344,11 +345,8 @@ func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, 
 	return "root", ""
 }
 
-func IsOperable(dcr *DorisCluster) bool {
-	return dcr.Status.ClusterPhase.Phase == PHASE_OPERABLE
-}
-
-func setPhaseOperable(dcr *DorisCluster) {
+// SetPhaseOperable set cluster status is operable and retry sign is empty
+func SetPhaseOperable(dcr *DorisCluster) {
 	dcr.Status.ClusterPhase.Phase = PHASE_OPERABLE
 	dcr.Status.ClusterPhase.Retry = RETRY_OPERATOR_NO
 }
@@ -357,11 +355,5 @@ func setPhaseOperable(dcr *DorisCluster) {
 func SetPhaseInit(dcr *DorisCluster) {
 	if dcr.Status.ClusterPhase.Phase == "" {
 		dcr.Status.ClusterPhase.Phase = PHASE_INITIALIZING
-	}
-}
-
-func SetPhaseAfterInit(dcr *DorisCluster) {
-	if dcr.Status.ClusterPhase.Phase == PHASE_INITIALIZING {
-		setPhaseOperable(dcr)
 	}
 }

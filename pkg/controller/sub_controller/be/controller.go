@@ -84,6 +84,11 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
+	if err := be.RecycleResources(ctx, dcr, v1.Component_BE); err != nil {
+		klog.Infof("BE controller sync recycle pvc resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
+		return nil
+	}
+
 	return nil
 }
 

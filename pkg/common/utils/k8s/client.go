@@ -12,7 +12,6 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -266,6 +265,7 @@ func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dori
 	return res, utils.MergeError(err, resolveErr)
 }
 
+// GetDorisClusterPhase
 func GetDorisClusterPhase(ctx context.Context, k8sclient client.Client, dcrName, namespace string) (*dorisv1.ClusterPhase, error) {
 	var edcr dorisv1.DorisCluster
 	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
@@ -274,6 +274,8 @@ func GetDorisClusterPhase(ctx context.Context, k8sclient client.Client, dcrName,
 	return &edcr.Status.ClusterPhase, nil
 }
 
+// SetDorisClusterPhase set DorisCluster Phase status,
+// Perform a check before setting, and do not change if the status is the same as the last time
 func SetDorisClusterPhase(
 	ctx context.Context,
 	k8sclient client.Client,
@@ -292,46 +294,13 @@ func SetDorisClusterPhase(
 	return k8sclient.Status().Update(ctx, &edcr)
 }
 
-// DeletePVC delete pvc .
-func DeletePVCs(ctx context.Context, k8sclient client.Client, namespace string, pvcs []corev1.PersistentVolumeClaim) error {
-
-	// 60 seconds was picked arbitrarily
-	gracePeriod := int64(60)
-	propagationPolicy := metav1.DeletePropagationForeground
-
-	for _, pvc := range pvcs {
-		// Ensure that our context is still active. It will be canceled if a
-		// change to sts.Spec.Replicas is detected.
-		select {
-		case <-ctx.Done():
-			return errors.New("concurrent statefulset modification detected")
-		default:
-		}
-
-		options := client.DeleteOptions{
-			GracePeriodSeconds: &gracePeriod,
-			// Wait for the underlying PV to be deleted before moving on to
-			// the next volume.
-			PropagationPolicy: &propagationPolicy,
-			Preconditions: &metav1.Preconditions{
-				// Ensure that this PVC is the same PVC that we slated for
-				// deletion. If for some reason there are concurrent scale jobs
-				// running, this will prevent us from re-deleting a PVC that
-				// was removed and recreated.
-				UID: &pvc.UID,
-				// Ensure that this PVC has not changed since we fetched it.
-				// This check doesn't help very much as a PVC is not actually
-				// modified when it's mounted to a pod.
-				ResourceVersion: &pvc.ResourceVersion,
-			},
-		}
-
-		klog.Infof("DeletePVCs deleting PVC name: %s", pvc.Name)
-		if err := k8sclient.Delete(ctx, &pvc, &options); err != nil {
-			return nil
-		}
+// DeletePVC clean up existing pvc by pvc name and namespace
+func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string) error {
+	var pvc corev1.PersistentVolumeClaim
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: namespace}, &pvc); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
 	}
-
-	return nil
-
+	return k8sclient.Delete(ctx, &pvc)
 }

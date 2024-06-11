@@ -2,8 +2,10 @@ package sub_controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	utils "github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
@@ -135,6 +137,11 @@ func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *do
 	}
 	if err := k8s.DeleteService(ctx, d.K8sclient, dcr.Namespace, externalServiceName); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("SubDefaultController ClearResources delete external service, namespace=%s, name=%s,error=%s.", dcr.Namespace, externalServiceName, err.Error())
+		return false, err
+	}
+
+	if err := d.RecycleResources(ctx, dcr, componentType); err != nil {
+		klog.Infof("SubDefaultController ClearResources recycle resource for reconciling namespace=%s,error=%s.", dcr.Namespace, err.Error())
 		return false, err
 	}
 
@@ -323,4 +330,121 @@ func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.Doris
 	}
 
 	return prepared
+}
+
+// RecycleResources pvc resource for recycle
+func (d *SubDefaultController) RecycleResources(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
+	switch componentType {
+	case dorisv1.Component_FE:
+		return d.recycleFEResources(ctx, dcr)
+	case dorisv1.Component_BE:
+		return d.recycleBEResources(ctx, dcr)
+	case dorisv1.Component_CN:
+		return d.recycleCNResources(ctx, dcr)
+	default:
+		sprintf := fmt.Sprintf("RecycleResources not support type=%s", componentType)
+		return errors.New(sprintf)
+	}
+}
+
+// recycleFEResources pvc resource for fe recycle
+func (d *SubDefaultController) recycleFEResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	if len(dcr.Spec.FeSpec.PersistentVolumes) != 0 {
+		return d.listPersistentVolumeClaimForDelete(ctx, dcr, dorisv1.Component_FE)
+	}
+	return nil
+}
+
+// recycleBEResources pvc resource for be recycle
+func (d *SubDefaultController) recycleBEResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	if len(dcr.Spec.BeSpec.PersistentVolumes) != 0 {
+		return d.listPersistentVolumeClaimForDelete(ctx, dcr, dorisv1.Component_BE)
+	}
+	return nil
+}
+
+// recycleCNResources pvc resource for cn recycle
+func (d *SubDefaultController) recycleCNResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	if len(dcr.Spec.CnSpec.PersistentVolumes) != 0 {
+		return d.listPersistentVolumeClaimForDelete(ctx, dcr, dorisv1.Component_CN)
+	}
+	return nil
+}
+
+// listPersistentVolumeClaimForDelete:
+// 1. list pvcs by statefulset selector labels .
+// 2. get pvcs by dorisv1.PersistentVolume.name
+// 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
+// 3. delete pvc
+func (d *SubDefaultController) listPersistentVolumeClaimForDelete(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
+	var volumes []dorisv1.PersistentVolume
+	var replicas int32
+	switch componentType {
+	case dorisv1.Component_FE:
+		volumes = dcr.Spec.FeSpec.PersistentVolumes
+		replicas = *dcr.Spec.FeSpec.Replicas
+	case dorisv1.Component_BE:
+		volumes = dcr.Spec.BeSpec.PersistentVolumes
+		replicas = *dcr.Spec.BeSpec.Replicas
+	case dorisv1.Component_CN:
+		volumes = dcr.Spec.CnSpec.PersistentVolumes
+		replicas = *dcr.Spec.CnSpec.Replicas
+	default:
+	}
+
+	pvcList := corev1.PersistentVolumeClaimList{}
+	selector := dorisv1.GenerateStatefulSetSelector(dcr, componentType)
+	stsName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
+	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dcr.Namespace), client.MatchingLabels(selector)); err != nil {
+		d.K8srecorder.Event(dcr, EventWarning, PVCListFailed, string("list component "+componentType+" failed!"))
+		return err
+	}
+	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
+	pvcMap := make(map[string][]corev1.PersistentVolumeClaim)
+
+	for _, pvc := range pvcList.Items {
+		//start with unique string for classify pvc, avoid empty string match all pvc.Name
+		key := "-^"
+		for _, volume := range volumes {
+			if volume.Name != "" && strings.HasPrefix(pvc.Name, volume.Name) {
+				key = key + volume.Name
+				break
+			}
+		}
+
+		if _, ok := pvcMap[key]; !ok {
+			pvcMap[key] = []corev1.PersistentVolumeClaim{}
+		}
+		pvcMap[key] = append(pvcMap[key], pvc)
+	}
+
+	var mergeError error
+	for _, volume := range volumes {
+		// Clean up the existing PVC that is larger than expected
+		claims := pvcMap["-^"+volume.Name]
+		if len(claims) <= int(replicas) {
+			continue
+		}
+		if err := d.deletePVCs(ctx, dcr, selector, claims, stsName, volume, replicas); err != nil {
+			mergeError = utils.MergeError(mergeError, err)
+		}
+	}
+	return mergeError
+}
+
+// deletePVCs will Loop to remove excess pvc
+func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.DorisCluster, selector map[string]string,
+	pvcs []corev1.PersistentVolumeClaim, stsName string, volume dorisv1.PersistentVolume, replicas int32) error {
+	baseOrdinal := len(pvcs)
+
+	var mergeError error
+	for ; baseOrdinal > int(replicas); baseOrdinal-- {
+		pvc := resource.BuildPVC(volume, selector, dcr.Namespace, stsName, strconv.Itoa(baseOrdinal-1))
+		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvc.Name); err != nil {
+			d.K8srecorder.Event(dcr, EventWarning, PVCDeleteFailed, err.Error())
+			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name)
+			mergeError = utils.MergeError(mergeError, err)
+		}
+	}
+	return mergeError
 }

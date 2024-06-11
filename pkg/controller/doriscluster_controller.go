@@ -141,8 +141,9 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			status = false
 		}
 	}
-	if status && dcr.Status.ClusterPhase.Phase == dorisv1.PHASE_INITIALIZING {
-		dorisv1.SetPhaseAfterInit(dcr)
+
+	if status && dcr.Status.ClusterPhase.Phase != "" {
+		dorisv1.SetPhaseOperable(dcr)
 	}
 
 	return r.updateDorisClusterStatus(ctx, dcr)

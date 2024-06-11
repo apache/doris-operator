@@ -82,22 +82,19 @@ func (db *DB) CheckDecommissionBE(nodes []*Backend) (isFinished bool, err error)
 
 func (db *DB) DropObserver(nodes []*Frontend) error {
 	if len(nodes) == 0 {
-		klog.Infoln("mysql DropObserver observer node is empty")
+		klog.Infoln("DropObserver observer node is empty")
 		return nil
 	}
 	var alter string
 	for _, node := range nodes {
 		alter = alter + fmt.Sprintf(`ALTER SYSTEM DROP OBSERVER "%s:%d";`, node.Host, node.EditLogPort)
 	}
-	klog.Errorf("-----drop sql is :%s", alter)
-	//return errors.New("print err")
 	_, err := db.Exec(alter)
 	return err
 }
 
 func (db *DB) GetObservers() ([]*Frontend, error) {
 	frontends, err := db.ShowFrontends()
-	klog.Errorf("len------observ %d", len(frontends))
 	if err != nil {
 		klog.Errorf("GetObservers show frontends failed, err: %s\n", err.Error())
 		return nil, err

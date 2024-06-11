@@ -45,9 +45,9 @@ func TestAPIs(t *testing.T) {
 	fmt.Printf("ShowBackends :%+v \n", bes)
 
 	// DropObserver
-	arr := []Frontend{
-		Frontend{Host: "doriscluster-sample-fe-1.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
-		Frontend{Host: "doriscluster-sample-fe-2.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
+	arr := []*Frontend{
+		&Frontend{Host: "doriscluster-sample-fe-1.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
+		&Frontend{Host: "doriscluster-sample-fe-2.doriscluster-sample-fe-internal.doris.svc.cluster.local", EditLogPort: 9010},
 	}
 
 	db.DropObserver(arr)
@@ -59,9 +59,9 @@ func TestAPIs(t *testing.T) {
 	fmt.Printf("ShowBackends after drop %+v \n", bes)
 
 	// DecommissionBE
-	arr1 := []Backend{
-		Backend{Host: "doriscluster-sample-be-3.doriscluster-sample-be-internal.doris.svc.cluster.local", HeartbeatPort: 9050},
-		Backend{Host: "doriscluster-sample-be-4.doriscluster-sample-be-internal.doris.svc.cluster.local", HeartbeatPort: 9050},
+	arr1 := []*Backend{
+		&Backend{Host: "doriscluster-sample-be-3.doriscluster-sample-be-internal.doris.svc.cluster.local", HeartbeatPort: 9050},
+		&Backend{Host: "doriscluster-sample-be-4.doriscluster-sample-be-internal.doris.svc.cluster.local", HeartbeatPort: 9050},
 	}
 	db.DecommissionBE(arr1)
 	for i := 0; i < 20000; i++ {
