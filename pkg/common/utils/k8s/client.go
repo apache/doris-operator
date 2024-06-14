@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
@@ -315,4 +316,31 @@ func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName 
 		},
 	}
 	return k8sclient.Delete(ctx, &pvc)
+}
+
+// ApplyFoundationDBCluster apply FoundationDBCluster to apiserver.
+func ApplyFoundationDBCluster(ctx context.Context, k8sclient client.Client, fdb *v1beta2.FoundationDBCluster) error {
+	var efdb v1beta2.FoundationDBCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{
+		Name:      fdb.Name,
+		Namespace: fdb.Namespace,
+	}, &efdb); apierrors.IsNotFound(err) {
+		return k8sclient.Create(ctx, fdb)
+	}
+
+	fdb.ResourceVersion = efdb.ResourceVersion
+	return k8sclient.Patch(ctx, fdb, client.Merge)
+}
+
+func DeleteFoundationDBCluster(ctx context.Context, k8sclient client.Client, namespace, name string) error {
+	var fdb v1beta2.FoundationDBCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &fdb); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	return k8sclient.Delete(ctx, &fdb)
 }

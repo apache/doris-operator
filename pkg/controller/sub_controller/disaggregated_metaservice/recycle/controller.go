@@ -28,12 +28,12 @@ func New(mgr ctrl.Manager) *DisaggregatedRecycleController {
 
 func (rc *DisaggregatedRecycleController) Sync(ctx context.Context, obj client.Object) error {
 	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (rc *DisaggregatedRecycleController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	//TODO implement me
-	panic("implement me")
+	return true, nil
 }
 
 func (rc *DisaggregatedRecycleController) GetControllerName() string {
@@ -42,5 +42,5 @@ func (rc *DisaggregatedRecycleController) GetControllerName() string {
 
 func (rc *DisaggregatedRecycleController) UpdateComponentStatus(obj client.Object) error {
 	//TODO implement me
-	panic("implement me")
+	return nil
 }

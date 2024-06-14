@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	dmsv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
@@ -73,6 +74,8 @@ func init() {
 	utilruntime.Must(dorisv1.AddToScheme(scheme))
 	utilruntime.Must(dv1.AddToScheme(scheme))
 	utilruntime.Must(dmsv1.AddToScheme(scheme))
+	//add foundationdb scheme
+	utilruntime.Must(v1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{},
 		&controller.DisaggregatedClusterReconciler{}, &controller.DisaggregatedMetaServiceReconciler{})

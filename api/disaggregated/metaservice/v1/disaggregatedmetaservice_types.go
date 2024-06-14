@@ -61,9 +61,14 @@ type FoundationDB struct {
 
 	//Labels for organize and categorize objects
 	Labels map[string]string `json:"labels,omitempty"`
+
 	//Annotations is an unstructured key value map stored with a resource that may be
 	// set by external tools to store and retrieve arbitrary metadata.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// (Optional) If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	//+optional
 	// Affinity is a group of affinity scheduling rules.
