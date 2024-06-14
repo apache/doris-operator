@@ -8309,7 +8309,7 @@ spec:
                 type: object
               clusterPhase:
                 description: describe the current status of the doris cluster, record
-                  operable, scaling, upgrading and restarting.
+                  running, scaling, upgrading and restarting.
                 type: string
               cnStatus:
                 description: describe cn cluster status, record running, creating

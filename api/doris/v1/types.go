@@ -313,7 +313,7 @@ type DorisServicePort struct {
 }
 
 // Cluster operation and maintenance status
-// The cluster can only be adjusted in the operable state
+// The cluster can only be adjusted in the running state
 type ClusterPhase string
 
 const (
@@ -338,7 +338,7 @@ type DorisClusterStatus struct {
 	//describe broker cluster status, record running, creating and failed pods.
 	BrokerStatus *ComponentStatus `json:"brokerStatus,omitempty"`
 
-	//describe the current status of the doris cluster, record operable, scaling, upgrading and restarting.
+	//describe the current status of the doris cluster, record running, scaling, upgrading and restarting.
 	ClusterPhase ClusterPhase `json:"clusterPhase,omitempty"`
 }
 
