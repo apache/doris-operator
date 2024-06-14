@@ -109,7 +109,10 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	dcr := edcr.DeepCopy()
 	// Set Phase 'initializing' if it was first starting
-	dorisv1.SetPhaseInit(dcr)
+	if dcr.Status.ClusterPhase == "" {
+		dcr.Status.ClusterPhase = dorisv1.PHASE_INITIALIZING
+	}
+
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
@@ -142,8 +145,8 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if status && dcr.Status.ClusterPhase.Phase != "" {
-		dorisv1.SetPhaseOperable(dcr)
+	if status && dcr.Status.ClusterPhase != "" {
+		dcr.Status.ClusterPhase = dorisv1.PHASE_RUNNING
 	}
 
 	return r.updateDorisClusterStatus(ctx, dcr)
@@ -179,35 +182,7 @@ func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, d
 }
 
 func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
-	if dcr.Spec.FeSpec != nil {
-		if dcr.Status.FEStatus.ComponentCondition.Phase != dorisv1.Available {
-			return true
-		}
-	}
-
-	if dcr.Spec.BeSpec != nil {
-		if dcr.Status.BEStatus.ComponentCondition.Phase != dorisv1.Available {
-			return true
-		}
-	}
-
-	if dcr.Spec.CnSpec != nil {
-		if dcr.Status.CnStatus.ComponentCondition.Phase != dorisv1.Available {
-			return true
-		}
-	}
-
-	if dcr.Spec.BrokerSpec != nil {
-		if dcr.Status.BrokerStatus.ComponentCondition.Phase != dorisv1.Available {
-			return true
-		}
-	}
-
-	if dcr.Status.ClusterPhase.Phase != dorisv1.PHASE_OPERABLE {
-		return true
-	}
-
-	return false
+	return !dorisv1.IsClusterStatusAvailable(dcr)
 }
 
 // clean all resource deploy by DorisCluster

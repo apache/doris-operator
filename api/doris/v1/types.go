@@ -314,33 +314,15 @@ type DorisServicePort struct {
 
 // Cluster operation and maintenance status
 // The cluster can only be adjusted in the operable state
-type Phase string
+type ClusterPhase string
 
 const (
-	PHASE_INITIALIZING Phase = "initializing"
-	PHASE_OPERABLE     Phase = "operable"
-	PHASE_UPGRADING    Phase = "upgrading"
-	PHASE_SCALING      Phase = "scaling"
-	PHASE_RESTARTING   Phase = "restarting"
+	PHASE_INITIALIZING ClusterPhase = "initializing"
+	PHASE_RUNNING      ClusterPhase = "running"
+	PHASE_UPGRADING    ClusterPhase = "upgrading"
+	PHASE_SCALING      ClusterPhase = "scaling"
+	PHASE_RESTARTING   ClusterPhase = "restarting"
 )
-
-type RetrySign string
-
-const (
-	RETRY_OPERATOR_FE     RetrySign = "fe"
-	RETRY_OPERATOR_BE     RetrySign = "be"
-	RETRY_OPERATOR_CN     RetrySign = "cn"
-	RETRY_OPERATOR_BROKER RetrySign = "broker"
-	RETRY_OPERATOR_NO     RetrySign = ""
-)
-
-type ClusterPhase struct {
-	//describe the current status of the doris cluster, record operable, scaling, upgrading and restarting.
-	Phase Phase `json:"phase,omitempty"`
-
-	// describe change status task of the doris cluster need retry
-	Retry RetrySign `json:"retry,omitempty"`
-}
 
 // DorisClusterStatus defines the observed state of DorisCluster
 type DorisClusterStatus struct {
@@ -419,7 +401,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="ClusterPhase",type=string,JSONPath=`.status.clusterPhase.phase`
+// +kubebuilder:printcolumn:name="ClusterPhase",type=string,JSONPath=`.status.clusterPhase`
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`

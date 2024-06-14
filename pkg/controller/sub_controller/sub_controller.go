@@ -425,7 +425,7 @@ func (d *SubDefaultController) listPersistentVolumeClaimForDelete(ctx context.Co
 		if len(claims) <= int(replicas) {
 			continue
 		}
-		if err := d.deletePVCs(ctx, dcr, selector, claims, stsName, volume, replicas); err != nil {
+		if err := d.deletePVCs(ctx, dcr, len(claims), stsName, volume.Name, replicas); err != nil {
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}
@@ -433,16 +433,16 @@ func (d *SubDefaultController) listPersistentVolumeClaimForDelete(ctx context.Co
 }
 
 // deletePVCs will Loop to remove excess pvc
-func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.DorisCluster, selector map[string]string,
-	pvcs []corev1.PersistentVolumeClaim, stsName string, volume dorisv1.PersistentVolume, replicas int32) error {
-	baseOrdinal := len(pvcs)
+func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.DorisCluster,
+	pvcSize int, stsName, volumeName string, replicas int32) error {
+	maxOrdinal := pvcSize
 
 	var mergeError error
-	for ; baseOrdinal > int(replicas); baseOrdinal-- {
-		pvc := resource.BuildPVC(volume, selector, dcr.Namespace, stsName, strconv.Itoa(baseOrdinal-1))
-		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvc.Name); err != nil {
+	for ; maxOrdinal > int(replicas); maxOrdinal-- {
+		pvcName := resource.BuildPVCName(stsName, strconv.Itoa(maxOrdinal-1), volumeName)
+		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvcName); err != nil {
 			d.K8srecorder.Event(dcr, EventWarning, PVCDeleteFailed, err.Error())
-			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name)
+			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvcName)
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}

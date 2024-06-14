@@ -12,17 +12,20 @@ var (
 	pvc_manager_annotation = "selectdb.doris.com/pvc-manager"
 )
 
-func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespace, stsName, ordinal string) corev1.PersistentVolumeClaim {
+func BuildPVCName(stsName, ordinal, volumeName string) string {
 	pvcName := stsName + "-" + ordinal
-	if volume.Name != "" {
-		pvcName = volume.Name + "-" + pvcName
+	if volumeName != "" {
+		pvcName = volumeName + "-" + pvcName
 	}
+	return pvcName
+}
 
+func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespace, stsName, ordinal string) corev1.PersistentVolumeClaim {
 	annotations := buildPVCAnnotations(volume)
 
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        pvcName,
+			Name:        BuildPVCName(stsName, ordinal, volume.Name),
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: annotations,

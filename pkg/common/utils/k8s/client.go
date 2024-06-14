@@ -235,16 +235,17 @@ func GetService(ctx context.Context, k8sclient client.Client, namespace, name st
 	return &svc, nil
 }
 
-func GetPods(ctx context.Context, k8sclient client.Client, targetDCR dorisv1.DorisCluster) (corev1.PodList, error) {
+func GetPods(ctx context.Context, k8sclient client.Client, targetDCR dorisv1.DorisCluster, componentType dorisv1.ComponentType) (corev1.PodList, error) {
 	pods := corev1.PodList{}
 
-	err := k8sclient.List(ctx, &pods, client.InNamespace(targetDCR.Namespace), client.MatchingLabels(dorisv1.GetPodLabels(&targetDCR, dorisv1.Component_FE)))
+	err := k8sclient.List(
+		ctx,
+		&pods,
+		client.InNamespace(targetDCR.Namespace),
+		client.MatchingLabels(dorisv1.GetPodLabels(&targetDCR, componentType)),
+	)
 	if err != nil {
 		return pods, err
-	}
-
-	for _, pod := range pods.Items {
-		fmt.Printf("pod --- Name: %s,  pod: %s \n", pod.GetName(), pod.Status.PodIP)
 	}
 
 	return pods, nil
@@ -265,15 +266,6 @@ func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dori
 	return res, utils.MergeError(err, resolveErr)
 }
 
-// GetDorisClusterPhase
-func GetDorisClusterPhase(ctx context.Context, k8sclient client.Client, dcrName, namespace string) (*dorisv1.ClusterPhase, error) {
-	var edcr dorisv1.DorisCluster
-	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
-		return nil, err
-	}
-	return &edcr.Status.ClusterPhase, nil
-}
-
 // SetDorisClusterPhase set DorisCluster Phase status,
 // Perform a check before setting, and do not change if the status is the same as the last time
 func SetDorisClusterPhase(
@@ -286,8 +278,8 @@ func SetDorisClusterPhase(
 	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
 		return err
 	}
-	if edcr.Status.ClusterPhase.Phase == phase.Phase && edcr.Status.ClusterPhase.Retry == phase.Retry {
-		klog.Infof("UpdateDorisClusterPhase will not change cluster Phase, it is already %s ,DCR name: %s, namespace: %s,", phase.Phase, dcrName, namespace)
+	if edcr.Status.ClusterPhase == phase {
+		klog.Infof("UpdateDorisClusterPhase will not change cluster Phase, it is already %s ,DCR name: %s, namespace: %s,", phase, dcrName, namespace)
 		return nil
 	}
 	edcr.Status.ClusterPhase = phase

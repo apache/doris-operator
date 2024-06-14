@@ -2,13 +2,10 @@ package fe
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/mysql"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -20,56 +17,30 @@ import (
 
 // ControlClusterPhaseAndPreOperation means Pre-operation and status control on the client side
 func (fc *Controller) controlClusterPhaseAndPreOperation(ctx context.Context, cluster *v1.DorisCluster) error {
-
 	var oldSt appv1.StatefulSet
 	err := fc.K8sclient.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &oldSt)
-	phase, _ := k8s.GetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace)
-
-	if err != nil || phase == nil || phase.Phase == v1.PHASE_INITIALIZING {
-		klog.Infof("fe controller operator skip cluster operation, cluster is in INITIALIZING Phase")
+	if err != nil {
+		klog.Infof("fe controller controlClusterPhaseAndPreOperation get fe StatefulSet failed, err: %s", err.Error())
 		return nil
 	}
 	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
-
-	if phase.Phase != v1.PHASE_OPERABLE && phase.Retry != v1.RETRY_OPERATOR_FE {
-		// means other task running, send Event warning
-		fc.K8srecorder.Eventf(
-			cluster, sub_controller.EventWarning,
-			sub_controller.ClusterOperationalConflicts,
-			"There is a conflict in crd operation. currently, cluster Phase is %+v ", phase.Phase,
-		)
-		return errors.New(fmt.Sprintf("There is a conflict in crd operation. currently, cluster Phase is %+v ", phase.Phase))
+	// fe scale
+	if scaleNumber != 0 { // set Phase as SCALING
+		cluster.Status.ClusterPhase = v1.PHASE_SCALING
+		if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.PHASE_SCALING); err != nil {
+			klog.Errorf("SetDorisClusterPhase 'SCALING' failed err:%s ", err.Error())
+			return err
+		}
+	}
+	if scaleNumber < 0 {
+		if err := fc.dropObserverFromSqlClient(ctx, fc.K8sclient, cluster); err != nil {
+			klog.Errorf("ScaleDownObserver failed, err:%s ", err.Error())
+			return err
+		}
+		return nil
 	}
 
-	if phase.Phase == v1.PHASE_OPERABLE || phase.Retry == v1.RETRY_OPERATOR_FE {
-
-		// fe scale
-		if scaleNumber != 0 { // set Phase as SCALING
-			clusterPhase := v1.ClusterPhase{
-				Phase: v1.PHASE_SCALING,
-				Retry: v1.RETRY_OPERATOR_FE, // must set Retry as RETRY_OPERATOR_FE for an error occurs, Retry will be reset as RETRY_OPERATOR_NO after a success.
-			}
-			cluster.Status.ClusterPhase = clusterPhase
-			if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, clusterPhase); err != nil {
-				klog.Errorf("SetDorisClusterPhase 'SCALING' failed err:%s ", err.Error())
-				return err
-			}
-		}
-		if scaleNumber < 0 {
-			if err := fc.dropObserverFromSqlClient(ctx, fc.K8sclient, cluster); err != nil {
-				klog.Errorf("ScaleDownObserver failed, err:%s ", err.Error())
-				return err
-			}
-			if scaleNumber != -1 {
-				klog.Info("controlClusterPhaseAndPreOperation scale down observer task is not completed, %d tasks are left. ", -scaleNumber-1)
-				subReplicas := *(oldSt.Spec.Replicas) - 1
-				cluster.Spec.FeSpec.Replicas = &subReplicas
-			}
-			return nil
-		}
-
-		//TODO check upgrade ,restart
-	}
+	//TODO check upgrade ,restart
 
 	return nil
 }
@@ -86,7 +57,9 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 	serviceName := v1.GenerateExternalServiceName(targetDCR, v1.Component_FE)
 	maps, _ := k8s.GetConfig(ctx, k8sclient, &targetDCR.Spec.FeSpec.ConfigMapInfo, targetDCR.Namespace, v1.Component_FE)
 	queryPort := resource.GetPort(maps, resource.QUERY_PORT)
-	// connect to doris sql
+
+	// connect to doris sql to get master node
+	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.
 	dbConf := mysql.DBConfig{
 		User:     adminUserName,
 		Password: password,
@@ -94,23 +67,44 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
-	db, err := mysql.NewDorisSqlDB(dbConf)
+	dbLoadBalance, err := mysql.NewDorisSqlDB(dbConf)
 	if err != nil {
-		klog.Errorf("DropObserverFromSqlClient failed, NewDorisSqlDB err:%s", err.Error())
+		klog.Errorf("DropObserverFromSqlClient failed, get fe node connection err:%s", err.Error())
+		return err
+	}
+	defer dbLoadBalance.Close()
+
+	master, _, err := dbLoadBalance.GetFollowers()
+	if err != nil {
+		klog.Errorf("DropObserverFromSqlClient GetFollowers master failed, err:%s", err.Error())
+		return err
+	}
+
+	// Get the connection to the master
+	db, err := mysql.NewDorisSqlDB(mysql.DBConfig{
+		User:     adminUserName,
+		Password: password,
+		Host:     master.Host,
+		Port:     strconv.FormatInt(int64(queryPort), 10),
+		Database: "mysql",
+	})
+	if err != nil {
+		klog.Errorf("DropObserverFromSqlClient failed, get fe master connection  err:%s", err.Error())
 		return err
 	}
 	defer db.Close()
 
 	// get all Observes
 	allObserves, err := db.GetObservers()
-
 	if err != nil {
 		klog.Errorf("DropObserverFromSqlClient failed, GetObservers err:%s", err.Error())
 		return err
 	}
 
-	if int32(len(allObserves)) <= *(targetDCR.Spec.FeSpec.Replicas)-*(targetDCR.Spec.FeSpec.ElectionNumber) {
-		klog.Errorf("DropObserverFromSqlClient failed, Observers size(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-*(targetDCR.Spec.FeSpec.ElectionNumber))
+	// make sure real sclaeNumber, this may involve retrying tasks and scaling down followers.
+	realSclaeNumber := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + *(targetDCR.Spec.FeSpec.ElectionNumber)
+	if realSclaeNumber <= 0 {
+		klog.Errorf("DropObserverFromSqlClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-*(targetDCR.Spec.FeSpec.ElectionNumber))
 		return nil
 	}
 
@@ -126,7 +120,7 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 		}
 	} else { // use ip
 		podMap := make(map[string]string) // key is pod ip, value is pod name
-		pods, err := k8s.GetPods(ctx, k8sclient, *targetDCR)
+		pods, err := k8s.GetPods(ctx, k8sclient, *targetDCR, v1.Component_FE)
 		if err != nil {
 			klog.Errorf("DropObserverFromSqlClient failed, GetPods err:%s", err)
 			return nil
@@ -142,8 +136,7 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 			return nil
 		}
 	}
-
-	observes := getTopFrontends(frontendMap, 1)
+	observes := getFirstFewFrontendsAfterDescendOrder(frontendMap, realSclaeNumber)
 	// drop node and return
 	return db.DropObserver(observes)
 
@@ -176,8 +169,8 @@ func buildSeqNumberToFrontend(frontends []*mysql.Frontend, ipMap map[string]stri
 	return frontendMap, nil
 }
 
-// sort fe by index and return top scaleNumber
-func getTopFrontends(frontendMap map[int]*mysql.Frontend, scaleNumber int32) []*mysql.Frontend {
+// GetFirstFewFrontendsAfterDescendOrder means descending sort fe by index and return top scaleNumber
+func getFirstFewFrontendsAfterDescendOrder(frontendMap map[int]*mysql.Frontend, scaleNumber int32) []*mysql.Frontend {
 	var topFrontends []*mysql.Frontend
 	if int(scaleNumber) <= len(frontendMap) {
 		keys := make([]int, 0, len(frontendMap))
@@ -192,7 +185,7 @@ func getTopFrontends(frontendMap map[int]*mysql.Frontend, scaleNumber int32) []*
 			topFrontends = append(topFrontends, frontendMap[keys[i]])
 		}
 	} else {
-		klog.Errorf("getTopFrontends frontendMap size(%d) not larger than scaleNumber(%d)", len(frontendMap), scaleNumber)
+		klog.Errorf("getFirstFewFrontendsAfterDescendOrder frontendMap size(%d) not larger than scaleNumber(%d)", len(frontendMap), scaleNumber)
 	}
 	return topFrontends
 }

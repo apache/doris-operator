@@ -345,15 +345,33 @@ func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, 
 	return "root", ""
 }
 
-// SetPhaseOperable set cluster status is operable and retry sign is empty
-func SetPhaseOperable(dcr *DorisCluster) {
-	dcr.Status.ClusterPhase.Phase = PHASE_OPERABLE
-	dcr.Status.ClusterPhase.Retry = RETRY_OPERATOR_NO
-}
-
-// SetPhaseInit if Phase is ""
-func SetPhaseInit(dcr *DorisCluster) {
-	if dcr.Status.ClusterPhase.Phase == "" {
-		dcr.Status.ClusterPhase.Phase = PHASE_INITIALIZING
+func IsClusterStatusAvailable(dcr *DorisCluster) bool {
+	if dcr.Spec.FeSpec != nil {
+		if dcr.Status.FEStatus.ComponentCondition.Phase != Available {
+			return false
+		}
 	}
+
+	if dcr.Spec.BeSpec != nil {
+		if dcr.Status.BEStatus.ComponentCondition.Phase != Available {
+			return false
+		}
+	}
+
+	if dcr.Spec.CnSpec != nil {
+		if dcr.Status.CnStatus.ComponentCondition.Phase != Available {
+			return false
+		}
+	}
+
+	if dcr.Spec.BrokerSpec != nil {
+		if dcr.Status.BrokerStatus.ComponentCondition.Phase != Available {
+			return false
+		}
+	}
+
+	if dcr.Status.ClusterPhase != PHASE_RUNNING {
+		return false
+	}
+	return true
 }

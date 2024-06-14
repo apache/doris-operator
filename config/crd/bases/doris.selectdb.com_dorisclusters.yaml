@@ -18,7 +18,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.clusterPhase.phase
+    - jsonPath: .status.clusterPhase
       name: ClusterPhase
       type: string
     - jsonPath: .status.feStatus.componentCondition.phase
@@ -8310,16 +8310,7 @@ spec:
               clusterPhase:
                 description: describe the current status of the doris cluster, record
                   operable, scaling, upgrading and restarting.
-                properties:
-                  phase:
-                    description: describe the current status of the doris cluster,
-                      record operable, scaling, upgrading and restarting.
-                    type: string
-                  retry:
-                    description: describe change status task of the doris cluster
-                      need retry
-                    type: string
-                type: object
+                type: string
               cnStatus:
                 description: describe cn cluster status, record running, creating
                   and failed pods.
