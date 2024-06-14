@@ -140,11 +140,6 @@ func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *do
 		return false, err
 	}
 
-	//if err := d.RecycleResources(ctx, dcr, componentType); err != nil {
-	//	klog.Infof("SubDefaultController ClearResources recycle resource for reconciling namespace=%s,error=%s.", dcr.Namespace, err.Error())
-	//	return false, err
-	//}
-
 	return true, nil
 }
 
@@ -337,13 +332,13 @@ func (d *SubDefaultController) RecycleResources(ctx context.Context, dcr *dorisv
 	switch componentType {
 	case dorisv1.Component_FE:
 		return d.recycleFEResources(ctx, dcr)
-	case dorisv1.Component_BE:
-		return d.recycleBEResources(ctx, dcr)
-	case dorisv1.Component_CN:
-		return d.recycleCNResources(ctx, dcr)
 	default:
 		sprintf := fmt.Sprintf("RecycleResources not support type=%s", componentType)
 		return errors.New(sprintf)
+		//case dorisv1.Component_BE:
+		//	return d.recycleBEResources(ctx, dcr)
+		//case dorisv1.Component_CN:
+		//	return d.recycleCNResources(ctx, dcr)
 	}
 }
 
