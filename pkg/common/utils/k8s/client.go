@@ -273,17 +273,35 @@ func SetDorisClusterPhase(
 	ctx context.Context,
 	k8sclient client.Client,
 	dcrName, namespace string,
-	phase dorisv1.ClusterPhase,
+	phase dorisv1.ComponentPhase,
+	componentType dorisv1.ComponentType,
 ) error {
 	var edcr dorisv1.DorisCluster
 	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
 		return err
 	}
-	if edcr.Status.ClusterPhase == phase {
-		klog.Infof("UpdateDorisClusterPhase will not change cluster Phase, it is already %s ,DCR name: %s, namespace: %s,", phase, dcrName, namespace)
+	isStatusEqual := false
+	switch componentType {
+	case dorisv1.Component_FE:
+		isStatusEqual = (edcr.Status.FEStatus.ComponentCondition.Phase == phase)
+		edcr.Status.FEStatus.ComponentCondition.Phase = phase
+	case dorisv1.Component_BE:
+		isStatusEqual = (edcr.Status.BEStatus.ComponentCondition.Phase == phase)
+		edcr.Status.BEStatus.ComponentCondition.Phase = phase
+	case dorisv1.Component_CN:
+		isStatusEqual = (edcr.Status.CnStatus.ComponentCondition.Phase == phase)
+		edcr.Status.FEStatus.ComponentCondition.Phase = phase
+	case dorisv1.Component_Broker:
+		isStatusEqual = (edcr.Status.BrokerStatus.ComponentCondition.Phase == phase)
+		edcr.Status.BrokerStatus.ComponentCondition.Phase = phase
+	default:
+		klog.Infof("SetDorisClusterPhase not support type=", componentType)
 		return nil
 	}
-	edcr.Status.ClusterPhase = phase
+	if isStatusEqual {
+		klog.Infof("UpdateDorisClusterPhase will not change cluster %s Phase, it is already %s ,DCR name: %s, namespace: %s,", componentType, phase, dcrName, namespace)
+		return nil
+	}
 	return k8sclient.Status().Update(ctx, &edcr)
 }
 

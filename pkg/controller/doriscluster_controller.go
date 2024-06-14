@@ -108,10 +108,6 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	dcr := edcr.DeepCopy()
-	// Set Phase 'initializing' if it was first starting
-	if dcr.Status.ClusterPhase == "" {
-		dcr.Status.ClusterPhase = dorisv1.PHASE_INITIALIZING
-	}
 
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
@@ -135,18 +131,6 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			klog.Errorf("DorisClusterReconciler reconcile update component %s status failed.err=%s\n", rc.GetControllerName(), err.Error())
 			return requeueIfError(err)
 		}
-	}
-
-	status := true
-	for _, rc := range r.Scs {
-		//check component status to cluster.
-		if rc.GetComponentStatus(dcr) != dorisv1.Available {
-			status = false
-		}
-	}
-
-	if status && dcr.Status.ClusterPhase != "" {
-		dcr.Status.ClusterPhase = dorisv1.PHASE_RUNNING
 	}
 
 	return r.updateDorisClusterStatus(ctx, dcr)

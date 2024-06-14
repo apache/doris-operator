@@ -103,7 +103,7 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 		ComponentStatus: dorisv1.ComponentStatus{
 			ComponentCondition: dorisv1.ComponentCondition{
 				SubResourceName: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN),
-				Phase:           dorisv1.Reconciling,
+				Phase:           dorisv1.Initializing,
 
 				LastTransitionTime: metav1.NewTime(time.Now()),
 			},

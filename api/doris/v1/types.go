@@ -312,18 +312,6 @@ type DorisServicePort struct {
 	TargetPort int32 `json:"targetPort,omitempty"`
 }
 
-// Cluster operation and maintenance status
-// The cluster can only be adjusted in the running state
-type ClusterPhase string
-
-const (
-	PHASE_INITIALIZING ClusterPhase = "initializing"
-	PHASE_RUNNING      ClusterPhase = "running"
-	PHASE_UPGRADING    ClusterPhase = "upgrading"
-	PHASE_SCALING      ClusterPhase = "scaling"
-	PHASE_RESTARTING   ClusterPhase = "restarting"
-)
-
 // DorisClusterStatus defines the observed state of DorisCluster
 type DorisClusterStatus struct {
 	//describe fe cluster status, record running, creating and failed pods.
@@ -337,9 +325,6 @@ type DorisClusterStatus struct {
 
 	//describe broker cluster status, record running, creating and failed pods.
 	BrokerStatus *ComponentStatus `json:"brokerStatus,omitempty"`
-
-	//describe the current status of the doris cluster, record running, scaling, upgrading and restarting.
-	ClusterPhase ClusterPhase `json:"clusterPhase,omitempty"`
 }
 
 type CnStatus struct {
@@ -392,6 +377,10 @@ const (
 	WaitScheduling   ComponentPhase = "waitScheduling"
 	HaveMemberFailed ComponentPhase = "haveMemberFailed"
 	Available        ComponentPhase = "available"
+	Initializing     ComponentPhase = "initializing"
+	Upgrading        ComponentPhase = "upgrading"
+	Scaling          ComponentPhase = "scaling"
+	Restarting       ComponentPhase = "restarting"
 )
 
 // +genclient
@@ -401,7 +390,6 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="ClusterPhase",type=string,JSONPath=`.status.clusterPhase`
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`

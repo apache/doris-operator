@@ -25,9 +25,9 @@ func (fc *Controller) controlClusterPhaseAndPreOperation(ctx context.Context, cl
 	}
 	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
 	// fe scale
-	if scaleNumber != 0 { // set Phase as SCALING
-		cluster.Status.ClusterPhase = v1.PHASE_SCALING
-		if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.PHASE_SCALING); err != nil {
+	if scaleNumber != 0 { // set fe Phase as SCALING
+		cluster.Status.FEStatus.ComponentCondition.Phase = v1.Scaling
+		if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.Scaling, v1.Component_FE); err != nil {
 			klog.Errorf("SetDorisClusterPhase 'SCALING' failed err:%s ", err.Error())
 			return err
 		}

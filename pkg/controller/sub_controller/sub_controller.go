@@ -66,7 +66,11 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 		}
 	}
 
-	status.ComponentCondition.Phase = dorisv1.Reconciling
+	// TODO This logic can be deleted when all nodes support auto scale and new 'ComponentPhase' values.
+	if status.ComponentCondition.Phase == dorisv1.Available {
+		status.ComponentCondition.Phase = dorisv1.Reconciling
+	}
+
 	if len(readys) == int(replicas) {
 		status.ComponentCondition.Phase = dorisv1.Available
 	} else if len(faileds) != 0 {

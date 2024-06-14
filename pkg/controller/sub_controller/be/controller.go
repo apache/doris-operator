@@ -97,7 +97,7 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 	bs := &v1.ComponentStatus{
 		ComponentCondition: v1.ComponentCondition{
 			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_BE),
-			Phase:              v1.Reconciling,
+			Phase:              v1.Initializing,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		},
 	}
