@@ -290,7 +290,7 @@ func SetDorisClusterPhase(
 		edcr.Status.BEStatus.ComponentCondition.Phase = phase
 	case dorisv1.Component_CN:
 		isStatusEqual = (edcr.Status.CnStatus.ComponentCondition.Phase == phase)
-		edcr.Status.FEStatus.ComponentCondition.Phase = phase
+		edcr.Status.CnStatus.ComponentCondition.Phase = phase
 	case dorisv1.Component_Broker:
 		isStatusEqual = (edcr.Status.BrokerStatus.ComponentCondition.Phase == phase)
 		edcr.Status.BrokerStatus.ComponentCondition.Phase = phase

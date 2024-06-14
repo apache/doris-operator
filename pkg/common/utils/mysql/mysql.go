@@ -74,12 +74,6 @@ func (db *DB) DecommissionBE(nodes []*Backend) error {
 	return err
 }
 
-func (db *DB) CheckDecommissionBE(nodes []*Backend) (isFinished bool, err error) {
-	backends, err := db.ShowBackends()
-	info := NewDecommissionInfo(backends, nodes)
-	return info.IsFinished(), err
-}
-
 func (db *DB) DropObserver(nodes []*Frontend) error {
 	if len(nodes) == 0 {
 		klog.Infoln("DropObserver observer node is empty")

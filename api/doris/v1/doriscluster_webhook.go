@@ -59,8 +59,6 @@ func (r *DorisCluster) ValidateCreate() error {
 func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 	klog.Info("validate update", "name", r.Name)
 	var errors []error
-	//oldCluster := old.(*DorisCluster)
-
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
 	if *r.Spec.FeSpec.Replicas < *r.Spec.FeSpec.ElectionNumber {
 		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))

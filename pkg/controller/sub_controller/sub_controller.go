@@ -339,10 +339,6 @@ func (d *SubDefaultController) RecycleResources(ctx context.Context, dcr *dorisv
 	default:
 		sprintf := fmt.Sprintf("RecycleResources not support type=%s", componentType)
 		return errors.New(sprintf)
-		//case dorisv1.Component_BE:
-		//	return d.recycleBEResources(ctx, dcr)
-		//case dorisv1.Component_CN:
-		//	return d.recycleCNResources(ctx, dcr)
 	}
 }
 
