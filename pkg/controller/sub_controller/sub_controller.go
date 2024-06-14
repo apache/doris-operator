@@ -350,22 +350,6 @@ func (d *SubDefaultController) recycleFEResources(ctx context.Context, dcr *dori
 	return nil
 }
 
-// recycleBEResources pvc resource for be recycle
-func (d *SubDefaultController) recycleBEResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
-	if len(dcr.Spec.BeSpec.PersistentVolumes) != 0 {
-		return d.listAndDeletePersistentVolumeClaim(ctx, dcr, dorisv1.Component_BE)
-	}
-	return nil
-}
-
-// recycleCNResources pvc resource for cn recycle
-func (d *SubDefaultController) recycleCNResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
-	if len(dcr.Spec.CnSpec.PersistentVolumes) != 0 {
-		return d.listAndDeletePersistentVolumeClaim(ctx, dcr, dorisv1.Component_CN)
-	}
-	return nil
-}
-
 // listAndDeletePersistentVolumeClaim:
 // 1. list pvcs by statefulset selector labels .
 // 2. get pvcs by dorisv1.PersistentVolume.name

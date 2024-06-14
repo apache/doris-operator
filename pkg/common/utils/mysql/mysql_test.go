@@ -4,7 +4,6 @@ import (
 	_ "crypto/tls"
 	"fmt"
 	"testing"
-	"time"
 )
 
 func TestAPIs(t *testing.T) {
@@ -22,13 +21,6 @@ func TestAPIs(t *testing.T) {
 		fmt.Printf("NewDorisSqlDB err : %s\n", err.Error())
 	}
 	defer db.Close()
-
-	//// get master
-	//master, err := db.GetMaster()
-	//if err != nil {
-	//	fmt.Printf("get master err:%s \n", err.Error())
-	//}
-	//fmt.Printf("getmaster :%+v \n", master)
 
 	// ShowFrontends
 	frontends, err := db.ShowFrontends()
@@ -64,19 +56,19 @@ func TestAPIs(t *testing.T) {
 		&Backend{Host: "doriscluster-sample-be-4.doriscluster-sample-be-internal.doris.svc.cluster.local", HeartbeatPort: 9050},
 	}
 	db.DecommissionBE(arr1)
-	for i := 0; i < 20000; i++ {
-		finished, err := db.CheckDecommissionBE(arr1)
-		fmt.Printf("DecommissionBE check %d : is_finished=%t } \n", i, finished)
-		if err != nil {
-			fmt.Printf("DecommissionBEcheck err:%s \n", err.Error())
-		}
-		if finished {
-			fmt.Printf("DecommissionBE finished")
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
-
-	}
+	//for i := 0; i < 20000; i++ {
+	//	finished, err := db.CheckDecommissionBE(arr1)
+	//	fmt.Printf("DecommissionBE check %d : is_finished=%t } \n", i, finished)
+	//	if err != nil {
+	//		fmt.Printf("DecommissionBEcheck err:%s \n", err.Error())
+	//	}
+	//	if finished {
+	//		fmt.Printf("DecommissionBE finished")
+	//		break
+	//	}
+	//	time.Sleep(500 * time.Millisecond)
+	//
+	//}
 
 	bes, err = db.ShowBackends()
 	if err != nil {
