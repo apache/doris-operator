@@ -140,10 +140,10 @@ func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *do
 		return false, err
 	}
 
-	if err := d.RecycleResources(ctx, dcr, componentType); err != nil {
-		klog.Infof("SubDefaultController ClearResources recycle resource for reconciling namespace=%s,error=%s.", dcr.Namespace, err.Error())
-		return false, err
-	}
+	//if err := d.RecycleResources(ctx, dcr, componentType); err != nil {
+	//	klog.Infof("SubDefaultController ClearResources recycle resource for reconciling namespace=%s,error=%s.", dcr.Namespace, err.Error())
+	//	return false, err
+	//}
 
 	return true, nil
 }
@@ -350,7 +350,7 @@ func (d *SubDefaultController) RecycleResources(ctx context.Context, dcr *dorisv
 // recycleFEResources pvc resource for fe recycle
 func (d *SubDefaultController) recycleFEResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
 	if len(dcr.Spec.FeSpec.PersistentVolumes) != 0 {
-		return d.listPersistentVolumeClaimForDelete(ctx, dcr, dorisv1.Component_FE)
+		return d.listAndDeletePersistentVolumeClaim(ctx, dcr, dorisv1.Component_FE)
 	}
 	return nil
 }
@@ -358,7 +358,7 @@ func (d *SubDefaultController) recycleFEResources(ctx context.Context, dcr *dori
 // recycleBEResources pvc resource for be recycle
 func (d *SubDefaultController) recycleBEResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
 	if len(dcr.Spec.BeSpec.PersistentVolumes) != 0 {
-		return d.listPersistentVolumeClaimForDelete(ctx, dcr, dorisv1.Component_BE)
+		return d.listAndDeletePersistentVolumeClaim(ctx, dcr, dorisv1.Component_BE)
 	}
 	return nil
 }
@@ -366,17 +366,17 @@ func (d *SubDefaultController) recycleBEResources(ctx context.Context, dcr *dori
 // recycleCNResources pvc resource for cn recycle
 func (d *SubDefaultController) recycleCNResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
 	if len(dcr.Spec.CnSpec.PersistentVolumes) != 0 {
-		return d.listPersistentVolumeClaimForDelete(ctx, dcr, dorisv1.Component_CN)
+		return d.listAndDeletePersistentVolumeClaim(ctx, dcr, dorisv1.Component_CN)
 	}
 	return nil
 }
 
-// listPersistentVolumeClaimForDelete:
+// listAndDeletePersistentVolumeClaim:
 // 1. list pvcs by statefulset selector labels .
 // 2. get pvcs by dorisv1.PersistentVolume.name
 // 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
 // 3. delete pvc
-func (d *SubDefaultController) listPersistentVolumeClaimForDelete(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
+func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
 	var volumes []dorisv1.PersistentVolume
 	var replicas int32
 	switch componentType {
@@ -425,7 +425,7 @@ func (d *SubDefaultController) listPersistentVolumeClaimForDelete(ctx context.Co
 		if len(claims) <= int(replicas) {
 			continue
 		}
-		if err := d.deletePVCs(ctx, dcr, len(claims), stsName, volume.Name, replicas); err != nil {
+		if err := d.deletePVCs(ctx, dcr, selector, len(claims), stsName, volume.Name, replicas); err != nil {
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}
@@ -433,14 +433,14 @@ func (d *SubDefaultController) listPersistentVolumeClaimForDelete(ctx context.Co
 }
 
 // deletePVCs will Loop to remove excess pvc
-func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.DorisCluster,
+func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.DorisCluster, selector map[string]string,
 	pvcSize int, stsName, volumeName string, replicas int32) error {
 	maxOrdinal := pvcSize
 
 	var mergeError error
 	for ; maxOrdinal > int(replicas); maxOrdinal-- {
 		pvcName := resource.BuildPVCName(stsName, strconv.Itoa(maxOrdinal-1), volumeName)
-		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvcName); err != nil {
+		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvcName, selector); err != nil {
 			d.K8srecorder.Event(dcr, EventWarning, PVCDeleteFailed, err.Error())
 			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvcName)
 			mergeError = utils.MergeError(mergeError, err)

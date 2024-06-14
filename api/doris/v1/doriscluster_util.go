@@ -344,34 +344,3 @@ func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, 
 	}
 	return "root", ""
 }
-
-func IsClusterStatusAvailable(dcr *DorisCluster) bool {
-	if dcr.Spec.FeSpec != nil {
-		if dcr.Status.FEStatus.ComponentCondition.Phase != Available {
-			return false
-		}
-	}
-
-	if dcr.Spec.BeSpec != nil {
-		if dcr.Status.BEStatus.ComponentCondition.Phase != Available {
-			return false
-		}
-	}
-
-	if dcr.Spec.CnSpec != nil {
-		if dcr.Status.CnStatus.ComponentCondition.Phase != Available {
-			return false
-		}
-	}
-
-	if dcr.Spec.BrokerSpec != nil {
-		if dcr.Status.BrokerStatus.ComponentCondition.Phase != Available {
-			return false
-		}
-	}
-
-	if dcr.Status.ClusterPhase != PHASE_RUNNING {
-		return false
-	}
-	return true
-}

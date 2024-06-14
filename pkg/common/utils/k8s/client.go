@@ -12,6 +12,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -286,13 +287,14 @@ func SetDorisClusterPhase(
 	return k8sclient.Status().Update(ctx, &edcr)
 }
 
-// DeletePVC clean up existing pvc by pvc name and namespace
-func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string) error {
-	var pvc corev1.PersistentVolumeClaim
-	if err := k8sclient.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: namespace}, &pvc); apierrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return err
+// DeletePVC clean up existing pvc by pvc name, namespace and labels
+func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string, labels map[string]string) error {
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
 	}
 	return k8sclient.Delete(ctx, &pvc)
 }

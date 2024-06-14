@@ -182,7 +182,31 @@ func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, d
 }
 
 func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
-	return !dorisv1.IsClusterStatusAvailable(dcr)
+	if dcr.Spec.FeSpec != nil {
+		if dcr.Status.FEStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	if dcr.Spec.BeSpec != nil {
+		if dcr.Status.BEStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	if dcr.Spec.CnSpec != nil {
+		if dcr.Status.CnStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	if dcr.Spec.BrokerSpec != nil {
+		if dcr.Status.BrokerStatus.ComponentCondition.Phase != dorisv1.Available {
+			return true
+		}
+	}
+
+	return false
 }
 
 // clean all resource deploy by DorisCluster

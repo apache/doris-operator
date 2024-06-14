@@ -59,10 +59,21 @@ func (r *DorisCluster) ValidateCreate() error {
 func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 	klog.Info("validate update", "name", r.Name)
 	var errors []error
+	oldCluster := old.(*DorisCluster)
 
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
 	if *r.Spec.FeSpec.Replicas < *r.Spec.FeSpec.ElectionNumber {
 		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))
+	}
+
+	if oldCluster.Status.ClusterPhase != PHASE_RUNNING && oldCluster.Status.FEStatus.ComponentCondition.Phase == Available &&
+		*r.Spec.FeSpec.Replicas != *oldCluster.Spec.FeSpec.Replicas {
+		errors = append(errors, fmt.Errorf("ClusterOperationalConflicts error: there is a conflict in CRD modify. currently, cluster Phase is %s ", oldCluster.Status.ClusterPhase))
+	}
+
+	if oldCluster.Status.ClusterPhase != PHASE_RUNNING && oldCluster.Status.BEStatus.ComponentCondition.Phase == Available &&
+		*r.Spec.BeSpec.Replicas != *oldCluster.Spec.BeSpec.Replicas {
+		errors = append(errors, fmt.Errorf("there is a conflict in CRD modify. currently, cluster Phase is %s ", oldCluster.Status.ClusterPhase))
 	}
 
 	if len(errors) != 0 {

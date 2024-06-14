@@ -67,35 +67,38 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
-	dbLoadBalance, err := mysql.NewDorisSqlDB(dbConf)
+	loadBalanceDBClient, err := mysql.NewDorisSqlDB(dbConf)
 	if err != nil {
 		klog.Errorf("DropObserverFromSqlClient failed, get fe node connection err:%s", err.Error())
 		return err
 	}
-	defer dbLoadBalance.Close()
-
-	master, _, err := dbLoadBalance.GetFollowers()
+	defer loadBalanceDBClient.Close()
+	master, _, err := loadBalanceDBClient.GetFollowers()
 	if err != nil {
 		klog.Errorf("DropObserverFromSqlClient GetFollowers master failed, err:%s", err.Error())
 		return err
 	}
-
-	// Get the connection to the master
-	db, err := mysql.NewDorisSqlDB(mysql.DBConfig{
-		User:     adminUserName,
-		Password: password,
-		Host:     master.Host,
-		Port:     strconv.FormatInt(int64(queryPort), 10),
-		Database: "mysql",
-	})
-	if err != nil {
-		klog.Errorf("DropObserverFromSqlClient failed, get fe master connection  err:%s", err.Error())
-		return err
+	var masterDBClient *mysql.DB
+	if master.CurrentConnected == "Yes" {
+		masterDBClient = loadBalanceDBClient
+	} else {
+		// Get the connection to the master
+		masterDBClient, err = mysql.NewDorisSqlDB(mysql.DBConfig{
+			User:     adminUserName,
+			Password: password,
+			Host:     master.Host,
+			Port:     strconv.FormatInt(int64(queryPort), 10),
+			Database: "mysql",
+		})
+		if err != nil {
+			klog.Errorf("DropObserverFromSqlClient failed, get fe master connection  err:%s", err.Error())
+			return err
+		}
+		defer masterDBClient.Close()
 	}
-	defer db.Close()
 
 	// get all Observes
-	allObserves, err := db.GetObservers()
+	allObserves, err := masterDBClient.GetObservers()
 	if err != nil {
 		klog.Errorf("DropObserverFromSqlClient failed, GetObservers err:%s", err.Error())
 		return err
@@ -138,7 +141,7 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 	}
 	observes := getFirstFewFrontendsAfterDescendOrder(frontendMap, realSclaeNumber)
 	// drop node and return
-	return db.DropObserver(observes)
+	return masterDBClient.DropObserver(observes)
 
 }
 
