@@ -7,11 +7,9 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type Controller struct {
@@ -74,6 +72,10 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return nil
 	}
 
+	if err = be.prepareStatefulsetApply(ctx, dcr); err != nil {
+		return err
+	}
+
 	if err = k8s.ApplyStatefulSet(ctx, be.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
 		// if have restart annotation, we should exclude the interference for comparison.
 		be.RestrictConditionsEqual(new, est)
@@ -93,21 +95,11 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		cluster.Status.BEStatus = nil
 		return nil
 	}
-
-	bs := &v1.ComponentStatus{
-		ComponentCondition: v1.ComponentCondition{
-			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_BE),
-			Phase:              v1.Initializing,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		},
+	if cluster.Status.BEStatus == nil {
+		return nil
 	}
 
-	if cluster.Status.BEStatus != nil {
-		bs = cluster.Status.BEStatus.DeepCopy()
-	}
-	cluster.Status.BEStatus = bs
-	bs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_BE)
-	return be.ClassifyPodsByStatus(cluster.Namespace, bs, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
+	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
 }
 
 func (be *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) (bool, error) {
@@ -121,11 +113,4 @@ func (be *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) 
 	}
 
 	return true, nil
-}
-
-func (be *Controller) GetComponentStatus(cluster *v1.DorisCluster) v1.ComponentPhase {
-	if cluster.Status.BEStatus != nil {
-		return cluster.Status.BEStatus.ComponentCondition.Phase
-	}
-	return v1.Available
 }

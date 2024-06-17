@@ -215,7 +215,7 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 			labels := a.GetLabels()
 			dorisName := labels[dorisv1.DorisClusterLabelKey]
 			klog.Infof("DorisClusterReconciler watch pod %s change related to doris cluster %s", a.GetName(), dorisName)
-			if dorisName == "" {
+			if dorisName != "" {
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
 						Name:      dorisName,

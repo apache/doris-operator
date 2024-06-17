@@ -2,7 +2,6 @@ package sub_controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	utils "github.com/selectdb/doris-operator/pkg/common/utils"
@@ -30,9 +29,6 @@ type SubController interface {
 
 	//UpdateStatus update the component status on src.
 	UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
-
-	//get the component status on src.
-	GetComponentStatus(cluster *dorisv1.DorisCluster) dorisv1.ComponentPhase
 }
 
 // SubDefaultController define common function for all component about doris.
@@ -64,11 +60,6 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 		} else {
 			faileds = append(faileds, pod.Name)
 		}
-	}
-
-	// TODO This logic can be deleted when all nodes support auto scale and new 'ComponentPhase' values.
-	if status.ComponentCondition.Phase == dorisv1.Available {
-		status.ComponentCondition.Phase = dorisv1.Reconciling
 	}
 
 	if len(readys) == int(replicas) {
@@ -337,8 +328,8 @@ func (d *SubDefaultController) RecycleResources(ctx context.Context, dcr *dorisv
 	case dorisv1.Component_FE:
 		return d.recycleFEResources(ctx, dcr)
 	default:
-		sprintf := fmt.Sprintf("RecycleResources not support type=%s", componentType)
-		return errors.New(sprintf)
+		klog.Infof("RecycleResources not support type=%s", componentType)
+		return nil
 	}
 }
 

@@ -344,3 +344,10 @@ func GetClusterSecret(dcr *DorisCluster, secret *corev1.Secret) (adminUserName, 
 	}
 	return "root", ""
 }
+
+func IsReconcilingStatusPhase(c *ComponentStatus) bool {
+	return c.ComponentCondition.Phase == Upgrading ||
+		c.ComponentCondition.Phase == Scaling ||
+		c.ComponentCondition.Phase == Restarting ||
+		c.ComponentCondition.Phase == Reconciling
+}

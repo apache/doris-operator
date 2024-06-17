@@ -56,19 +56,6 @@ func TestAPIs(t *testing.T) {
 		&Backend{Host: "doriscluster-sample-be-4.doriscluster-sample-be-internal.doris.svc.cluster.local", HeartbeatPort: 9050},
 	}
 	db.DecommissionBE(arr1)
-	//for i := 0; i < 20000; i++ {
-	//	finished, err := db.CheckDecommissionBE(arr1)
-	//	fmt.Printf("DecommissionBE check %d : is_finished=%t } \n", i, finished)
-	//	if err != nil {
-	//		fmt.Printf("DecommissionBEcheck err:%s \n", err.Error())
-	//	}
-	//	if finished {
-	//		fmt.Printf("DecommissionBE finished")
-	//		break
-	//	}
-	//	time.Sleep(500 * time.Millisecond)
-	//
-	//}
 
 	bes, err = db.ShowBackends()
 	if err != nil {

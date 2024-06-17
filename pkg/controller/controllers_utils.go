@@ -44,6 +44,8 @@ func inconsistentBrokerStatus(eBkStatus *v1.ComponentStatus, nBkStatus *v1.Compo
 	return inconsistentComponentStatus(eBkStatus, nBkStatus)
 }
 
+// is status equal,
+// return oldStatus == newStatus
 func inconsistentComponentStatus(eStatus *v1.ComponentStatus, nStatus *v1.ComponentStatus) bool {
 	if eStatus == nil && nStatus == nil {
 		return false

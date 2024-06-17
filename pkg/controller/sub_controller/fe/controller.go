@@ -7,11 +7,9 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type Controller struct {
@@ -22,6 +20,10 @@ func (fc *Controller) ClearResources(ctx context.Context, cluster *v1.DorisClust
 	//if the doris is not have fe.
 	if cluster.Status.FEStatus == nil {
 		return true, nil
+	}
+	if err := fc.RecycleResources(ctx, cluster, v1.Component_FE); err != nil {
+		klog.Errorf("fe ClearResources recycle pvc resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
+		return false, err
 	}
 
 	if cluster.DeletionTimestamp.IsZero() {
@@ -38,26 +40,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	fs := &v1.ComponentStatus{
-		ComponentCondition: v1.ComponentCondition{
-			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE),
-			Phase:              v1.Initializing,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		},
-	}
-
-	if cluster.Status.FEStatus != nil {
-		fs = cluster.Status.FEStatus.DeepCopy()
-	}
-
-	cluster.Status.FEStatus = fs
-	fs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_FE)
-
-	return fc.ClassifyPodsByStatus(cluster.Namespace, fs, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
-}
-
-func (fc *Controller) GetComponentStatus(cluster *v1.DorisCluster) v1.ComponentPhase {
-	return cluster.Status.FEStatus.ComponentCondition.Phase
+	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
 }
 
 // New construct a FeController.
@@ -110,8 +93,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return nil
 	}
 
-	// fe cluster operator
-	if err2 := fc.controlClusterPhaseAndPreOperation(ctx, cluster); err2 != nil {
+	if err = fc.prepareStatefulsetApply(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -123,11 +105,6 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, cluster.Name, err.Error())
 		return err
-	}
-
-	if err := fc.RecycleResources(ctx, cluster, v1.Component_FE); err != nil {
-		klog.Infof("fe controller sync recycle pvc resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
-		return nil
 	}
 
 	return nil
