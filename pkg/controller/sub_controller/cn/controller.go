@@ -9,10 +9,12 @@ import (
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type Controller struct {
@@ -76,10 +78,6 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return nil
 	}
 
-	if err = cn.prepareStatefulsetApply(ctx, dcr); err != nil {
-		return err
-	}
-
 	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			cnStatefulSet.Name, cnStatefulSet.Namespace)
@@ -101,6 +99,26 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 		return nil
 	}
 
+	cs := &dorisv1.CnStatus{
+		ComponentStatus: dorisv1.ComponentStatus{
+			ComponentCondition: dorisv1.ComponentCondition{
+				SubResourceName: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN),
+				Phase:           dorisv1.Reconciling,
+
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			},
+		},
+	}
+
+	if cluster.Spec.CnSpec.AutoScalingPolicy != nil {
+		cs.HorizontalScaler = &dorisv1.HorizontalScaler{
+			Version: cluster.Spec.CnSpec.AutoScalingPolicy.Version,
+			Name:    cn.generateAutoScalerName(cluster),
+		}
+	}
+
+	cluster.Status.CnStatus = cs
+
 	// start autoscaler, the replicas should get from statefulset, statefulset's replicas will update by autoscaler when not set.
 	var est appv1.StatefulSet
 	if err := cn.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN)}, &est); err != nil {
@@ -109,7 +127,8 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 	}
 
 	replicas := *est.Spec.Replicas
-	return cn.ClassifyPodsByStatus(cluster.Namespace, &cluster.Status.CnStatus.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas)
+	cs.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_CN)
+	return cn.ClassifyPodsByStatus(cluster.Namespace, &cs.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas)
 }
 
 // autoscaler represents start autoscaler or not.

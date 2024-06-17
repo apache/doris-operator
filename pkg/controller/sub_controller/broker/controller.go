@@ -8,9 +8,11 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type Controller struct {
@@ -60,10 +62,6 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
-	if err = bk.prepareStatefulsetApply(ctx, dcr); err != nil {
-		return err
-	}
-
 	st := bk.buildBKStatefulSet(dcr)
 	if err = k8s.ApplyStatefulSet(ctx, bk.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
 		// if have restart annotation, we should exclude the interference for comparison.
@@ -84,7 +82,21 @@ func (bk *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	return bk.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BrokerStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_Broker), *cluster.Spec.BrokerSpec.Replicas)
+	bs := &v1.ComponentStatus{
+		ComponentCondition: v1.ComponentCondition{
+			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_Broker),
+			Phase:              v1.Reconciling,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		},
+	}
+
+	if cluster.Status.BrokerStatus != nil {
+		bs = cluster.Status.BrokerStatus.DeepCopy()
+	}
+
+	cluster.Status.BrokerStatus = bs
+	bs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_Broker)
+	return bk.ClassifyPodsByStatus(cluster.Namespace, bs, v1.GenerateStatefulSetSelector(cluster, v1.Component_Broker), *cluster.Spec.BrokerSpec.Replicas)
 
 }
 
