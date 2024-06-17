@@ -76,6 +76,10 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return nil
 	}
 
+	if err = cn.prepareStatefulsetApply(ctx, dcr); err != nil {
+		return err
+	}
+
 	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			cnStatefulSet.Name, cnStatefulSet.Namespace)

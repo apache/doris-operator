@@ -95,9 +95,6 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		cluster.Status.BEStatus = nil
 		return nil
 	}
-	if cluster.Status.BEStatus == nil {
-		return nil
-	}
 
 	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
 }

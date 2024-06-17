@@ -44,6 +44,9 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 	// fe scale
 	if scaleNumber != 0 { // set fe Phase as SCALING
 		cluster.Status.FEStatus.ComponentCondition.Phase = v1.Scaling
+		// In Reconcile, it is possible that the status cannot be updated in time,
+		// resulting in an error in the status judgment based on the last status,
+		// so the status will be forced to modify here
 		if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.Scaling, v1.Component_FE); err != nil {
 			klog.Errorf("SetDorisClusterPhase 'SCALING' failed err:%s ", err.Error())
 			return err
@@ -62,11 +65,10 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 	return nil
 }
 
-// DropObserverFromSqlClient handles doris'SQL(drop frontend) through the MySQL client when dealing with scale in observer
+// dropObserverFromSqlClient handles doris'SQL(drop frontend) through the MySQL client when dealing with scale in observer
 // targetDCR is new dcr
 // scaleNumber is the number of Observer needing scale down
 func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient client.Client, targetDCR *v1.DorisCluster) error {
-
 	// get adminuserName and pwd
 	secret, _ := k8s.GetSecret(ctx, k8sclient, targetDCR.Namespace, targetDCR.Spec.AuthSecret)
 	adminUserName, password := v1.GetClusterSecret(targetDCR, secret)

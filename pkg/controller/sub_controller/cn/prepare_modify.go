@@ -3,11 +3,7 @@ package cn
 import (
 	"context"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	"time"
 )
 
@@ -37,26 +33,7 @@ func (cn *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 	cs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_CN)
 	cluster.Status.CnStatus = cs
 
-	var oldSt appv1.StatefulSet
-	err := cn.K8sclient.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_CN)}, &oldSt)
-	if err != nil {
-		klog.Infof("cn controller controlClusterPhaseAndPreOperation get StatefulSet failed, err: %s", err.Error())
-		return nil
-	}
-	scaleNumber := *(cluster.Spec.CnSpec.Replicas) - *(oldSt.Spec.Replicas)
-	// scale
-	if scaleNumber != 0 { // set Phase as SCALING
-		cluster.Status.CnStatus.ComponentCondition.Phase = v1.Scaling
-		if err := k8s.SetDorisClusterPhase(ctx, cn.K8sclient, cluster.Name, cluster.Namespace, v1.Scaling, v1.Component_CN); err != nil {
-			klog.Errorf("cn SetDorisClusterPhase 'SCALING' failed err:%s ", err.Error())
-			return err
-		}
-	}
-	if scaleNumber < 0 {
-		return nil
-	}
-
-	//TODO check upgrade ,restart
+	//TODO  upgrade, restart, scale
 
 	return nil
 }
