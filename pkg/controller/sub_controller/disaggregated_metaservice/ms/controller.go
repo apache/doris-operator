@@ -29,12 +29,12 @@ func New(mgr ctrl.Manager) *DisaggregatedMSController {
 
 func (msc *DisaggregatedMSController) Sync(ctx context.Context, obj client.Object) error {
 	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (msc *DisaggregatedMSController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	//TODO implement me
-	panic("implement me")
+	return true, nil
 }
 
 func (msc *DisaggregatedMSController) GetControllerName() string {
@@ -43,5 +43,5 @@ func (msc *DisaggregatedMSController) GetControllerName() string {
 
 func (msc *DisaggregatedMSController) UpdateComponentStatus(obj client.Object) error {
 	//TODO implement me
-	panic("implement me")
+	return nil
 }
