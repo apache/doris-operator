@@ -434,6 +434,7 @@ func (d *SubDefaultController) InitStatus(dcr *dorisv1.DorisCluster, componentTy
 
 func (d *SubDefaultController) initFEStatus(cluster *dorisv1.DorisCluster) {
 	initPhase := dorisv1.Initializing
+	// When in the Change phase, the state should inherit the last state instead of using the default state. Prevent incorrect Initializing of the change state
 	if cluster.Status.FEStatus != nil && dorisv1.IsReconcilingStatusPhase(cluster.Status.FEStatus) {
 		initPhase = cluster.Status.FEStatus.ComponentCondition.Phase
 	}
@@ -451,6 +452,7 @@ func (d *SubDefaultController) initFEStatus(cluster *dorisv1.DorisCluster) {
 
 func (d *SubDefaultController) initBEStatus(cluster *dorisv1.DorisCluster) {
 	initPhase := dorisv1.Initializing
+	// When in the Change phase, the state should inherit the last state instead of using the default state. Prevent incorrect Initializing of the change state
 	if cluster.Status.BEStatus != nil && dorisv1.IsReconcilingStatusPhase(cluster.Status.BEStatus) {
 		initPhase = cluster.Status.BEStatus.ComponentCondition.Phase
 	}
