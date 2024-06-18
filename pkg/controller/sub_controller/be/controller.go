@@ -37,7 +37,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if dcr.Spec.BeSpec == nil {
 		return nil
 	}
-
+	be.InitStatus(dcr, v1.Component_BE)
 	if !be.FeAvailable(dcr) {
 		return nil
 	}
@@ -70,10 +70,6 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if !be.PrepareReconcileResources(ctx, dcr, v1.Component_BE) {
 		klog.Infof("be controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
 		return nil
-	}
-
-	if err = be.prepareStatefulsetApply(ctx, dcr); err != nil {
-		return err
 	}
 
 	if err = k8s.ApplyStatefulSet(ctx, be.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {

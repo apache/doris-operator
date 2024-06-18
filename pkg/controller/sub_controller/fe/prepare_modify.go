@@ -7,33 +7,16 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/mysql"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // prepareStatefulsetApply means Pre-operation and status control on the client side
 func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.DorisCluster) error {
-	initPhase := v1.Initializing
-	if cluster.Status.FEStatus != nil && v1.IsReconcilingStatusPhase(cluster.Status.FEStatus) {
-		initPhase = cluster.Status.FEStatus.ComponentCondition.Phase
-	}
-
-	status := &v1.ComponentStatus{
-		ComponentCondition: v1.ComponentCondition{
-			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE),
-			Phase:              initPhase,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		},
-	}
-	status.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_FE)
-	cluster.Status.FEStatus = status
-
 	var oldSt appv1.StatefulSet
 	err := fc.K8sclient.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &oldSt)
 	if err != nil {

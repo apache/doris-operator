@@ -63,6 +63,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Info("fe Controller Sync ", "the fe component is not needed ", "namespace ", cluster.Namespace, " doris cluster name ", cluster.Name)
 		return nil
 	}
+	fc.InitStatus(cluster, v1.Component_FE)
 
 	feSpec := cluster.Spec.FeSpec
 	//get the fe configMap for resolve ports.

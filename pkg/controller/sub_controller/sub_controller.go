@@ -10,12 +10,14 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type SubController interface {
@@ -417,4 +419,49 @@ func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.Dori
 		}
 	}
 	return mergeError
+}
+
+func (d *SubDefaultController) InitStatus(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	switch componentType {
+	case dorisv1.Component_FE:
+		d.initFEStatus(dcr)
+	case dorisv1.Component_BE:
+		d.initBEStatus(dcr)
+	default:
+		klog.Infof("InitStatus not support type=", componentType)
+	}
+}
+
+func (d *SubDefaultController) initFEStatus(cluster *dorisv1.DorisCluster) {
+	initPhase := dorisv1.Initializing
+	if cluster.Status.FEStatus != nil && dorisv1.IsReconcilingStatusPhase(cluster.Status.FEStatus) {
+		initPhase = cluster.Status.FEStatus.ComponentCondition.Phase
+	}
+
+	status := &dorisv1.ComponentStatus{
+		ComponentCondition: dorisv1.ComponentCondition{
+			SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_FE),
+			Phase:              initPhase,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		},
+	}
+	status.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_FE)
+	cluster.Status.FEStatus = status
+}
+
+func (d *SubDefaultController) initBEStatus(cluster *dorisv1.DorisCluster) {
+	initPhase := dorisv1.Initializing
+	if cluster.Status.BEStatus != nil && dorisv1.IsReconcilingStatusPhase(cluster.Status.BEStatus) {
+		initPhase = cluster.Status.BEStatus.ComponentCondition.Phase
+	}
+
+	status := &dorisv1.ComponentStatus{
+		ComponentCondition: dorisv1.ComponentCondition{
+			SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_BE),
+			Phase:              initPhase,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		},
+	}
+	status.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_BE)
+	cluster.Status.BEStatus = status
 }
