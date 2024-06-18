@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
+	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/autoscaling/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -222,4 +225,94 @@ func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string
 		return configMaps, errors.New("Failed to get configmap: " + errMessage)
 	}
 	return configMaps, nil
+}
+
+// get the Service by namespace and name.
+func GetService(ctx context.Context, k8sclient client.Client, namespace, name string) (*corev1.Service, error) {
+	var svc corev1.Service
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &svc); err != nil {
+		return nil, err
+	}
+	return &svc, nil
+}
+
+func GetPods(ctx context.Context, k8sclient client.Client, targetDCR dorisv1.DorisCluster, componentType dorisv1.ComponentType) (corev1.PodList, error) {
+	pods := corev1.PodList{}
+
+	err := k8sclient.List(
+		ctx,
+		&pods,
+		client.InNamespace(targetDCR.Namespace),
+		client.MatchingLabels(dorisv1.GetPodLabels(&targetDCR, componentType)),
+	)
+	if err != nil {
+		return pods, err
+	}
+
+	return pods, nil
+}
+
+// GetConfig get conf from configmap by componentType , if not use configmap get an empty map.
+func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
+	if len(cms) == 0 {
+		return make(map[string]interface{}), nil
+	}
+
+	configMaps, err := GetConfigMaps(ctx, k8sclient, namespace, cms)
+	if err != nil {
+		klog.Errorf("GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
+	}
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
+	return res, utils.MergeError(err, resolveErr)
+}
+
+// SetDorisClusterPhase set DorisCluster Phase status,
+// Perform a check before setting, and do not change if the status is the same as the last time
+func SetDorisClusterPhase(
+	ctx context.Context,
+	k8sclient client.Client,
+	dcrName, namespace string,
+	phase dorisv1.ComponentPhase,
+	componentType dorisv1.ComponentType,
+) error {
+	var edcr dorisv1.DorisCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
+		return err
+	}
+	isStatusEqual := false
+	switch componentType {
+	case dorisv1.Component_FE:
+		isStatusEqual = (edcr.Status.FEStatus.ComponentCondition.Phase == phase)
+		edcr.Status.FEStatus.ComponentCondition.Phase = phase
+	case dorisv1.Component_BE:
+		isStatusEqual = (edcr.Status.BEStatus.ComponentCondition.Phase == phase)
+		edcr.Status.BEStatus.ComponentCondition.Phase = phase
+	case dorisv1.Component_CN:
+		isStatusEqual = (edcr.Status.CnStatus.ComponentCondition.Phase == phase)
+		edcr.Status.CnStatus.ComponentCondition.Phase = phase
+	case dorisv1.Component_Broker:
+		isStatusEqual = (edcr.Status.BrokerStatus.ComponentCondition.Phase == phase)
+		edcr.Status.BrokerStatus.ComponentCondition.Phase = phase
+	default:
+		klog.Infof("SetDorisClusterPhase not support type=", componentType)
+		return nil
+	}
+	if isStatusEqual {
+		klog.Infof("UpdateDorisClusterPhase will not change cluster %s Phase, it is already %s ,DCR name: %s, namespace: %s,", componentType, phase, dcrName, namespace)
+		return nil
+	}
+	return k8sclient.Status().Update(ctx, &edcr)
+}
+
+// DeletePVC clean up existing pvc by pvc name, namespace and labels
+func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string, labels map[string]string) error {
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+	}
+	return k8sclient.Delete(ctx, &pvc)
 }

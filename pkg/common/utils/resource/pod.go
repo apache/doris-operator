@@ -104,7 +104,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 
 	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        generatePodTemplateName(dcr, componentType),
+			Name:        GeneratePodTemplateName(dcr, componentType),
 			Annotations: spec.Annotations,
 			Labels:      v1.GetPodLabels(dcr, componentType),
 		},
@@ -393,7 +393,7 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 	}
 }
 
-func generatePodTemplateName(dcr *v1.DorisCluster, componentType v1.ComponentType) string {
+func GeneratePodTemplateName(dcr *v1.DorisCluster, componentType v1.ComponentType) string {
 	switch componentType {
 	case v1.Component_FE:
 		return dcr.Name + "-" + string(v1.Component_FE)

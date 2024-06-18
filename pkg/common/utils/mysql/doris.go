@@ -4,6 +4,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const (
+	FE_FOLLOWER_ROLE = "FOLLOWER"
+	FE_OBSERVE_ROLE  = "OBSERVER"
+)
+
 type Frontend struct {
 	Name               string `json:"name" db:"Name"`
 	Host               string `json:"host" db:"Host"`
