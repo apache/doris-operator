@@ -107,6 +107,10 @@ spec:
             - mountPath:  /tmp/k8s-webhook-server/serving-certs
               name: cert
               readOnly: true
+      {{- if .Values.dorisOperator.image.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ print .Values.dorisOperator.image.imagePullSecret}}
+      {{- end }}
       volumes:
         - name: cert
           secret:
