@@ -2627,11 +2627,6 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
-                  labels:
-                    additionalProperties:
-                      type: string
-                    description: Labels for organize and categorize objects
-                    type: object
                   limits:
                     additionalProperties:
                       anyOf:
@@ -4418,11 +4413,6 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
-                  labels:
-                    additionalProperties:
-                      type: string
-                    description: Labels for organize and categorize objects
-                    type: object
                   limits:
                     additionalProperties:
                       anyOf:

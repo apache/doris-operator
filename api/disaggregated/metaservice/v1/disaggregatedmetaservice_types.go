@@ -101,9 +101,6 @@ type BaseSpec struct {
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 
-	//Labels for organize and categorize objects
-	Labels map[string]string `json:"labels,omitempty"`
-
 	//Annotations is an unstructured key value map stored with a resource that may be
 	// set by external tools to store and retrieve arbitrary metadata.
 	Annotations map[string]string `json:"annotations,omitempty"`
