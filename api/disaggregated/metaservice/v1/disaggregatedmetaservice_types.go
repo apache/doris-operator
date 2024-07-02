@@ -10,7 +10,7 @@ import (
 
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="MSStatus",type=string,JSONPath=`.status.msStatus.phase`
-// +kubebuilder:printcolumn:name="RecycleStatus",type=string,JSONPath=`.status.recycleStatus.phase`
+// +kubebuilder:printcolumn:name="RecyclerStatus",type=string,JSONPath=`.status.recyclerStatus.phase`
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=ddms
 // DorisDisaggregatedMetaService is the Schema for the DorisDisaggregatedMetaServices API
@@ -79,9 +79,13 @@ type FoundationDB struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-type MetaService struct {
+type BaseSpec struct {
 	//Image is the metaservice docker image to deploy. the image can pull from dockerhub selectdb repository.
 	Image string `json:"image,omitempty"`
+
+	ServiceAccount string `json:"serviceAccount,omitempty"`
+
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
@@ -112,12 +116,81 @@ type MetaService struct {
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-	// export metaservice for accessing from outside k8s.
-	Service *ExportService `json:"service,omitempty"`
-
 	// ConfigMaps describe all configmaps that need to be mounted.
 	ConfigMaps []ConfigMap `json:"configMaps,omitempty"`
+
+	// (Optional) If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	//+optional
+	//EnvVars is a slice of environment variables that are added to the pods, the default is empty.
+	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
+
+	//+optional
+	// podLabels for user selector or classify pods
+	PodLabels map[string]string `json:"podLabels,omitempty"`
+
+	// HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts
+	// file if specified. This is only valid for non-hostNetwork pods.
+	// +optional
+	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty"`
+
+	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
+
+	//Security context for pod.
+	//+optional
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+
+	//Security context for all containers running in the pod (unless they override it).
+	//+optional
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 }
+
+type MetaService struct {
+	//the foundation spec for creating cn software services.
+	//BaseSpec `json:"baseSpec,omitempty"`
+	BaseSpec `json:",inline"`
+
+	// export metaservice for accessing from outside k8s.
+	Service *ExportService `json:"service,omitempty"`
+}
+
+type Recycler struct {
+	//the foundation spec for creating cn software services.
+	//BaseSpec `json:"baseSpec,omitempty"`
+	BaseSpec `json:",inline"`
+}
+
+// PersistentVolume defines volume information and container mount information.
+type PersistentVolume struct {
+	// PersistentVolumeClaimSpec is a list of claim spec about storage that pods are required.
+	// +kubebuilder:validation:Optional
+	corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec,omitempty"`
+
+	//the mount path for component service.
+	MountPath string `json:"mountPath,omitempty"`
+
+	//the volume name associate with
+	Name string `json:"name,omitempty"`
+
+	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
+	//It only takes effect in the first configuration and cannot be added or modified later.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	//defines pvc provisioner
+	PVCProvisioner PVCProvisioner `json:"provisioner,omitempty"`
+}
+
+// PVCProvisioner defines PVC provisioner
+type PVCProvisioner string
+
+// Possible values of PVC provisioner
+const (
+	PVCProvisionerUnspecified PVCProvisioner = ""
+	PVCProvisionerStatefulSet PVCProvisioner = "StatefulSet"
+	PVCProvisionerOperator    PVCProvisioner = "Operator"
+)
 
 type ConfigMap struct {
 	//Name specify the configmap in deployed namespace that need to be mounted in pod.
@@ -164,47 +237,10 @@ type PortMap struct {
 	TargetPort int32 `json:"targetPort,omitempty"`
 }
 
-type Recycler struct {
-	//Image is the recycle docker image to deploy. the image can pull from dockerhub selectdb repository.
-	Image string `json:"image,omitempty"`
-
-	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
-	// If specified, these secrets will be passed to individual puller implementations for them to use.
-	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
-	// +optional
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-
-	//Replicas represent the number of recycle. default is 1. anytime only one working, config replicas=2 is high availability, more than 2 is unnecessary.
-	Replicas *int32 `json:"replicas,omitempty"`
-
-	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
-	corev1.ResourceRequirements `json:",inline"`
-
-	//Labels for organize and categorize objects
-	Labels map[string]string `json:"labels,omitempty"`
-
-	//Annotations is an unstructured key value map stored with a resource that may be
-	// set by external tools to store and retrieve arbitrary metadata.
-	Annotations map[string]string `json:"annotations,omitempty"`
-
-	//+optional
-	// Affinity is a group of affinity scheduling rules.
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
-
-	// (Optional) Tolerations for scheduling pods onto some dedicated nodes
-	//+optional
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-
-	// ConfigMaps describe all configmaps that need to be mounted.
-	ConfigMaps []ConfigMap `json:"configMaps,omitempty"`
-}
-
 type DorisDisaggregatedMetaServiceStatus struct {
-	FDBStatus     FDBStatus     `json:"fdbStatus,omitempty"`
-	MSStatus      MSStatus      `json:"msStatus,omitempty"`
-	RecycleStatus RecycleStatus `json:"recycleStatus,omitempty"`
+	FDBStatus      FDBStatus  `json:"fdbStatus,omitempty"`
+	MSStatus       BaseStatus `json:"msStatus,omitempty"`
+	RecyclerStatus BaseStatus `json:"recycleStatus,omitempty"`
 }
 
 type FDBStatus struct {
@@ -216,15 +252,7 @@ type FDBStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 }
 
-type RecycleStatus struct {
-	//Phase represent the stage of reconciling.
-	Phase MetaServicePhase `json:"phase,omitempty"`
-
-	//AvailableStatus represents the recycle available or not.
-	AvailableStatus `json:"availableStatus,omitempty"`
-}
-
-type MSStatus struct {
+type BaseStatus struct {
 	//Phase represent the stage of reconciling.
 	Phase MetaServicePhase `json:"phase,omitempty"`
 

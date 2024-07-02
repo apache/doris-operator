@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/FoundationDB/fdb-kubernetes-operator v1.36.0
 	github.com/davecgh/go-spew v1.1.1
+	github.com/google/go-cmp v0.5.9
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.8
 	github.com/spf13/viper v1.16.0
@@ -34,7 +35,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/google/uuid v1.3.0 // indirect

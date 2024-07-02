@@ -11,48 +11,52 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ sub_controller.DisaggregatedSubController = &DisaggregatedFDBController{}
+type Controller struct {
+	sub_controller.DisaggregatedSubDefaultController
+}
+
+//var _ sub_controller.DisaggregatedSubController = &DisaggregatedFDBController{}
 
 var (
 	disaggregatedFDBController = "disaggregatedFDBController"
 )
 
-type DisaggregatedFDBController struct {
-	k8sClient      client.Client
-	k8sRecorder    record.EventRecorder
-	controllerName string
-}
+//type DisaggregatedFDBController struct {
+//	k8sClient      client.Client
+//	k8sRecorder    record.EventRecorder
+//	controllerName string
+//}
 
-func New(mgr ctrl.Manager) *DisaggregatedFDBController {
-	return &DisaggregatedFDBController{
-		k8sClient:      mgr.GetClient(),
-		k8sRecorder:    mgr.GetEventRecorderFor(disaggregatedFDBController),
-		controllerName: disaggregatedFDBController,
-	}
+func New(mgr ctrl.Manager) *Controller {
+	return &Controller{
+		sub_controller.DisaggregatedSubDefaultController{
+			K8sclient:      mgr.GetClient(),
+			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedFDBController),
+			ControllerName: disaggregatedFDBController,
+		}}
 }
 
 // sync FoundationDBCluster
-func (fdbc *DisaggregatedFDBController) Sync(ctx context.Context, obj client.Object) error {
+func (fdbc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	ddc := obj.(*mv1.DorisDisaggregatedMetaService)
 	if ddc.Spec.FDB == nil {
 		klog.Errorf("disaggregatedFDBController disaggregatedMetaService namespace=%s name=%s have not fdb spec.!", ddc.Namespace, ddc.Name)
-		fdbc.k8sRecorder.Event(ddc, "Failed", string(FDBSpecEmpty), "disaggregatedMetaService fdb spec not empty!")
+		fdbc.K8srecorder.Event(ddc, "Failed", string(FDBSpecEmpty), "disaggregatedMetaService fdb spec not empty!")
 		return errors.New("disaggregatedMetaService namespace=" + ddc.Namespace + " name=" + ddc.Name + "fdb spec empty!")
 	}
 
 	fdb := fdbc.buildFDBClusterResource(ddc)
-	return k8s.ApplyFoundationDBCluster(ctx, fdbc.k8sClient, fdb)
+	return k8s.ApplyFoundationDBCluster(ctx, fdbc.K8sclient, fdb)
 }
 
 // convert DorisDisaggregatedMetaSerivce's fdb to FoundationDBCluster resource.
-func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddc *mv1.DorisDisaggregatedMetaService) *v1beta2.FoundationDBCluster {
+func (fdbc *Controller) buildFDBClusterResource(ddc *mv1.DorisDisaggregatedMetaService) *v1beta2.FoundationDBCluster {
 	fdb := &v1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ddc.Namespace,
@@ -79,10 +83,14 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddc *mv1.DorisDi
 					MaxConcurrentReplacements: pointer.Int(1),
 				},
 			},
+			FaultDomain: v1beta2.FoundationDBClusterFaultDomain{
+				Key: "foundationdb.org/none",
+			},
 			LabelConfig: v1beta2.LabelConfig{
-				MatchLabels:          ddc.GenerateFDBLabels(),
-				ProcessClassLabels:   []string{ProcessClassLabel},
-				ProcessGroupIDLabels: []string{ProcessGroupIDLabel},
+				MatchLabels:             ddc.GenerateFDBLabels(),
+				ProcessClassLabels:      []string{ProcessClassLabel},
+				ProcessGroupIDLabels:    []string{ProcessGroupIDLabel},
+				FilterOnOwnerReferences: pointer.Bool(false),
 			},
 			MinimumUptimeSecondsForBounce: 60,
 			ProcessCounts: v1beta2.ProcessCounts{
@@ -92,6 +100,7 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddc *mv1.DorisDi
 
 			Processes: map[v1beta2.ProcessClass]v1beta2.ProcessSettings{
 				v1beta2.ProcessClassGeneral: v1beta2.ProcessSettings{
+					CustomParameters:    v1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"},
 					PodTemplate:         fdbc.buildGeneralPodTemplate(ddc.Spec.FDB),
 					VolumeClaimTemplate: ddc.Spec.FDB.VolumeClaimTemplate,
 				},
@@ -101,6 +110,12 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddc *mv1.DorisDi
 				DefineDNSLocalityFields: pointer.Bool(true),
 				UseDNSInClusterFile:     pointer.Bool(true),
 			},
+			SidecarContainer: v1beta2.ContainerOverrides{
+				EnableLivenessProbe:  pointer.Bool(true),
+				EnableReadinessProbe: pointer.Bool(false)},
+			Skip:                                false,
+			UseExplicitListenAddress:            pointer.Bool(true),
+			ReplaceInstancesWhenResourcesChange: pointer.Bool(true),
 		},
 	}
 
@@ -111,7 +126,7 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddc *mv1.DorisDi
 	bi, v, err := imageSplit(ddc.Spec.FDB.Image)
 	if err != nil {
 		klog.Infof("disaggregatedFDBController split config image error, err=%s", err.Error())
-		fdbc.k8sRecorder.Event(ddc, "Warning", string(ImageFormatError), ddc.Spec.FDB.Image+" format not provided, please reference docker definition.")
+		fdbc.K8srecorder.Event(ddc, "Warning", string(ImageFormatError), ddc.Spec.FDB.Image+" format not provided, please reference docker definition.")
 		return fdb
 
 	}
@@ -130,7 +145,7 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddc *mv1.DorisDi
 	return fdb
 }
 
-func (fdbc *DisaggregatedFDBController) buildGeneralPodTemplate(ddc *mv1.FoundationDB) *corev1.PodTemplateSpec {
+func (fdbc *Controller) buildGeneralPodTemplate(ddc *mv1.FoundationDB) *corev1.PodTemplateSpec {
 	return &corev1.PodTemplateSpec{
 		Spec: corev1.PodSpec{
 			Containers:     []corev1.Container{fdbc.buildFDBContainer(ddc), fdbc.buildDefaultFDBSidecarContainer()},
@@ -143,7 +158,7 @@ func (fdbc *DisaggregatedFDBController) buildGeneralPodTemplate(ddc *mv1.Foundat
 }
 
 // construct the fdb container for running fdb server.
-func (fdbc *DisaggregatedFDBController) buildFDBContainer(ddc *mv1.FoundationDB) corev1.Container {
+func (fdbc *Controller) buildFDBContainer(ddc *mv1.FoundationDB) corev1.Container {
 	return corev1.Container{
 		Name:      v1beta2.MainContainerName,
 		Resources: ddc.ResourceRequirements,
@@ -154,7 +169,7 @@ func (fdbc *DisaggregatedFDBController) buildFDBContainer(ddc *mv1.FoundationDB)
 }
 
 // construct the init container for initialing environment of fdb.
-func (fdbc *DisaggregatedFDBController) buildDefaultFDBInitContainer() corev1.Container {
+func (fdbc *Controller) buildDefaultFDBInitContainer() corev1.Container {
 	return corev1.Container{
 		Name:      v1beta2.InitContainerName,
 		Resources: getDefaultResources(),
@@ -165,7 +180,7 @@ func (fdbc *DisaggregatedFDBController) buildDefaultFDBInitContainer() corev1.Co
 }
 
 // construct the sidecar container for
-func (fdbc *DisaggregatedFDBController) buildDefaultFDBSidecarContainer() corev1.Container {
+func (fdbc *Controller) buildDefaultFDBSidecarContainer() corev1.Container {
 	return corev1.Container{
 		Name:      v1beta2.SidecarContainerName,
 		Resources: getDefaultResources(),
@@ -175,25 +190,30 @@ func (fdbc *DisaggregatedFDBController) buildDefaultFDBSidecarContainer() corev1
 	}
 }
 
-func (fdbc *DisaggregatedFDBController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
+func (fdbc *Controller) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddm := obj.(*mv1.DorisDisaggregatedMetaService)
+
+	if ddm.DeletionTimestamp.IsZero() {
+		return true, nil
+	}
+
 	fdbClusterName := ddm.GenerateFDBClusterName()
-	if err := k8s.DeleteFoundationDBCluster(ctx, fdbc.k8sClient, ddm.Namespace, ddm.Name); err != nil {
+	if err := k8s.DeleteFoundationDBCluster(ctx, fdbc.K8sclient, ddm.Namespace, ddm.Name); err != nil {
 		klog.Errorf("disaggregatedFDBController delete foundationDBCluster name %s failed,err=%s.", fdbClusterName, err.Error())
 		return false, err
 	}
 	return true, nil
 }
 
-func (fdbc *DisaggregatedFDBController) GetControllerName() string {
-	return fdbc.controllerName
+func (fdbc *Controller) GetControllerName() string {
+	return fdbc.ControllerName
 }
 
-func (fdbc *DisaggregatedFDBController) UpdateComponentStatus(obj client.Object) error {
+func (fdbc *Controller) UpdateComponentStatus(obj client.Object) error {
 	ddm := obj.(*mv1.DorisDisaggregatedMetaService)
 	fdbClusterName := ddm.GenerateFDBClusterName()
 	var fdb v1beta2.FoundationDBCluster
-	if err := fdbc.k8sClient.Get(context.Background(), types.NamespacedName{Name: fdbClusterName, Namespace: ddm.Namespace}, &fdb); err != nil {
+	if err := fdbc.K8sclient.Get(context.Background(), types.NamespacedName{Name: fdbClusterName, Namespace: ddm.Namespace}, &fdb); err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Infof("disaggregatedFDBController foundationDBCluster name =%s not found.", fdbClusterName)
 			return nil

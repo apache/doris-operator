@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/autoscaling/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -225,6 +227,22 @@ func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string
 	return configMaps, nil
 }
 
+func GetDisaggregatedConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
+	var configMaps []*corev1.ConfigMap
+	errMessage := ""
+	for _, cm := range cms {
+		var configMap corev1.ConfigMap
+		if getErr := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cm.Name}, &configMap); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", cm.Name, namespace, getErr.Error())
+		}
+		configMaps = append(configMaps, &configMap)
+	}
+	if errMessage != "" {
+		return configMaps, errors.New("Failed to get configmap: " + errMessage)
+	}
+	return configMaps, nil
+}
+
 // ApplyFoundationDBCluster apply FoundationDBCluster to apiserver.
 func ApplyFoundationDBCluster(ctx context.Context, k8sclient client.Client, fdb *v1beta2.FoundationDBCluster) error {
 	var efdb v1beta2.FoundationDBCluster
@@ -240,14 +258,36 @@ func ApplyFoundationDBCluster(ctx context.Context, k8sclient client.Client, fdb 
 }
 
 func DeleteFoundationDBCluster(ctx context.Context, k8sclient client.Client, namespace, name string) error {
-	var fdb v1beta2.FoundationDBCluster
-	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &fdb); err != nil {
+	fdb, err := GetFoundationDBCluster(ctx, k8sclient, namespace, name)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-
 		return err
 	}
+	return k8sclient.Delete(ctx, fdb)
+}
 
-	return k8sclient.Delete(ctx, &fdb)
+func GetFoundationDBCluster(ctx context.Context, k8sclient client.Client, namespace, name string) (*v1beta2.FoundationDBCluster, error) {
+	var fdb v1beta2.FoundationDBCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &fdb); err != nil {
+		return nil, err
+	}
+	return &fdb, nil
+}
+
+// DeletePVC clean up existing pvc by pvc name, namespace and labels
+func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string, labels map[string]string) error {
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+	}
+	err := k8sclient.Delete(ctx, &pvc)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
