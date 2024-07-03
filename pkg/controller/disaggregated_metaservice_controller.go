@@ -7,7 +7,7 @@ import (
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/fdb"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/ms"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/recycle"
+	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/recycler"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +46,7 @@ func (dmsr *DisaggregatedMetaServiceReconciler) Init(mgr ctrl.Manager, options *
 	scs[dfdbc.GetControllerName()] = dfdbc
 	dmsc := ms.New(mgr)
 	scs[dmsc.GetControllerName()] = dmsc
-	dryc := recycle.New(mgr)
+	dryc := recycler.New(mgr)
 	scs[dryc.GetControllerName()] = dryc
 
 	if err := (&DisaggregatedMetaServiceReconciler{
@@ -85,6 +85,7 @@ func (dmsr *DisaggregatedMetaServiceReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, nil
 	}
 
+	// clear Resources if statefulset delete
 	if dms.DeletionTimestamp != nil {
 		dmsr.resourceClean(ctx, &dms)
 		return ctrl.Result{}, nil
@@ -93,28 +94,34 @@ func (dmsr *DisaggregatedMetaServiceReconciler) Reconcile(ctx context.Context, r
 	for _, rc := range dmsr.Scs {
 		if err := rc.Sync(ctx, &dms); err != nil {
 			klog.Errorf("disaggregatedMetaServiceReconciler sub reconciler %s reconcile err=%s.", rc.GetControllerName(), err.Error())
-			return ctrl.Result{}, err
+			return requeueIfError(err)
 		}
 	}
 
+	// clear pvc Resources if pod scale down
+	dmsr.resourceClean(ctx, &dms)
 	for _, rc := range dmsr.Scs {
 		if err := rc.UpdateComponentStatus(&dms); err != nil {
 			klog.Errorf("disaggregatedMetaServiceReconciler sub reconciler %s update status err=%s.", rc.GetControllerName(), err.Error())
-			return ctrl.Result{}, err
+			return requeueIfError(err)
 		}
 	}
 
 	return dmsr.updateDisaggregatedMetaServiceStatus(ctx, &dms)
 }
 
-// updateDisaggregatedMetaServiceStatus when component status changed.
+// updateDisaggregatedMetaServiceStatus confirm and correct CR status and control reconcile according to the status.
 func (dmsr *DisaggregatedMetaServiceReconciler) updateDisaggregatedMetaServiceStatus(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService) (ctrl.Result, error) {
 	var edms mv1.DorisDisaggregatedMetaService
 	if err := dmsr.Get(ctx, types.NamespacedName{Namespace: dms.Namespace, Name: dms.Name}, &edms); err != nil {
-		return ctrl.Result{}, err
+		return requeueIfError(err)
 	}
 
+	// if the status is not equal before and now the status is not available should requeue.
 	if cmp.Equal(dms.Status, edms.Status) {
+		if needReconcile(edms) {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -124,9 +131,31 @@ func (dmsr *DisaggregatedMetaServiceReconciler) updateDisaggregatedMetaServiceSt
 	})
 }
 
+// resourceClean provides unified resource cleanup capabilities, including clearing CR marks and clearing some resources.
 func (dmsr *DisaggregatedMetaServiceReconciler) resourceClean(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService) {
 	for _, rc := range dmsr.Scs {
 		rc.ClearResources(ctx, dms)
 	}
-	return
+}
+
+func needReconcile(dms mv1.DorisDisaggregatedMetaService) bool {
+	if dms.Spec.FDB != nil {
+		if dms.Status.FDBStatus.AvailableStatus == mv1.UnAvailable {
+			return true
+		}
+	}
+
+	if dms.Spec.MS != nil {
+		if dms.Status.MSStatus.AvailableStatus == mv1.UnAvailable || dms.Status.MSStatus.Phase != mv1.Ready {
+			return true
+		}
+	}
+
+	if dms.Spec.Recycler != nil {
+		if dms.Status.RecyclerStatus.AvailableStatus == mv1.UnAvailable || dms.Status.RecyclerStatus.Phase != mv1.Ready {
+			return true
+		}
+	}
+
+	return false
 }

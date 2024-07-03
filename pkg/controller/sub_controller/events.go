@@ -14,6 +14,7 @@ const (
 	PVCListFailed           = "PVCListFailed"
 	PVCUpdate               = "PVCUpdated"
 	PVCUpdateFailed         = "PVCUpdateFailed"
+	PVCDeleteFailed         = "PVCDeleteFailed"
 	PVCCreate               = "PVCCreate"
 	PVCCreateFailed         = "PVCCreateFailed"
 	FollowerScaleDownFailed = "FollowerScaleDownFailed"
