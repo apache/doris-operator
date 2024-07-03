@@ -49,17 +49,17 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	msc.CheckMSConfigMountPath(dms, mv1.Component_MS)
 
 	// MS only Build Internal Service
-	internalService := resource.BuildDMSInternalService(dms, mv1.Component_MS, config)
-	if err := k8s.ApplyService(ctx, msc.K8sclient, &internalService, resource.DMSServiceDeepEqual); err != nil {
-		klog.Errorf("MS controller sync apply internalService name=%s, namespace=%s, clusterName=%s failed.message=%s.",
-			internalService.Name, internalService.Namespace, dms.Name, err.Error())
+	service := resource.BuildDMSService(dms, mv1.Component_MS, resource.GetPortFromMap(config, defConfMap, resource.BRPC_LISTEN_PORT))
+	if err := k8s.ApplyService(ctx, msc.K8sclient, &service, resource.DMSServiceDeepEqual); err != nil {
+		klog.Errorf("MS controller sync apply service name=%s, namespace=%s, clusterName=%s failed.message=%s.",
+			service.Name, service.Namespace, dms.Name, err.Error())
 		return err
 	}
 
-	if !msc.PrepareMSReconcileResources(ctx, dms, mv1.Component_MS) {
-		klog.Infof("MS controller sync preparing resource for reconciling namespace %s name %s!", dms.Namespace, dms.Name)
-		return nil
-	}
+	//if !msc.PrepareMSReconcileResources(ctx, dms, mv1.Component_MS) {
+	//	klog.Infof("MS controller sync preparing resource for reconciling namespace %s name %s!", dms.Namespace, dms.Name)
+	//	return nil
+	//}
 
 	// TODO prepareStatefulsetApply
 	st := msc.buildMSStatefulSet(dms)

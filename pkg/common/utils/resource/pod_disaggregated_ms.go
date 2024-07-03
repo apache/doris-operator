@@ -16,7 +16,6 @@ const (
 	HEALTH_MS_LIVE_COMMAND = "/opt/apache-doris/ms_disaggregated_is_alive.sh"
 	HEALTH_RC_LIVE_COMMAND = "/opt/apache-doris/ms_disaggregated_is_alive.sh"
 	PRESTOP_MS_COMMAND     = "/opt/apache-doris/ms_disaggregated_prestop.sh"
-	PRESTOP_RC_COMMAND     = "/opt/apache-doris/ms_disaggregated_prestop.sh"
 )
 
 func NewDMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) corev1.PodTemplateSpec {
@@ -88,10 +87,8 @@ func buildDMSVolumeMounts(spec mv1.BaseSpec) []corev1.VolumeMount {
 	return volumeMounts
 }
 
-func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, config map[string]interface{}, componentType mv1.ComponentType) corev1.Container {
+func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, brpcPort int32, componentType mv1.ComponentType) corev1.Container {
 	var envs []corev1.EnvVar
-	var port int32
-	var prestopScript string
 	spec := GetDMSBaseSpecFromCluster(dms, componentType)
 
 	command, args := buildDMSEntrypointCommand(componentType)
@@ -125,17 +122,6 @@ func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, config map[
 		imagePullPolicy = defaultDMSImagePullPolicy
 	}
 
-	switch componentType {
-	case mv1.Component_MS:
-		port = GetPort(config, MS_BRPC_LISTEN_PORT)
-		prestopScript = PRESTOP_MS_COMMAND
-	case mv1.Component_RC:
-		port = GetPort(config, RC_BRPC_LISTEN_PORT)
-		prestopScript = PRESTOP_RC_COMMAND
-	default:
-		klog.Infof("the componentType %s is not supported in probe.")
-	}
-
 	return corev1.Container{
 		Image:           spec.Image,
 		Command:         command,
@@ -145,13 +131,13 @@ func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, config map[
 		VolumeMounts:    volumeMounts,
 		ImagePullPolicy: imagePullPolicy,
 		Resources:       spec.ResourceRequirements,
-		LivenessProbe:   dmsLivenessProbe(port),
-		StartupProbe:    dmsStartupProbe(port),
-		ReadinessProbe:  dmsReadinessProbe(port),
+		LivenessProbe:   dmsLivenessProbe(brpcPort),
+		StartupProbe:    dmsStartupProbe(brpcPort),
+		ReadinessProbe:  dmsReadinessProbe(brpcPort),
 		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{
-					Command: []string{prestopScript},
+					Command: []string{PRESTOP_MS_COMMAND},
 				},
 			},
 		},

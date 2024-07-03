@@ -106,6 +106,10 @@ type BaseSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 
 	//+optional
+	// export metaservice for accessing from outside k8s.
+	Service *ExportService `json:"service,omitempty"`
+
+	//+optional
 	// Affinity is a group of affinity scheduling rules.
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
@@ -148,9 +152,6 @@ type MetaService struct {
 	//the foundation spec for creating cn software services.
 	//BaseSpec `json:"baseSpec,omitempty"`
 	BaseSpec `json:",inline"`
-
-	// export metaservice for accessing from outside k8s.
-	Service *ExportService `json:"service,omitempty"`
 }
 
 type Recycler struct {
@@ -205,6 +206,20 @@ type ExportService struct {
 
 	//PortMaps specify node port for target port in pod, when the service type=NodePort.
 	PortMaps []PortMap `json:"portMaps,omitempty"`
+
+	//Annotations for using function on different cloud platform.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Only applies to Service Type: LoadBalancer.
+	// This feature depends on whether the underlying cloud-provider supports specifying
+	// the loadBalancerIP when a load balancer is created.
+	// This field will be ignored if the cloud-provider does not support the feature.
+	// This field was under-specified and its meaning varies across implementations,
+	// and it cannot support dual-stack.
+	// As of Kubernetes v1.24, users are encouraged to use implementation-specific annotations when available.
+	// This field may be removed in a future API version.
+	// +optional
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
 }
 
 // PortMap for ServiceType=NodePort situation.

@@ -57,7 +57,7 @@ func NewDMSStatefulSet(dms *mv1.DorisDisaggregatedMetaService, componentType mv1
 			Selector:             &selector,
 			Template:             NewDMSPodTemplateSpec(dms, componentType),
 			VolumeClaimTemplates: volumeClaimTemplates,
-			ServiceName:          mv1.GenerateInternalCommunicateServiceName(dms, componentType),
+			ServiceName:          mv1.GenerateCommunicateServiceName(dms, componentType),
 			RevisionHistoryLimit: metadata.GetInt32Pointer(5),
 			UpdateStrategy: appv1.StatefulSetUpdateStrategy{
 				Type: appv1.RollingUpdateStatefulSetStrategyType,

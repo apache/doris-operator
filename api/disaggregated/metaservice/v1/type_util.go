@@ -28,8 +28,7 @@ const (
 type ServiceRole string
 
 const (
-	Service_Role_Access   ServiceRole = "access"
-	Service_Role_Internal ServiceRole = "internal"
+	Service_Role_Access ServiceRole = "access"
 )
 
 type ComponentType string
@@ -65,11 +64,11 @@ func (dms *DorisDisaggregatedMetaService) GenerateFDBClusterName() string {
 	return dms.Name + FDBNameSuffix
 }
 
-func GenerateInternalServiceLabels(dms *DorisDisaggregatedMetaService, componentType ComponentType) metadata.Labels {
+func GenerateServiceLabels(dms *DorisDisaggregatedMetaService, componentType ComponentType) metadata.Labels {
 	labels := metadata.Labels{}
 	labels[OwnerReference] = dms.Name
 	labels[ComponentLabelKey] = string(componentType)
-	labels[ServiceRoleForCluster] = string(Service_Role_Internal)
+	labels[ServiceRoleForCluster] = string(Service_Role_Access)
 	return labels
 }
 
@@ -95,8 +94,8 @@ func GenerateStatefulSetLabels(dms *DorisDisaggregatedMetaService, componentType
 	return labels
 }
 
-func GenerateInternalCommunicateServiceName(dms *DorisDisaggregatedMetaService, componentType ComponentType) string {
-	return dms.Name + "-" + string(componentType) + SEARCH_SERVICE_SUFFIX
+func GenerateCommunicateServiceName(dms *DorisDisaggregatedMetaService, componentType ComponentType) string {
+	return dms.Name + "-" + string(componentType) + "-service"
 }
 
 func GenerateComponentStatefulSetName(dms *DorisDisaggregatedMetaService, componentType ComponentType) string {

@@ -196,7 +196,7 @@ func (d *DisaggregatedSubDefaultController) ClearCommonResources(ctx context.Con
 	//if the doris is not have cn.
 	stName := mv1.GenerateComponentStatefulSetName(dms, componentType)
 	//externalServiceName := mv1.GenerateExternalServiceName(dms, componentType)
-	internalServiceName := mv1.GenerateInternalCommunicateServiceName(dms, componentType)
+	internalServiceName := mv1.GenerateCommunicateServiceName(dms, componentType)
 	if err := k8s.DeleteStatefulset(ctx, d.K8sclient, dms.Namespace, stName); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("DisaggregatedSubDefaultController ClearCommonResources delete statefulset failed, namespace=%s,name=%s, error=%s.", dms.Namespace, stName, err.Error())
 		return false, err

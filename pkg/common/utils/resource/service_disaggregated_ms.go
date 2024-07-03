@@ -7,16 +7,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
-	"strings"
 )
 
-func BuildDMSInternalService(ddm *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType, config map[string]interface{}) corev1.Service {
-	labels := mv1.GenerateInternalServiceLabels(ddm, componentType)
+func BuildDMSService(ddm *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType, brpcPort int32) corev1.Service {
+	labels := mv1.GenerateServiceLabels(ddm, componentType)
 	selector := mv1.GenerateServiceSelector(ddm, componentType)
-	//the k8s service type.
-	return corev1.Service{
+	spec := GetDMSBaseSpecFromCluster(ddm, componentType)
+	exportService := spec.Service
+
+	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mv1.GenerateInternalCommunicateServiceName(ddm, componentType),
+			Name:      mv1.GenerateCommunicateServiceName(ddm, componentType),
 			Namespace: ddm.Namespace,
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
@@ -27,28 +28,27 @@ func BuildDMSInternalService(ddm *mv1.DorisDisaggregatedMetaService, componentTy
 					UID:        ddm.UID,
 				},
 			},
-		},
-		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
-			Ports: []corev1.ServicePort{
-				getDMSInternalServicePort(config, componentType),
-			},
+		}}
 
-			Selector: selector,
-			//value = true, Pod don't need to become ready that be search by domain.
-			PublishNotReadyAddresses: true,
-		},
+	ports := []corev1.ServicePort{
+		getDMSServicePort(brpcPort, componentType),
 	}
 
+	constructDMSServiceSpec(exportService, &svc, selector, ports)
+	if exportService != nil {
+		svc.Annotations = exportService.Annotations
+	}
+
+	return svc
 }
 
-func getDMSInternalServicePort(config map[string]interface{}, componentType mv1.ComponentType) corev1.ServicePort {
+func getDMSServicePort(brpcPort int32, componentType mv1.ComponentType) corev1.ServicePort {
 	switch componentType {
 	case mv1.Component_MS:
 		return corev1.ServicePort{
-			Name:       GetDMSPortKey(MS_BRPC_LISTEN_PORT),
-			Port:       GetPort(config, MS_BRPC_LISTEN_PORT),
-			TargetPort: intstr.FromInt(int(GetPort(config, HEARTBEAT_SERVICE_PORT))),
+			Name:       GetPortKey(BRPC_LISTEN_PORT),
+			Port:       brpcPort,
+			TargetPort: intstr.FromInt(int(brpcPort)),
 		}
 	default:
 		klog.Infof("getDMSInternalServicePort not supported the type %s", componentType)
@@ -56,33 +56,22 @@ func getDMSInternalServicePort(config map[string]interface{}, componentType mv1.
 	}
 }
 
-func GetDMSContainerPorts(config map[string]interface{}, componentType mv1.ComponentType) []corev1.ContainerPort {
+func GetDMSContainerPorts(brpcPort int32, componentType mv1.ComponentType) []corev1.ContainerPort {
 	switch componentType {
 	case mv1.Component_MS:
-		return getMSContainerPorts(config)
+		return getMSContainerPorts(brpcPort)
 	default:
 		klog.Infof("GetDMSContainerPorts the componentType %s not supported.", componentType)
 		return []corev1.ContainerPort{}
 	}
 }
 
-func getMSContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
+func getMSContainerPorts(brpcPort int32) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
 		Name:          GetPortKey(BRPC_LISTEN_PORT),
-		ContainerPort: GetPort(config, MS_BRPC_LISTEN_PORT),
+		ContainerPort: brpcPort,
 		Protocol:      corev1.ProtocolTCP,
 	}}
-}
-
-func GetDMSPortKey(configKey string) string {
-	switch configKey {
-	case MS_BRPC_LISTEN_PORT:
-		return strings.ReplaceAll(MS_BRPC_LISTEN_PORT, "_", "-")
-	case RC_BRPC_LISTEN_PORT:
-		return strings.ReplaceAll(MS_BRPC_LISTEN_PORT, "_", "-")
-	default:
-		return ""
-	}
 }
 
 func DMSServiceDeepEqual(newSvc, oldSvc *corev1.Service) bool {
@@ -127,5 +116,44 @@ func dmsServiceHashObject(svc *corev1.Service) hashService {
 		serviceType: svc.Spec.Type,
 		labels:      svc.Labels,
 		annotations: annos,
+	}
+}
+
+func constructDMSServiceSpec(exportService *mv1.ExportService, svc *corev1.Service, selector map[string]string, ports []corev1.ServicePort) {
+	var portMaps []mv1.PortMap
+	if exportService != nil {
+		portMaps = exportService.PortMaps
+	}
+
+	for _, portMap := range portMaps {
+		for i, _ := range ports {
+			if int(portMap.TargetPort) == ports[i].TargetPort.IntValue() {
+				ports[i].NodePort = portMap.NodePort
+			}
+		}
+	}
+
+	svc.Spec = corev1.ServiceSpec{
+		Selector:        selector,
+		Ports:           ports,
+		SessionAffinity: corev1.ServiceAffinityClientIP,
+	}
+
+	// The external load balancer provided by the cloud provider may cause the client IP received by the service to change.
+	if exportService != nil && exportService.Type == corev1.ServiceTypeLoadBalancer {
+		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
+	}
+
+	setDMSServiceType(exportService, svc)
+}
+
+func setDMSServiceType(svc *mv1.ExportService, service *corev1.Service) {
+	service.Spec.Type = corev1.ServiceTypeClusterIP
+	if svc != nil && svc.Type != "" {
+		service.Spec.Type = svc.Type
+	}
+
+	if service.Spec.Type == corev1.ServiceTypeLoadBalancer && svc.LoadBalancerIP != "" {
+		service.Spec.LoadBalancerIP = svc.LoadBalancerIP
 	}
 }
