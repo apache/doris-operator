@@ -55,7 +55,7 @@ func (d *DisaggregatedSubDefaultController) CheckMSConfigMountPath(dms *mv1.Dori
 		path := cm.MountPath
 		if m, exist := mountsMap[path]; exist {
 			klog.Errorf("CheckMSConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name)
-			d.K8srecorder.Event(dms, EventWarning, ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name))
+			d.K8srecorder.Event(dms, string(EventWarning), ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name))
 		}
 		mountsMap[path] = cm
 	}

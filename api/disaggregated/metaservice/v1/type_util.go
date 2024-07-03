@@ -5,8 +5,10 @@ import (
 )
 
 var (
-	FDBNameSuffix = "-foundationdb"
-	NameLabelKey  = "disaggregated.metaservice.doris.com/name"
+	FDBNameSuffix  = "-foundationdb"
+	NameLabelKey   = "disaggregated.metaservice.doris.com/name"
+	MsPort         = "5000"
+	DefaultMsToken = "greedisgood9999"
 )
 
 // the labels key
@@ -121,4 +123,9 @@ func GetFDBEndPoint(dms *DorisDisaggregatedMetaService) string {
 
 func IsReconcilingStatusPhase(c MetaServicePhase) bool {
 	return c == Upgrading || c == Failed
+}
+
+func (ddm *DorisDisaggregatedMetaService) GetMSServiceName() string {
+	//TODO: cancel after merge code
+	return ""
 }

@@ -1,9 +1,15 @@
 package controller
 
 import (
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/api/doris/v1"
+	"reflect"
 	"sort"
 )
+
+func disAggregatedInconsistentStatus(ests *dv1.DorisDisaggregatedClusterStatus, ddc *dv1.DorisDisaggregatedCluster) bool {
+	return reflect.DeepEqual(ests, ddc.Status)
+}
 
 func inconsistentStatus(status *v1.DorisClusterStatus, dcr *v1.DorisCluster) bool {
 	return inconsistentFEStatus(status.FEStatus, dcr.Status.FEStatus) ||

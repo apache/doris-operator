@@ -11,8 +11,6 @@ import (
 const (
 	//ComponentsResourceHash the component hash
 	ComponentResourceHash string = "app.doris.components/hash"
-
-	ComponentReplicasEmpty string = "app.dois.components/replica/empty"
 )
 
 // the labels key
