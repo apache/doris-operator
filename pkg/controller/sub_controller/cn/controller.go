@@ -122,7 +122,7 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 	// start autoscaler, the replicas should get from statefulset, statefulset's replicas will update by autoscaler when not set.
 	var est appv1.StatefulSet
 	if err := cn.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN)}, &est); err != nil {
-		cn.K8srecorder.Eventf(cluster, sub_controller.EventWarning, sub_controller.StatefulSetNotExist, "the cn statefulset %s not exist.", dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN))
+		cn.K8srecorder.Eventf(cluster, string(sub_controller.EventWarning), sub_controller.StatefulSetNotExist, "the cn statefulset %s not exist.", dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN))
 		return nil
 	}
 
@@ -206,7 +206,7 @@ func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 	// clear autoscaler when autoscaler config deleted or the doriscluster deleted.
 	if dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
 		if err := cn.DeleteAutoscaler(ctx, dcr); err != nil {
-			cn.K8srecorder.Eventf(dcr, sub_controller.EventWarning, sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
+			cn.K8srecorder.Eventf(dcr, string(sub_controller.EventWarning), sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
 		}
 	}
 

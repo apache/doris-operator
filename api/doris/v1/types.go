@@ -377,6 +377,10 @@ const (
 	WaitScheduling   ComponentPhase = "waitScheduling"
 	HaveMemberFailed ComponentPhase = "haveMemberFailed"
 	Available        ComponentPhase = "available"
+	Initializing     ComponentPhase = "initializing"
+	Upgrading        ComponentPhase = "upgrading"
+	Scaling          ComponentPhase = "scaling"
+	Restarting       ComponentPhase = "restarting"
 )
 
 // +genclient

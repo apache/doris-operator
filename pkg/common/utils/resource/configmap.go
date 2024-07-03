@@ -37,6 +37,10 @@ const (
 const BROKER_IPC_PORT = "broker_ipc_port"
 const GRACE_SHUTDOWN_WAIT_SECONDS = "grace_shutdown_wait_seconds"
 
+const ENABLE_FQDN = "enable_fqdn_mode"
+const START_MODEL_FQDN = "FQDN"
+const START_MODEL_IP = "IP"
+
 // defMap the default port about abilities.
 var defMap = map[string]int32{
 	HTTP_PORT:              8030,
@@ -49,6 +53,23 @@ var defMap = map[string]int32{
 	HEARTBEAT_SERVICE_PORT: 9050,
 	BRPC_PORT:              8060,
 	BROKER_IPC_PORT:        8000,
+}
+
+// GetStartMode return fe host type, fqdn(host) or ip, from 'fe.conf' enable_fqdn_mode
+func GetStartMode(config map[string]interface{}) string {
+	// not use configmap
+	if len(config) == 0 {
+		return START_MODEL_FQDN
+	}
+
+	// use configmap
+	v, ok := config[ENABLE_FQDN]
+	if ok && v.(string) == "true" {
+		return START_MODEL_FQDN
+	} else {
+		return START_MODEL_IP
+	}
+
 }
 
 func GetDefaultPort(key string) int32 {

@@ -17,7 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -56,8 +58,16 @@ func (r *DorisCluster) ValidateCreate() error {
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 	klog.Info("validate update", "name", r.Name)
+	var errors []error
+	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
+	if *r.Spec.FeSpec.Replicas < *r.Spec.FeSpec.ElectionNumber {
+		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))
+	}
 
-	// TODO(user): fill in your validation logic upon object update.
+	if len(errors) != 0 {
+		return kerrors.NewAggregate(errors)
+	}
+
 	return nil
 }
 

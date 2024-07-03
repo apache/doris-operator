@@ -108,6 +108,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	dcr := edcr.DeepCopy()
+
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
@@ -125,6 +126,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	r.clearNoEffectResources(ctx, dcr)
 	for _, rc := range r.Scs {
 		//update component status.
+
 		if err := rc.UpdateComponentStatus(dcr); err != nil {
 			klog.Errorf("DorisClusterReconciler reconcile update component %s status failed.err=%s\n", rc.GetControllerName(), err.Error())
 			return requeueIfError(err)
@@ -212,7 +214,7 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 		func(a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dorisv1.DorisClusterLabelKey]
-			if dorisName == "" {
+			if dorisName != "" {
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
 						Name:      dorisName,

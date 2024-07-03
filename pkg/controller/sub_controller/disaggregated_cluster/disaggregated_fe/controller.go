@@ -41,8 +41,8 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 }
 
 func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	//TODO: implement me
+	return true, nil
 }
 
 func (dfc *DisaggregatedFEController) GetControllerName() string {
@@ -50,6 +50,6 @@ func (dfc *DisaggregatedFEController) GetControllerName() string {
 }
 
 func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) error {
-	//TODO implement me
-	panic("implement me")
+	//TODO： implement me
+	return nil
 }

@@ -1,6 +1,7 @@
 package resource
 
 import (
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
 	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
@@ -70,19 +71,37 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 	return st
 }
 
+// use computeGroup build base statefulset.
+func NewStatefulSetWithComputeGroup(cg *dv1.ComputeGroup) *appv1.StatefulSet {
+	st := &appv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: appv1.StatefulSetSpec{
+			Replicas: cg.Replicas,
+		},
+	}
+	return st
+}
+
 // StatefulSetDeepEqual judge two statefulset equal or not.
 func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
-	var newHashv, oldHashv string
+	return StatefulsetDeepEqualWithAnnoKey(new, old, v1.ComponentResourceHash, excludeReplicas)
+}
 
-	if _, ok := new.Annotations[v1.ComponentResourceHash]; ok {
-		newHashv = new.Annotations[v1.ComponentResourceHash]
+func StatefulsetDeepEqualWithAnnoKey(new, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
+	var newHashv, oldHashv string
+	if annoKey == "" {
+		annoKey = v1.ComponentResourceHash
+	}
+
+	if _, ok := new.Annotations[annoKey]; ok {
+		newHashv = new.Annotations[annoKey]
 	} else {
 		newHso := statefulSetHashObject(new, excludeReplicas)
 		newHashv = hash.HashObject(newHso)
 	}
 
-	if _, ok := old.Annotations[v1.ComponentResourceHash]; ok {
-		oldHashv = old.Annotations[v1.ComponentResourceHash]
+	if _, ok := old.Annotations[annoKey]; ok {
+		oldHashv = old.Annotations[annoKey]
 	} else {
 		oldHso := statefulSetHashObject(old, excludeReplicas)
 		oldHashv = hash.HashObject(oldHso)
@@ -90,7 +109,7 @@ func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, exclud
 
 	anno := Annotations{}
 	anno.AddAnnotation(new.Annotations)
-	anno.Add(v1.ComponentResourceHash, newHashv)
+	anno.Add(annoKey, newHashv)
 	new.Annotations = anno
 
 	klog.Info("the statefulset name "+new.Name+" new hash value ", newHashv, " old have value ", oldHashv)

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/created-by: {{ template "kube-doris.name" . }}-operator
+    app.kubernetes.io/part-of: {{ template "kube-doris.name" . }}-operator
+  name: {{ template "webhook.serviceName" . }}
+  namespace: {{ template "operator.namespace" . }}
+spec:
+  ports:
+    - name: https
+      port: 443
+      targetPort: 9443
+  selector:
+    control-plane: doris-operator
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/instance: {{ template "kube-doris.name" . }}-operator
+    app.kubernetes.io/created-by: {{ template "kube-doris.name" . }}-operator
+    app.kubernetes.io/part-of: {{ template "kube-doris.name" . }}-operator

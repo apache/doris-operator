@@ -12,13 +12,6 @@ var (
 	FoundationVersion   = "7.1.38"
 )
 
-type EventType string
-
-var (
-	ImageFormatError EventType = "ImageFormatError"
-	FDBSpecEmpty     EventType = "SpecEmpty"
-)
-
 func getDefaultResources() corev1.ResourceRequirements {
 	return corev1.ResourceRequirements{
 		Requests: map[corev1.ResourceName]resource.Quantity{

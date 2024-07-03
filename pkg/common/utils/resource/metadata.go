@@ -2,6 +2,7 @@ package resource
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -125,4 +126,14 @@ func GetStringPointer(s string) *string {
 
 func GetInt64ptr(n int64) *int64 {
 	return &n
+}
+
+func GetOwnerReference(o client.Object) metav1.OwnerReference {
+	apiVersion, kind := o.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	return metav1.OwnerReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       o.GetName(),
+		UID:        o.GetUID(),
+	}
 }

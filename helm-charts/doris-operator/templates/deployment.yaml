@@ -7,7 +7,6 @@ metadata:
     control-plane: {{ template "kube-doris.name" . }}-operator
     app.kubernetes.io/name: deployment
     app.kubernetes.io/instance: {{ template "kube-doris.name" . }}-operator
-    app.kubernetes.io/component: {{ template "kube-doris.name" . }}-operator
     app.kubernetes.io/created-by: {{ template "kube-doris.name" . }}-operator
     app.kubernetes.io/part-of: {{ template "kube-doris.name" . }}-operator
 spec:
@@ -21,6 +20,10 @@ spec:
         kubectl.kubernetes.io/default-container: {{ template "kube-doris.name" . }}-operator
       labels:
         control-plane: {{ template "kube-doris.name" . }}-operator
+        app.kubernetes.io/name: deployment
+        app.kubernetes.io/instance: {{ template "kube-doris.name" . }}-operator
+        app.kubernetes.io/created-by: {{ template "kube-doris.name" . }}-operator
+        app.kubernetes.io/part-of: {{ template "kube-doris.name" . }}-operator
     spec:
       # TODO(user): Uncomment the following code to configure the nodeAffinity expression
       # according to the platforms which are supported by your solution.
@@ -62,12 +65,28 @@ spec:
           args:
             - --leader-elect
           image: {{ .Values.dorisOperator.image.repository }}:{{ .Values.dorisOperator.image.tag }}
+          {{- if .Values.dorisOperator.image.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.dorisOperator.image.imagePullPolicy }}
+          {{- end }}
           name: dorisoperator
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - "ALL"
+          env:
+            - name: ENABLE_WEBHOOK
+              value: "{{ template  "webhook.enable" . }}"
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SERVICE_NAME
+              value: {{ template "webhook.serviceName" . }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -84,6 +103,15 @@ spec:
           # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
           resources:
             {{- include "operator.default.resource" . | indent 8 }}
+          volumeMounts:
+            - mountPath:  /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: doris-operator-secret-cert
       serviceAccountName: {{ template  "operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
       {{- if .Values.dorisOperator.nodeSelector }}

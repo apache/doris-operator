@@ -1,6 +1,7 @@
 package resource
 
 import (
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,7 +105,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 
 	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        generatePodTemplateName(dcr, componentType),
+			Name:        GeneratePodTemplateName(dcr, componentType),
 			Annotations: spec.Annotations,
 			Labels:      v1.GetPodLabels(dcr, componentType),
 		},
@@ -126,6 +127,44 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
+}
+
+func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec) corev1.PodTemplateSpec {
+	var vs []corev1.Volume
+	vs, _ = appendPodInfoVolumesVolumeMounts(vs, nil)
+
+	pts := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "be",
+			Annotations: cs.Annotations,
+			Labels:      cs.Labels,
+		},
+
+		Spec: corev1.PodSpec{
+			ImagePullSecrets:   cs.ImagePullSecrets,
+			NodeSelector:       cs.NodeSelector,
+			ServiceAccountName: cs.ServiceAccount,
+			Affinity:           cs.Affinity,
+			Tolerations:        cs.Tolerations,
+			HostAliases:        cs.HostAliases,
+			SecurityContext:    cs.SecurityContext,
+			Volumes:            vs,
+		},
+	}
+	return pts
+}
+
+// build be container.
+func NewContainerWithCommonSpec(cs *dv1.CommonSpec) corev1.Container {
+	var vms []corev1.VolumeMount
+	_, vms = appendPodInfoVolumesVolumeMounts(nil, vms)
+	c := corev1.Container{
+		Image:           cs.Image,
+		SecurityContext: cs.ContainerSecurityContext,
+		Resources:       cs.ResourceRequirements,
+		VolumeMounts:    vms,
+	}
+	return c
 }
 
 // ApplySecurityContext applies the container security context to all containers in the pod (if not already set).
@@ -324,7 +363,34 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 }
 
 func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
-	defaultEnvs := []corev1.EnvVar{
+	defaultEnvs := buildEnvFromPod()
+
+	if dcr.Spec.AdminUser != nil {
+		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+			Name:  ADMIN_USER,
+			Value: dcr.Spec.AdminUser.Name,
+		})
+		if dcr.Spec.AdminUser.Password != "" {
+			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+				Name:  ADMIN_PASSWD,
+				Value: dcr.Spec.AdminUser.Password,
+			})
+		}
+	} else {
+		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
+			Name:  ADMIN_USER,
+			Value: DEFAULT_ADMIN_USER,
+		}, {
+			Name:  DORIS_ROOT,
+			Value: DEFAULT_ROOT_PATH,
+		}}...)
+	}
+
+	return defaultEnvs
+}
+
+func buildEnvFromPod() []corev1.EnvVar {
+	return []corev1.EnvVar{
 		{
 			Name: POD_NAME,
 			ValueFrom: &corev1.EnvVarSource{
@@ -354,29 +420,10 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 			Value: config_env_path,
 		},
 	}
+}
 
-	if dcr.Spec.AdminUser != nil {
-		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
-			Name:  ADMIN_USER,
-			Value: dcr.Spec.AdminUser.Name,
-		})
-		if dcr.Spec.AdminUser.Password != "" {
-			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
-				Name:  ADMIN_PASSWD,
-				Value: dcr.Spec.AdminUser.Password,
-			})
-		}
-	} else {
-		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
-			Name:  ADMIN_USER,
-			Value: DEFAULT_ADMIN_USER,
-		}, {
-			Name:  DORIS_ROOT,
-			Value: DEFAULT_ROOT_PATH,
-		}}...)
-	}
-
-	return defaultEnvs
+func GetPodDefaultEnv() []corev1.EnvVar {
+	return buildEnvFromPod()
 }
 
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
@@ -393,7 +440,7 @@ func getCommand(componentType v1.ComponentType) (commands []string, args []strin
 	}
 }
 
-func generatePodTemplateName(dcr *v1.DorisCluster, componentType v1.ComponentType) string {
+func GeneratePodTemplateName(dcr *v1.DorisCluster, componentType v1.ComponentType) string {
 	switch componentType {
 	case v1.Component_FE:
 		return dcr.Name + "-" + string(v1.Component_FE)
@@ -564,6 +611,18 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 	return volumes, volumeMounts
 }
 
+func StartupProbe(port int32, path string) *corev1.Probe {
+	return startupProbe(port, path)
+}
+
+func LivenessProbe(port int32, path string) *corev1.Probe {
+	return livenessProbe(port, path)
+}
+
+func ReadinessProbe(port int32, path string) *corev1.Probe {
+	return readinessProbe(port, path)
+}
+
 // StartupProbe returns a startup probe.
 func startupProbe(port int32, path string) *corev1.Probe {
 	if path == "" {
@@ -627,6 +686,26 @@ func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
 			Exec: &corev1.ExecAction{
 				Command: []string{preStopScriptPath},
 			},
+		},
+	}
+}
+
+func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) {
+	if lc == nil {
+		lc = &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{preStopScript},
+				},
+			},
+		}
+
+		return
+	}
+
+	lc.PreStop = &corev1.LifecycleHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{preStopScript},
 		},
 	}
 }

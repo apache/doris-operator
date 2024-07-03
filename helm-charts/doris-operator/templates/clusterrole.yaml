@@ -58,6 +58,7 @@ rules:
       - get
       - list
       - watch
+      - update
   - apiGroups:
       - ""
     resources:
@@ -68,12 +69,32 @@ rules:
       - watch
       - update
       - patch
+      - delete
   - apiGroups:
       - ""
     resources:
       - secrets
     verbs:
       - get
+      - update
+      - list
+      - watch
+  - apiGroups:
+      - "admissionregistration.k8s.io"
+    resources:
+      - mutatingwebhookconfigurations
+    verbs:
+      - get
+      - update
+      - list
+      - watch
+  - apiGroups:
+      - "admissionregistration.k8s.io"
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - update
       - list
       - watch
   - apiGroups:
