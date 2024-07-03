@@ -56,11 +56,6 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 		return err
 	}
 
-	//if !msc.PrepareMSReconcileResources(ctx, dms, mv1.Component_MS) {
-	//	klog.Infof("MS controller sync preparing resource for reconciling namespace %s name %s!", dms.Namespace, dms.Name)
-	//	return nil
-	//}
-
 	// TODO prepareStatefulsetApply
 	st := msc.buildMSStatefulSet(dms)
 
