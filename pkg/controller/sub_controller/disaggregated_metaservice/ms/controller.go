@@ -72,15 +72,9 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 }
 
 // ClearResources clear resources for MS
-// 1. clear deleted pod Resources if necessary
-// 2. clear deleted statefulset Resources When CR is marked as cleared
+// clear deleted statefulset Resources When CR is marked as cleared
 func (msc *Controller) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	dms := obj.(*mv1.DorisDisaggregatedMetaService)
-	// clear deleted pod Resources
-	if err := msc.RecycleResources(ctx, dms, mv1.Component_MS); err != nil {
-		klog.Errorf("MS ClearResources recycle pvc resource for reconciling namespace %s name %s!", dms.Namespace, dms.Name)
-		return false, err
-	}
 	// DeletionTimestamp is IsZero means dms not delete
 	// clear deleted statefulset Resources
 	if dms.DeletionTimestamp.IsZero() {

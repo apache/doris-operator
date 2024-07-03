@@ -13,8 +13,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 type DisaggregatedSubController interface {
@@ -92,91 +90,6 @@ func (d *DisaggregatedSubDefaultController) ClearCommonResources(ctx context.Con
 	}
 
 	return true, nil
-}
-
-// RecycleResources pvc resource for recycle
-func (d *DisaggregatedSubDefaultController) RecycleResources(ctx context.Context, dcr *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) error {
-	switch componentType {
-	case mv1.Component_MS:
-		return d.recycleMSResources(ctx, dcr)
-	default:
-		klog.Infof("RecycleResources not support type=%s", componentType)
-		return nil
-	}
-}
-
-// recycleMSResources pvc resource for meta-service recycle
-func (d *DisaggregatedSubDefaultController) recycleMSResources(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService) error {
-	if len(dms.Spec.MS.PersistentVolumes) != 0 {
-		return d.listAndDeletePersistentVolumeClaim(ctx, dms, mv1.Component_MS)
-	}
-	return nil
-}
-
-// listAndDeletePersistentVolumeClaim:
-// 1. list pvcs by statefulset selector labels .
-// 2. get pvcs by mv1.PersistentVolume.name
-// 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
-// 3. delete pvc
-func (d *DisaggregatedSubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) error {
-	spec := resource.GetDMSBaseSpecFromCluster(dms, componentType)
-	volumes := spec.PersistentVolumes
-	replicas := spec.Replicas
-
-	pvcList := corev1.PersistentVolumeClaimList{}
-	selector := mv1.GenerateStatefulSetSelector(dms, componentType)
-	stsName := mv1.GenerateComponentStatefulSetName(dms, componentType)
-	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dms.Namespace), client.MatchingLabels(selector)); err != nil {
-		d.K8srecorder.Event(dms, EventWarning, PVCListFailed, string("list component "+componentType+" failed!"))
-		return err
-	}
-	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
-	pvcMap := make(map[string][]corev1.PersistentVolumeClaim)
-
-	for _, pvc := range pvcList.Items {
-		//start with unique string for classify pvc, avoid empty string match all pvc.Name
-		key := "-^"
-		for _, volume := range volumes {
-			if volume.Name != "" && strings.HasPrefix(pvc.Name, volume.Name) {
-				key = key + volume.Name
-				break
-			}
-		}
-
-		if _, ok := pvcMap[key]; !ok {
-			pvcMap[key] = []corev1.PersistentVolumeClaim{}
-		}
-		pvcMap[key] = append(pvcMap[key], pvc)
-	}
-
-	var mergeError error
-	for _, volume := range volumes {
-		// Clean up the existing PVC that is larger than expected
-		claims := pvcMap["-^"+volume.Name]
-		if len(claims) <= int(*replicas) {
-			continue
-		}
-		if err := d.deletePVCs(ctx, dms, selector, len(claims), stsName, volume.Name, *replicas); err != nil {
-			mergeError = utils.MergeError(mergeError, err)
-		}
-	}
-	return mergeError
-}
-
-// deletePVCs will Loop to remove excess pvc
-func (d *DisaggregatedSubDefaultController) deletePVCs(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService, selector map[string]string,
-	pvcSize int, stsName, volumeName string, replicas int32) error {
-	maxOrdinal := pvcSize
-	var mergeError error
-	for ; maxOrdinal > int(replicas); maxOrdinal-- {
-		pvcName := resource.BuildPVCName(stsName, strconv.Itoa(maxOrdinal-1), volumeName)
-		if err := k8s.DeletePVC(ctx, d.K8sclient, dms.Namespace, pvcName, selector); err != nil {
-			d.K8srecorder.Event(dms, EventWarning, PVCDeleteFailed, err.Error())
-			klog.Errorf("DisaggregatedSubDefaultController deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", dms.Namespace, dms.Name, pvcName, err.Error())
-			mergeError = utils.MergeError(mergeError, err)
-		}
-	}
-	return mergeError
 }
 
 func (d *DisaggregatedSubDefaultController) ClassifyPodsByStatus(namespace string, status *mv1.BaseStatus, labels map[string]string, replicas int32) error {
