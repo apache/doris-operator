@@ -1,0 +1,14 @@
+FROM selectdb/base:latest
+
+RUN ln -s /usr/lib/jvm/jdk-17 /usr/lib/jvm/java
+
+ENV JAVA_HOME=/usr/lib/jvm/java
+
+ENV PATH=$PATH:$JAVA_HOME/bin:/opt/apache-doris/be/bin
+
+COPY resource/selectdb-cloud-4.0-ubuntu/be /opt/apache-doris/be
+
+COPY resource/be_disaggregated_* /opt/apache-doris/
+
+
+WORKDIR /opt/apache-doris
