@@ -79,9 +79,6 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddms *mv1.DorisD
 					MaxConcurrentReplacements: pointer.Int(1),
 				},
 			},
-			FaultDomain: v1beta2.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
-			},
 			LabelConfig: v1beta2.LabelConfig{
 				MatchLabels:             ddms.GenerateFDBLabels(),
 				ProcessClassLabels:      []string{ProcessClassLabel},
@@ -96,15 +93,13 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddms *mv1.DorisD
 
 			Processes: map[v1beta2.ProcessClass]v1beta2.ProcessSettings{
 				v1beta2.ProcessClassGeneral: v1beta2.ProcessSettings{
-					CustomParameters:    v1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"},
 					PodTemplate:         fdbc.buildGeneralPodTemplate(ddms.Spec.FDB),
 					VolumeClaimTemplate: ddms.Spec.FDB.VolumeClaimTemplate,
 				},
 			},
 
 			Routing: v1beta2.RoutingConfig{
-				DefineDNSLocalityFields: pointer.Bool(true),
-				UseDNSInClusterFile:     pointer.Bool(true),
+				UseDNSInClusterFile: pointer.Bool(true),
 			},
 			SidecarContainer: v1beta2.ContainerOverrides{
 				EnableLivenessProbe:  pointer.Bool(true),
