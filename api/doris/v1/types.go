@@ -115,7 +115,7 @@ type BrokerSpec struct {
 // BaseSpec describe the foundation spec of pod about doris components.
 type BaseSpec struct {
 
-	// pod startTimeOut, unit is seconds
+	// pod start time out seconds, unit is seconds
 	StartTimeOut int32 `json:"startTimeOut,omitempty"`
 
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
