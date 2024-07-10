@@ -1866,7 +1866,7 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
-                  startTimeOut:
+                  startTimeout:
                     description: pod start time out seconds, unit is seconds
                     format: int32
                     type: integer
@@ -3736,7 +3736,7 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
-                  startTimeOut:
+                  startTimeout:
                     description: pod start time out seconds, unit is seconds
                     format: int32
                     type: integer
@@ -6279,7 +6279,7 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
-                  startTimeOut:
+                  startTimeout:
                     description: pod start time out seconds, unit is seconds
                     format: int32
                     type: integer
@@ -8149,7 +8149,7 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
-                  startTimeOut:
+                  startTimeout:
                     description: pod start time out seconds, unit is seconds
                     format: int32
                     type: integer

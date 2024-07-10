@@ -316,7 +316,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	c.LivenessProbe = livenessProbe(livenessPort, "")
 	// use liveness as startup, when in debugging mode will not be killed
 	//c.StartupProbe = startupProbe(readnessPort, health_api_path)
-	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeOut, "")
+	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, "")
 	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
 	c.Lifecycle = lifeCycle(prestopScript)
 

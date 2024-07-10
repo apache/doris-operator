@@ -116,7 +116,7 @@ type BrokerSpec struct {
 type BaseSpec struct {
 
 	// pod start time out seconds, unit is seconds
-	StartTimeOut int32 `json:"startTimeOut,omitempty"`
+	StartTimeout int32 `json:"startTimeout,omitempty"`
 
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
 	Annotations map[string]string `json:"annotations,omitempty"`
