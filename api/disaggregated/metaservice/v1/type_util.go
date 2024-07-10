@@ -126,6 +126,5 @@ func IsReconcilingStatusPhase(c MetaServicePhase) bool {
 }
 
 func (ddm *DorisDisaggregatedMetaService) GetMSServiceName() string {
-	//TODO: cancel after merge code
-	return ""
+	return GenerateCommunicateServiceName(ddm, Component_MS)
 }

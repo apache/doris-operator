@@ -31,6 +31,7 @@ var (
 	FDBSpecEmpty                      EventReason = "SpecEmpty"
 	ComputeGroupsEmpty                EventReason = "CGsEmpty"
 	CGUniqueIdentifierDuplicate       EventReason = "CGUniqueIdentifierDuplicate"
+	CGUniqueIdentifierNotMatchRegex   EventReason = "CGUniqueIdentifierNotMatchRegex"
 	CGCreateResourceFailed            EventReason = "CGCreateResourceFailed"
 	CGApplyResourceFailed             EventReason = "CGApplyResourceFailed"
 	CGStatusUpdateFailed              EventReason = "CGStatusUpdatedFailed"
@@ -41,6 +42,7 @@ var (
 	ObjectConfigError                 EventReason = "ObjectConfigError"
 	MSInteractError                   EventReason = "MSInteractError"
 	InstanceMetaCreated               EventReason = "InstanceMetaCreated"
+	InstanceIdModified                EventReason = "InstanceIdModified"
 )
 
 type Event struct {

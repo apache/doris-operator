@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -9,7 +10,10 @@ please use get function to replace new function.
 */
 
 func newCGStatefulsetName(ddcName /*dorisDisaggregatedCluster Name*/, cgName /*computegroup's name*/ string) string {
-	return ddcName + "-" + cgName
+	//cgName use "_", but name in kubernetes object use "-"
+	stName := ddcName + "-" + cgName
+	stName = strings.ReplaceAll(stName, "_", "-")
+	return stName
 }
 
 // RE:[a-zA-Z][0-9a-zA-Z_]+
@@ -17,9 +21,9 @@ func newCGClusterId(namespace, stsName string) string {
 	return strings.ReplaceAll(namespace+"_"+stsName, "-", "_")
 }
 
-// RE:[a-zA-Z][0-9a-zA-Z_]+
-func newCGCloudUniqueId(namespace, instanceName, statefulsetName string) string {
-	return strings.ReplaceAll("1:"+namespace+"_"+instanceName+":"+statefulsetName, "-", "_")
+// cloudUniqueID match "1:$instanceId:[a-zA-Z]"
+func newCGCloudUniqueId(instanceId, statefulsetName string) string {
+	return fmt.Sprintf("1:%s:%s", instanceId, statefulsetName)
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
@@ -41,7 +45,7 @@ func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
 		return ddc.Status.InstanceId
 	}
 
-	// need config in CR.
+	// need config in vaultConfigMap.
 	return ""
 }
 func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
@@ -76,7 +80,8 @@ func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueId(cg *ComputeGroup) strin
 	statefulsetName := ddc.GetCGStatefulsetName(cg)
 	//update cg' clusterId for auto assemble, if not config.
 	if cg.CloudUniqueId == "" {
-		cg.CloudUniqueId = newCGCloudUniqueId(ddc.Namespace, ddc.Name, statefulsetName)
+		instanceId := ddc.GetInstanceId()
+		cg.CloudUniqueId = newCGCloudUniqueId(instanceId, statefulsetName)
 	}
 
 	return cg.CloudUniqueId
@@ -98,7 +103,9 @@ func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string 
 		return svcName
 	}
 
-	return ddc.Name + "-" + cg.Name
+	svcName = ddc.Name + "-" + cg.Name
+	svcName = strings.ReplaceAll(svcName, "_", "-")
+	return svcName
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {

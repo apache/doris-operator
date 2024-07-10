@@ -77,6 +77,7 @@ func init() {
 	//add foundationdb scheme
 	utilruntime.Must(v1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+
 	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{},
 		&controller.DisaggregatedClusterReconciler{}, &controller.DisaggregatedMetaServiceReconciler{})
 }
