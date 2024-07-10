@@ -8,6 +8,7 @@ type MSResponse struct {
 
 const (
 	SuccessCode    string = "OK"
+	ALREADY_EXIST  string = "ALREADY_EXISTED"
 	NotFound       string = "NOT_FOUND"
 	INTERNAL_ERROR string = "INTERNAL_ERROR"
 )

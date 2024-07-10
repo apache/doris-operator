@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -49,11 +50,11 @@ func (dccs *DisaggregatedComputeGroupsController) Sync(ctx context.Context, obj 
 		return nil
 	}
 
-	//check compute group config duplicated or not.
-	if dupl, duplicate := dccs.validateDuplicated(ddc.Spec.ComputeGroups); duplicate {
-		klog.Errorf("disaggregatedComputeGroupsController computeGroups have duplicate unique identifier %s.", dupl)
-		dccs.k8sRecorder.Eventf(ddc, string(sc.EventWarning), string(sc.CGUniqueIdentifierDuplicate), "unique identifer "+dupl+" duplicate in compute groups.")
-		return errors.New(dupl + " is duplicated in computegroups")
+	// validating compute group information.
+	if event, res := dccs.validateComputeGroup(ddc.Spec.ComputeGroups); !res {
+		klog.Errorf("disaggregatedComputeGroupsController namespace=%s name=%s validateComputeGroup have not match specifications %s.", ddc.Namespace, ddc.Name, sc.EventString(event))
+		dccs.k8sRecorder.Eventf(ddc, string(event.Type), string(event.Reason), event.Message)
+		return errors.New("validating cg failed")
 	}
 
 	cgs := ddc.Spec.ComputeGroups
@@ -69,6 +70,21 @@ func (dccs *DisaggregatedComputeGroupsController) Sync(ctx context.Context, obj 
 	}
 
 	return nil
+}
+
+// validate compute group config information.
+func (dccs *DisaggregatedComputeGroupsController) validateComputeGroup(cgs []dv1.ComputeGroup) (*sc.Event, bool) {
+	if dupl, duplicate := dccs.validateDuplicated(cgs); duplicate {
+		klog.Errorf("disaggregatedComputeGroupsController validateComputeGroup validate Duplicated have duplicate unique identifier %s.", dupl)
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGUniqueIdentifierDuplicate, Message: "unique identifier " + dupl + " duplicate in compute groups."}, false
+	}
+
+	if reg, res := dccs.validateRegex(cgs); !res {
+		klog.Errorf("disaggregatedComputeGroupsController validateComputeGroup validateRegex %s have not match regular expression", reg)
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGUniqueIdentifierNotMatchRegex, Message: reg}, false
+	}
+
+	return nil, true
 }
 
 func (dccs *DisaggregatedComputeGroupsController) feAvailable(ddc *dv1.DorisDisaggregatedCluster) bool {
@@ -238,7 +254,28 @@ func (dccs *DisaggregatedComputeGroupsController) validateDuplicated(cgs []dv1.C
 	return ds, true
 }
 
+// checking the cg name compliant with regular expression or not.
+func (dccs *DisaggregatedComputeGroupsController) validateRegex(cgs []dv1.ComputeGroup) (string, bool) {
+	var regStr = ""
+	for _, cg := range cgs {
+		res, err := regexp.Match(compute_group_name_regex, []byte(cg.Name))
+		if !res {
+			regStr = regStr + cg.Name + " not match " + compute_group_name_regex
+		}
+		//for debugging, output the error in log
+		if err != nil {
+			klog.Errorf("disaggregatedComputeGroupsController validateRegex cg name %s failed, err=%s", cg.Name, err.Error())
+		}
+	}
+	if regStr != "" {
+		return regStr, false
+	}
+
+	return "", true
+}
+
 // validate the name of compute group is duplicated or not in computegroups.
+// the cg name must be configured.
 func validateCGNameDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	ss := set.NewSetString()
 	for _, cg := range cgs {
@@ -251,6 +288,7 @@ func validateCGNameDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	return "", false
 }
 
+// if cluster id have already configured, checking repeating or not. if not configured ignoring check.
 func validateCGClusterIdDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	scids := set.NewSetString()
 	for _, cg := range cgs {
@@ -262,6 +300,7 @@ func validateCGClusterIdDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	return "", false
 }
 
+// if cloudUniqueId have configured, checking repeating or not. if not configured ignoring check.
 func validateCGCloudUniqueIdDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	scuids := set.NewSetString()
 	for _, cg := range cgs {
@@ -345,6 +384,19 @@ func (dccs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 		}
 	}
 
+	var fullAvailableCount int32
+	var availableCount int32
+	for _, cgs := range ddc.Status.ComputeGroupStatuses {
+		if cgs.Phase == dv1.Ready {
+			fullAvailableCount++
+		}
+		if cgs.AvailableReplicas > 0 {
+			availableCount++
+		}
+	}
+	ddc.Status.ClusterHealth.CGCount = int32(len(ddc.Status.ComputeGroupStatuses))
+	ddc.Status.ClusterHealth.CGFullAvailableCount = fullAvailableCount
+	ddc.Status.ClusterHealth.CGAvailableCount = availableCount
 	if errMs == "" {
 		return nil
 	}

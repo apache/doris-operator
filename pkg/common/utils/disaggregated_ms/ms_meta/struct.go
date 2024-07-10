@@ -1,10 +1,15 @@
 package ms_meta
 
+// vault
+const (
+	Instance_id string = "instance_id"
+	Name        string = "name"
+	User_id     string = "user_id"
+	Vault       string = "vault"
+)
+
 // S3
 const (
-	Instance_id                string = "instance_id"
-	Instance_name              string = "name"
-	User_id                    string = "user_id"
 	Obj_info                   string = "obj_info"
 	Obj_info_ak                string = "ak"
 	Obj_info_sk                string = "sk"
@@ -14,10 +19,9 @@ const (
 	Obj_info_region            string = "region"
 	Obj_info_external_endpoint string = "external_endpoint"
 	Obj_info_provider          string = "provider"
-	Obj_info_user_id           string = "user_id"
-	Ram_user                   string = "ram_user"
-	Ram_user_ak                string = "ak"
-	Ram_user_sk                string = "sk"
+	//Ram_user                   string = "ram_user"
+	//Ram_user_ak                string = "ak"
+	//Ram_user_sk                string = "sk"
 )
 
 // HDFS

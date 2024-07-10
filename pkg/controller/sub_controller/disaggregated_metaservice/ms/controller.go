@@ -56,7 +56,7 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 		return err
 	}
 
-	// TODO prepareStatefulsetApply
+	// TODO prepareStatefulsetApply for scaling
 	st := msc.buildMSStatefulSet(dms)
 
 	if err = k8s.ApplyStatefulSet(ctx, msc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {

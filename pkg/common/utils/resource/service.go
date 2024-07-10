@@ -278,7 +278,7 @@ func GetPortKey(configKey string) string {
 	case BROKER_IPC_PORT:
 		return strings.ReplaceAll(BROKER_IPC_PORT, "_", "-")
 	case BRPC_LISTEN_PORT:
-		return "ms-brpc-port"
+		return "brpc-port"
 	default:
 		return ""
 	}

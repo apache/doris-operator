@@ -6,13 +6,12 @@ import (
 )
 
 type DorisDisaggregatedClusterSpec struct {
-	//TODO: give the example config.
 	//VaultConfigmap specify the configmap that have configuration of file object information. example S3.
 	//configmap have to config, please reference the doc.
-	VaultConfigmap string `json:"vaultConfigmap,omitempty"`
+	InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
 
 	//MetaService describe the metaservice that cluster want to storage metadata.
-	MetaService MetaService `json:"metaService,omitempty"`
+	DisMS DisMS `json:"disMS,omitempty"`
 
 	//FeSpec describe the fe specification of doris disaggregated cluster.
 	FeSpec FeSpec `json:"feSpec,omitempty"`
@@ -21,7 +20,7 @@ type DorisDisaggregatedClusterSpec struct {
 	ComputeGroups []ComputeGroup `json:"computeGroups,omitempty"`
 }
 
-type MetaService struct {
+type DisMS struct {
 	//Namespace specify the namespace of metaservice deployed.
 	Namespace string `json:"namespace,omitempty"`
 	//Name specify the name of metaservice resource.
@@ -199,8 +198,30 @@ type DorisDisaggregatedClusterStatus struct {
 	//FEStatus describe the fe status.
 	FEStatus FEStatus `json:"feStatus,omitempty"`
 
+	ClusterHealth ClusterHealth `json:"clusterHealth,omitempty"`
+
 	//ComputeGroupStatuses reflect a list of computecgroup status.
 	ComputeGroupStatuses []ComputeGroupStatus `json:"computeGroupStatuses,omitempty"`
+}
+type Health string
+
+var (
+	Green  Health = "green"
+	Yellow Health = "yellow"
+	Red    Health = "red"
+)
+
+type ClusterHealth struct {
+	//represents the cluster overall status.
+	Health Health `json:"health,omitempty"`
+	//represents the fe available or not.
+	FeAvailable bool `json:"feAvailable,omitempty"`
+	//the number of compute group.
+	CGCount int32 `json:"cgCount,omitempty"`
+	//the available numbers of compute group.
+	CGAvailableCount int32 `json:"cgAvailableCount,omitempty"`
+	//the full available numbers of compute group, represents all pod in compute group are ready.
+	CGFullAvailableCount int32 `json:"cgFullAvailableCount,omitempty"`
 }
 
 type Phase string
@@ -265,6 +286,11 @@ type FEStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=ddc
+// +kubebuilder:printcolumn:name="ClusterHealth",type=string,JSONPath=`.status.clusterHealth.health`
+// +kubebuilder:printcolumn:name="FEPhase",type=string,JSONPath=`.status.feStatus.phase`
+// +kubebuilder:printcolumn:name="CGCount",type=integer,JSONPath=`.status.clusterHealth.cgCount`
+// +kubebuilder:printcolumn:name="CGAvailableCount",type=integer,JSONPath=`.status.clusterHealth.cgAvailableCount`
+// +kubebuilder:printcolumn:name="CGFullAvailableCount",type=integer,JSONPath=`.status.clusterHealth.cgFullAvailableCount`
 // +kubebuilder:storageversion
 // DorisDisaggregatedCluster defined as CRD format, have type, metadata, spec, status, fields.
 type DorisDisaggregatedCluster struct {

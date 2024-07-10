@@ -10,6 +10,7 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
 	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
+	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	dcgs "github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/computegroups"
 	dfe "github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/disaggregated_fe"
@@ -43,7 +44,7 @@ var (
 
 const (
 	ms_http_token_key = "http_token"
-	object_info_key   = "vault"
+	instance_conf_key = "instance.conf"
 	ms_conf_name      = "selectdb_cloud.conf"
 )
 
@@ -63,7 +64,7 @@ type DisaggregatedClusterReconciler struct {
 }
 
 func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
-	dc.instanceMeta = make(map[string]interface{})
+	im := make(map[string]interface{})
 	scs := make(map[string]sc.DisaggregatedSubController)
 	dfec := dfe.New(mgr)
 	scs[dfec.GetControllerName()] = dfec
@@ -71,9 +72,10 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 	scs[dcgsc.GetControllerName()] = dcgsc
 
 	if err := (&DisaggregatedClusterReconciler{
-		Client:   mgr.GetClient(),
-		Recorder: mgr.GetEventRecorderFor(disaggregatedClusterController),
-		Scs:      scs,
+		Client:       mgr.GetClient(),
+		Recorder:     mgr.GetEventRecorderFor(disaggregatedClusterController),
+		Scs:          scs,
+		instanceMeta: im,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, "unable to create controller ", "disaggregatedClusterReconciler")
 		os.Exit(1)
@@ -182,8 +184,7 @@ func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder)
 // 1. check and register instance info. info register in memory. periodical sync.
 // 2. sync resource.
 // 3. clear need delete resource.
-// 4. reorganize status.
-// 5. update cr or status.
+// 4. display new status(eorganize status, update cr or status)
 func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	var ddc dv1.DorisDisaggregatedCluster
 	err := dc.Get(ctx, req.NamespacedName, &ddc)
@@ -191,70 +192,109 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 		klog.Warningf("disaggreatedClusterReconciler not find resource DorisDisaggregatedCluster namespaceName %s", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
+	hv := hash.HashObject(ddc.Spec)
 
-	if err = dc.getMSInfo(ctx, &ddc); err != nil {
+	if err = dc.setStatusMSInfo(ctx, &ddc); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	//TODO: wait interface fixed.
-	event, err := dc.ApplyInstanceInfo(ctx, &ddc)
-	if event != nil {
-		dc.Recorder.Event(&ddc, string(event.Type), string(event.Reason), string(event.Message))
-	}
-	if err != nil {
+	var res ctrl.Result
+	//get instance config, validating config, display some instance info in DorisDisaggregatedCluster, apply instance info into ms.
+	if res, err = func() (ctrl.Result, error) {
+		instanceConf, err := dc.getInstanceConfig(ctx, &ddc)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if err := dc.validateInstanceInfo(instanceConf); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		//display InstanceInfo in DorisDisaggregatedCluster
+		dc.displayInstanceInfo(instanceConf, &ddc)
+
+		//TODO: wait interface fixed. realize update ak,sk.
+		event, err := dc.ApplyInstanceMeta(ddc.Status.MsEndpoint, ddc.Status.MsToken, instanceConf)
+		if event != nil {
+			dc.Recorder.Event(&ddc, string(event.Type), string(event.Reason), event.Message)
+		}
 		return ctrl.Result{}, err
+	}(); err != nil {
+		return res, err
 	}
+
 	//sync resource.
-	if res, err := dc.reconcileSub(ctx, &ddc); err != nil {
+	if res, err = dc.reconcileSub(ctx, &ddc); err != nil {
 		return res, err
 	}
 
 	// clear unused resources.
-	if res, err := dc.clearUnusedResources(ctx, &ddc); err != nil {
+	if res, err = dc.clearUnusedResources(ctx, &ddc); err != nil {
 		return res, err
 	}
 
-	//reorganize status.
-	if res, err := dc.reorganizeStatus(&ddc); err != nil {
-		return res, err
-	}
+	//display new status.
+	res, err = func() (ctrl.Result, error) {
+		//reorganize status.
+		if res, err = dc.reorganizeStatus(&ddc); err != nil {
+			return res, err
+		}
 
-	//update cr or status
-	if res, err := dc.updateObjectORStatus(ctx, &ddc); err != nil {
-		return res, err
-	}
+		//update cr or status
+		if res, err = dc.updateObjectORStatus(ctx, &ddc, hv); err != nil {
+			return res, err
+		}
 
-	return ctrl.Result{}, nil
+		return ctrl.Result{}, nil
+	}()
+
+	return res, err
 }
 
-func (dc *DisaggregatedClusterReconciler) ApplyInstanceInfo(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (*sc.Event, error) {
-	if ddc.Spec.VaultConfigmap == "" {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectInfoInvalid, Message: "vaultConfigmap should config a configMap that have object info."}, errors.New("vaultConfigmap for object info should be specified")
+func (dc *DisaggregatedClusterReconciler) displayInstanceInfo(instanceConf map[string]interface{}, ddc *dv1.DorisDisaggregatedCluster) {
+	instanceId := (instanceConf[ms_meta.Instance_id]).(string)
+	ddc.Status.InstanceId = instanceId
+}
+
+func (dc *DisaggregatedClusterReconciler) getInstanceConfig(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (map[string]interface{}, error) {
+	if ddc.Spec.InstanceConfigMap == "" {
+		dc.Recorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), "vaultConfigmap should config a configMap that have object info.")
+		return nil, errors.New("vaultConfigmap for object info should be specified")
 	}
 
-	cmName := ddc.Spec.VaultConfigmap
+	cmName := ddc.Spec.InstanceConfigMap
 	var cm corev1.ConfigMap
 	if err := dc.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: cmName}, &cm); err != nil {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectInfoInvalid, Message: fmt.Sprintf("name %s configmap get failed, err=%s", cmName, err.Error())}, err
+		dc.Recorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), fmt.Sprintf("name %s configmap get failed, err=%s", cmName, err.Error()))
+		return nil, err
 	}
 
-	if _, ok := cm.Data[object_info_key]; !ok {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectInfoInvalid, Message: fmt.Sprintf("%s configmap data have not config key %s for object info.", cmName, object_info_key)}, errors.New(fmt.Sprintf("%s configmap data have not config key %s for object info.", cmName, object_info_key))
+	if _, ok := cm.Data[instance_conf_key]; !ok {
+		dc.Recorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), fmt.Sprintf("%s configmap data have not config key %s for object info.", cmName, instance_conf_key))
+		return nil, errors.New(fmt.Sprintf("%s configmap data have not config key %s for object info.", cmName, instance_conf_key))
 	}
 
-	v := cm.Data[object_info_key]
+	v := cm.Data[instance_conf_key]
 	instance := map[string]interface{}{}
 	err := json.Unmarshal([]byte(v), &instance)
 	if err != nil {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectInfoInvalid, Message: fmt.Sprintf("json unmarshal error=%s", err.Error())}, err
-	}
-	if err := dc.validateVaultInfo(instance); err != nil {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectInfoInvalid, Message: "validate failed, " + err.Error()}, err
+		dc.Recorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), fmt.Sprintf("json unmarshal error=%s", err.Error()))
+		return nil, err
 	}
 
-	endpoint := ddc.Status.MsEndpoint
-	token := ddc.Status.MsToken
-	return dc.CreateOrUpdateObjectInfo(endpoint, token, instance)
+	return instance, nil
+}
+
+func (dc *DisaggregatedClusterReconciler) ApplyInstanceMeta(endpoint, token string, instanceConf map[string]interface{}) (*sc.Event, error) {
+	instanceId := (instanceConf[ms_meta.Instance_id]).(string)
+	event, err := dc.CreateOrUpdateObjectMeta(endpoint, token, instanceConf)
+	if err != nil {
+		return event, err
+	}
+
+	// store instance info for next update ak, sk etc...
+	dc.instanceMeta[instanceId] = instanceConf
+	return nil, nil
 }
 
 func (dc *DisaggregatedClusterReconciler) isModified(instance map[string]interface{}) bool {
@@ -264,16 +304,18 @@ func (dc *DisaggregatedClusterReconciler) isModified(instance map[string]interfa
 
 func (dc *DisaggregatedClusterReconciler) haveCreated(instanceId string) bool {
 	_, ok := dc.instanceMeta[instanceId]
+	//TODO: get from ms check
 	return ok
 }
 
-func (dc *DisaggregatedClusterReconciler) CreateOrUpdateObjectInfo(endpoint, token string, instance map[string]interface{}) (*sc.Event, error) {
+func (dc *DisaggregatedClusterReconciler) CreateOrUpdateObjectMeta(endpoint, token string, instance map[string]interface{}) (*sc.Event, error) {
 	idv := instance[ms_meta.Instance_id]
 	instanceId := idv.(string)
 	if !dc.haveCreated(instanceId) {
 		return dc.createObjectInfo(endpoint, token, instance)
 	}
 
+	// if not match in memory, should compare with ms.
 	if !dc.isModified(instance) {
 		return nil, nil
 	}
@@ -287,14 +329,36 @@ func (dc *DisaggregatedClusterReconciler) createObjectInfo(endpoint, token strin
 	if err != nil {
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.MSInteractError, Message: err.Error()}, errors.New("createObjectInfo failed, err " + err.Error())
 	}
-	if mr.Code != ms_http.SuccessCode {
+	if mr.Code != ms_http.SuccessCode && mr.Code != ms_http.ALREADY_EXIST {
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectConfigError, Message: mr.Msg}, errors.New("createObjectInfo " + mr.Code + mr.Msg)
 	}
 	return &sc.Event{Type: sc.EventNormal, Reason: sc.InstanceMetaCreated}, nil
 }
 
-func (dc *DisaggregatedClusterReconciler) validateVaultInfo(instance map[string]interface{}) error {
-	if obj, ok := instance[ms_meta.Obj_info]; ok {
+func (dc *DisaggregatedClusterReconciler) validateInstanceInfo(instanceConf map[string]interface{}) error {
+	idv := instanceConf[ms_meta.Instance_id]
+	if idv == nil {
+		return errors.New("not config instance id")
+	}
+	id, ok := idv.(string)
+	if !ok || id == "" {
+		return errors.New("not config instance id")
+	}
+	return dc.validateVaultInfo(instanceConf)
+}
+
+func (dc *DisaggregatedClusterReconciler) validateVaultInfo(instanceConf map[string]interface{}) error {
+	vi := instanceConf[ms_meta.Vault]
+	if vi == nil {
+		return errors.New("have not vault config")
+	}
+
+	vault, ok := vi.(map[string]interface{})
+	if !ok {
+		return errors.New("vault not json format")
+	}
+
+	if obj, ok := vault[ms_meta.Obj_info]; ok {
 		objMap, ok := obj.(map[string]interface{})
 		if !ok {
 			return errors.New("obj_info not json format")
@@ -303,7 +367,7 @@ func (dc *DisaggregatedClusterReconciler) validateVaultInfo(instance map[string]
 		return dc.validateS3(objMap)
 	}
 
-	if i, ok := instance[ms_meta.Key_hdfs_info]; ok {
+	if i, ok := vault[ms_meta.Key_hdfs_info]; ok {
 		hdfsMap, ok := i.(map[string]interface{})
 		if !ok {
 			return errors.New("hdfs not json format")
@@ -365,21 +429,20 @@ func (dc *DisaggregatedClusterReconciler) validateString(m map[string]interface{
 	return nil
 }
 
-func (dc *DisaggregatedClusterReconciler) getMSInfo(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) error {
+func (dc *DisaggregatedClusterReconciler) setStatusMSInfo(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) error {
 	if ddc.Status.MsEndpoint != "" && ddc.Status.MsToken != "" {
 		return nil
 	}
 
 	var ddms dmsv1.DorisDisaggregatedMetaService
-	msNamespace := ddc.Spec.MetaService.Namespace
-	msName := ddc.Spec.MetaService.Name
+	msNamespace := ddc.Spec.DisMS.Namespace
+	msName := ddc.Spec.DisMS.Name
 	if err := dc.Get(ctx, types.NamespacedName{Namespace: msNamespace, Name: msName}, &ddms); err != nil {
 		klog.Errorf("disaggregatedClusterReconciler getMSInfo namespace %s name %s faild, err=%s", msNamespace, msName, err.Error())
 		dc.Recorder.Event(ddc, string(sc.EventWarning), string(sc.DisaggregatedMetaServiceGetFailed), fmt.Sprintf("namespace %s name %s get failed,err%s", msNamespace, msName, err.Error()))
 		return err
 	}
 
-	//TODO: get metaservice serviceName
 	msSvcName := ddms.GetMSServiceName()
 	msPort := dmsv1.MsPort
 	msEndpoint := msSvcName + "." + msNamespace + ":" + msPort
@@ -398,8 +461,7 @@ func (dc *DisaggregatedClusterReconciler) getMSInfo(ctx context.Context, ddc *dv
 			continue
 		}
 
-		if _, ok := kcm.Data[ms_conf_name]; ok {
-			v := kcm.Data[ms_conf_name]
+		if v, ok := kcm.Data[ms_conf_name]; ok {
 			viper.ReadConfig(bytes.NewBuffer([]byte(v)))
 			mscvs = viper.AllSettings()
 			break
@@ -409,13 +471,16 @@ func (dc *DisaggregatedClusterReconciler) getMSInfo(ctx context.Context, ddc *dv
 		token := v.(string)
 		ddc.Status.MsToken = token
 	}
+	if v, ok := mscvs[resource.BRPC_LISTEN_PORT]; ok {
+		msPort = v.(string)
+	}
 
 	return nil
 }
 
 func (dc *DisaggregatedClusterReconciler) clearUnusedResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
-	for _, sc := range dc.Scs {
-		sc.ClearResources(ctx, ddc)
+	for _, subC := range dc.Scs {
+		subC.ClearResources(ctx, ddc)
 	}
 
 	return ctrl.Result{}, nil
@@ -429,13 +494,20 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 			return requeueIfError(err)
 		}
 	}
+
+	ddc.Status.ClusterHealth.Health = dv1.Green
+	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
+		ddc.Status.ClusterHealth.Health = dv1.Red
+	} else if ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
+		ddc.Status.ClusterHealth.Health = dv1.Yellow
+	}
 	return ctrl.Result{}, nil
 }
 
 func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
-	for _, sc := range dc.Scs {
-		if err := sc.Sync(ctx, ddc); err != nil {
-			klog.Errorf("disaggreatedClusterReconciler sub reconciler %s sync err=%s.", sc.GetControllerName(), err.Error())
+	for _, subC := range dc.Scs {
+		if err := subC.Sync(ctx, ddc); err != nil {
+			klog.Errorf("disaggreatedClusterReconciler sub reconciler %s sync err=%s.", subC.GetControllerName(), err.Error())
 			return ctrl.Result{}, err
 		}
 	}
@@ -444,15 +516,15 @@ func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc 
 }
 
 // when spec revert by operator should update cr or directly update status.
-func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
-	old_hv := ddc.Annotations[dv1.DisaggregatedSpecHashValueAnnotation]
-	hv := hash.HashObject(ddc.Spec)
-	if ddc.Annotations == nil {
-		ddc.Annotations = map[string]string{dv1.DisaggregatedSpecHashValueAnnotation: hv}
-	}
-	if old_hv != hv {
-		ddc.Annotations[dv1.DisaggregatedSpecHashValueAnnotation] = hv
-		//TODO: test status updated or not.
+func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, preHv string) (ctrl.Result, error) {
+	postHv := hash.HashObject(ddc.Spec)
+	if preHv != postHv {
+		var eddc dv1.DorisDisaggregatedCluster
+		if err := dc.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}, &eddc); err == nil || !apierrors.IsNotFound(err) {
+			if eddc.ResourceVersion != "" {
+				ddc.ResourceVersion = eddc.ResourceVersion
+			}
+		}
 		if err := dc.Update(ctx, ddc); err != nil {
 			klog.Errorf("disaggreatedClusterReconciler update DorisDisaggregatedCluster namespace %s name %s  failed, err=%s", ddc.Namespace, ddc.Name, err.Error())
 			return ctrl.Result{}, err

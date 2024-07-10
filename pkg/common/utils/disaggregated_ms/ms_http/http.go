@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	CREATE_INSTANCE_PREFIX_TEMPLATE = `%s/MetaService/http/create_instance?token=%s`
-	DELETE_INSTANCE_PREFIX_TEMPLATE = `%s/MetaService/http/drop_instance?token=%s`
-	GET_INSTANCE_PREFIX_TEMPLATE    = `%s/MetaService/http/get_instance?token=%s&instance_id=%s`
+	CREATE_INSTANCE_PREFIX_TEMPLATE = `http://%s/MetaService/http/create_instance?token=%s`
+	DELETE_INSTANCE_PREFIX_TEMPLATE = `http://%s/MetaService/http/drop_instance?token=%s`
+	GET_INSTANCE_PREFIX_TEMPLATE    = `http://%s/MetaService/http/get_instance?token=%s&instance_id=%s`
 )
 
 //realize the metaservice interface
