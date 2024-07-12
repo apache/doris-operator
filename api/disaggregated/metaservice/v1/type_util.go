@@ -19,7 +19,7 @@ const (
 	// ComponentLabelKey is Kubernetes recommended label key, it represents the component within the architecture
 	ComponentLabelKey string = "app.kubernetes.io/component"
 
-	DisaggregatedDorisMetaserviceLabelKey string = "app.disaggregated.metaservice"
+	DisaggregatedDorisMetaserviceLabelKey string = "doris.disaggregated.metaservice"
 
 	//OwnerReference list ownerReferences this object
 	OwnerReference string = "app.disaggregated.ownerreference/name"
@@ -37,7 +37,7 @@ type ComponentType string
 
 const (
 	Component_FDB ComponentType = "fdb"
-	Component_MS  ComponentType = "meta-service"
+	Component_MS  ComponentType = "metaservice"
 	Component_RC  ComponentType = "recycler"
 )
 
@@ -81,6 +81,7 @@ func GenerateServiceSelector(dms *DorisDisaggregatedMetaService, componentType C
 func GenerateStatefulSetSelector(dms *DorisDisaggregatedMetaService, componentType ComponentType) metadata.Labels {
 	labels := metadata.Labels{}
 	labels[OwnerReference] = statefulSetName(dms, componentType)
+	labels[DisaggregatedDorisMetaserviceLabelKey] = dms.Name
 	labels[ComponentLabelKey] = string(componentType)
 	return labels
 }

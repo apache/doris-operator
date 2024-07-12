@@ -110,7 +110,7 @@ func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, c
 		path := cm.MountPath
 		if m, exist := mountsMap[path]; exist {
 			klog.Errorf("CheckConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
-			d.K8srecorder.Event(dcr, string(EventWarning), ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapPathRepeated), fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
 		}
 		mountsMap[path] = cm
 	}

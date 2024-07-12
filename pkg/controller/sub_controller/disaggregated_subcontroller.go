@@ -48,14 +48,15 @@ func (d *DisaggregatedSubDefaultController) GetMSConfig(ctx context.Context, cms
 
 // generate map for mountpath:configmap
 func (d *DisaggregatedSubDefaultController) CheckMSConfigMountPath(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) {
-	cms := resource.GetDMSBaseSpecFromCluster(dms, componentType).ConfigMaps
+	bspec := resource.GetDMSBaseSpecFromCluster(dms, componentType)
+	cms := bspec.ConfigMaps
 
 	var mountsMap = make(map[string]mv1.ConfigMap)
 	for _, cm := range cms {
 		path := cm.MountPath
 		if m, exist := mountsMap[path]; exist {
 			klog.Errorf("CheckMSConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name)
-			d.K8srecorder.Event(dms, string(EventWarning), ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name))
+			d.K8srecorder.Event(dms, string(EventWarning), string(ConfigMapPathRepeated), fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name))
 		}
 		mountsMap[path] = cm
 	}

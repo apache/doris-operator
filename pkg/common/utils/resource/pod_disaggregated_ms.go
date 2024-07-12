@@ -5,6 +5,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+	"path/filepath"
 	"strconv"
 )
 
@@ -16,6 +17,8 @@ const (
 	HEALTH_MS_LIVE_COMMAND = "/opt/apache-doris/ms_disaggregated_is_alive.sh"
 	HEALTH_RC_LIVE_COMMAND = "/opt/apache-doris/ms_disaggregated_is_alive.sh"
 	PRESTOP_MS_COMMAND     = "/opt/apache-doris/ms_disaggregated_prestop.sh"
+	MS_Log_Key             = "log_dir"
+	Default_MS_Log_Path    = "/opt/apache-doris/ms/log/"
 )
 
 func NewDMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) corev1.PodTemplateSpec {
@@ -58,36 +61,51 @@ func NewDMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService, componentType
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
 func newVolumesFromDMSBaseSpec(spec mv1.BaseSpec) []corev1.Volume {
 	var volumes []corev1.Volume
-	for _, pv := range spec.PersistentVolumes {
-		var volume corev1.Volume
-		volume.Name = pv.Name
-		volume.VolumeSource = corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pv.Name,
-			},
-		}
-		volumes = append(volumes, volume)
+	if spec.PersistentVolume == nil {
+		return volumes
 	}
+
+	//construct log volume
+	v := corev1.Volume{}
+	v.Name = defaultLogPrefixName
+	v.VolumeSource = corev1.VolumeSource{
+		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: defaultLogPrefixName,
+		},
+	}
+
+	volumes = append(volumes, v)
 
 	return volumes
 }
 
 // buildVolumeMounts construct all volumeMounts contains default volumeMounts if persistentVolumes not definition.
-func buildDMSVolumeMounts(spec mv1.BaseSpec) []corev1.VolumeMount {
+func buildDMSVolumeMounts(spec mv1.BaseSpec, config map[string]interface{}) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
 	_, volumeMounts = appendPodInfoVolumesVolumeMounts(nil, volumeMounts)
 
-	for _, pvs := range spec.PersistentVolumes {
-		var volumeMount corev1.VolumeMount
-		volumeMount.MountPath = pvs.MountPath
-		volumeMount.Name = pvs.Name
-		volumeMounts = append(volumeMounts, volumeMount)
+	if spec.PersistentVolume == nil {
+		return volumeMounts
 	}
 
+	logPath := Default_MS_Log_Path
+	if p, ok := config[MS_Log_Key]; ok {
+		cp := p.(string)
+		//exclude the rel path interfere
+		if filepath.IsAbs(cp) {
+			logPath = cp
+		} else {
+			logPath = filepath.Join(Default_MS_Log_Path, cp)
+		}
+	}
+	vm := corev1.VolumeMount{}
+	vm.MountPath = logPath
+	vm.Name = defaultLogPrefixName
+	volumeMounts = append(volumeMounts, vm)
 	return volumeMounts
 }
 
-func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, brpcPort int32, componentType mv1.ComponentType) corev1.Container {
+func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, brpcPort int32, config map[string]interface{}, componentType mv1.ComponentType) corev1.Container {
 	var envs []corev1.EnvVar
 	spec := GetDMSBaseSpecFromCluster(dms, componentType)
 
@@ -100,7 +118,7 @@ func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, brpcPort in
 			Name:  FDB_ENDPOINT,
 			Value: fdbEndPoint,
 		}, corev1.EnvVar{
-			Name: "OPERATOR_NAMESPACE",
+			Name: NAMESPACE,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					APIVersion: "v1",
@@ -111,29 +129,23 @@ func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, brpcPort in
 	)
 	envs = mergeEnvs(envs, spec.EnvVars)
 
-	volumeMounts := buildDMSVolumeMounts(*spec)
+	volumeMounts := buildDMSVolumeMounts(*spec, config)
 	if len(spec.ConfigMaps) != 0 {
 		_, configVolumeMounts := getConfigmapVolumeAndVolumeMount(spec.ConfigMaps)
 		volumeMounts = append(volumeMounts, configVolumeMounts...)
 	}
 
-	imagePullPolicy := spec.ImagePullPolicy
-	if imagePullPolicy == "" {
-		imagePullPolicy = defaultDMSImagePullPolicy
-	}
-
 	return corev1.Container{
-		Image:           spec.Image,
-		Command:         command,
-		Args:            args,
-		Ports:           []corev1.ContainerPort{},
-		Env:             envs,
-		VolumeMounts:    volumeMounts,
-		ImagePullPolicy: imagePullPolicy,
-		Resources:       spec.ResourceRequirements,
-		LivenessProbe:   dmsLivenessProbe(brpcPort),
-		StartupProbe:    dmsStartupProbe(brpcPort),
-		ReadinessProbe:  dmsReadinessProbe(brpcPort),
+		Image:          spec.Image,
+		Command:        command,
+		Args:           args,
+		Ports:          []corev1.ContainerPort{},
+		Env:            envs,
+		VolumeMounts:   volumeMounts,
+		Resources:      spec.ResourceRequirements,
+		LivenessProbe:  dmsLivenessProbe(brpcPort),
+		StartupProbe:   dmsStartupProbe(brpcPort),
+		ReadinessProbe: dmsReadinessProbe(brpcPort),
 		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{
@@ -204,6 +216,8 @@ func GetDMSBaseSpecFromCluster(dms *mv1.DorisDisaggregatedMetaService, component
 	switch componentType {
 	case mv1.Component_MS:
 		bSpec = &dms.Spec.MS.BaseSpec
+	case mv1.Component_RC:
+		bSpec = &dms.Spec.Recycler.BaseSpec
 	default:
 		klog.Infof("the componentType %s is not supported!", componentType)
 	}

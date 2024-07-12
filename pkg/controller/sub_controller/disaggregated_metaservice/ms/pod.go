@@ -23,14 +23,14 @@ func (dmc *Controller) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaSer
 }
 
 func (dmc *Controller) msContainer(dms *mv1.DorisDisaggregatedMetaService, config map[string]interface{}) corev1.Container {
-	brpcPort := resource.GetPortFromMap(config, defConfMap, resource.BRPC_LISTEN_PORT)
-	c := resource.NewDMSBaseMainContainer(dms, brpcPort, mv1.Component_MS)
+	brpcPort := resource.GetPort(config, resource.BRPC_LISTEN_PORT)
+	c := resource.NewDMSBaseMainContainer(dms, brpcPort, config, mv1.Component_MS)
 	if dms.Spec.MS.Replicas == nil {
 		dms.Spec.MS.Replicas = resource.GetInt32Pointer(DefaultMetaserviceNumber)
 	}
 
 	ports := resource.GetDMSContainerPorts(brpcPort, mv1.Component_MS)
-	c.Name = "disaggregated-metaservice"
+	c.Name = "metaservice"
 	c.Ports = append(c.Ports, ports...)
 
 	return c

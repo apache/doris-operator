@@ -126,7 +126,7 @@ func (dmsr *DisaggregatedMetaServiceReconciler) updateDisaggregatedMetaServiceSt
 	}
 
 	dms.Status.DeepCopyInto(&edms.Status)
-	return ctrl.Result{RequeueAfter: 5 * time.Second}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return dmsr.Client.Status().Update(ctx, &edms)
 	})
 }

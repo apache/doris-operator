@@ -49,15 +49,15 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	msc.CheckMSConfigMountPath(dms, mv1.Component_MS)
 
 	// MS only Build Internal Service
-	service := resource.BuildDMSService(dms, mv1.Component_MS, resource.GetPortFromMap(config, defConfMap, resource.BRPC_LISTEN_PORT))
-	if err := k8s.ApplyService(ctx, msc.K8sclient, &service, resource.DMSServiceDeepEqual); err != nil {
+	service := resource.BuildDMSService(dms, mv1.Component_MS, resource.GetPort(config, resource.BRPC_LISTEN_PORT))
+	if err = k8s.ApplyService(ctx, msc.K8sclient, &service, resource.DMSServiceDeepEqual); err != nil {
 		klog.Errorf("MS controller sync apply service name=%s, namespace=%s, clusterName=%s failed.message=%s.",
 			service.Name, service.Namespace, dms.Name, err.Error())
 		return err
 	}
 
 	// TODO prepareStatefulsetApply for scaling
-	st := msc.buildMSStatefulSet(dms)
+	st := msc.buildMSStatefulSet(dms, config)
 
 	if err = k8s.ApplyStatefulSet(ctx, msc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
 		msc.RestrictConditionsEqual(new, old)

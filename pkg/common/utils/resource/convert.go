@@ -6,16 +6,12 @@ import (
 
 // getPort get ports from config file.
 func GetPort(config map[string]interface{}, key string) int32 {
-	return GetPortFromMap(config, defMap, key)
-}
-
-func GetPortFromMap(config map[string]interface{}, defaultConfig map[string]int32, key string) int32 {
 	if v, ok := config[key]; ok {
 		if port, err := strconv.ParseInt(v.(string), 10, 32); err == nil {
 			return int32(port)
 		}
 	}
-	return defaultConfig[key]
+	return defMap[key]
 }
 
 // GetTerminationGracePeriodSeconds get grace_shutdown_wait_seconds from config file.

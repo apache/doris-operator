@@ -9,6 +9,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="FdbStatus",type=string,JSONPath=`.status.fdbStatus.availableStatus`
 // +kubebuilder:printcolumn:name="MSStatus",type=string,JSONPath=`.status.msStatus.phase`
 // +kubebuilder:printcolumn:name="RecyclerStatus",type=string,JSONPath=`.status.recyclerStatus.phase`
 // +kubebuilder:storageversion
@@ -85,8 +86,6 @@ type BaseSpec struct {
 
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
@@ -137,7 +136,7 @@ type BaseSpec struct {
 	// +optional
 	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty"`
 
-	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
+	PersistentVolume *PersistentVolume `json:"persistentVolume,omitempty"`
 
 	//Security context for pod.
 	//+optional
@@ -166,29 +165,10 @@ type PersistentVolume struct {
 	// +kubebuilder:validation:Optional
 	corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec,omitempty"`
 
-	//the mount path for component service.
-	MountPath string `json:"mountPath,omitempty"`
-
-	//the volume name associate with
-	Name string `json:"name,omitempty"`
-
 	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
 	//It only takes effect in the first configuration and cannot be added or modified later.
 	Annotations map[string]string `json:"annotations,omitempty"`
-
-	//defines pvc provisioner
-	PVCProvisioner PVCProvisioner `json:"provisioner,omitempty"`
 }
-
-// PVCProvisioner defines PVC provisioner
-type PVCProvisioner string
-
-// Possible values of PVC provisioner
-const (
-	PVCProvisionerUnspecified PVCProvisioner = ""
-	PVCProvisionerStatefulSet PVCProvisioner = "StatefulSet"
-	PVCProvisionerOperator    PVCProvisioner = "Operator"
-)
 
 type ConfigMap struct {
 	//Name specify the configmap in deployed namespace that need to be mounted in pod.
@@ -250,9 +230,12 @@ type PortMap struct {
 }
 
 type DorisDisaggregatedMetaServiceStatus struct {
-	FDBStatus      FDBStatus  `json:"fdbStatus,omitempty"`
-	MSStatus       BaseStatus `json:"msStatus,omitempty"`
-	RecyclerStatus BaseStatus `json:"recycleStatus,omitempty"`
+	//describe the fdb status information: contains access address, fdb available or not, etc...
+	FDBStatus FDBStatus `json:"fdbStatus,omitempty"`
+	//describe the ms status.
+	MSStatus BaseStatus `json:"msStatus,omitempty"`
+	//descirbe the recycler status.
+	RecyclerStatus BaseStatus `json:"recyclerStatus,omitempty"`
 }
 
 type FDBStatus struct {

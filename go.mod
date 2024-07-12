@@ -1,6 +1,6 @@
 module github.com/selectdb/doris-operator
 
-go 1.19
+go 1.21
 
 require (
 	github.com/FoundationDB/fdb-kubernetes-operator v1.36.0

@@ -21,7 +21,6 @@ const (
 	PVCCreate               = "PVCCreate"
 	PVCCreateFailed         = "PVCCreateFailed"
 	FollowerScaleDownFailed = "FollowerScaleDownFailed"
-	ConfigMapPathRepeated   = "ConfigMapPathRepeated"
 )
 
 type EventReason string
@@ -43,6 +42,7 @@ var (
 	MSInteractError                   EventReason = "MSInteractError"
 	InstanceMetaCreated               EventReason = "InstanceMetaCreated"
 	InstanceIdModified                EventReason = "InstanceIdModified"
+	ConfigMapPathRepeated             EventReason = "ConfigMapPathRepeated"
 )
 
 type Event struct {
