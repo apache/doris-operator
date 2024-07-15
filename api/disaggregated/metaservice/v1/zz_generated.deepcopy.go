@@ -97,12 +97,10 @@ func (in *BaseSpec) DeepCopyInto(out *BaseSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.PersistentVolumes != nil {
-		in, out := &in.PersistentVolumes, &out.PersistentVolumes
-		*out = make([]PersistentVolume, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+	if in.PersistentVolume != nil {
+		in, out := &in.PersistentVolume, &out.PersistentVolume
+		*out = new(PersistentVolume)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.SecurityContext != nil {
 		in, out := &in.SecurityContext, &out.SecurityContext

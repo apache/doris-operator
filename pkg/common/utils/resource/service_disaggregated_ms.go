@@ -50,6 +50,12 @@ func getDMSServicePort(brpcPort int32, componentType mv1.ComponentType) corev1.S
 			Port:       brpcPort,
 			TargetPort: intstr.FromInt(int(brpcPort)),
 		}
+	case mv1.Component_RC:
+		return corev1.ServicePort{
+			Name:       GetPortKey(BRPC_LISTEN_PORT),
+			Port:       brpcPort,
+			TargetPort: intstr.FromInt(int(brpcPort)),
+		}
 	default:
 		klog.Infof("getDMSInternalServicePort not supported the type %s", componentType)
 		return corev1.ServicePort{}
@@ -59,6 +65,8 @@ func getDMSServicePort(brpcPort int32, componentType mv1.ComponentType) corev1.S
 func GetDMSContainerPorts(brpcPort int32, componentType mv1.ComponentType) []corev1.ContainerPort {
 	switch componentType {
 	case mv1.Component_MS:
+		return getMSContainerPorts(brpcPort)
+	case mv1.Component_RC:
 		return getMSContainerPorts(brpcPort)
 	default:
 		klog.Infof("GetDMSContainerPorts the componentType %s not supported.", componentType)

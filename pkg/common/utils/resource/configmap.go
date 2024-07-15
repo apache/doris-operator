@@ -53,6 +53,7 @@ var defMap = map[string]int32{
 	HEARTBEAT_SERVICE_PORT: 9050,
 	BRPC_PORT:              8060,
 	BROKER_IPC_PORT:        8000,
+	BRPC_LISTEN_PORT:       5000,
 }
 
 // GetStartMode return fe host type, fqdn(host) or ip, from 'fe.conf' enable_fqdn_mode

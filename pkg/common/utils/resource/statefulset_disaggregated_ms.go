@@ -12,6 +12,7 @@ import (
 
 const (
 	defaultRollingUpdateStartDMSPod int32 = 0
+	defaultLogPrefixName                  = "log"
 
 	defaultDMSImagePullPolicy corev1.PullPolicy = corev1.PullIfNotPresent
 )
@@ -32,15 +33,15 @@ func NewDMSStatefulSet(dms *mv1.DorisDisaggregatedMetaService, componentType mv1
 	}
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
-	for _, vct := range bSpec.PersistentVolumes {
+	cpv := bSpec.PersistentVolume
+	if cpv != nil {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        vct.Name,
-				Annotations: buildDMSAnnotationsForPVC(vct),
+				Name:        defaultLogPrefixName,
+				Annotations: NewAnnotations(),
 			},
-			Spec: vct.PersistentVolumeClaimSpec,
+			Spec: cpv.PersistentVolumeClaimSpec,
 		}
-
 		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
 	}
 

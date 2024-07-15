@@ -1,5 +1,6 @@
 package resource
 
+// the env keys
 const (
 	ENV_FE_ADDR = "ENV_FE_ADDR"
 
@@ -10,4 +11,6 @@ const (
 	COMPONENT_TYPE = "COMPONENT_TYPE"
 
 	FDB_ENDPOINT = "FDB_ENDPOINT"
+
+	NAMESPACE = "NAMESPACE"
 )

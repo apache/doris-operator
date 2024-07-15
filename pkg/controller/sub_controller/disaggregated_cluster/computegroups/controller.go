@@ -59,7 +59,7 @@ func (dccs *DisaggregatedComputeGroupsController) Sync(ctx context.Context, obj 
 
 	cgs := ddc.Spec.ComputeGroups
 	for i, _ := range cgs {
-		// if unique identifier be updated, operator should revert it.
+		// if be unique identifier updated, operator should revert it.
 		dccs.revertNotAllowedUpdateFields(ddc, &cgs[i])
 		if event, err := dccs.computeGroupSync(ctx, ddc, &cgs[i]); err != nil {
 			if event != nil {
