@@ -42,8 +42,8 @@ type ComputeGroup struct {
 	//ClusterId is the identifier of computeGroup, this will distinguish all computeGroup in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
-	//CloudUniqueId represents the cloud code, if deployed in cloud platform. default cloudUniqueId=clusterId.
-	CloudUniqueId string `json:"cloudUniqueId,omitempty"`
+	//CloudUniqueIdPre represents the cloud code pre, if deployed in cloud platform. default CloudUniqueIdPre=1:clusterId:.
+	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
 
 	//Replicas represent the number of compute node.
 	Replicas *int32 `json:"replicas,omitempty"`
@@ -186,8 +186,6 @@ type PortMap struct {
 type DorisDisaggregatedClusterStatus struct {
 	//ClusterId display  the clusterId of DorisDisaggregatedCluster in meta.
 	InstanceId string `json:"instanceId,omitempty"`
-	//CloudUniqueId display the cloud code.
-	CloudUniqueId string `json:"cloudUniqueId,omitempty"`
 
 	// the ms address for store meta of disaggregated cluster.
 	MsEndpoint string `json:"msEndpoint,omitempty"`
@@ -259,8 +257,8 @@ type ComputeGroupStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of compute group in meta.
 	ClusterId string `json:"clusterId,omitempty"`
-	//CloudUniqueId display the cloud code.
-	CloudUniqueId string `json:"cloudUniqueId,omitempty"`
+	//CloudUniqueIdPre display the cloud code pre.
+	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
 
 	// replicas is the number of Pods created by the StatefulSet controller.
 	Replicas int32 `json:"replicas,omitempty"`
@@ -277,8 +275,8 @@ type FEStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of fe in meta.
 	ClusterId string `json:"clusterId,omitempty"`
-	//CloudUniqueId display the cloud code.
-	CloudUniqueId string `json:"cloudUniqueId,omitempty"`
+	//CloudUniqueIdPre display the cloud code pre.
+	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
 }
 
 // +genclient
