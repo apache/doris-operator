@@ -14,13 +14,13 @@ import (
 
 // env key
 const (
-	MS_ENDPOINT      string = "MS_ENDPOINT"
-	CLOUD_UNIQUE_ID  string = "CLOUD_UNIQUE_ID"
-	CLUSTER_ID       string = "CLUSTER_ID"
-	STATEFULSET_NAME string = "STATEFULSET_NAME"
-	INSTANCE_ID      string = "INSTANCE_ID"
-	INSTANCE_NAME    string = "INSTANCE_NAME"
-	MS_TOKEN         string = "MS_TOKEN"
+	MS_ENDPOINT         string = "MS_ENDPOINT"
+	CLOUD_UNIQUE_ID_PRE string = "CLOUD_UNIQUE_ID_PRE"
+	CLUSTER_ID          string = "CLUSTER_ID"
+	STATEFULSET_NAME    string = "STATEFULSET_NAME"
+	INSTANCE_ID         string = "INSTANCE_ID"
+	INSTANCE_NAME       string = "INSTANCE_NAME"
+	MS_TOKEN            string = "MS_TOKEN"
 )
 
 const (
@@ -131,7 +131,7 @@ func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVC
 	pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        LogStoreName,
-			Annotations: cg.CommonSpec.Annotations,
+			Annotations: cg.CommonSpec.PersistentVolume.Annotations,
 		},
 		Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
 	})
@@ -146,7 +146,7 @@ func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVC
 		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        StorageStorePreName + strconv.Itoa(i),
-				Annotations: cg.CommonSpec.Annotations,
+				Annotations: cg.CommonSpec.PersistentVolume.Annotations,
 			},
 			Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
 		})
@@ -241,14 +241,14 @@ func (dccs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	var cgEnvs []corev1.EnvVar
 	stsName := ddc.GetCGStatefulsetName(cg)
 	clusterId := ddc.GetCGClusterId(cg)
-	cloudUniqueId := ddc.GetCGCloudUniqueId(cg)
+	cloudUniqueIdPre := ddc.GetCGCloudUniqueIdPre(cg)
 
 	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
 	ms_endpoint := ddc.Status.MsEndpoint
 	ms_token := ddc.Status.MsToken
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
-		corev1.EnvVar{Name: CLOUD_UNIQUE_ID, Value: cloudUniqueId},
+		corev1.EnvVar{Name: CLOUD_UNIQUE_ID_PRE, Value: cloudUniqueIdPre},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: clusterId},
 		corev1.EnvVar{Name: INSTANCE_NAME, Value: ddc.Name},
 		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},

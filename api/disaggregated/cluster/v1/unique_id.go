@@ -21,15 +21,14 @@ func newCGClusterId(namespace, stsName string) string {
 	return strings.ReplaceAll(namespace+"_"+stsName, "-", "_")
 }
 
-// cloudUniqueID match "1:$instanceId:[a-zA-Z]"
-func newCGCloudUniqueId(instanceId, statefulsetName string) string {
-	return fmt.Sprintf("1:%s:%s", instanceId, statefulsetName)
+func newCGCloudUniqueIdPre(instanceId string) string {
+	return fmt.Sprintf("1:%s", instanceId)
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
 	cgStsName := ""
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueId == cg.CloudUniqueId {
+		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueIdPre == cg.CloudUniqueIdPre {
 			cgStsName = cgs.StatefulsetName
 		}
 	}
@@ -53,7 +52,7 @@ func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
 		return ""
 	}
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId || cg.CloudUniqueId == cgs.CloudUniqueId {
+		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId || cg.CloudUniqueIdPre == cgs.CloudUniqueIdPre {
 			return cg.ClusterId
 		}
 	}
@@ -67,24 +66,23 @@ func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
 	return cg.ClusterId
 }
 
-func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueId(cg *ComputeGroup) string {
+func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre(cg *ComputeGroup) string {
 	if cg == nil || ddc == nil {
 		return ""
 	}
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId || cg.CloudUniqueId == cgs.CloudUniqueId {
-			return cg.CloudUniqueId
+		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId || cg.CloudUniqueIdPre == cgs.CloudUniqueIdPre {
+			return cg.CloudUniqueIdPre
 		}
 	}
 
-	statefulsetName := ddc.GetCGStatefulsetName(cg)
 	//update cg' clusterId for auto assemble, if not config.
-	if cg.CloudUniqueId == "" {
+	if cg.CloudUniqueIdPre == "" {
 		instanceId := ddc.GetInstanceId()
-		cg.CloudUniqueId = newCGCloudUniqueId(instanceId, statefulsetName)
+		cg.CloudUniqueIdPre = newCGCloudUniqueIdPre(instanceId)
 	}
 
-	return cg.CloudUniqueId
+	return cg.CloudUniqueIdPre
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
@@ -94,7 +92,7 @@ func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
 func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string {
 	svcName := ""
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueId == cg.CloudUniqueId {
+		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueIdPre == cg.CloudUniqueIdPre {
 			svcName = cgs.ServiceName
 		}
 	}

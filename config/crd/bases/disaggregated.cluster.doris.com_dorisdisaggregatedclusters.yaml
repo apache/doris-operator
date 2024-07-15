@@ -17,7 +17,23 @@ spec:
     singular: dorisdisaggregatedcluster
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.clusterHealth.health
+      name: ClusterHealth
+      type: string
+    - jsonPath: .status.feStatus.phase
+      name: FEPhase
+      type: string
+    - jsonPath: .status.clusterHealth.cgCount
+      name: CGCount
+      type: integer
+    - jsonPath: .status.clusterHealth.cgAvailableCount
+      name: CGAvailableCount
+      type: integer
+    - jsonPath: .status.clusterHealth.cgFullAvailableCount
+      name: CGFullAvailableCount
+      type: integer
+    name: v1
     schema:
       openAPIV3Schema:
         description: DorisDisaggregatedCluster defined as CRD format, have type, metadata,
@@ -953,9 +969,9 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                    cloudUniqueId:
-                      description: CloudUniqueId represents the cloud code, if deployed
-                        in cloud platform. default cloudUniqueId=clusterId.
+                    cloudUniqueIdPre:
+                      description: CloudUniqueIdPre represents the cloud code pre,
+                        if deployed in cloud platform. default CloudUniqueIdPre=1:clusterId:.
                       type: string
                     clusterId:
                       description: ClusterId is the identifier of computeGroup, this
@@ -1877,6 +1893,17 @@ spec:
                       type: array
                   type: object
                 type: array
+              disMS:
+                description: MetaService describe the metaservice that cluster want
+                  to storage metadata.
+                properties:
+                  name:
+                    description: Name specify the name of metaservice resource.
+                    type: string
+                  namespace:
+                    description: Namespace specify the namespace of metaservice deployed.
+                    type: string
+                type: object
               feSpec:
                 description: FeSpec describe the fe specification of doris disaggregated
                   cluster.
@@ -3660,28 +3687,36 @@ spec:
                       type: object
                     type: array
                 type: object
-              metaService:
-                description: MetaService describe the metaservice that cluster want
-                  to storage metadata.
-                properties:
-                  name:
-                    description: Name specify the name of metaservice resource.
-                    type: string
-                  namespace:
-                    description: Namespace specify the namespace of metaservice deployed.
-                    type: string
-                type: object
-              vaultConfigmap:
-                description: 'TODO: give the example config. VaultConfigmap specify
-                  the configmap that have configuration of file object information.
-                  example S3. configmap have to config, please reference the doc.'
+              instanceConfigMap:
+                description: VaultConfigmap specify the configmap that have configuration
+                  of file object information. example S3. configmap have to config,
+                  please reference the doc.
                 type: string
             type: object
           status:
             properties:
-              cloudUniqueId:
-                description: CloudUniqueId display the cloud code.
-                type: string
+              clusterHealth:
+                properties:
+                  cgAvailableCount:
+                    description: the available numbers of compute group.
+                    format: int32
+                    type: integer
+                  cgCount:
+                    description: the number of compute group.
+                    format: int32
+                    type: integer
+                  cgFullAvailableCount:
+                    description: the full available numbers of compute group, represents
+                      all pod in compute group are ready.
+                    format: int32
+                    type: integer
+                  feAvailable:
+                    description: represents the fe available or not.
+                    type: boolean
+                  health:
+                    description: represents the cluster overall status.
+                    type: string
+                type: object
               computeGroupStatuses:
                 description: ComputeGroupStatuses reflect a list of computecgroup
                   status.
@@ -3699,8 +3734,8 @@ spec:
                       description: AvailableStatus represents the compute group available
                         or not.
                       type: string
-                    cloudUniqueId:
-                      description: CloudUniqueId display the cloud code.
+                    cloudUniqueIdPre:
+                      description: CloudUniqueIdPre display the cloud code pre.
                       type: string
                     clusterId:
                       description: ClusterId display  the clusterId of compute group
@@ -3728,8 +3763,8 @@ spec:
                   availableStatus:
                     description: AvailableStatus represents the fe available or not.
                     type: string
-                  cloudUniqueId:
-                    description: CloudUniqueId display the cloud code.
+                  cloudUniqueIdPre:
+                    description: CloudUniqueIdPre display the cloud code pre.
                     type: string
                   clusterId:
                     description: ClusterId display  the clusterId of fe in meta.

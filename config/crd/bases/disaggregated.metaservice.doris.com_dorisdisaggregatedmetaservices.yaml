@@ -13,7 +13,7 @@ spec:
     listKind: DorisDisaggregatedMetaServiceList
     plural: dorisdisaggregatedmetaservices
     shortNames:
-    - ddms
+    - ddm
     singular: dorisdisaggregatedmetaservice
   scope: Namespaced
   versions:
