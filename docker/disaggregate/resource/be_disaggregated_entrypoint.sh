@@ -26,6 +26,7 @@ MY_SELF=
 DEFAULT_CLUSTER_NAME=$(awk -F $INSTANCE_NAME"-" '{print $NF}' <<<$STATEFULSET_NAME)
 CLUSTER_NAME=${CLUSTER_NAME:="$DEFAULT_CLUSTER_NAME"}
 
+#TODO: check config or not, add default
 echo 'file_cache_path = [{"path":"/opt/apache-doris/be/storage","total_size":107374182400,"query_limit":107374182400}]' >> $DORIS_HOME/be/conf/be.conf
 
 function log_stderr()

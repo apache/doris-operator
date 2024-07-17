@@ -1868,6 +1868,10 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  startTimeout:
+                    description: pod start timeout, unit is second
+                    format: int32
+                    type: integer
                   systemInitialization:
                     description: SystemInitialization for fe, be and cn setting system
                       parameters.
@@ -3736,6 +3740,10 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  startTimeout:
+                    description: pod start timeout, unit is second
+                    format: int32
+                    type: integer
                   systemInitialization:
                     description: SystemInitialization for fe, be and cn setting system
                       parameters.
@@ -6277,6 +6285,10 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  startTimeout:
+                    description: pod start timeout, unit is second
+                    format: int32
+                    type: integer
                   systemInitialization:
                     description: SystemInitialization for fe, be and cn setting system
                       parameters.
@@ -8145,6 +8157,10 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  startTimeout:
+                    description: pod start timeout, unit is second
+                    format: int32
+                    type: integer
                   systemInitialization:
                     description: SystemInitialization for fe, be and cn setting system
                       parameters.
