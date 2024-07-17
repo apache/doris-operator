@@ -6,10 +6,12 @@ import (
 	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	kr "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/klog/v2"
 	"os"
 	"strconv"
-	"strings"
 )
 
 // env key
@@ -24,14 +26,23 @@ const (
 )
 
 const (
-	DefaultStorageRootPath = "/opt/apache-doris/be/storage"
-	StoragePathKey         = "storage_root_path"
-	DefaultLogPath         = "/opt/apache-doris/be/log"
-	LogPathKey             = "LOG_DIR"
-	LogStoreName           = "be-log"
-	StorageStorePreName    = "be-storage"
+	DefaultCacheRootPath = "/opt/apache-doris/be/storage"
+	//default cache storage size: unit=B
+	DefaultCacheSize               int64 = 107374182400
+	FileCachePathKey                     = "file_cache_path"
+	FileCacheSubConfigPathKey            = "path"
+	FileCacheSubConfigTotalSizeKey       = "total_size"
+	DefaultLogPath                       = "/opt/apache-doris/be/log"
+	LogPathKey                           = "LOG_DIR"
+	LogStoreName                         = "be-log"
+	StorageStorePreName                  = "be-storage"
 )
 
+const (
+	BE_PROBE_COMMAND = "/opt/apache-doris/be_disaggregated_probe.sh"
+)
+
+// generate statefulset or service labels
 func (dccs *DisaggregatedComputeGroupsController) newCG2LayerSchedulerLabels(ddcName /*DisaggregatedClusterName*/, cgClusterId string) map[string]string {
 	return map[string]string{
 		dv1.DorisDisaggregatedClusterName:           ddcName,
@@ -68,6 +79,7 @@ func (dccs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisD
 		}
 		_, _, vcts := dccs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
 		st.Spec.VolumeClaimTemplates = vcts
+		st.Spec.PodManagementPolicy = appv1.ParallelPodManagement
 		st.Spec.ServiceName = ddc.GetCGServiceName(cg)
 		pts := dccs.NewPodTemplateSpec(ddc, matchLabels, cvs, cg)
 		st.Spec.Template = pts
@@ -87,9 +99,50 @@ func (dccs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 
 	c := dccs.NewCGContainer(ddc, cvs, cg)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
+
 	vs, _, _ := dccs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
+	configVolumes, _ := dccs.buildConfigMapVolumesVolumeMounts(cg)
+	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
+
+	cgClusterId := selector[dv1.DorisDisaggregatedComputeGroupClusterId]
+	defAffinity := dccs.newCGDefaultAffinity(dv1.DorisDisaggregatedComputeGroupClusterId, cgClusterId)
+	if pts.Spec.Affinity == nil {
+		pts.Spec.Affinity = defAffinity
+		return pts
+	}
+
+	if pts.Spec.Affinity.PodAntiAffinity == nil {
+		pts.Spec.Affinity.PodAntiAffinity = defAffinity.PodAntiAffinity
+	} else {
+		pts.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(pts.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			defAffinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+
 	return pts
+}
+
+func (dccs *DisaggregatedComputeGroupsController) newCGDefaultAffinity(matchKey, value string) *corev1.Affinity {
+	if matchKey == "" || value == "" {
+		return nil
+	}
+
+	podAffinityTerm := corev1.WeightedPodAffinityTerm{
+		Weight: 20,
+		PodAffinityTerm: corev1.PodAffinityTerm{
+			LabelSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: matchKey, Operator: metav1.LabelSelectorOpIn, Values: []string{value}},
+				},
+			},
+			TopologyKey: resource.NODE_TOPOLOGYKEY,
+		},
+	}
+	return &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
+		},
+	}
 }
 
 func (dccs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.Container {
@@ -109,8 +162,42 @@ func (dccs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	c.StartupProbe = dccs.newCGStartUpProbe(cvs)
 	c.ReadinessProbe = dccs.newCGReadinessProbe(cvs)
 	_, vms, _ := dccs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
+	_, cmvms := dccs.buildConfigMapVolumesVolumeMounts(cg)
 	c.VolumeMounts = vms
+	if c.VolumeMounts == nil {
+		c.VolumeMounts = cmvms
+	} else {
+		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
+	}
 	return c
+}
+
+func (dccs *DisaggregatedComputeGroupsController) buildConfigMapVolumesVolumeMounts(cg *dv1.ComputeGroup) ([]corev1.Volume, []corev1.VolumeMount) {
+	var vs []corev1.Volume
+	var vms []corev1.VolumeMount
+	for _, cm := range cg.ConfigMaps {
+		v := corev1.Volume{
+			Name: cm.Name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cm.Name,
+					},
+				},
+			},
+		}
+
+		vs = append(vs, v)
+		vm := corev1.VolumeMount{
+			Name:      cm.Name,
+			MountPath: cm.MountPath,
+		}
+		if vm.MountPath == "" {
+			vm.MountPath = resource.ConfigEnvPath
+		}
+		vms = append(vms, vm)
+	}
+	return vs, vms
 }
 
 func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVCs(cvs map[string]interface{}, cg *dv1.ComputeGroup) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
@@ -136,7 +223,19 @@ func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVC
 		Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
 	})
 
-	paths := dccs.getStoragePaths(cvs)
+	paths, maxSize := dccs.getCacheMaxSizeAndPaths(cvs)
+	if maxSize > 0 {
+		cs := kr.NewQuantity(maxSize, kr.BinarySI)
+		if cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests == nil {
+			cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests = map[corev1.ResourceName]kr.Quantity{}
+		}
+		pvcSize := cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
+		cmp := cs.Cmp(pvcSize)
+		if cmp > 0 {
+			cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage] = *cs
+		}
+	}
+
 	for i, _ := range paths {
 		vs = append(vs, corev1.Volume{Name: StorageStorePreName + strconv.Itoa(i), VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -174,7 +273,7 @@ func (dccs *DisaggregatedComputeGroupsController) getDefaultVolumesVolumeMounts(
 		},
 	}
 
-	storagePaths := dccs.getStoragePaths(cvs)
+	storagePaths, _ := dccs.getCacheMaxSizeAndPaths(cvs)
 	for i, path := range storagePaths {
 		vs = append(vs, corev1.Volume{
 			Name: StorageStorePreName + strconv.Itoa(i),
@@ -191,20 +290,51 @@ func (dccs *DisaggregatedComputeGroupsController) getDefaultVolumesVolumeMounts(
 	return vs, vms
 }
 
-func (dccs *DisaggregatedComputeGroupsController) getStoragePaths(cvs map[string]interface{}) []string {
-	v := cvs[StoragePathKey]
+func (dccs *DisaggregatedComputeGroupsController) getCacheMaxSizeAndPaths(cvs map[string]interface{}) ([]string, int64) {
+	v := cvs[FileCachePathKey]
 	if v == nil {
-		return []string{DefaultStorageRootPath}
+		return []string{DefaultCacheRootPath}, DefaultCacheSize
 	}
 
-	//v format: /home/disk1/doris,medium:SSD;/home/disk2/doris,medium:SSD;/home/disk2/doris,medium:HDD
-	spcs := strings.Split(v.(string), ":")
 	var paths []string
-	for _, spc := range spcs {
-		a := strings.Split(spc, ",")
-		paths = append(paths, a[0])
+	var maxCacheSize int64
+	vbys, err := json.Marshal(v)
+	if err != nil {
+		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json marshal file_cache_path faield, err=%s", err.Error())
+		return []string{}, 0
 	}
-	return paths
+
+	var pa []interface{}
+	err = json.Unmarshal(vbys, pa)
+	if err != nil {
+		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_paht failed, err=%s", err.Error())
+		return []string{}, 0
+	}
+
+	for i, p := range pa {
+		mp, ok := p.(map[string]interface{})
+		if !ok {
+			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d is not json format.", i)
+			continue
+		}
+		pv := mp[FileCacheSubConfigPathKey]
+		pv_str, ok := pv.(string)
+		if !ok {
+			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d have not path config.", i)
+			continue
+		}
+		paths = append(paths, pv_str)
+		cache_v := mp[FileCacheSubConfigTotalSizeKey]
+		cache_size, ok := cache_v.(int64)
+		if !ok {
+			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d total_size is not number.", i)
+			continue
+		}
+		if maxCacheSize < cache_size {
+			maxCacheSize = cache_size
+		}
+	}
+	return paths, maxCacheSize
 }
 
 func (dccs *DisaggregatedComputeGroupsController) getLogPath(cvs map[string]interface{}) string {
@@ -219,13 +349,15 @@ func (dccs *DisaggregatedComputeGroupsController) getLogPath(cvs map[string]inte
 	mapping := func(key string) string {
 		return dev[key]
 	}
+	//resolve relative path to absolute path
 	path := os.Expand(v.(string), mapping)
 	return path
 }
 
 func (dccs *DisaggregatedComputeGroupsController) newCGLivenessProbe(cvs /*config values*/ map[string]interface{}) *corev1.Probe {
 	heartBeatPort := resource.GetPort(cvs, resource.HEARTBEAT_SERVICE_PORT)
-	return resource.LivenessProbe(heartBeatPort, "")
+	commands := []string{BE_PROBE_COMMAND, "alive"}
+	return resource.LivenessProbe(heartBeatPort, "", commands, resource.Exec)
 }
 
 func (dccs *DisaggregatedComputeGroupsController) newCGStartUpProbe(cvs /*config values*/ map[string]interface{}) *corev1.Probe {
@@ -234,14 +366,15 @@ func (dccs *DisaggregatedComputeGroupsController) newCGStartUpProbe(cvs /*config
 
 func (dccs *DisaggregatedComputeGroupsController) newCGReadinessProbe(cvs /*config values*/ map[string]interface{}) *corev1.Probe {
 	webserverPort := resource.GetPort(cvs, resource.WEBSERVER_PORT)
-	return resource.ReadinessProbe(webserverPort, resource.HEALTH_API_PATH)
+	commands := []string{BE_PROBE_COMMAND, "ready"}
+	return resource.ReadinessProbe(webserverPort, "", commands, resource.Exec)
 }
 
 func (dccs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) []corev1.EnvVar {
 	var cgEnvs []corev1.EnvVar
 	stsName := ddc.GetCGStatefulsetName(cg)
 	clusterId := ddc.GetCGClusterId(cg)
-	cloudUniqueIdPre := ddc.GetCGCloudUniqueIdPre(cg)
+	cloudUniqueIdPre := ddc.GetCGCloudUniqueIdPre()
 
 	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
 	ms_endpoint := ddc.Status.MsEndpoint

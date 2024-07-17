@@ -16,8 +16,8 @@ const (
 
 // the default ResolveKey
 const (
-	MS_RESOLVEKEY = "selectdb_cloud.conf"
-	RC_RESOLVEKEY = "selectdb_cloud.conf"
+	MS_RESOLVEKEY = "doris_cloud.conf"
+	RC_RESOLVEKEY = "doris_cloud.conf"
 )
 
 func getDefaultDMSResolveKey(componentType mv1.ComponentType) string {

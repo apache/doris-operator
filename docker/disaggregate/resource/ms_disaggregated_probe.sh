@@ -16,9 +16,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-DORIS_HOME={DORIS_HOME:="/opt/apache-doris"}
-CONFIG_FILE="$DORIS_HOME/ms/conf/selectdb_cloud.conf"
-BRPC_LISTEN_PORT=
+DORIS_HOME=${DORIS_HOME:="/opt/apache-doris"}
+CONFIG_FILE="$DORIS_HOME/ms/conf/doris_cloud.conf"
+DEFAULT_BRPC_LISTEN_PORT=5000
+PROBE_TYPE=$1
 
 log_stderr()
 {
@@ -28,21 +29,34 @@ log_stderr()
 function parse_config_file_with_key()
 {
     local key=$1
-    local value=`grep "^\s*$key\s*=\s*" $CONFIG_FILE | sed "s|^\s*$key\s*=||g"`
+    local value=`grep "^\s*$key\s*=" $CONFIG_FILE | sed "s|^\s*$key\s*=\s*\(.*\)\s*$|\1|g"`
+    echo $value
 }
 
-brpc_listen_port=$1
-if [[ "x$brpc_listen_port" == "x" ]]; then
-    echo "need disaggregated doris meta-service(or recycler) brpc_listen_port as paramter!"
-    exit 1
-fi
+function alive_probe()
+{
+    local brpc_listen_port=$(parse_config_file_with_key "brpc_listen_port")
+    brpc_listen_port=${brpc_listen_port:=$DEFAULT_BRPC_LISTEN_PORT}
+    if netstat -lntp | grep ":$brpc_listen_port" > /dev/null ; then
+        exit 0
+    else
+        exit 1
+    fi
+}
 
-netstat -nltu | grep ":$brpc_listen_port " > /dev/null
+function ready_probe()
+{
+    local brpc_listen_port=$(parse_config_file_with_key "brpc_listen_port")
+    brpc_listen_port=${brpc_listen_port:=$DEFAULT_BRPC_LISTEN_PORT}
+    if netstat -lntp | grep ":$brpc_listen_port" > /dev/null ; then
+        exit 0
+    else
+        exit 1
+    fi
+}
 
-if [ $? -eq 0 ]; then
-  log_stderr "disaggregated doris meta-service(or recycler) ($brpc_listen_port) alive, ProbeHandler ExecAction get exit 0"
-  exit 0
+if [[ "$PROBE_TYPE" == "ready" ]]; then
+    ready_probe
 else
-  log_stderr "disaggregated doris meta-service(or recycler) ($brpc_listen_port) not alive，ProbeHandler ExecAction get exit 1"
-  exit 1
+    alive_probe
 fi

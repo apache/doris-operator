@@ -45,7 +45,7 @@ var (
 const (
 	ms_http_token_key = "http_token"
 	instance_conf_key = "instance.conf"
-	ms_conf_name      = "selectdb_cloud.conf"
+	ms_conf_name      = "doris_cloud.conf"
 )
 
 var (
@@ -65,6 +65,7 @@ type DisaggregatedClusterReconciler struct {
 
 func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	im := make(map[string]interface{})
+	wcms := make(map[string]string)
 	scs := make(map[string]sc.DisaggregatedSubController)
 	dfec := dfe.New(mgr)
 	scs[dfec.GetControllerName()] = dfec
@@ -76,6 +77,7 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 		Recorder:     mgr.GetEventRecorderFor(disaggregatedClusterController),
 		Scs:          scs,
 		instanceMeta: im,
+		wcms:         wcms,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, "unable to create controller ", "disaggregatedClusterReconciler")
 		os.Exit(1)
@@ -92,6 +94,7 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := dc.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = dc.watchPodBuilder(builder)
+	builder = dc.watchConfigMapBuilder(builder)
 	return builder.Complete(dc)
 }
 
@@ -145,7 +148,8 @@ func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Bu
 			namespace := a.GetNamespace()
 			name := a.GetName()
 			cmnn := types.NamespacedName{Namespace: namespace, Name: name}
-			if ddc, ok := dc.wcms[cmnn.String()]; ok {
+			cmnnStr := cmnn.String()
+			if ddc, ok := dc.wcms[cmnnStr]; ok {
 				nna := strings.Split(ddc, "/")
 				// not run only for code standard
 				if len(nna) != 2 {
@@ -170,7 +174,7 @@ func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Bu
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
+	return builder.Watches(&source.Kind{Type: &corev1.ConfigMap{}},
 		mapFn, controller_builder.WithPredicates(p))
 }
 
@@ -260,6 +264,14 @@ func (dc *DisaggregatedClusterReconciler) getInstanceConfig(ctx context.Context,
 	if ddc.Spec.InstanceConfigMap == "" {
 		dc.Recorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), "vaultConfigmap should config a configMap that have object info.")
 		return nil, errors.New("vaultConfigmap for object info should be specified")
+	}
+
+	cmnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Spec.InstanceConfigMap}
+	ddcnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}
+	cmnnStr := cmnn.String()
+	ddcnnStr := ddcnn.String()
+	if _, ok := dc.wcms[cmnnStr]; !ok {
+		dc.wcms[cmnnStr] = ddcnnStr
 	}
 
 	cmName := ddc.Spec.InstanceConfigMap

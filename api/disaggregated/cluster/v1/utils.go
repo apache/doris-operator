@@ -8,8 +8,6 @@ const (
 
 	DorisDisaggregatedComputeGroupClusterId string = "app.doris.disaggregated.cg-clusterid"
 
-	DorisDisaggregatedComputeGroupCloudUniqueId string = "app.doris.disaggregated.cg-clouduniqueid"
-
 	DorisDisaggregatedPodType string = "app.doris.disaggregated.type"
 
 	DisaggregatedSpecHashValueAnnotation string = "doris.disaggregated.cluster/hash"

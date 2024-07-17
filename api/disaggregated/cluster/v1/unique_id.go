@@ -28,7 +28,7 @@ func newCGCloudUniqueIdPre(instanceId string) string {
 func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
 	cgStsName := ""
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueIdPre == cg.CloudUniqueIdPre {
+		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId {
 			cgStsName = cgs.StatefulsetName
 		}
 	}
@@ -52,7 +52,7 @@ func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
 		return ""
 	}
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId || cg.CloudUniqueIdPre == cgs.CloudUniqueIdPre {
+		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId {
 			return cg.ClusterId
 		}
 	}
@@ -66,23 +66,8 @@ func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
 	return cg.ClusterId
 }
 
-func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre(cg *ComputeGroup) string {
-	if cg == nil || ddc == nil {
-		return ""
-	}
-	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId || cg.CloudUniqueIdPre == cgs.CloudUniqueIdPre {
-			return cg.CloudUniqueIdPre
-		}
-	}
-
-	//update cg' clusterId for auto assemble, if not config.
-	if cg.CloudUniqueIdPre == "" {
-		instanceId := ddc.GetInstanceId()
-		cg.CloudUniqueIdPre = newCGCloudUniqueIdPre(instanceId)
-	}
-
-	return cg.CloudUniqueIdPre
+func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre() string {
+	return newCGCloudUniqueIdPre(ddc.GetInstanceId())
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
@@ -92,7 +77,7 @@ func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
 func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string {
 	svcName := ""
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueIdPre == cg.CloudUniqueIdPre {
+		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId {
 			svcName = cgs.ServiceName
 		}
 	}

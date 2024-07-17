@@ -6,19 +6,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"path/filepath"
-	"strconv"
 )
 
 const (
-	START_MS_COMMAND       = "/opt/apache-doris/ms_disaggregated_entrypoint.sh"
-	START_RC_COMMAND       = "/opt/apache-doris/ms_disaggregated_entrypoint.sh"
-	START_MS_PARAMETER     = "meta-service"
-	START_RC_PARAMETER     = "recycler"
-	HEALTH_MS_LIVE_COMMAND = "/opt/apache-doris/ms_disaggregated_is_alive.sh"
-	HEALTH_RC_LIVE_COMMAND = "/opt/apache-doris/ms_disaggregated_is_alive.sh"
-	PRESTOP_MS_COMMAND     = "/opt/apache-doris/ms_disaggregated_prestop.sh"
-	MS_Log_Key             = "log_dir"
-	Default_MS_Log_Path    = "/opt/apache-doris/ms/log/"
+	START_MS_COMMAND        = "/opt/apache-doris/ms_disaggregated_entrypoint.sh"
+	START_RC_COMMAND        = "/opt/apache-doris/ms_disaggregated_entrypoint.sh"
+	START_MS_PARAMETER      = "meta-service"
+	START_RC_PARAMETER      = "recycler"
+	HEALTH_MS_PROBE_COMMAND = "/opt/apache-doris/ms_disaggregated_probe.sh"
+	PRESTOP_MS_COMMAND      = "/opt/apache-doris/ms_disaggregated_prestop.sh"
+	MS_Log_Key              = "log_dir"
+	Default_MS_Log_Path     = "/opt/apache-doris/ms/log/"
 )
 
 func NewDMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) corev1.PodTemplateSpec {
@@ -263,44 +261,20 @@ func getConfigmapVolumeAndVolumeMount(cms []mv1.ConfigMap) ([]corev1.Volume, []c
 
 // StartupProbe returns a startup probe.
 func dmsStartupProbe(port int32) *corev1.Probe {
-	return &corev1.Probe{
-		FailureThreshold: 60,
-		PeriodSeconds:    5,
-		ProbeHandler:     getDMSProbe(port),
-	}
+	commands := []string{HEALTH_MS_PROBE_COMMAND, "alive"}
+	return startupProbe(port, 180, "", commands, Exec)
 }
 
 // dmsLivenessProbe returns a liveness.
 func dmsLivenessProbe(port int32) *corev1.Probe {
-	return &corev1.Probe{
-		PeriodSeconds:    5,
-		FailureThreshold: 3,
-		// for pulling image and start doris
-		InitialDelaySeconds: 80,
-		TimeoutSeconds:      180,
-		ProbeHandler:        getDMSProbe(port),
-	}
+	commands := []string{HEALTH_MS_PROBE_COMMAND, "alive"}
+	return livenessProbe(port, "", commands, Exec)
 }
 
 // ReadinessProbe returns a readiness probe.
 func dmsReadinessProbe(port int32) *corev1.Probe {
-	return &corev1.Probe{
-		TimeoutSeconds:   3,
-		SuccessThreshold: 1,
-		PeriodSeconds:    5,
-		FailureThreshold: 3,
-		ProbeHandler:     getDMSProbe(port),
-	}
-}
-
-// getProbe describe a health check.
-func getDMSProbe(port int32) corev1.ProbeHandler {
-	return corev1.ProbeHandler{
-		Exec: &corev1.ExecAction{
-			Command: []string{HEALTH_MS_LIVE_COMMAND, strconv.Itoa(int(port))},
-		},
-	}
-
+	commands := []string{HEALTH_MS_PROBE_COMMAND, "ready"}
+	return readinessProbe(port, "", commands, Exec)
 }
 
 // getDMSDefaultAffinity build MS affinity rules based on default policy configuration

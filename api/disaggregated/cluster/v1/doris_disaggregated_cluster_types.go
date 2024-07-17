@@ -42,9 +42,6 @@ type ComputeGroup struct {
 	//ClusterId is the identifier of computeGroup, this will distinguish all computeGroup in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
-	//CloudUniqueIdPre represents the cloud code pre, if deployed in cloud platform. default CloudUniqueIdPre=1:clusterId:.
-	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
-
 	//Replicas represent the number of compute node.
 	Replicas *int32 `json:"replicas,omitempty"`
 
@@ -257,8 +254,6 @@ type ComputeGroupStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of compute group in meta.
 	ClusterId string `json:"clusterId,omitempty"`
-	//CloudUniqueIdPre display the cloud code pre.
-	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
 
 	// replicas is the number of Pods created by the StatefulSet controller.
 	Replicas int32 `json:"replicas,omitempty"`
