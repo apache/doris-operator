@@ -14,9 +14,10 @@ func (dccs *DisaggregatedComputeGroupsController) newService(ddc *dv1.DorisDisag
 	sps := newComputeServicePorts(cvs, svcConf)
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ddc.GetCGServiceName(cg),
-			Namespace: ddc.Namespace,
-			Labels:    dccs.newCG2LayerSchedulerLabels(ddc.Namespace, cgClusterId),
+			Name:            ddc.GetCGServiceName(cg),
+			Namespace:       ddc.Namespace,
+			Labels:          dccs.newCG2LayerSchedulerLabels(ddc.Namespace, cgClusterId),
+			OwnerReferences: []metav1.OwnerReference{resource.GetOwnerReference(ddc)},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: dccs.newCGPodsSelector(ddc.Name, cgClusterId),

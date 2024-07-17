@@ -68,7 +68,7 @@ function link_config_files()
 function parse_config_file_with_key()
 {
     local key=$1
-    local value=`grep "^\s*$key\s*=" $CONFIG_FILE | sed "s|^\s$key\s*=\s*\(.*\)\s*$|\1|g"`
+    local value=`grep "^\s*$key\s*=" $CONFIG_FILE | sed "s|^\s*$key\s*=\s*\(.*\)\s*$|\1|g"`
 }
 
 function parse_my_self_address()

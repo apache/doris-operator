@@ -176,7 +176,7 @@ func (dccs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 func (dccs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) {
 	cgss := ddc.Status.ComputeGroupStatuses
 	for i, _ := range cgss {
-		if cgss[i].ComputeGroupName == cg.Name || cgss[i].ClusterId == cg.ClusterId || cgss[i].CloudUniqueIdPre == cg.CloudUniqueIdPre {
+		if cgss[i].ComputeGroupName == cg.Name || cgss[i].ClusterId == cg.ClusterId {
 			cgss[i].Phase = dv1.Reconciling
 			return
 		}
@@ -187,8 +187,7 @@ func (dccs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 		ComputeGroupName: cg.Name,
 		ClusterId:        cg.ClusterId,
 		//set for status updated.
-		Replicas:         *cg.Replicas,
-		CloudUniqueIdPre: cg.CloudUniqueIdPre,
+		Replicas: *cg.Replicas,
 	}
 	if ddc.Status.ComputeGroupStatuses == nil {
 		ddc.Status.ComputeGroupStatuses = []dv1.ComputeGroupStatus{}
@@ -224,12 +223,9 @@ func (dccs *DisaggregatedComputeGroupsController) getConfigValuesFromConfigMaps(
 // clusterId and cloudUniqueId is not allowed update, when be mistakenly modified on these fields, operator should revert it by status fields.
 func (dccs *DisaggregatedComputeGroupsController) revertNotAllowedUpdateFields(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) {
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if (cgs.ComputeGroupName != "" && cgs.ComputeGroupName == cg.Name) || (cgs.ClusterId != "" && cgs.ClusterId == cg.ClusterId) || (cgs.CloudUniqueIdPre != "" && cgs.CloudUniqueIdPre == cg.CloudUniqueIdPre) {
+		if (cgs.ComputeGroupName != "" && cgs.ComputeGroupName == cg.Name) || (cgs.ClusterId != "" && cgs.ClusterId == cg.ClusterId) {
 			if cgs.ClusterId != "" && cgs.ClusterId != cg.ClusterId {
 				cg.ClusterId = cgs.ClusterId
-			}
-			if cgs.CloudUniqueIdPre != "" && cgs.CloudUniqueIdPre != cg.CloudUniqueIdPre {
-				cg.CloudUniqueIdPre = cgs.CloudUniqueIdPre
 			}
 		}
 	}
@@ -239,13 +235,9 @@ func (dccs *DisaggregatedComputeGroupsController) revertNotAllowedUpdateFields(d
 func (dccs *DisaggregatedComputeGroupsController) validateDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	n_d, _ := validateCGNameDuplicated(cgs)
 	cid_d, _ := validateCGClusterIdDuplicated(cgs)
-	cuid_d, _ := validateCGCloudUniqueIdDuplicated(cgs)
 	ds := n_d
 	if cid_d != "" {
 		ds = ds + ";" + cid_d
-	}
-	if cuid_d != "" {
-		ds = ds + ";" + cuid_d
 	}
 
 	if ds == "" {
@@ -300,18 +292,6 @@ func validateCGClusterIdDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
 	return "", false
 }
 
-// if cloudUniqueId have configured, checking repeating or not. if not configured ignoring check.
-func validateCGCloudUniqueIdDuplicated(cgs []dv1.ComputeGroup) (string, bool) {
-	scuids := set.NewSetString()
-	for _, cg := range cgs {
-		if cg.CloudUniqueIdPre != "" && scuids.Find(cg.CloudUniqueIdPre) {
-			return cg.CloudUniqueIdPre, true
-		}
-		scuids.Add(cg.CloudUniqueIdPre)
-	}
-	return "", false
-}
-
 // clear not configed cg resources, delete not configed cg status from ddc.status .
 func (dccs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
@@ -319,7 +299,7 @@ func (dccs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 	var eCGs []dv1.ComputeGroupStatus
 	for i, cgs := range ddc.Status.ComputeGroupStatuses {
 		for _, cg := range ddc.Spec.ComputeGroups {
-			if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId || cgs.CloudUniqueIdPre == cg.CloudUniqueIdPre {
+			if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId {
 				eCGs = append(eCGs, ddc.Status.ComputeGroupStatuses[i])
 				goto NoNeedAppend
 			}

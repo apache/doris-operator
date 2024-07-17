@@ -40,32 +40,34 @@ func New(mgr ctrl.Manager) *DisaggregatedFDBController {
 
 // sync FoundationDBCluster
 func (fdbc *DisaggregatedFDBController) Sync(ctx context.Context, obj client.Object) error {
-	ddc := obj.(*mv1.DorisDisaggregatedMetaService)
-	if ddc.Spec.FDB == nil {
-		klog.Errorf("disaggregatedFDBController disaggregatedMetaService namespace=%s name=%s have not fdb spec.!", ddc.Namespace, ddc.Name)
-		fdbc.k8sRecorder.Event(ddc, "Failed", string(sc.FDBSpecEmpty), "disaggregatedMetaService fdb spec not empty!")
-		return errors.New("disaggregatedMetaService namespace=" + ddc.Namespace + " name=" + ddc.Name + "fdb spec empty!")
+	ddm := obj.(*mv1.DorisDisaggregatedMetaService)
+	if ddm.Spec.FDB == nil {
+		klog.Errorf("disaggregatedFDBController disaggregatedMetaService namespace=%s name=%s have not fdb spec.!", ddm.Namespace, ddm.Name)
+		fdbc.k8sRecorder.Event(ddm, "Failed", string(sc.FDBSpecEmpty), "disaggregatedMetaService fdb spec not empty!")
+		return errors.New("disaggregatedMetaService namespace=" + ddm.Namespace + " name=" + ddm.Name + "fdb spec empty!")
 	}
 
-	fdb := fdbc.buildFDBClusterResource(ddc)
+	fdb := fdbc.buildFDBClusterResource(ddm)
 	return k8s.ApplyFoundationDBCluster(ctx, fdbc.k8sClient, fdb)
 }
 
 // convert DorisDisaggregatedMetaSerivce's fdb to FoundationDBCluster resource.
-func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddms *mv1.DorisDisaggregatedMetaService) *v1beta2.FoundationDBCluster {
+func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddm *mv1.DorisDisaggregatedMetaService) *v1beta2.FoundationDBCluster {
 	fdb := &v1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ddms.Namespace,
-			Name:      ddms.GenerateFDBClusterName(),
-			Labels:    ddms.GenerateFDBLabels(),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: ddms.APIVersion,
-					Kind:       ddms.Kind,
-					Name:       ddms.Name,
-					UID:        ddms.UID,
-				},
-			},
+			Namespace:  ddm.Namespace,
+			Name:       ddm.GenerateFDBClusterName(),
+			Labels:     ddm.GenerateFDBLabels(),
+			Finalizers: []string{ddm.Name},
+			//delete ownerReference to prevent mistake delete ddm.
+			//OwnerReferences: []metav1.OwnerReference{
+			//	{
+			//		APIVersion: ddms.APIVersion,
+			//		Kind:       ddms.Kind,
+			//		Name:       ddms.Name,
+			//		UID:        ddms.UID,
+			//	},
+			//},
 		},
 
 		Spec: v1beta2.FoundationDBClusterSpec{
@@ -80,7 +82,7 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddms *mv1.DorisD
 				},
 			},
 			LabelConfig: v1beta2.LabelConfig{
-				MatchLabels:             ddms.GenerateFDBLabels(),
+				MatchLabels:             ddm.GenerateFDBLabels(),
 				ProcessClassLabels:      []string{ProcessClassLabel},
 				ProcessGroupIDLabels:    []string{ProcessGroupIDLabel},
 				FilterOnOwnerReferences: pointer.Bool(false),
@@ -93,8 +95,8 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddms *mv1.DorisD
 
 			Processes: map[v1beta2.ProcessClass]v1beta2.ProcessSettings{
 				v1beta2.ProcessClassGeneral: v1beta2.ProcessSettings{
-					PodTemplate:         fdbc.buildGeneralPodTemplate(ddms.Spec.FDB),
-					VolumeClaimTemplate: ddms.Spec.FDB.VolumeClaimTemplate,
+					PodTemplate:         fdbc.buildGeneralPodTemplate(ddm.Spec.FDB),
+					VolumeClaimTemplate: ddm.Spec.FDB.VolumeClaimTemplate,
 				},
 			},
 
@@ -110,13 +112,13 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddms *mv1.DorisD
 		},
 	}
 
-	if ddms.Spec.FDB.Image == "" {
+	if ddm.Spec.FDB.Image == "" {
 		return fdb
 	}
-	bi, v, err := imageSplit(ddms.Spec.FDB.Image)
+	bi, v, err := imageSplit(ddm.Spec.FDB.Image)
 	if err != nil {
 		klog.Infof("disaggregatedFDBController split config image error, err=%s", err.Error())
-		fdbc.k8sRecorder.Event(ddms, "Warning", string(sc.ImageFormatError), ddms.Spec.FDB.Image+" format not provided, please reference docker definition.")
+		fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.Image+" format not provided, please reference docker definition.")
 		return fdb
 
 	}
