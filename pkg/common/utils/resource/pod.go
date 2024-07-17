@@ -355,7 +355,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	c.LivenessProbe = livenessProbe(livenessPort, "")
 	// use liveness as startup, when in debugging mode will not be killed
 	//c.StartupProbe = startupProbe(readnessPort, health_api_path)
-	c.StartupProbe = startupProbe(livenessPort, "")
+	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, "")
 	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
 	c.Lifecycle = lifeCycle(prestopScript)
 
@@ -624,17 +624,25 @@ func ReadinessProbe(port int32, path string) *corev1.Probe {
 }
 
 // StartupProbe returns a startup probe.
-func startupProbe(port int32, path string) *corev1.Probe {
+func startupProbe(port, timeout int32, path string) *corev1.Probe {
+
+	var failurethreshold int32
+	if timeout < 180 {
+		timeout = 180
+	}
+
+	failurethreshold = timeout / 5
+
 	if path == "" {
 		return &corev1.Probe{
-			FailureThreshold: 60,
+			FailureThreshold: failurethreshold,
 			PeriodSeconds:    5,
 			ProbeHandler:     getProbe(port, path, tcpSocket),
 		}
 	}
 
 	return &corev1.Probe{
-		FailureThreshold: 60,
+		FailureThreshold: failurethreshold,
 		PeriodSeconds:    5,
 		ProbeHandler:     getProbe(port, path, httpGet),
 	}
