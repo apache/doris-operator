@@ -321,7 +321,7 @@ func (dccs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 		if err := k8s.DeleteService(ctx, dccs.k8sClient, ddc.Namespace, cgs.ServiceName); err != nil {
 			cleared = false
 			klog.Errorf("disaggregatedComputeGroupsController delete service namespace %s name %s failed, err=%s", ddc.Namespace, cgs.ServiceName, err.Error())
-			dccs.k8sRecorder.Event(ddc, string(sc.EventWarning), string(sc.CGStatefulsetDeleteFailed), err.Error())
+			dccs.k8sRecorder.Event(ddc, string(sc.EventWarning), string(sc.CGServiceDeleteFailed), err.Error())
 		}
 		if !cleared {
 			eCGs = append(eCGs, clearCGs[i])

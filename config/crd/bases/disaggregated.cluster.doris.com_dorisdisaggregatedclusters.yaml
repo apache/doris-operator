@@ -1848,6 +1848,10 @@ spec:
                     serviceAccount:
                       description: serviceAccount for compute node access cloud service.
                       type: string
+                    startTimeout:
+                      description: pod start timeout, unit is second
+                      format: int32
+                      type: integer
                     tolerations:
                       description: (Optional) Tolerations for scheduling pods onto
                         some dedicated nodes
@@ -2990,6 +2994,11 @@ spec:
                             type: string
                         type: object
                     type: object
+                  electionNumber:
+                    description: the number of fe in election. electionNumber <= replicas,
+                      left as observers. default value=1
+                    format: int32
+                    type: integer
                   envVars:
                     description: EnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.
@@ -3644,6 +3653,10 @@ spec:
                   serviceAccount:
                     description: serviceAccount for compute node access cloud service.
                     type: string
+                  startTimeout:
+                    description: pod start timeout, unit is second
+                    format: int32
+                    type: integer
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes

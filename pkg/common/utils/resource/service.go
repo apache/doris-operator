@@ -200,6 +200,8 @@ func GetContainerPorts(config map[string]interface{}, componentType v1.Component
 
 func GetDisaggregatedContainerPorts(config map[string]interface{}, componentType dv1.DisaggregatedComponentType) []corev1.ContainerPort {
 	switch componentType {
+	case dv1.DisaggregatedFE:
+		return getFeContainerPorts(config)
 	case dv1.DisaggregatedBE:
 		return getBeContainerPorts(config)
 	default:

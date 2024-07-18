@@ -31,6 +31,9 @@ type FeSpec struct {
 	//Replicas represent the number of fe. default is 2. fe is master-slave architecture only one is master.
 	Replicas *int32 `json:"replicas,omitempty"`
 
+	//the number of fe in election. electionNumber <= replicas, left as observers. default value=1
+	ElectionNumber *int32 `json:"electionNumber,omitempty"`
+
 	CommonSpec `json:",inline"`
 }
 
@@ -58,6 +61,9 @@ type CommonSpec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// pod start timeout, unit is second
+	StartTimeout int32 `json:"startTimeout,omitempty"`
 
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
@@ -270,8 +276,6 @@ type FEStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of fe in meta.
 	ClusterId string `json:"clusterId,omitempty"`
-	//CloudUniqueIdPre display the cloud code pre.
-	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
 }
 
 // +genclient

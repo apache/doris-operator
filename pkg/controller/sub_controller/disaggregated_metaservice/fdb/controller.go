@@ -81,6 +81,10 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddm *mv1.DorisDi
 					MaxConcurrentReplacements: pointer.Int(1),
 				},
 			},
+			// ==========
+			FaultDomain: v1beta2.FoundationDBClusterFaultDomain{
+				Key: "foundationdb.org/none",
+			},
 			LabelConfig: v1beta2.LabelConfig{
 				MatchLabels:             ddm.GenerateFDBLabels(),
 				ProcessClassLabels:      []string{ProcessClassLabel},

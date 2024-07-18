@@ -20,11 +20,12 @@
 # ms address, fe pod's address should register in it.
 MS_ENDPOINT=${MS_ENDPOINT}
 MS_TOKEN=${MS_TOKEN:="greedisgood9999"}
+ELECT_NUMBER=${ELECT_NUMBER:=1}
 FE_EDIT_PORT=${FE_EDIT_PORT:=9010}
 # cloud_id is default.
-CLUSTER_ID="RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
+CLUSTER_ID=${CLUSTER_ID:="RESERVED_CLUSTER_ID_FOR_SQL_SERVER"}
 # cloud_name is default.
-CLUSTER_NAME="RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
+CLUSTER_NAME=${CLUSTER_NAME:="RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"}
 #the instance id, pod's address should register in instance->cluster.
 INSTANCE_ID=${INSTANCE_ID}
 MY_SELF=
@@ -41,7 +42,7 @@ CONFIG_FILE="$DORIS_HOME/fe/conf/fe.conf"
 SEQUENCE_NUMBER=$(hostname | awk -F '-' '{print $NF}')
 NODE_TYPE="FE_MASTER"
 
-if [[ "x$SEQUENCE_NUMBER" != "x0" ]]; then
+if [ "$SEQUENCE_NUMBER" -ge "$ELECT_NUMBER" ]; then
     NODE_TYPE="FE_OBSERVER"
 fi
 
@@ -177,7 +178,7 @@ function add_my_self_with_cluster()
     local output=$(curl -s $register_address \
               -d '{"instance_id":"'$INSTANCE_ID'",
               "cluster":{"type":"SQL","cluster_name":"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER","cluster_id":"RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
-              "nodes":[{"cloud_unique_id":"'$CLOUD_UNIQUE_ID'","ip":"'$MY_SELF'","host":"'$MY_SELF'","node_type":"'$NODE_TYPE',"edit_log_port":'$FE_EDIT_PORT'}]}}')
+              "nodes":[{"cloud_unique_id":"'$CLOUD_UNIQUE_ID'","ip":"'$MY_SELF'","host":"'$MY_SELF'","node_type":"'$NODE_TYPE'","edit_log_port":'$FE_EDIT_PORT'}]}}')
     code=$(jq -r ".code" <<< $output)
     if [[ "$code" == "OK" ]]; then
         log_stderr "[INFO] fe cluster contains $MY_SELF node_type $NODE_TYPE register to ms $MS_ENDPOINT instance_id $INSTANCE_ID success."
@@ -186,8 +187,19 @@ function add_my_self_with_cluster()
     fi
 }
 
+function check_and_modify_fqdn_config()
+{
+    local enable_fqdn=`parse_config_file_with_key "enable_fqdn_mode"`
+    log_stderr "enable_fqdn is : $enable_fqdn"
+    if [[ "x$enable_fqdn" != "xtrue" ]] ; then
+        log_stderr "add enable_fqdn_mode = true to $CONFIG_FILE"
+        echo "enable_fqdn_mode = true" >> $CONFIG_FILE
+    fi
+}
+
 add_cluster_info_to_conf
 link_config_files
+check_and_modify_fqdn_config
 variables_inital
 check_or_register_in_ms
 /opt/apache-doris/fe/bin/start_fe.sh --console
