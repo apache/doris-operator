@@ -90,7 +90,7 @@ type CommonSpec struct {
 	ConfigMaps []ConfigMap `json:"configMaps,omitempty"`
 
 	//secrets describe all secret that need to be mounted.
-	Secrets []Secret `json:"secrets,omitempty"`
+	//Secrets []Secret `json:"secrets,omitempty"`
 
 	// specify what's node to deploy compute group pod.
 	// +optional
@@ -121,6 +121,14 @@ type PersistentVolume struct {
 	// PersistentVolumeClaimSpec is a list of claim spec about storage that pods are required.
 	// +kubebuilder:validation:Optional
 	corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec,omitempty"`
+
+	// specify mountPaths, if not config, operator will refer from be.conf `cache_file_path`.
+	// when mountPaths=[]{"/opt/path1", "/opt/path2"}, will create two pvc mount the two paths. also, operator will mount the cache_file_path config in be.conf .
+	// if mountPaths have duplicated path in cache_file_path, operator will only create one pvc.
+	MountPaths []string `json:"mountPaths,omitempty"`
+
+	//if config true, the log will mount a pvc to store logs. the pvc size is definitely 200Gi, as the log recycling system will regular recycling.
+	LogNotStore bool `json:"logNotStore,omitempty"`
 
 	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
 	//It only takes effect in the first configuration and cannot be added or modified later.

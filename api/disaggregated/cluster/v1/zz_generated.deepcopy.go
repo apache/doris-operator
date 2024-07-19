@@ -91,11 +91,6 @@ func (in *CommonSpec) DeepCopyInto(out *CommonSpec) {
 		*out = make([]ConfigMap, len(*in))
 		copy(*out, *in)
 	}
-	if in.Secrets != nil {
-		in, out := &in.Secrets, &out.Secrets
-		*out = make([]Secret, len(*in))
-		copy(*out, *in)
-	}
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
 		*out = make(map[string]string, len(*in))
@@ -370,6 +365,11 @@ func (in *FeSpec) DeepCopy() *FeSpec {
 func (in *PersistentVolume) DeepCopyInto(out *PersistentVolume) {
 	*out = *in
 	in.PersistentVolumeClaimSpec.DeepCopyInto(&out.PersistentVolumeClaimSpec)
+	if in.MountPaths != nil {
+		in, out := &in.MountPaths, &out.MountPaths
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Annotations != nil {
 		in, out := &in.Annotations, &out.Annotations
 		*out = make(map[string]string, len(*in))
