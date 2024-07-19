@@ -752,10 +752,10 @@ func getExecProbe(commands []string) corev1.ProbeHandler {
 	}
 }
 
-func BuildDisAggregatedProbe(container *corev1.Container, timeout int32, componentType dv1.DisaggregatedComponentType) {
+func BuildDisaggregatedProbe(container *corev1.Container, timeout int32, componentType dv1.DisaggregatedComponentType) {
 	var failurethreshold int32
-	if timeout < 180 {
-		timeout = 180
+	if timeout < 300 {
+		timeout = 300
 	}
 	failurethreshold = timeout / 5
 

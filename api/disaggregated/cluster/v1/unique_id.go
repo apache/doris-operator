@@ -21,7 +21,7 @@ func newCGClusterId(namespace, stsName string) string {
 	return strings.ReplaceAll(namespace+"_"+stsName, "-", "_")
 }
 
-func newCloudUniqueIdPre(instanceId string) string {
+func newCGCloudUniqueIdPre(instanceId string) string {
 	return fmt.Sprintf("1:%s", instanceId)
 }
 
@@ -67,7 +67,7 @@ func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre() string {
-	return newCloudUniqueIdPre(ddc.GetInstanceId())
+	return newCGCloudUniqueIdPre(ddc.GetInstanceId())
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {

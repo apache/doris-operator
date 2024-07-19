@@ -161,9 +161,9 @@ function add_my_self()
 {
     local register_address="http://$MS_ENDPOINT/MetaService/http/add_node?token=$MS_TOKEN"
     local curl_cmd="curl -s $register_address -d '{\"instance_id\":\"$INSTANCE_ID\",\"cluster\":{\"type\":\"SQL\",\"cluster_name\":\"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER\",\"cluster_id\":\"RESERVED_CLUSTER_ID_FOR_SQL_SERVER\",\"nodes\":[{\"cloud_unique_id\":\"$CLOUD_UNIQUE_ID\",\"ip\":\"$MY_SELF\",\"host\":\"$MY_SELF\",\"edit_log_port\":9010,\"node_type\":\"$NODE_TYPE\"}]}}'"
-#    echo "add_my_self: $curl_cmd"
+    # echo "add_my_self: $curl_cmd"
     local output=$(eval "$curl_cmd")
-#    echo "add_my_self Response:$output"
+    # echo "add_my_self response:$output"
     local code=$(jq -r ".code" <<< $output)
     if [[ "$code" == "OK" ]]; then
         log_stderr "[INFO] my_self $MY_SELF register to ms $MS_ENDPOINT instance_id $INSTANCE_ID fe cluster RESERVED_CLUSTER_NAME_FOR_SQL_SERVER success!"
@@ -177,9 +177,9 @@ function add_my_self_with_cluster()
     local register_address="http://$MS_ENDPOINT/MetaService/http/add_cluster?token=$MS_TOKEN"
     local curl_data="{\"instance_id\":\"$INSTANCE_ID\",\"cluster\":{\"type\":\"SQL\",\"cluster_name\":\"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER\",\"cluster_id\":\"RESERVED_CLUSTER_ID_FOR_SQL_SERVER\",\"nodes\":[{\"cloud_unique_id\":\"$CLOUD_UNIQUE_ID\",\"ip\":\"$MY_SELF\",\"host\":\"$MY_SELF\",\"node_type\":\"$NODE_TYPE\",\"edit_log_port\":$FE_EDIT_PORT}]}}"
     local curl_cmd="curl -s $register_address -d '$curl_data'"
-#    echo "add_my_self_with_cluster: $curl_cmd"
+    # echo "add_my_self_with_cluster: $curl_cmd"
     local output=$(eval "$curl_cmd")
-#    echo "add_my_self_with_cluster: $output"
+    # echo "add_my_self_with_cluster response: $output"
     code=$(jq -r ".code" <<< $output)
     if [[ "$code" == "OK" ]]; then
         log_stderr "[INFO] fe cluster contains $MY_SELF node_type $NODE_TYPE register to ms $MS_ENDPOINT instance_id $INSTANCE_ID success."
@@ -199,8 +199,8 @@ function check_and_modify_fqdn_config()
 }
 
 add_cluster_info_to_conf
-link_config_files
 check_and_modify_fqdn_config
+link_config_files
 variables_inital
 check_or_register_in_ms
 /opt/apache-doris/fe/bin/start_fe.sh --console

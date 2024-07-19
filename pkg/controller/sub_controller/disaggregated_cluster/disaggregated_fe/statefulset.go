@@ -183,7 +183,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregated
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
-	resource.BuildDisAggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, dv1.DisaggregatedFE)
+	resource.BuildDisaggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, dv1.DisaggregatedFE)
 	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
 	_, cmvms := dfc.buildConfigMapVolumesVolumeMounts(&ddc.Spec.FeSpec)
 	c.VolumeMounts = vms
