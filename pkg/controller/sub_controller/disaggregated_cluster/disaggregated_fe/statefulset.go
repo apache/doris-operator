@@ -12,14 +12,13 @@ import (
 )
 
 const (
-	MS_ENDPOINT         string = "MS_ENDPOINT"
-	CLOUD_UNIQUE_ID_PRE string = "CLOUD_UNIQUE_ID_PRE"
-	STATEFULSET_NAME    string = "STATEFULSET_NAME"
-	INSTANCE_ID         string = "INSTANCE_ID"
-	INSTANCE_NAME       string = "INSTANCE_NAME"
-	MS_TOKEN            string = "MS_TOKEN"
-	CLUSTER_ID          string = "CLUSTER_ID"
-	CLUSTER_NAME        string = "CLUSTER_NAME"
+	MS_ENDPOINT      string = "MS_ENDPOINT"
+	STATEFULSET_NAME string = "STATEFULSET_NAME"
+	INSTANCE_ID      string = "INSTANCE_ID"
+	INSTANCE_NAME    string = "INSTANCE_NAME"
+	MS_TOKEN         string = "MS_TOKEN"
+	CLUSTER_ID       string = "CLUSTER_ID"
+	CLUSTER_NAME     string = "CLUSTER_NAME"
 )
 
 const (
@@ -94,8 +93,83 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *dv1.DorisDisaggreg
 	c := dfc.NewFEContainer(ddc, confMap)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 	vs, _, _ := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &ddc.Spec.FeSpec)
+	configVolumes, _ := dfc.buildConfigMapVolumesVolumeMounts(&ddc.Spec.FeSpec)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
+	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
+
+	pts.Spec.Affinity = dfc.constructAffinity(dv1.DorisDisaggregatedClusterName, selector[dv1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
+
 	return pts
+}
+
+func (dfc *DisaggregatedFEController) constructAffinity(matchKey, value string, ddcAffinity *corev1.Affinity) *corev1.Affinity {
+	affinity := newFEDefaultAffinity(matchKey, value)
+
+	if ddcAffinity == nil {
+		return affinity
+	}
+
+	ddcPodAntiAffinity := ddcAffinity.PodAntiAffinity
+	if ddcPodAntiAffinity != nil {
+		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = ddcPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, ddcPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+
+	affinity.NodeAffinity = ddcAffinity.NodeAffinity
+	affinity.PodAffinity = ddcAffinity.PodAffinity
+
+	return affinity
+}
+
+func newFEDefaultAffinity(matchKey, value string) *corev1.Affinity {
+	if matchKey == "" || value == "" {
+		return nil
+	}
+
+	podAffinityTerm := corev1.WeightedPodAffinityTerm{
+		Weight: 20,
+		PodAffinityTerm: corev1.PodAffinityTerm{
+			LabelSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: matchKey, Operator: metav1.LabelSelectorOpIn, Values: []string{value}},
+				},
+			},
+			TopologyKey: resource.NODE_TOPOLOGYKEY,
+		},
+	}
+	return &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
+		},
+	}
+}
+
+func (dfc *DisaggregatedFEController) buildConfigMapVolumesVolumeMounts(fe *dv1.FeSpec) ([]corev1.Volume, []corev1.VolumeMount) {
+	var vs []corev1.Volume
+	var vms []corev1.VolumeMount
+	for _, cm := range fe.ConfigMaps {
+		v := corev1.Volume{
+			Name: cm.Name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cm.Name,
+					},
+				},
+			},
+		}
+
+		vs = append(vs, v)
+		vm := corev1.VolumeMount{
+			Name:      cm.Name,
+			MountPath: cm.MountPath,
+		}
+		if vm.MountPath == "" {
+			vm.MountPath = resource.ConfigEnvPath
+		}
+		vms = append(vms, vm)
+	}
+	return vs, vms
 }
 
 func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
@@ -115,11 +189,15 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregated
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
-
 	resource.BuildDisAggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, dv1.DisaggregatedFE)
-
 	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
+	_, cmvms := dfc.buildConfigMapVolumesVolumeMounts(&ddc.Spec.FeSpec)
 	c.VolumeMounts = vms
+	if c.VolumeMounts == nil {
+		c.VolumeMounts = cmvms
+	} else {
+		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
+	}
 	return c
 }
 

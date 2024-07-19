@@ -9,8 +9,8 @@ import (
 )
 
 func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) *corev1.Service {
-	svcConf := ddc.Spec.FeSpec.CommonSpec.Service
-	ports := newFEServicePorts(cvs, svcConf)
+	ddcSVC := ddc.Spec.FeSpec.CommonSpec.Service
+	ports := newFEServicePorts(cvs, ddcSVC)
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ddc.GetFEServiceName(),
@@ -18,15 +18,25 @@ func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedClus
 			Labels:    dfc.newFESchedulerLabels(ddc.Namespace),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: dfc.newFEPodsSelector(ddc.Name),
-			Type:     corev1.ServiceTypeClusterIP,
-			Ports:    ports,
+			Selector:        dfc.newFEPodsSelector(ddc.Name),
+			Type:            corev1.ServiceTypeClusterIP,
+			Ports:           ports,
+			SessionAffinity: corev1.ServiceAffinityClientIP,
 		},
 	}
 
-	if svcConf != nil && svcConf.Type != "" {
-		svc.Spec.Type = svcConf.Type
+	if ddcSVC != nil && ddcSVC.Type != "" {
+		svc.Spec.Type = ddcSVC.Type
 	}
+	if ddcSVC != nil {
+		svc.Annotations = ddcSVC.Annotations
+	}
+
+	// The external load balancer provided by the cloud provider may cause the client IP received by the service to change.
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
+	}
+	svc.OwnerReferences = []metav1.OwnerReference{resource.GetOwnerReference(ddc)}
 
 	return &svc
 }

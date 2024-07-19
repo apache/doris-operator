@@ -83,15 +83,15 @@ func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj cl
 	statefulsetName := ddc.GetFEStatefulsetName()
 	serviceName := ddc.GetFEServiceName()
 
-	if err := k8s.DeleteStatefulset(ctx, dfc.k8sClient, ddc.Namespace, statefulsetName); err != nil {
-		klog.Errorf("disaggregatedFEController delete statefulset namespace %s name %s failed, err=%s", ddc.Namespace, statefulsetName, err.Error())
-		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FEStatefulsetDeleteFailed), err.Error())
+	if err := k8s.DeleteService(ctx, dfc.k8sClient, ddc.Namespace, serviceName); err != nil {
+		klog.Errorf("disaggregatedFEController delete service namespace %s name %s failed, err=%s", ddc.Namespace, serviceName, err.Error())
+		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FEServiceDeleteFailed), err.Error())
 		return false, err
 	}
 
-	if err := k8s.DeleteService(ctx, dfc.k8sClient, ddc.Namespace, serviceName); err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController delete service namespace %s name %s failed, err=%s", ddc.Namespace, serviceName, err.Error())
-		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FEServiceDeleteFailed), err.Error())
+	if err := k8s.DeleteStatefulset(ctx, dfc.k8sClient, ddc.Namespace, statefulsetName); err != nil {
+		klog.Errorf("disaggregatedFEController delete statefulset namespace %s name %s failed, err=%s", ddc.Namespace, statefulsetName, err.Error())
+		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FEStatefulsetDeleteFailed), err.Error())
 		return false, err
 	}
 
@@ -160,6 +160,7 @@ func (dfc *DisaggregatedFEController) getConfigValuesFromConfigMaps(namespace st
 		}
 
 		v := kcm.Data[resource.FE_RESOLVEKEY]
+		viper.SetConfigType("properties")
 		viper.ReadConfig(bytes.NewBuffer([]byte(v)))
 		return viper.AllSettings()
 	}

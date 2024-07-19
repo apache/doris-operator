@@ -81,10 +81,6 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddm *mv1.DorisDi
 					MaxConcurrentReplacements: pointer.Int(1),
 				},
 			},
-			// ==========
-			FaultDomain: v1beta2.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
-			},
 			LabelConfig: v1beta2.LabelConfig{
 				MatchLabels:             ddm.GenerateFDBLabels(),
 				ProcessClassLabels:      []string{ProcessClassLabel},
@@ -225,7 +221,10 @@ func (fdbc *DisaggregatedFDBController) UpdateComponentStatus(obj client.Object)
 	//use fdbcluster's Healthy and available for checking fdb normal or not normal.
 	//Healthy  reports whether the database is in a fully healthy state.
 	//Available reports whether the database is accepting reads and writes.
-	if fdb.Status.Health.Healthy && fdb.Status.Health.Available {
+	if fdb.Status.Health.Available {
+		if fdb.Status.Health.Healthy == false {
+			fdbc.k8sRecorder.Event(ddm, string(sc.EventWarning), string(sc.FDBAvailableButUnhealth), "disaggregatedMetaService fdb status is not Healthy, but Available!")
+		}
 		ddm.Status.FDBStatus.AvailableStatus = mv1.Available
 	}
 

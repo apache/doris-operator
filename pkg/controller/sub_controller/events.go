@@ -28,6 +28,7 @@ type EventReason string
 var (
 	ImageFormatError                  EventReason = "ImageFormatError"
 	FDBSpecEmpty                      EventReason = "SpecEmpty"
+	FDBAvailableButUnhealth           EventReason = "FDBAvailableButUnhealth"
 	FEEmpty                           EventReason = "FeEmpty"
 	FECreateResourceFailed            EventReason = "FECreateResourceFailed"
 	FEApplyResourceFailed             EventReason = "FEApplyResourceFailed"

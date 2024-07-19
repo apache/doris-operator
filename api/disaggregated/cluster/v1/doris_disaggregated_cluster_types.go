@@ -155,6 +155,9 @@ type ExportService struct {
 	// +optional
 	Type corev1.ServiceType `json:"type,omitempty"`
 
+	//Annotations for using function on different cloud platform.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	//PortMaps specify node port for target port in pod, when the service type=NodePort.
 	PortMaps []PortMap `json:"portMaps,omitempty"`
 }

@@ -35,7 +35,7 @@ POD_NAME=${POD_NAME}
 CLOUD_UNIQUE_ID_PRE=${CLOUD_UNIQUE_ID_PRE:="1:$INSTANCE_ID"}
 CLOUD_UNIQUE_ID="$CLOUD_UNIQUE_ID_PRE:$POD_NAME"
 
-CONFIGMAP_PATH=${CONFIGMAP_PATH:="/etc/doris"}
+CONFIGMAP_PATH=${CONFIGMAP_MOUNT_PATH:="/etc/doris"}
 DORIS_HOME=${DORIS_HOME:="/opt/apache-doris"}
 CONFIG_FILE="$DORIS_HOME/fe/conf/fe.conf"
 
@@ -160,10 +160,10 @@ function check_or_register_in_ms()
 function add_my_self()
 {
     local register_address="http://$MS_ENDPOINT/MetaService/http/add_node?token=$MS_TOKEN"
-    local output=$(curl -s $register_address \
-              -d '{"instance_id":"'$INSTANCE_ID'",
-              "cluster":{"type":"SQL","cluster_name":"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER","cluster_id":"RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
-              "nodes":[{"cloud_unique_id":"'$CLOUD_UNIQUE_ID'","ip":"'$MY_SELF'","host":"'$MY_SELF'","edit_log_port":9010,"node_type":"'$NODE_TYPE'"}]}}')
+    local curl_cmd="curl -s $register_address -d '{\"instance_id\":\"$INSTANCE_ID\",\"cluster\":{\"type\":\"SQL\",\"cluster_name\":\"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER\",\"cluster_id\":\"RESERVED_CLUSTER_ID_FOR_SQL_SERVER\",\"nodes\":[{\"cloud_unique_id\":\"$CLOUD_UNIQUE_ID\",\"ip\":\"$MY_SELF\",\"host\":\"$MY_SELF\",\"edit_log_port\":9010,\"node_type\":\"$NODE_TYPE\"}]}}'"
+#    echo "add_my_self: $curl_cmd"
+    local output=$(eval "$curl_cmd")
+#    echo "add_my_self Response:$output"
     local code=$(jq -r ".code" <<< $output)
     if [[ "$code" == "OK" ]]; then
         log_stderr "[INFO] my_self $MY_SELF register to ms $MS_ENDPOINT instance_id $INSTANCE_ID fe cluster RESERVED_CLUSTER_NAME_FOR_SQL_SERVER success!"
@@ -175,10 +175,11 @@ function add_my_self()
 function add_my_self_with_cluster()
 {
     local register_address="http://$MS_ENDPOINT/MetaService/http/add_cluster?token=$MS_TOKEN"
-    local output=$(curl -s $register_address \
-              -d '{"instance_id":"'$INSTANCE_ID'",
-              "cluster":{"type":"SQL","cluster_name":"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER","cluster_id":"RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
-              "nodes":[{"cloud_unique_id":"'$CLOUD_UNIQUE_ID'","ip":"'$MY_SELF'","host":"'$MY_SELF'","node_type":"'$NODE_TYPE'","edit_log_port":'$FE_EDIT_PORT'}]}}')
+    local curl_data="{\"instance_id\":\"$INSTANCE_ID\",\"cluster\":{\"type\":\"SQL\",\"cluster_name\":\"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER\",\"cluster_id\":\"RESERVED_CLUSTER_ID_FOR_SQL_SERVER\",\"nodes\":[{\"cloud_unique_id\":\"$CLOUD_UNIQUE_ID\",\"ip\":\"$MY_SELF\",\"host\":\"$MY_SELF\",\"node_type\":\"$NODE_TYPE\",\"edit_log_port\":$FE_EDIT_PORT}]}}"
+    local curl_cmd="curl -s $register_address -d '$curl_data'"
+#    echo "add_my_self_with_cluster: $curl_cmd"
+    local output=$(eval "$curl_cmd")
+#    echo "add_my_self_with_cluster: $output"
     code=$(jq -r ".code" <<< $output)
     if [[ "$code" == "OK" ]]; then
         log_stderr "[INFO] fe cluster contains $MY_SELF node_type $NODE_TYPE register to ms $MS_ENDPOINT instance_id $INSTANCE_ID success."
