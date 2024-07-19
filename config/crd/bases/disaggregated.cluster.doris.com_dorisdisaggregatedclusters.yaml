@@ -969,10 +969,6 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                    cloudUniqueIdPre:
-                      description: CloudUniqueIdPre represents the cloud code pre,
-                        if deployed in cloud platform. default CloudUniqueIdPre=1:clusterId:.
-                      type: string
                     clusterId:
                       description: ClusterId is the identifier of computeGroup, this
                         will distinguish all computeGroup in meta.
@@ -1803,6 +1799,12 @@ spec:
                     service:
                       description: export metaservice for accessing from outside k8s.
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: Annotations for using function on different
+                            cloud platform.
+                          type: object
                         portMaps:
                           description: PortMaps specify node port for target port
                             in pod, when the service type=NodePort.
@@ -3610,6 +3612,12 @@ spec:
                   service:
                     description: export metaservice for accessing from outside k8s.
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       portMaps:
                         description: PortMaps specify node port for target port in
                           pod, when the service type=NodePort.
@@ -3747,9 +3755,6 @@ spec:
                       description: AvailableStatus represents the compute group available
                         or not.
                       type: string
-                    cloudUniqueIdPre:
-                      description: CloudUniqueIdPre display the cloud code pre.
-                      type: string
                     clusterId:
                       description: ClusterId display  the clusterId of compute group
                         in meta.
@@ -3775,9 +3780,6 @@ spec:
                 properties:
                   availableStatus:
                     description: AvailableStatus represents the fe available or not.
-                    type: string
-                  cloudUniqueIdPre:
-                    description: CloudUniqueIdPre display the cloud code pre.
                     type: string
                   clusterId:
                     description: ClusterId display  the clusterId of fe in meta.
