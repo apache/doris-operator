@@ -9,8 +9,8 @@ import (
 )
 
 func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) *corev1.Service {
-	ddcSVC := ddc.Spec.FeSpec.CommonSpec.Service
-	ports := newFEServicePorts(cvs, ddcSVC)
+	ddcService := ddc.Spec.FeSpec.CommonSpec.Service
+	ports := newFEServicePorts(cvs, ddcService)
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ddc.GetFEServiceName(),
@@ -25,11 +25,11 @@ func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedClus
 		},
 	}
 
-	if ddcSVC != nil && ddcSVC.Type != "" {
-		svc.Spec.Type = ddcSVC.Type
+	if ddcService != nil && ddcService.Type != "" {
+		svc.Spec.Type = ddcService.Type
 	}
-	if ddcSVC != nil {
-		svc.Annotations = ddcSVC.Annotations
+	if ddcService != nil {
+		svc.Annotations = ddcService.Annotations
 	}
 
 	// The external load balancer provided by the cloud provider may cause the client IP received by the service to change.

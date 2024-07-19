@@ -139,7 +139,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 		ddc.Status.FEStatus.AvailableStatus = dv1.Available
 		ddc.Status.ClusterHealth.FeAvailable = true
 	}
-	// all fe PodIsReady FEStatus.Phase is Ready，
+	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
 	if availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = dv1.Ready

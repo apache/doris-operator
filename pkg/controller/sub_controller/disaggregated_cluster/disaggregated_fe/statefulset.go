@@ -52,15 +52,10 @@ func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[s
 }
 
 func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
-
 	spec := ddc.Spec.FeSpec
-
 	selector := dfc.newFEPodsSelector(ddc.Name)
-
 	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
-
 	pts := dfc.NewPodTemplateSpec(ddc, selector, confMap)
-
 	st := &appv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       ddc.Namespace,
@@ -77,7 +72,6 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregated
 			PodManagementPolicy:  appv1.ParallelPodManagement,
 		},
 	}
-
 	return st
 }
 
