@@ -15,18 +15,6 @@
 {{- end }}
 
 {{/*
-doris operator pod default resource.
-*/}}
-{{- define "operator.default.resource" }}
-    requests:
-      cpu: 2
-      memory: 4Gi
-    limits:
-      cpu: 2
-      memory: 4Gi
-{{- end }}
-
-{{/*
 doris operator webhook open.
 */}}
 {{- define "webhook.enable" -}}

@@ -17,6 +17,15 @@ dorisOperator:
     # kubernetes.io/os: linux
     # app.kubernetes.node.name: "k8s-node1"
 
+  # Resource specification for dorisoperator pods
+  resources:
+    requests:
+      cpu: 2
+      memory: 4Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+
   # node affinity for operator pod scheduling.
   nodeAffinity: {}
   #   requiredDuringSchedulingIgnoredDuringExecution:

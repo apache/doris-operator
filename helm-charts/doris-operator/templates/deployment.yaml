@@ -101,8 +101,10 @@ spec:
             periodSeconds: 10
           # TODO(user): Configure the resources accordingly based on the project requirements.
           # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-          resources:
-            {{- include "operator.default.resource" . | indent 8 }}
+          {{- if .Values.dorisOperator.resources }}
+          resources: 
+          {{- toYaml .Values.dorisOperator.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath:  /tmp/k8s-webhook-server/serving-certs
               name: cert
