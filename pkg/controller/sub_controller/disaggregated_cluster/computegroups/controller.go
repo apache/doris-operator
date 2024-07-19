@@ -211,8 +211,8 @@ func (dccs *DisaggregatedComputeGroupsController) getConfigValuesFromConfigMaps(
 		if _, ok := kcm.Data[resource.BE_RESOLVEKEY]; !ok {
 			continue
 		}
-
 		v := kcm.Data[resource.BE_RESOLVEKEY]
+		viper.SetConfigType("properties")
 		viper.ReadConfig(bytes.NewBuffer([]byte(v)))
 		return viper.AllSettings()
 	}

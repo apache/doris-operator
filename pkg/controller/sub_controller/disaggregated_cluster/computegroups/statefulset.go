@@ -1,6 +1,7 @@
 package computegroups
 
 import (
+	"encoding/json"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
@@ -8,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kr "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/klog/v2"
 	"os"
 	"strconv"
@@ -209,30 +209,59 @@ func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVC
 	var vs []corev1.Volume
 	var vms []corev1.VolumeMount
 	var pvcs []corev1.PersistentVolumeClaim
-	logPath := dccs.getLogPath(cvs)
-	vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: LogStoreName,
-		}}})
-	vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: logPath})
-	pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        LogStoreName,
-			Annotations: cg.CommonSpec.PersistentVolume.Annotations,
-		},
-		Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
-	})
 
 	paths, maxSize := dccs.getCacheMaxSizeAndPaths(cvs)
-	if maxSize > 0 {
-		cs := kr.NewQuantity(maxSize, kr.BinarySI)
-		if cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests == nil {
-			cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests = map[corev1.ResourceName]kr.Quantity{}
+
+	//fill defect fields of pvcSpec.
+	func() {
+		if maxSize > 0 {
+			cs := kr.NewQuantity(maxSize, kr.BinarySI)
+			if cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests == nil {
+				cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests = map[corev1.ResourceName]kr.Quantity{}
+			}
+			pvcSize := cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
+			cmp := cs.Cmp(pvcSize)
+			if cmp > 0 {
+				cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage] = *cs
+			}
 		}
-		pvcSize := cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
-		cmp := cs.Cmp(pvcSize)
-		if cmp > 0 {
-			cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage] = *cs
+		if len(cg.PersistentVolume.PersistentVolumeClaimSpec.AccessModes) == 0 {
+			cg.PersistentVolume.PersistentVolumeClaimSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+		}
+	}()
+
+	//generate log volume, volumeMount, pvc
+	func() {
+		if !cg.CommonSpec.PersistentVolume.LogNotStore {
+			logPath := dccs.getLogPath(cvs)
+			vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: LogStoreName,
+				}}})
+			vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: logPath})
+			logPvc := corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        LogStoreName,
+					Annotations: cg.CommonSpec.PersistentVolume.Annotations,
+				},
+				Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
+			}
+			logPvc.Spec.Resources.Requests[corev1.ResourceStorage] = kr.MustParse("200Gi")
+			pvcs = append(pvcs, logPvc)
+		}
+	}()
+
+	//merge mountPaths
+	for _, p := range cg.PersistentVolume.MountPaths {
+		plen := len(paths)
+		for ; plen > 0; plen-- {
+			if paths[plen-1] == p {
+				break
+			}
+		}
+
+		if plen <= 0 {
+			paths = append(paths, p)
 		}
 	}
 
@@ -298,25 +327,15 @@ func (dccs *DisaggregatedComputeGroupsController) getCacheMaxSizeAndPaths(cvs ma
 
 	var paths []string
 	var maxCacheSize int64
-	vbys, err := json.Marshal(v)
-	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json marshal file_cache_path faield, err=%s", err.Error())
-		return []string{}, 0
-	}
-
-	var pa []interface{}
-	err = json.Unmarshal(vbys, pa)
+	vbys := v.(string)
+	var pa []map[string]interface{}
+	err := json.Unmarshal([]byte(vbys), &pa)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_paht failed, err=%s", err.Error())
 		return []string{}, 0
 	}
 
-	for i, p := range pa {
-		mp, ok := p.(map[string]interface{})
-		if !ok {
-			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d is not json format.", i)
-			continue
-		}
+	for i, mp := range pa {
 		pv := mp[FileCacheSubConfigPathKey]
 		pv_str, ok := pv.(string)
 		if !ok {
@@ -325,7 +344,8 @@ func (dccs *DisaggregatedComputeGroupsController) getCacheMaxSizeAndPaths(cvs ma
 		}
 		paths = append(paths, pv_str)
 		cache_v := mp[FileCacheSubConfigTotalSizeKey]
-		cache_size, ok := cache_v.(int64)
+		fc_size, ok := cache_v.(float64)
+		cache_size := int64(fc_size)
 		if !ok {
 			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d total_size is not number.", i)
 			continue
