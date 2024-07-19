@@ -179,11 +179,11 @@ func (dfc *DisaggregatedFEController) initialFEStatus(ddc *dv1.DorisDisaggregate
 	if ddc.Status.FEStatus.Phase == dv1.Reconciling {
 		return
 	}
-	cgs := dv1.FEStatus{
+	feStatus := dv1.FEStatus{
 		Phase:     dv1.Reconciling,
 		ClusterId: FeClusterId,
 	}
-	ddc.Status.FEStatus = cgs
+	ddc.Status.FEStatus = feStatus
 }
 
 func (dfc *DisaggregatedFEController) reconcileService(ctx context.Context, svc *corev1.Service) (*sub_controller.Event, error) {
