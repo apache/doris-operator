@@ -47,6 +47,12 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return nil
 	}
 
+	if *(ddc.Spec.FeSpec.Replicas) < *(ddc.Spec.FeSpec.ElectionNumber) {
+		klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : the replicas setting of fe(%d) cannot be less than electionNumber(%d)", ddc.Namespace, ddc.Name, *(ddc.Spec.FeSpec.Replicas), *(ddc.Spec.FeSpec.ElectionNumber))
+		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "the replicas setting of disaggregated fe cannot be less than electionNumber, the cluster will not work normal.")
+		return nil
+	}
+
 	confMap := dfc.getConfigValuesFromConfigMaps(ddc.Namespace, ddc.Spec.FeSpec.ConfigMaps)
 	svc := dfc.newService(ddc, confMap)
 

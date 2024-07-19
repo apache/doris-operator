@@ -46,7 +46,6 @@ const (
 	DEFAULT_INIT_IMAGE = "selectdb/alpine:latest"
 
 	HEALTH_DISAGGREGATED_FE_PROBE_COMMAND = "/opt/apache-doris/fe_disaggregated_probe.sh"
-	HEALTH_DISAGGREGATED_BE_PROBE_COMMAND = "/opt/apache-doris/be_disaggregated_probe.sh"
 	DISAGGREGATED_LIVE_PARAM_ALIVE        = "alive"
 	DISAGGREGATED_LIVE_PARAM_READY        = "ready"
 )
@@ -764,8 +763,8 @@ func BuildDisAggregatedProbe(container *corev1.Container, timeout int32, compone
 	switch componentType {
 	case dv1.DisaggregatedFE:
 		commend = HEALTH_DISAGGREGATED_FE_PROBE_COMMAND
-	case dv1.DisaggregatedBE:
-		commend = HEALTH_DISAGGREGATED_BE_PROBE_COMMAND
+	//case dv1.DisaggregatedBE:
+	//	commend = HEALTH_DISAGGREGATED_BE_PROBE_COMMAND
 	default:
 	}
 

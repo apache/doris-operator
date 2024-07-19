@@ -29,6 +29,7 @@ var (
 	ImageFormatError                  EventReason = "ImageFormatError"
 	FDBSpecEmpty                      EventReason = "SpecEmpty"
 	FDBAvailableButUnhealth           EventReason = "FDBAvailableButUnhealth"
+	FESpecSetError                    EventReason = "FESpecSetError"
 	FEEmpty                           EventReason = "FeEmpty"
 	FECreateResourceFailed            EventReason = "FECreateResourceFailed"
 	FEApplyResourceFailed             EventReason = "FEApplyResourceFailed"
