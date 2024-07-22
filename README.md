@@ -1,4 +1,5 @@
-| 
+DorisCluster | [DorisDisaggregatedCluster](doris_aggregated_cluster.md)  
+
 English | [中文](README-CN.md)
 # doris-operator
 Doris-operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn，broker components.
@@ -37,19 +38,4 @@ This [doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-
 
 > [!WARNING]
 > 1. currently operator only supports the fqdn mode to deploy doris on kubernetes. when the operator uses the official image to deploy container, the relevant work service will set the `enable_fqdn_mode` as true automatically. by running the doris docker container without k8s-operator, fqdn mode is closed by default. for other configurations about deploying doris on kubernetes, refer to [example/doriscluster-sample-configmap.yaml](./doc/examples/doriscluster-sample-configmap.yaml).
-> 2. fe and be print log by `kubectl logs -ndoris -f ${pod_name}` also in /opt/apache-doris/fe/log, /opt/apache-doris/be/log in pod. When have not log processing system on k8s, mount a volume for log directory is good idea. the config to mount volume for log can reference the doc[example/doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml).  
-
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
-<Tabs>
-  <TabItem value="apple" label="Apple" default>
-    This is an apple 🍎
-  </TabItem>
-  <TabItem value="orange" label="Orange">
-    This is an orange 🍊
-  </TabItem>
-  <TabItem value="banana" label="Banana">
-    This is a banana 🍌
-  </TabItem>
-</Tabs>
+> 2. fe and be print log by `kubectl logs -ndoris -f ${pod_name}` also in /opt/apache-doris/fe/log, /opt/apache-doris/be/log in pod. When have not log processing system on k8s, mount a volume for log directory is good idea. the config to mount volume for log can reference the doc[example/doriscluster-sample-storageclass.yaml](./doc/examples/doriscluster-sample-storageclass.yaml).
