@@ -1,16 +1,19 @@
 package resource
 
 import (
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
 	"strconv"
+	"strings"
 )
 
 const (
 	config_env_path  = "/etc/doris"
+	ConfigEnvPath    = config_env_path
 	config_env_name  = "CONFIGMAP_MOUNT_PATH"
 	basic_auth_path  = "/etc/basic_auth"
 	auth_volume_name = "basic-auth"
@@ -41,14 +44,18 @@ const (
 	NODE_TOPOLOGYKEY = "kubernetes.io/hostname"
 
 	DEFAULT_INIT_IMAGE = "selectdb/alpine:latest"
+
+	HEALTH_DISAGGREGATED_FE_PROBE_COMMAND = "/opt/apache-doris/fe_disaggregated_probe.sh"
+	DISAGGREGATED_LIVE_PARAM_ALIVE        = "alive"
+	DISAGGREGATED_LIVE_PARAM_READY        = "ready"
 )
 
-type probeType string
+type ProbeType string
 
 var (
-	httpGet   probeType = "httpGet"
-	tcpSocket probeType = "tcpSocket"
-	exec      probeType = "exec"
+	HttpGet   ProbeType = "httpGet"
+	TcpSocket ProbeType = "tcpSocket"
+	Exec      ProbeType = "exec"
 )
 
 func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
@@ -126,6 +133,44 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
+}
+
+func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
+	var vs []corev1.Volume
+	vs, _ = appendPodInfoVolumesVolumeMounts(vs, nil)
+
+	pts := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        strings.ToLower(string(componentType)),
+			Annotations: cs.Annotations,
+			Labels:      cs.Labels,
+		},
+
+		Spec: corev1.PodSpec{
+			ImagePullSecrets:   cs.ImagePullSecrets,
+			NodeSelector:       cs.NodeSelector,
+			ServiceAccountName: cs.ServiceAccount,
+			Affinity:           cs.Affinity,
+			Tolerations:        cs.Tolerations,
+			HostAliases:        cs.HostAliases,
+			SecurityContext:    cs.SecurityContext,
+			Volumes:            vs,
+		},
+	}
+	return pts
+}
+
+// build disaggregated node(fe,be) container.
+func NewContainerWithCommonSpec(cs *dv1.CommonSpec) corev1.Container {
+	var vms []corev1.VolumeMount
+	_, vms = appendPodInfoVolumesVolumeMounts(nil, vms)
+	c := corev1.Container{
+		Image:           cs.Image,
+		SecurityContext: cs.ContainerSecurityContext,
+		Resources:       cs.ResourceRequirements,
+		VolumeMounts:    vms,
+	}
+	return c
 }
 
 // ApplySecurityContext applies the container security context to all containers in the pod (if not already set).
@@ -293,38 +338,74 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	var readnessPort int32
 	var prestopScript string
 	var health_api_path string
+	var liveProbeType ProbeType
+	var readinessProbeType ProbeType
+	var commands []string
 	switch componentType {
 	case v1.Component_FE:
 		readnessPort = GetPort(config, HTTP_PORT)
 		livenessPort = GetPort(config, QUERY_PORT)
+		liveProbeType = TcpSocket
+		readinessProbeType = HttpGet
 		prestopScript = FE_PRESTOP
 		health_api_path = HEALTH_API_PATH
 	case v1.Component_BE, v1.Component_CN:
 		readnessPort = GetPort(config, WEBSERVER_PORT)
 		livenessPort = GetPort(config, HEARTBEAT_SERVICE_PORT)
+		liveProbeType = TcpSocket
+		readinessProbeType = HttpGet
 		prestopScript = BE_PRESTOP
 		health_api_path = HEALTH_API_PATH
 	case v1.Component_Broker:
 		livenessPort = GetPort(config, BROKER_IPC_PORT)
 		readnessPort = GetPort(config, BROKER_IPC_PORT)
+		liveProbeType = Exec
+		readinessProbeType = Exec
 		prestopScript = BROKER_PRESTOP
-		health_api_path = ""
+		commands = append(commands, HEALTH_BROKER_LIVE_COMMAND, strconv.Itoa(int(livenessPort)))
 	default:
 		klog.Infof("the componentType %s is not supported in probe.")
 	}
 
-	c.LivenessProbe = livenessProbe(livenessPort, "")
+	// if tcpSocket the health_api_path will ignore.
+	c.LivenessProbe = livenessProbe(livenessPort, health_api_path, commands, liveProbeType)
 	// use liveness as startup, when in debugging mode will not be killed
-	//c.StartupProbe = startupProbe(readnessPort, health_api_path)
-	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, "")
-	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path)
+	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, health_api_path, commands, liveProbeType)
+	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType)
 	c.Lifecycle = lifeCycle(prestopScript)
 
 	return c
 }
 
 func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
-	defaultEnvs := []corev1.EnvVar{
+	defaultEnvs := buildEnvFromPod()
+
+	if dcr.Spec.AdminUser != nil {
+		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+			Name:  ADMIN_USER,
+			Value: dcr.Spec.AdminUser.Name,
+		})
+		if dcr.Spec.AdminUser.Password != "" {
+			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+				Name:  ADMIN_PASSWD,
+				Value: dcr.Spec.AdminUser.Password,
+			})
+		}
+	} else {
+		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
+			Name:  ADMIN_USER,
+			Value: DEFAULT_ADMIN_USER,
+		}, {
+			Name:  DORIS_ROOT,
+			Value: DEFAULT_ROOT_PATH,
+		}}...)
+	}
+
+	return defaultEnvs
+}
+
+func buildEnvFromPod() []corev1.EnvVar {
+	return []corev1.EnvVar{
 		{
 			Name: POD_NAME,
 			ValueFrom: &corev1.EnvVarSource{
@@ -354,29 +435,10 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 			Value: config_env_path,
 		},
 	}
+}
 
-	if dcr.Spec.AdminUser != nil {
-		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
-			Name:  ADMIN_USER,
-			Value: dcr.Spec.AdminUser.Name,
-		})
-		if dcr.Spec.AdminUser.Password != "" {
-			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
-				Name:  ADMIN_PASSWD,
-				Value: dcr.Spec.AdminUser.Password,
-			})
-		}
-	} else {
-		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
-			Name:  ADMIN_USER,
-			Value: DEFAULT_ADMIN_USER,
-		}, {
-			Name:  DORIS_ROOT,
-			Value: DEFAULT_ROOT_PATH,
-		}}...)
-	}
-
-	return defaultEnvs
+func GetPodDefaultEnv() []corev1.EnvVar {
+	return buildEnvFromPod()
 }
 
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
@@ -564,67 +626,47 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 	return volumes, volumeMounts
 }
 
-// StartupProbe returns a startup probe.
-func startupProbe(port, timeout int32, path string) *corev1.Probe {
+func LivenessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
+	return livenessProbe(port, path, commands, pt)
+}
 
+func ReadinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
+	return readinessProbe(port, path, commands, pt)
+}
+
+// StartupProbe returns a startup probe.
+func startupProbe(port, timeout int32, path string, commands []string, pt ProbeType) *corev1.Probe {
 	var failurethreshold int32
-	if timeout < 180 {
-		timeout = 180
+	if timeout < 300 {
+		timeout = 300
 	}
 
 	failurethreshold = timeout / 5
-
-	if path == "" {
-		return &corev1.Probe{
-			FailureThreshold: failurethreshold,
-			PeriodSeconds:    5,
-			ProbeHandler:     getProbe(port, path, tcpSocket),
-		}
-	}
-
 	return &corev1.Probe{
 		FailureThreshold: failurethreshold,
 		PeriodSeconds:    5,
-		ProbeHandler:     getProbe(port, path, httpGet),
+		ProbeHandler:     getProbe(port, path, commands, pt),
 	}
 }
 
 // livenessProbe returns a liveness.
-func livenessProbe(port int32, path string) *corev1.Probe {
-	if path == "" {
-		return &corev1.Probe{
-			PeriodSeconds:    5,
-			FailureThreshold: 3,
-			// for pulling image and start doris
-			InitialDelaySeconds: 80,
-			TimeoutSeconds:      180,
-			ProbeHandler:        getProbe(port, path, tcpSocket),
-		}
-	}
+func livenessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		// for pulling image and start doris
 		InitialDelaySeconds: 80,
 		TimeoutSeconds:      180,
-		ProbeHandler:        getProbe(port, path, httpGet),
+		ProbeHandler:        getProbe(port, path, commands, pt),
 	}
 }
 
 // ReadinessProbe returns a readiness probe.
-func readinessProbe(port int32, path string) *corev1.Probe {
-	if path == "" {
-		return &corev1.Probe{
-			PeriodSeconds:    5,
-			FailureThreshold: 3,
-			ProbeHandler:     getProbe(port, path, tcpSocket),
-		}
-	}
-
+func readinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
-		ProbeHandler:     getProbe(port, path, httpGet),
+		ProbeHandler:     getProbe(port, path, commands, pt),
 	}
 }
 
@@ -639,13 +681,35 @@ func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
 	}
 }
 
+func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) {
+	if lc == nil {
+		lc = &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{preStopScript},
+				},
+			},
+		}
+
+		return
+	}
+
+	lc.PreStop = &corev1.LifecycleHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{preStopScript},
+		},
+	}
+}
+
 // getProbe describe a health check.
-func getProbe(port int32, path string, probeType probeType) corev1.ProbeHandler {
-	switch probeType {
-	case tcpSocket:
+func getProbe(port int32, path string, commands []string, pt ProbeType) corev1.ProbeHandler {
+	switch pt {
+	case TcpSocket:
 		return getTcpSocket(port)
-	case httpGet:
+	case HttpGet:
 		return getHttpProbe(port, path)
+	case Exec:
+		return getExecProbe(commands)
 	default:
 	}
 	return corev1.ProbeHandler{}
@@ -671,15 +735,72 @@ func getHttpProbe(port int32, path string) corev1.ProbeHandler {
 				},
 			},
 		}
-	} else {
-		p = corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{HEALTH_BROKER_LIVE_COMMAND, strconv.Itoa(int(port))},
-			},
-		}
 	}
 
 	return p
+}
+
+func getExecProbe(commands []string) corev1.ProbeHandler {
+	if len(commands) == 0 {
+		return corev1.ProbeHandler{}
+	}
+
+	return corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: commands,
+		},
+	}
+}
+
+func BuildDisaggregatedProbe(container *corev1.Container, timeout int32, componentType dv1.DisaggregatedComponentType) {
+	var failurethreshold int32
+	if timeout < 300 {
+		timeout = 300
+	}
+	failurethreshold = timeout / 5
+
+	var commend string
+	switch componentType {
+	case dv1.DisaggregatedFE:
+		commend = HEALTH_DISAGGREGATED_FE_PROBE_COMMAND
+	//case dv1.DisaggregatedBE:
+	//	commend = HEALTH_DISAGGREGATED_BE_PROBE_COMMAND
+	default:
+	}
+
+	// check running status
+	alive := corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{commend, DISAGGREGATED_LIVE_PARAM_ALIVE},
+		},
+	}
+
+	// check ready status
+	ready := corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{commend, DISAGGREGATED_LIVE_PARAM_READY},
+		},
+	}
+
+	container.LivenessProbe = &corev1.Probe{
+		PeriodSeconds:       5,
+		FailureThreshold:    3,
+		InitialDelaySeconds: 80,
+		TimeoutSeconds:      180,
+		ProbeHandler:        alive,
+	}
+
+	container.StartupProbe = &corev1.Probe{
+		FailureThreshold: failurethreshold,
+		PeriodSeconds:    5,
+		ProbeHandler:     alive,
+	}
+
+	container.ReadinessProbe = &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler:     ready,
+	}
 }
 
 func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {

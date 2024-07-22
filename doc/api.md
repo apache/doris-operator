@@ -424,7 +424,7 @@ Kubernetes core/v1.ResourceRequirements
 <p>
 (Members of <code>ResourceRequirements</code> are embedded into this type.)
 </p>
-<p>defines the specification of resource cpu and mem.</p>
+<p>defines the specification of resource cpu and mem. ep: {&ldquo;requests&rdquo;:{&ldquo;cpu&rdquo;: 4, &ldquo;memory&rdquo;: &ldquo;16Gi&rdquo;},&ldquo;limits&rdquo;:{&ldquo;cpu&rdquo;:4,&ldquo;memory&rdquo;:&ldquo;16Gi&rdquo;}}</p>
 </td>
 </tr>
 <tr>
@@ -830,7 +830,15 @@ string
 <td></td>
 </tr><tr><td><p>&#34;haveMemberFailed&#34;</p></td>
 <td></td>
+</tr><tr><td><p>&#34;initializing&#34;</p></td>
+<td></td>
 </tr><tr><td><p>&#34;reconciling&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;restarting&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;scaling&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;upgrading&#34;</p></td>
 <td></td>
 </tr><tr><td><p>&#34;waitScheduling&#34;</p></td>
 <td></td>
@@ -2356,6 +2364,18 @@ string
 </tr>
 <tr>
 <td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
+It only takes effect in the first configuration and cannot be added or modified later.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>provisioner</code><br/>
 <em>
 <a href="#doris.selectdb.com/v1.PVCProvisioner">
@@ -2562,5 +2582,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>4e2ea72</code>.
+on git commit <code>61cc2a0</code>.
 </em></p>

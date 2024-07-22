@@ -110,7 +110,7 @@ func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, c
 		path := cm.MountPath
 		if m, exist := mountsMap[path]; exist {
 			klog.Errorf("CheckConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
-			d.K8srecorder.Event(dcr, EventWarning, ConfigMapPathRepeated, fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapPathRepeated), fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
 		}
 		mountsMap[path] = cm
 	}
@@ -243,7 +243,7 @@ func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context,
 	selector := dorisv1.GenerateStatefulSetSelector(dcr, componentType)
 	stsName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
 	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dcr.Namespace), client.MatchingLabels(selector)); err != nil {
-		d.K8srecorder.Event(dcr, EventWarning, PVCListFailed, string("list component "+componentType+" failed!"))
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCListFailed, string("list component "+componentType+" failed!"))
 		return false
 	}
 	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
@@ -302,21 +302,21 @@ func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.Doris
 				message = pvc.Name + " update failed, " + err.Error()
 			}
 
-			d.K8srecorder.Event(dcr, eventType, reason, message)
+			d.K8srecorder.Event(dcr, string(eventType), reason, message)
 		}
 	}
 
 	// if need add new pvc, the resource prepared not finished, return false.
 	if len(pvcs) < int(replicas) {
 		prepared = false
-		d.K8srecorder.Event(dcr, EventNormal, PVCCreate, fmt.Sprintf("create PVC ordinal %d - %d", len(pvcs), replicas))
+		d.K8srecorder.Event(dcr, string(EventNormal), PVCCreate, fmt.Sprintf("create PVC ordinal %d - %d", len(pvcs), replicas))
 	}
 
 	baseOrdinal := len(pvcs)
 	for ; baseOrdinal < int(replicas); baseOrdinal++ {
 		pvc := resource.BuildPVC(volume, selector, dcr.Namespace, stsName, strconv.Itoa(baseOrdinal))
 		if err := d.K8sclient.Create(ctx, &pvc); err != nil && !apierrors.IsAlreadyExists(err) {
-			d.K8srecorder.Event(dcr, EventWarning, PVCCreateFailed, err.Error())
+			d.K8srecorder.Event(dcr, string(EventWarning), PVCCreateFailed, err.Error())
 			klog.Errorf("SubDefaultController namespace %s name %s create pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name)
 		}
 	}
@@ -368,7 +368,7 @@ func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Co
 	selector := dorisv1.GenerateStatefulSetSelector(dcr, componentType)
 	stsName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
 	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dcr.Namespace), client.MatchingLabels(selector)); err != nil {
-		d.K8srecorder.Event(dcr, EventWarning, PVCListFailed, string("list component "+componentType+" failed!"))
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCListFailed, string("list component "+componentType+" failed!"))
 		return err
 	}
 	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
@@ -413,7 +413,7 @@ func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.Dori
 	for ; maxOrdinal > int(replicas); maxOrdinal-- {
 		pvcName := resource.BuildPVCName(stsName, strconv.Itoa(maxOrdinal-1), volumeName)
 		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvcName, selector); err != nil {
-			d.K8srecorder.Event(dcr, EventWarning, PVCDeleteFailed, err.Error())
+			d.K8srecorder.Event(dcr, string(EventWarning), PVCDeleteFailed, err.Error())
 			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvcName)
 			mergeError = utils.MergeError(mergeError, err)
 		}

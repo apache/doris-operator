@@ -212,6 +212,42 @@ rules:
       - update
       - watch
   - apiGroups:
+      - disaggregated.metaservice.doris.com
+    resources:
+      - dorisdisaggregatedmetaservices
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - disaggregated.cluster.doris.com
+    resources:
+      - dorisdisaggregatedclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps.foundationdb.org
+    resources:
+      - foundationdbclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
       - doris.selectdb.com
     resources:
       - dorisclusters/finalizers
@@ -221,6 +257,22 @@ rules:
       - doris.selectdb.com
     resources:
       - dorisclusters/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - disaggregated.metaservice.doris.com
+    resources:
+      - dorisdisaggregatedmetaservices/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - disaggregated.cluster.doris.com
+    resources:
+      - dorisdisaggregatedclusters/status
     verbs:
       - get
       - patch
@@ -309,6 +361,46 @@ webhooks:
         resources:
           - dorisclusters
     sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: doris-operator-service
+        namespace: doris
+        path: /validate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster
+    failurePolicy: Ignore
+    name: vdorisdisaggregatedcluster.kb.io
+    rules:
+      - apiGroups:
+          - disaggregated.cluster.doris.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisdisaggregatedclusters
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: doris-operator-service
+        namespace: doris
+        path: /validate-disaggregated-metaservice-doris-com-v1-dorisdisaggregatedmetaservice
+    failurePolicy: Ignore
+    name: vdorisdisaggregatedmetaservice.kb.io
+    rules:
+      - apiGroups:
+          - disaggregated.metaservice.doris.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisdisaggregatedmetaservices
+    sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -335,6 +427,46 @@ webhooks:
           - UPDATE
         resources:
           - dorisclusters
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: doris-operator-service
+        namespace: doris
+        path:  /mutate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster
+    failurePolicy: Ignore
+    name: mdorisdisaggregatedcluster.kb.io
+    rules:
+      - apiGroups:
+          - disaggregated.cluster.doris.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisdisaggregatedclusters
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: doris-operator-service
+        namespace: doris
+        path:  /mutate-disaggregated-metaservice-doris-com-v1-dorisdisaggregatedmetaservice
+    failurePolicy: Ignore
+    name: mdorisdisaggregatedmetaservice.kb.io
+    rules:
+      - apiGroups:
+          - disaggregated.metaservice.doris.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisdisaggregatedmetaservices
     sideEffects: None
 ---
 apiVersion: v1

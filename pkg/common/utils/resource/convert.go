@@ -11,8 +11,6 @@ func GetPort(config map[string]interface{}, key string) int32 {
 			return int32(port)
 		}
 	}
-
-	//return default value.
 	return defMap[key]
 }
 

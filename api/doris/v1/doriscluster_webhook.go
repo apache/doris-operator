@@ -33,7 +33,7 @@ func (r *DorisCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:unnamedwatches:path=/mutate-doris-selectdb-com-v1-doriscluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=doris.selectdb.com,resources=dorisclusters,verbs=create;update;delete,versions=v1,name=mdoriscluster.kb.io,admissionReviewVersions=v1
+// +kubebuilder:unnamedwatches:path=/mutate-doris-selectdb-com-v1-doriscluster,mutating=true,failurePolicy=ignore,sideEffects=None,groups=doris.selectdb.com,resources=dorisclusters,verbs=create;update;delete,versions=v1,name=mdoriscluster.kb.io,admissionReviewVersions=v1
 var _ webhook.Defaulter = &DorisCluster{}
 
 // Default implements webhook.Defaulter so a unnamedwatches will be registered for the type

@@ -1,8 +1,10 @@
 package resource
 
 import (
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
+	"github.com/selectdb/doris-operator/pkg/common/utils/set"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -31,7 +33,7 @@ func BuildInternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 			Name:            v1.GenerateInternalCommunicateServiceName(dcr, componentType),
 			Namespace:       dcr.Namespace,
 			Labels:          labels,
-			OwnerReferences: []metav1.OwnerReference{getOwnerReference(dcr)},
+			OwnerReferences: []metav1.OwnerReference{GetOwnerReference(dcr)},
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
@@ -109,7 +111,7 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 		svc.Annotations = exportService.Annotations
 	}
 
-	svc.OwnerReferences = []metav1.OwnerReference{getOwnerReference(dcr)}
+	svc.OwnerReferences = []metav1.OwnerReference{GetOwnerReference(dcr)}
 	// the code is invalid, duplicate with ServiceDeepEqual
 	//hso := serviceHashObject(&svc)
 	//anno := map[string]string{}
@@ -144,15 +146,6 @@ func constructServiceSpec(exportService *v1.ExportService, svc *corev1.Service, 
 	}
 
 	setServiceType(exportService, svc)
-}
-
-func getOwnerReference(dcr *v1.DorisCluster) metav1.OwnerReference {
-	return metav1.OwnerReference{
-		APIVersion: dcr.APIVersion,
-		Kind:       dcr.Kind,
-		Name:       dcr.Name,
-		UID:        dcr.UID,
-	}
 }
 
 func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePort) {
@@ -202,6 +195,17 @@ func GetContainerPorts(config map[string]interface{}, componentType v1.Component
 	default:
 		klog.Infof("GetContainerPorts the componentType %s not supported.", componentType)
 		return []corev1.ContainerPort{}
+	}
+}
+
+func GetDisaggregatedContainerPorts(config map[string]interface{}, componentType dv1.DisaggregatedComponentType) []corev1.ContainerPort {
+	switch componentType {
+	case dv1.DisaggregatedFE:
+		return getFeContainerPorts(config)
+	case dv1.DisaggregatedBE:
+		return getBeContainerPorts(config)
+	default:
+		return nil
 	}
 }
 
@@ -275,7 +279,8 @@ func GetPortKey(configKey string) string {
 		return strings.ReplaceAll(EDIT_LOG_PORT, "_", "-")
 	case BROKER_IPC_PORT:
 		return strings.ReplaceAll(BROKER_IPC_PORT, "_", "-")
-
+	case BRPC_LISTEN_PORT:
+		return "brpc-port"
 	default:
 		return ""
 	}
@@ -292,33 +297,41 @@ func setServiceType(svc *v1.ExportService, service *corev1.Service) {
 	}
 }
 func ServiceDeepEqual(newSvc, oldSvc *corev1.Service) bool {
+	return ServiceDeepEqualWithAnnoKey(newSvc, oldSvc, v1.ComponentResourceHash)
+}
+
+func ServiceDeepEqualWithAnnoKey(nsvc, osvc *corev1.Service, annoKey string) bool {
+	if annoKey == "" {
+		annoKey = v1.ComponentResourceHash
+	}
+
 	var newHashValue, oldHashValue string
-	if _, ok := newSvc.Annotations[v1.ComponentResourceHash]; ok {
-		newHashValue = newSvc.Annotations[v1.ComponentResourceHash]
+	if _, ok := nsvc.Annotations[annoKey]; ok {
+		newHashValue = nsvc.Annotations[annoKey]
 	} else {
-		newHashService := serviceHashObject(newSvc)
+		newHashService := serviceHashObject(nsvc, set.NewSetString(annoKey))
 		newHashValue = hash.HashObject(newHashService)
 	}
 
-	if _, ok := oldSvc.Annotations[v1.ComponentResourceHash]; ok {
-		oldHashValue = oldSvc.Annotations[v1.ComponentResourceHash]
+	if _, ok := nsvc.Annotations[annoKey]; ok {
+		oldHashValue = osvc.Annotations[annoKey]
 	} else {
-		oldHashService := serviceHashObject(oldSvc)
+		oldHashService := serviceHashObject(osvc, set.NewSetString(annoKey))
 		oldHashValue = hash.HashObject(oldHashService)
 	}
 
 	// set hash value in annotation for avoiding deep equal.
-	newSvc.Annotations = mergeMaps(newSvc.Annotations, map[string]string{v1.ComponentResourceHash: newHashValue})
+	nsvc.Annotations = mergeMaps(nsvc.Annotations, map[string]string{annoKey: newHashValue})
 	return newHashValue == oldHashValue &&
-		newSvc.Namespace == oldSvc.Namespace
+		nsvc.Namespace == osvc.Namespace
 }
 
 // hash service for diff new generate service and old service in kubernetes.
-func serviceHashObject(svc *corev1.Service) hashService {
+func serviceHashObject(svc *corev1.Service, avoidAnnoKeys *set.SetString) hashService {
 	annos := make(map[string]string, len(svc.Annotations))
 	//for support service annotations, avoid hash value in annotations interfere equal comparison.
 	for key, value := range svc.Annotations {
-		if key == v1.ComponentResourceHash {
+		if ok := avoidAnnoKeys.Find(key); ok {
 			continue
 		}
 
