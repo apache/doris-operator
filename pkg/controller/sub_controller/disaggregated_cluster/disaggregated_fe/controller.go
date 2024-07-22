@@ -16,6 +16,8 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+	"strings"
 )
 
 var _ sub_controller.DisaggregatedSubController = &DisaggregatedFEController{}
@@ -47,17 +49,17 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return nil
 	}
 
-	if *(ddc.Spec.FeSpec.Replicas) < *(ddc.Spec.FeSpec.ElectionNumber) {
-		klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : the replicas setting of fe(%d) cannot be less than electionNumber(%d)", ddc.Namespace, ddc.Name, *(ddc.Spec.FeSpec.Replicas), *(ddc.Spec.FeSpec.ElectionNumber))
-		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "the replicas setting of disaggregated fe cannot be less than electionNumber, the cluster will not work normal.")
-		return nil
-	}
-
-	if *(ddc.Spec.FeSpec.ElectionNumber) != 1 {
-		klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : currently, must set the electionNumber 1, only one disaggregated fe master is allowed to exist.", ddc.Namespace, ddc.Name)
-		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "currently, must set the electionNumber 1, only one disaggregated fe master is allowed to exist.")
-		return nil
-	}
+	//if *(ddc.Spec.FeSpec.Replicas) < *(ddc.Spec.FeSpec.ElectionNumber) {
+	//	klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : the replicas setting of fe(%d) cannot be less than electionNumber(%d)", ddc.Namespace, ddc.Name, *(ddc.Spec.FeSpec.Replicas), *(ddc.Spec.FeSpec.ElectionNumber))
+	//	dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "the replicas setting of disaggregated fe cannot be less than electionNumber, the cluster will not work normal.")
+	//	return nil
+	//}
+	//
+	//if *(ddc.Spec.FeSpec.ElectionNumber) != 1 {
+	//	klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : currently, must set the electionNumber 1, only one disaggregated fe master is allowed to exist.", ddc.Namespace, ddc.Name)
+	//	dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "currently, must set the electionNumber 1, only one disaggregated fe master is allowed to exist.")
+	//	return nil
+	//}
 
 	confMap := dfc.getConfigValuesFromConfigMaps(ddc.Namespace, ddc.Spec.FeSpec.ConfigMaps)
 	svc := dfc.newService(ddc, confMap)
@@ -114,12 +116,28 @@ func (dfc *DisaggregatedFEController) GetControllerName() string {
 	return disaggregatedFEController
 }
 
+// podIsMaster if fe pod name has tail: '-0', is master
+func (dfc *DisaggregatedFEController) podIsMaster(podName, stfName string) bool {
+	if !strings.HasPrefix(podName, stfName+"-") {
+		return false
+	}
+	suffix := podName[len(stfName)+1:]
+	num, err := strconv.Atoi(suffix)
+	if err != nil {
+		return false
+	}
+	return num == 0
+}
+
 func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) error {
+	var masterAliveReplicas int32
 	var availableReplicas int32
 	var creatingReplicas int32
 	var failedReplicas int32
 
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+
+	stfName := ddc.GetFEStatefulsetName()
 
 	// FEStatus
 	feSpec := ddc.Spec.FeSpec
@@ -129,7 +147,11 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 		return err
 	}
 	for _, pod := range podList.Items {
+
 		if ready := k8s.PodIsReady(&pod.Status); ready {
+			if dfc.podIsMaster(pod.Name, stfName) {
+				masterAliveReplicas = 1
+			}
 			availableReplicas++
 		} else if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodPending {
 			creatingReplicas++
@@ -141,13 +163,13 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	// at least one fe PodIsReady FEStatus.AvailableStatu is Available,
 	// ClusterHealth.FeAvailable is true,
 	// for ClusterHealth.Health is yellow
-	if availableReplicas > 0 {
+	if masterAliveReplicas > 0 {
 		ddc.Status.FEStatus.AvailableStatus = dv1.Available
 		ddc.Status.ClusterHealth.FeAvailable = true
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	if availableReplicas == *(feSpec.Replicas) {
+	if masterAliveReplicas == Default_Election_Number && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = dv1.Ready
 	}
 
@@ -162,7 +184,7 @@ func (dfc *DisaggregatedFEController) getConfigValuesFromConfigMaps(namespace st
 
 	for _, cm := range cms {
 		kcm, err := k8s.GetConfigMap(context.Background(), dfc.k8sClient, namespace, cm.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
+		if err != nil {
 			klog.Errorf("disaggregatedFEController getConfigValuesFromConfigMaps namespace=%s, name=%s, failed, err=%s", namespace, cm.Name, err.Error())
 			continue
 		}

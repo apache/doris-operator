@@ -31,9 +31,6 @@ type FeSpec struct {
 	//Replicas represent the number of fe. default is 2. fe is master-slave architecture only one is master.
 	Replicas *int32 `json:"replicas,omitempty"`
 
-	//the number of fe in election. electionNumber <= replicas, left as observers. default value=1
-	ElectionNumber *int32 `json:"electionNumber,omitempty"`
-
 	CommonSpec `json:",inline"`
 }
 

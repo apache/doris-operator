@@ -168,9 +168,9 @@ func (dfc *DisaggregatedFEController) buildConfigMapVolumesVolumeMounts(fe *dv1.
 
 func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 
-	if ddc.Spec.FeSpec.ElectionNumber == nil {
-		ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(Default_Election_Number)
-	}
+	//if ddc.Spec.FeSpec.ElectionNumber == nil {
+	//	ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(Default_Election_Number)
+	//}
 
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
 	resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedFE))
@@ -284,7 +284,16 @@ func (dfc *DisaggregatedFEController) getMetaPath(confMap map[string]interface{}
 	if v == nil {
 		return DefaultMetaPath
 	}
-	return v.(string)
+	//log path support use $DORIS_HOME as subPath.
+	dev := map[string]string{
+		"DORIS_HOME": "/opt/apache-doris/fe",
+	}
+	mapping := func(key string) string {
+		return dev[key]
+	}
+	//resolve relative path to absolute path
+	path := os.Expand(v.(string), mapping)
+	return path
 }
 
 func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
@@ -302,7 +311,7 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregate
 		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: MS_TOKEN, Value: ms_token},
-		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(*ddc.Spec.FeSpec.ElectionNumber), 10)},
+		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(Default_Election_Number), 10)},
 	)
 	return feEnvs
 }

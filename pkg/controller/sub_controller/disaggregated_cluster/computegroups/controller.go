@@ -203,7 +203,7 @@ func (dccs *DisaggregatedComputeGroupsController) getConfigValuesFromConfigMaps(
 
 	for _, cm := range cms {
 		kcm, err := k8s.GetConfigMap(context.Background(), dccs.k8sClient, namespace, cm.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
+		if err != nil {
 			klog.Errorf("disaggregatedComputeGroupsController getConfigValuesFromConfigMaps namespace=%s, name=%s, failed, err=%s", namespace, cm.Name, err.Error())
 			continue
 		}
