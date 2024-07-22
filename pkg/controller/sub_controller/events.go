@@ -30,7 +30,6 @@ var (
 	FDBSpecEmpty                      EventReason = "SpecEmpty"
 	FDBAvailableButUnhealth           EventReason = "FDBAvailableButUnhealth"
 	FESpecSetError                    EventReason = "FESpecSetError"
-	FEEmpty                           EventReason = "FeEmpty"
 	FECreateResourceFailed            EventReason = "FECreateResourceFailed"
 	FEApplyResourceFailed             EventReason = "FEApplyResourceFailed"
 	FEStatefulsetDeleteFailed         EventReason = "FEStatefulsetDeleteFailed"

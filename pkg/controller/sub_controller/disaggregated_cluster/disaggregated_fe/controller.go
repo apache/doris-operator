@@ -43,23 +43,11 @@ func New(mgr ctrl.Manager) *DisaggregatedFEController {
 func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Object) error {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 
-	if *(ddc.Spec.FeSpec.Replicas) < 1 {
-		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s have not fe spec, fe default replicas is 2.", ddc.Namespace, ddc.Name)
-		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FEEmpty), "disaggregated fe empty, the cluster will not work normal, fe default replicas is 2.")
-		return nil
+	if *(ddc.Spec.FeSpec.Replicas) < Default_Fe_Replica_Number {
+		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is illegal and has been corrected to the default value %d", ddc.Namespace, ddc.Name, Default_Fe_Replica_Number)
+		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventNormal), string(sub_controller.FESpecSetError), "The number of disaggregated fe replicas is illegal and has been corrected to the default value 2")
+		ddc.Spec.FeSpec.Replicas = &Default_Fe_Replica_Number
 	}
-
-	//if *(ddc.Spec.FeSpec.Replicas) < *(ddc.Spec.FeSpec.ElectionNumber) {
-	//	klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : the replicas setting of fe(%d) cannot be less than electionNumber(%d)", ddc.Namespace, ddc.Name, *(ddc.Spec.FeSpec.Replicas), *(ddc.Spec.FeSpec.ElectionNumber))
-	//	dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "the replicas setting of disaggregated fe cannot be less than electionNumber, the cluster will not work normal.")
-	//	return nil
-	//}
-	//
-	//if *(ddc.Spec.FeSpec.ElectionNumber) != 1 {
-	//	klog.Errorf("disaggregatedFEController sync namespace=%s,name=%s : currently, must set the electionNumber 1, only one disaggregated fe master is allowed to exist.", ddc.Namespace, ddc.Name)
-	//	dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), string(sub_controller.FESpecSetError), "currently, must set the electionNumber 1, only one disaggregated fe master is allowed to exist.")
-	//	return nil
-	//}
 
 	confMap := dfc.getConfigValuesFromConfigMaps(ddc.Namespace, ddc.Spec.FeSpec.ConfigMaps)
 	svc := dfc.newService(ddc, confMap)

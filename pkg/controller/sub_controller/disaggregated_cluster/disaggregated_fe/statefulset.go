@@ -33,7 +33,8 @@ const (
 )
 
 var (
-	Default_Election_Number int32 = 1
+	Default_Election_Number   int32 = 1
+	Default_Fe_Replica_Number int32 = 2
 )
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
@@ -53,6 +54,9 @@ func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[s
 
 func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	spec := ddc.Spec.FeSpec
+	if *ddc.Spec.FeSpec.Replicas < Default_Fe_Replica_Number {
+		ddc.Spec.FeSpec.Replicas = &(Default_Fe_Replica_Number)
+	}
 	selector := dfc.newFEPodsSelector(ddc.Name)
 	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
 	pts := dfc.NewPodTemplateSpec(ddc, selector, confMap)
