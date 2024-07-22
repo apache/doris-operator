@@ -969,10 +969,6 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                    cloudUniqueIdPre:
-                      description: CloudUniqueIdPre represents the cloud code pre,
-                        if deployed in cloud platform. default CloudUniqueIdPre=1:clusterId:.
-                      type: string
                     clusterId:
                       description: ClusterId is the identifier of computeGroup, this
                         will distinguish all computeGroup in meta.
@@ -1803,6 +1799,12 @@ spec:
                     service:
                       description: export metaservice for accessing from outside k8s.
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: Annotations for using function on different
+                            cloud platform.
+                          type: object
                         portMaps:
                           description: PortMaps specify node port for target port
                             in pod, when the service type=NodePort.
@@ -1848,6 +1850,10 @@ spec:
                     serviceAccount:
                       description: serviceAccount for compute node access cloud service.
                       type: string
+                    startTimeout:
+                      description: pod start timeout, unit is second
+                      format: int32
+                      type: integer
                     tolerations:
                       description: (Optional) Tolerations for scheduling pods onto
                         some dedicated nodes
@@ -2990,6 +2996,11 @@ spec:
                             type: string
                         type: object
                     type: object
+                  electionNumber:
+                    description: the number of fe in election. electionNumber <= replicas,
+                      left as observers. default value=1
+                    format: int32
+                    type: integer
                   envVars:
                     description: EnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.
@@ -3601,6 +3612,12 @@ spec:
                   service:
                     description: export metaservice for accessing from outside k8s.
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations for using function on different cloud
+                          platform.
+                        type: object
                       portMaps:
                         description: PortMaps specify node port for target port in
                           pod, when the service type=NodePort.
@@ -3644,6 +3661,10 @@ spec:
                   serviceAccount:
                     description: serviceAccount for compute node access cloud service.
                     type: string
+                  startTimeout:
+                    description: pod start timeout, unit is second
+                    format: int32
+                    type: integer
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes
@@ -3734,9 +3755,6 @@ spec:
                       description: AvailableStatus represents the compute group available
                         or not.
                       type: string
-                    cloudUniqueIdPre:
-                      description: CloudUniqueIdPre display the cloud code pre.
-                      type: string
                     clusterId:
                       description: ClusterId display  the clusterId of compute group
                         in meta.
@@ -3762,9 +3780,6 @@ spec:
                 properties:
                   availableStatus:
                     description: AvailableStatus represents the fe available or not.
-                    type: string
-                  cloudUniqueIdPre:
-                    description: CloudUniqueIdPre display the cloud code pre.
                     type: string
                   clusterId:
                     description: ClusterId display  the clusterId of fe in meta.

@@ -221,7 +221,10 @@ func (fdbc *DisaggregatedFDBController) UpdateComponentStatus(obj client.Object)
 	//use fdbcluster's Healthy and available for checking fdb normal or not normal.
 	//Healthy  reports whether the database is in a fully healthy state.
 	//Available reports whether the database is accepting reads and writes.
-	if fdb.Status.Health.Healthy && fdb.Status.Health.Available {
+	if fdb.Status.Health.Available {
+		if fdb.Status.Health.Healthy == false {
+			fdbc.k8sRecorder.Event(ddm, string(sc.EventNormal), string(sc.FDBAvailableButUnhealth), "disaggregatedMetaService fdb status is not Healthy, but Available!")
+		}
 		ddm.Status.FDBStatus.AvailableStatus = mv1.Available
 	}
 

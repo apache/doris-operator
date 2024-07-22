@@ -213,7 +213,6 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 		if err := dc.validateInstanceInfo(instanceConf); err != nil {
 			return ctrl.Result{}, err
 		}
-
 		//display InstanceInfo in DorisDisaggregatedCluster
 		dc.displayInstanceInfo(instanceConf, &ddc)
 
@@ -298,6 +297,7 @@ func (dc *DisaggregatedClusterReconciler) getInstanceConfig(ctx context.Context,
 }
 
 func (dc *DisaggregatedClusterReconciler) ApplyInstanceMeta(endpoint, token string, instanceConf map[string]interface{}) (*sc.Event, error) {
+
 	instanceId := (instanceConf[ms_meta.Instance_id]).(string)
 	event, err := dc.CreateOrUpdateObjectMeta(endpoint, token, instanceConf)
 	if err != nil {
@@ -344,6 +344,7 @@ func (dc *DisaggregatedClusterReconciler) createObjectInfo(endpoint, token strin
 	if mr.Code != ms_http.SuccessCode && mr.Code != ms_http.ALREADY_EXIST {
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectConfigError, Message: mr.Msg}, errors.New("createObjectInfo " + mr.Code + mr.Msg)
 	}
+
 	return &sc.Event{Type: sc.EventNormal, Reason: sc.InstanceMetaCreated}, nil
 }
 
@@ -510,7 +511,7 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 	ddc.Status.ClusterHealth.Health = dv1.Green
 	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
 		ddc.Status.ClusterHealth.Health = dv1.Red
-	} else if ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
+	} else if ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
 		ddc.Status.ClusterHealth.Health = dv1.Yellow
 	}
 	return ctrl.Result{}, nil
@@ -556,9 +557,11 @@ func (dc *DisaggregatedClusterReconciler) updateDorisDisaggregatedClusterStatus(
 	}
 
 	ddc.Status.DeepCopyInto(&eddc.Status)
-	retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return dc.Status().Update(ctx, &eddc)
-	})
+	}); err != nil {
+		klog.Errorf("updateDorisDisaggregatedClusterStatus update status failed err: %s", err.Error())
+	}
 
 	// if the status is not equal before reconcile and now the status is not available we should requeue.
 	if !disAggregatedInconsistentStatus(&ddc.Status, &eddc) {

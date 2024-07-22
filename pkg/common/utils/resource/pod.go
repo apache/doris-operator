@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -43,6 +44,10 @@ const (
 	NODE_TOPOLOGYKEY = "kubernetes.io/hostname"
 
 	DEFAULT_INIT_IMAGE = "selectdb/alpine:latest"
+
+	HEALTH_DISAGGREGATED_FE_PROBE_COMMAND = "/opt/apache-doris/fe_disaggregated_probe.sh"
+	DISAGGREGATED_LIVE_PARAM_ALIVE        = "alive"
+	DISAGGREGATED_LIVE_PARAM_READY        = "ready"
 )
 
 type ProbeType string
@@ -130,13 +135,13 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	return pts
 }
 
-func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec) corev1.PodTemplateSpec {
+func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
 	var vs []corev1.Volume
 	vs, _ = appendPodInfoVolumesVolumeMounts(vs, nil)
 
 	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "be",
+			Name:        strings.ToLower(string(componentType)),
 			Annotations: cs.Annotations,
 			Labels:      cs.Labels,
 		},
@@ -155,7 +160,7 @@ func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec) corev1.PodTemplateSpec
 	return pts
 }
 
-// build be container.
+// build disaggregated node(fe,be) container.
 func NewContainerWithCommonSpec(cs *dv1.CommonSpec) corev1.Container {
 	var vms []corev1.VolumeMount
 	_, vms = appendPodInfoVolumesVolumeMounts(nil, vms)
@@ -744,6 +749,57 @@ func getExecProbe(commands []string) corev1.ProbeHandler {
 		Exec: &corev1.ExecAction{
 			Command: commands,
 		},
+	}
+}
+
+func BuildDisaggregatedProbe(container *corev1.Container, timeout int32, componentType dv1.DisaggregatedComponentType) {
+	var failurethreshold int32
+	if timeout < 300 {
+		timeout = 300
+	}
+	failurethreshold = timeout / 5
+
+	var commend string
+	switch componentType {
+	case dv1.DisaggregatedFE:
+		commend = HEALTH_DISAGGREGATED_FE_PROBE_COMMAND
+	//case dv1.DisaggregatedBE:
+	//	commend = HEALTH_DISAGGREGATED_BE_PROBE_COMMAND
+	default:
+	}
+
+	// check running status
+	alive := corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{commend, DISAGGREGATED_LIVE_PARAM_ALIVE},
+		},
+	}
+
+	// check ready status
+	ready := corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{commend, DISAGGREGATED_LIVE_PARAM_READY},
+		},
+	}
+
+	container.LivenessProbe = &corev1.Probe{
+		PeriodSeconds:       5,
+		FailureThreshold:    3,
+		InitialDelaySeconds: 80,
+		TimeoutSeconds:      180,
+		ProbeHandler:        alive,
+	}
+
+	container.StartupProbe = &corev1.Probe{
+		FailureThreshold: failurethreshold,
+		PeriodSeconds:    5,
+		ProbeHandler:     alive,
+	}
+
+	container.ReadinessProbe = &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler:     ready,
 	}
 }
 

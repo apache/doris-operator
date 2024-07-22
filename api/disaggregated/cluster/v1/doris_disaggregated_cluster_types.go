@@ -59,6 +59,9 @@ type CommonSpec struct {
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
+	// pod start timeout, unit is second
+	StartTimeout int32 `json:"startTimeout,omitempty"`
+
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 
@@ -156,6 +159,9 @@ type ExportService struct {
 	//More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
 	// +optional
 	Type corev1.ServiceType `json:"type,omitempty"`
+
+	//Annotations for using function on different cloud platform.
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	//PortMaps specify node port for target port in pod, when the service type=NodePort.
 	PortMaps []PortMap `json:"portMaps,omitempty"`
@@ -278,8 +284,6 @@ type FEStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of fe in meta.
 	ClusterId string `json:"clusterId,omitempty"`
-	//CloudUniqueIdPre display the cloud code pre.
-	CloudUniqueIdPre string `json:"cloudUniqueIdPre,omitempty"`
 }
 
 // +genclient
