@@ -1366,6 +1366,21 @@ spec:
                             through configuration. It only takes effect in the first
                             configuration and cannot be added or modified later.
                           type: object
+                        logNotStore:
+                          description: if config true, the log will mount a pvc to
+                            store logs. the pvc size is definitely 200Gi, as the log
+                            recycling system will regular recycling.
+                          type: boolean
+                        mountPaths:
+                          description: specify mountPaths, if not config, operator
+                            will refer from be.conf `cache_file_path`. when mountPaths=[]{"/opt/path1",
+                            "/opt/path2"}, will create two pvc mount the two paths.
+                            also, operator will mount the cache_file_path config in
+                            be.conf . if mountPaths have duplicated path in cache_file_path,
+                            operator will only create one pvc.
+                          items:
+                            type: string
+                          type: array
                         persistentVolumeClaimSpec:
                           description: PersistentVolumeClaimSpec is a list of claim
                             spec about storage that pods are required.
@@ -1602,20 +1617,6 @@ spec:
                         it defaults to Limits if that is explicitly specified, otherwise
                         to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                       type: object
-                    secrets:
-                      description: secrets describe all secret that need to be mounted.
-                      items:
-                        properties:
-                          mountPath:
-                            description: display the path of secret be mounted in
-                              pod.
-                            type: string
-                          name:
-                            description: specify the secret need to be mounted in
-                              deployed namespace.
-                            type: string
-                        type: object
-                      type: array
                     securityContext:
                       description: Security context for pod.
                       properties:
@@ -2996,11 +2997,6 @@ spec:
                             type: string
                         type: object
                     type: object
-                  electionNumber:
-                    description: the number of fe in election. electionNumber <= replicas,
-                      left as observers. default value=1
-                    format: int32
-                    type: integer
                   envVars:
                     description: EnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.
@@ -3191,6 +3187,21 @@ spec:
                           through configuration. It only takes effect in the first
                           configuration and cannot be added or modified later.
                         type: object
+                      logNotStore:
+                        description: if config true, the log will mount a pvc to store
+                          logs. the pvc size is definitely 200Gi, as the log recycling
+                          system will regular recycling.
+                        type: boolean
+                      mountPaths:
+                        description: specify mountPaths, if not config, operator will
+                          refer from be.conf `cache_file_path`. when mountPaths=[]{"/opt/path1",
+                          "/opt/path2"}, will create two pvc mount the two paths.
+                          also, operator will mount the cache_file_path config in
+                          be.conf . if mountPaths have duplicated path in cache_file_path,
+                          operator will only create one pvc.
+                        items:
+                          type: string
+                        type: array
                       persistentVolumeClaimSpec:
                         description: PersistentVolumeClaimSpec is a list of claim
                           spec about storage that pods are required.
@@ -3422,19 +3433,6 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
-                  secrets:
-                    description: secrets describe all secret that need to be mounted.
-                    items:
-                      properties:
-                        mountPath:
-                          description: display the path of secret be mounted in pod.
-                          type: string
-                        name:
-                          description: specify the secret need to be mounted in deployed
-                            namespace.
-                          type: string
-                      type: object
-                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:

@@ -355,11 +355,6 @@ func (in *FeSpec) DeepCopyInto(out *FeSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.ElectionNumber != nil {
-		in, out := &in.ElectionNumber, &out.ElectionNumber
-		*out = new(int32)
-		**out = **in
-	}
 	in.CommonSpec.DeepCopyInto(&out.CommonSpec)
 }
 

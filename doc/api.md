@@ -311,6 +311,17 @@ int32
 <tbody>
 <tr>
 <td>
+<code>startTimeout</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>pod start timeout, unit is second</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>annotations</code><br/>
 <em>
 map[string]string
@@ -2582,5 +2593,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>61cc2a0</code>.
+on git commit <code>e03b350</code>.
 </em></p>
