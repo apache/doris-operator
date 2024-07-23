@@ -40,6 +40,9 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		klog.Infof("fe controller controlClusterPhaseAndPreOperation get fe StatefulSet failed, err: %s", err.Error())
 		return nil
 	}
+	if cluster.Spec.FeSpec.Replicas == nil {
+		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
+	}
 	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
 	// fe scale
 	if scaleNumber != 0 { // set fe Phase as SCALING
@@ -123,10 +126,15 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 		return err
 	}
 
-	// make sure real sclaeNumber, this may involve retrying tasks and scaling down followers.
-	realSclaeNumber := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + *(targetDCR.Spec.FeSpec.ElectionNumber)
-	if realSclaeNumber <= 0 {
-		klog.Errorf("DropObserverFromSqlClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-*(targetDCR.Spec.FeSpec.ElectionNumber))
+	// make sure real scaleNumber, this may involve retrying tasks and scaling down followers.
+	electionNumber := Default_Election_Number
+	if targetDCR.Spec.FeSpec.ElectionNumber != nil {
+		electionNumber = *(targetDCR.Spec.FeSpec.ElectionNumber)
+	}
+	// means: realScaleNumber = allobservers - (replicas - election)
+	realScaleNumber := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + electionNumber
+	if realScaleNumber <= 0 {
+		klog.Errorf("DropObserverFromSqlClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-electionNumber)
 		return nil
 	}
 
@@ -158,7 +166,7 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 			return nil
 		}
 	}
-	observes := getFirstFewFrontendsAfterDescendOrder(frontendMap, realSclaeNumber)
+	observes := getFirstFewFrontendsAfterDescendOrder(frontendMap, realScaleNumber)
 	// drop node and return
 	return masterDBClient.DropObserver(observes)
 
