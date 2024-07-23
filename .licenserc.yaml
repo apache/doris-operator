@@ -1,0 +1,27 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    copyright-owner: Apache Software Foundation
+
+  paths-ignore:
+    - '.git'
+    - '.licenserc.yaml'
+    - '.gitignore'
+    - 'dist'
+    - 'go.mod'
+    - 'go.sum'
+    - 'licenses'
+    - '**/*.md'
+    - "**/*.json"
+    - "**/*.txt"
+    - '**/.helmignore'
+    - 'LICENSE'
+    - 'NOTICE'
+    - 'PROJECT'
+
+  comment: on-failure
+
+# If you don't want to check dependencies' license compatibility, remove the following part
+dependency:
+  files:
+    - go.mod
