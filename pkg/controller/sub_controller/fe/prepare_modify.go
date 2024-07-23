@@ -107,9 +107,13 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 	}
 
 	// make sure real sclaeNumber, this may involve retrying tasks and scaling down followers.
-	realSclaeNumber := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + *(targetDCR.Spec.FeSpec.ElectionNumber)
+	electionNumber := Default_Election_Number
+	if targetDCR.Spec.FeSpec.ElectionNumber != nil {
+		electionNumber = *(targetDCR.Spec.FeSpec.ElectionNumber)
+	}
+	realSclaeNumber := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + electionNumber
 	if realSclaeNumber <= 0 {
-		klog.Errorf("DropObserverFromSqlClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-*(targetDCR.Spec.FeSpec.ElectionNumber))
+		klog.Errorf("DropObserverFromSqlClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-electionNumber)
 		return nil
 	}
 
