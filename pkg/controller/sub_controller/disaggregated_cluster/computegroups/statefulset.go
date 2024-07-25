@@ -123,20 +123,26 @@ func (dccs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 
 	cgClusterId := selector[dv1.DorisDisaggregatedComputeGroupClusterId]
-	defAffinity := dccs.newCGDefaultAffinity(dv1.DorisDisaggregatedComputeGroupClusterId, cgClusterId)
-	if pts.Spec.Affinity == nil {
-		pts.Spec.Affinity = defAffinity
-		return pts
-	}
-
-	if pts.Spec.Affinity.PodAntiAffinity == nil {
-		pts.Spec.Affinity.PodAntiAffinity = defAffinity.PodAntiAffinity
-	} else {
-		pts.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(pts.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			defAffinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-	}
+	pts.Spec.Affinity = dccs.constructAffinity(dv1.DorisDisaggregatedComputeGroupClusterId, cgClusterId, pts.Spec.Affinity)
 
 	return pts
+}
+
+func (dccs *DisaggregatedComputeGroupsController) constructAffinity(matchKey, value string, ddcAffinity *corev1.Affinity) *corev1.Affinity {
+	affinity := dccs.newCGDefaultAffinity(matchKey, value)
+
+	if ddcAffinity == nil {
+		return affinity
+	}
+
+	ddcPodAntiAffinity := ddcAffinity.PodAntiAffinity
+	if ddcPodAntiAffinity != nil {
+		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = ddcPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, ddcPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+	affinity.NodeAffinity = ddcAffinity.NodeAffinity
+	affinity.PodAffinity = ddcAffinity.PodAffinity
+	return affinity
 }
 
 func (dccs *DisaggregatedComputeGroupsController) newCGDefaultAffinity(matchKey, value string) *corev1.Affinity {
@@ -261,9 +267,8 @@ func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVC
 					Name:        LogStoreName,
 					Annotations: cg.CommonSpec.PersistentVolume.Annotations,
 				},
-				Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
+				Spec: *cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
 			}
-			logPvc.Spec.Resources.Requests[corev1.ResourceStorage] = kr.MustParse("200Gi")
 			pvcs = append(pvcs, logPvc)
 		}
 	}()
@@ -293,7 +298,7 @@ func (dccs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVC
 				Name:        StorageStorePreName + strconv.Itoa(i),
 				Annotations: cg.CommonSpec.PersistentVolume.Annotations,
 			},
-			Spec: cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
+			Spec: *cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
 		})
 	}
 

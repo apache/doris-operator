@@ -23,6 +23,7 @@ import (
 	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	kr "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"strconv"
@@ -39,14 +40,15 @@ const (
 )
 
 const (
-	DefaultMetaPath = "/opt/apache-doris/fe/doris-meta"
-	MetaPathKey     = "meta_dir"
-	DefaultLogPath  = "/opt/apache-doris/fe/log"
-	LogPathKey      = "LOG_DIR"
-	LogStoreName    = "fe-log"
-	MetaStoreName   = "fe-meta"
-	FeClusterId     = "RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
-	FeClusterName   = "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
+	DefaultMetaPath          = "/opt/apache-doris/fe/doris-meta"
+	MetaPathKey              = "meta_dir"
+	DefaultLogPath           = "/opt/apache-doris/fe/log"
+	LogPathKey               = "LOG_DIR"
+	LogStoreName             = "fe-log"
+	MetaStoreName            = "fe-meta"
+	FeClusterId              = "RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
+	FeClusterName            = "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
+	DefaultStorageSize int64 = 107374182400
 )
 
 var (
@@ -226,6 +228,22 @@ func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap ma
 	var vms []corev1.VolumeMount
 	var pvcs []corev1.PersistentVolumeClaim
 
+	func() {
+		defQuantity := kr.NewQuantity(DefaultStorageSize, kr.BinarySI)
+		if fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests == nil {
+			fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests = map[corev1.ResourceName]kr.Quantity{}
+		}
+		pvcSize := fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
+		cmp := defQuantity.Cmp(pvcSize)
+		if cmp > 0 {
+			fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage] = *defQuantity
+		}
+
+		if len(fe.PersistentVolume.PersistentVolumeClaimSpec.AccessModes) == 0 {
+			fe.PersistentVolume.PersistentVolumeClaimSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+		}
+	}()
+
 	vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 			ClaimName: LogStoreName,
@@ -236,7 +254,7 @@ func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap ma
 			Name:        LogStoreName,
 			Annotations: fe.CommonSpec.PersistentVolume.Annotations,
 		},
-		Spec: fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
+		Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
 	})
 
 	vs = append(vs, corev1.Volume{Name: MetaStoreName, VolumeSource: corev1.VolumeSource{
@@ -249,7 +267,7 @@ func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap ma
 			Name:        MetaStoreName,
 			Annotations: fe.CommonSpec.PersistentVolume.Annotations,
 		},
-		Spec: fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec,
+		Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
 	})
 
 	return vs, vms, pvcs
