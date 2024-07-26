@@ -95,6 +95,13 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregated
 			PodManagementPolicy:  appv1.ParallelPodManagement,
 		},
 	}
+	//
+	////record annotation for avoid reconciling in other spec updated caused.
+	//hv := resource.HashStatefulset(st, false)
+	//if st.Annotations == nil {
+	//	st.Annotations = make(map[string]string)
+	//}
+	//st.Annotations[dv1.DisaggregatedSpecHashValueAnnotation] = hv
 	return st
 }
 

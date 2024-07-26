@@ -177,6 +177,7 @@ metadata:
     app: doris-operator-fdb-manager
     control-plane: controller-manager
   name: doris-operator-fdb-manager
+  namespace: doris
 spec:
   replicas: 1
   selector:
@@ -192,10 +193,6 @@ spec:
       - command:
         - /manager
         env:
-        - name: WATCH_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: LD_LIBRARY_PATH
           value: /usr/bin/fdb/primary/lib
         image: foundationdb/fdb-kubernetes-operator:v1.36.0
