@@ -235,7 +235,7 @@ func (dfc *DisaggregatedFEController) reconcileService(ctx context.Context, svc 
 		return resource.ServiceDeepEqualWithAnnoKey(nsvc, osvc, dv1.DisaggregatedSpecHashValueAnnotation)
 	}); err != nil {
 		klog.Errorf("disaggregatedFEController reconcileService apply service namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
-		return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEApplyResourceFailed, Message: err.Error()}, err
+		return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FECreateResourceFailed, Message: err.Error()}, err
 	}
 
 	return nil, nil
@@ -256,7 +256,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	if err := k8s.ApplyStatefulSet(ctx, dfc.k8sClient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithAnnoKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
+		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
 		klog.Errorf("disaggregatedFEController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEApplyResourceFailed, Message: err.Error()}, err

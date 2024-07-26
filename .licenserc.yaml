@@ -11,6 +11,8 @@ header:
     - 'go.mod'
     - 'go.sum'
     - 'licenses'
+    - 'api/**/zz_generated.deepcopy.go'
+    - 'config/crd/bases/*'
     - '**/*.md'
     - "**/*.json"
     - "**/*.txt"

@@ -101,10 +101,17 @@ func NewStatefulSetWithComputeGroup(cg *dv1.ComputeGroup) *appv1.StatefulSet {
 
 // StatefulSetDeepEqual judge two statefulset equal or not.
 func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
-	return StatefulsetDeepEqualWithAnnoKey(new, old, v1.ComponentResourceHash, excludeReplicas)
+	return StatefulsetDeepEqualWithOmitKey(new, old, v1.ComponentResourceHash, false, excludeReplicas)
 }
 
-func StatefulsetDeepEqualWithAnnoKey(new, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
+func StatefulsetDeepEqualWithOmitKey(new, old *appv1.StatefulSet, annoKey string, omit bool, excludeReplicas bool) bool {
+	if omit {
+		newHso := statefulSetHashObject(new, excludeReplicas)
+		newHashv := hash.HashObject(newHso)
+		oldHso := statefulSetHashObject(old, excludeReplicas)
+		oldHashv := hash.HashObject(oldHso)
+		return new.Namespace == old.Namespace && newHashv == oldHashv
+	}
 	var newHashv, oldHashv string
 	if annoKey == "" {
 		annoKey = v1.ComponentResourceHash
