@@ -24,7 +24,6 @@ import (
 	"io"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
-	"os"
 )
 
 const (
@@ -90,10 +89,6 @@ func DeleteInstance(endpoint, token, instanceId string) (*MSResponse, error) {
 
 func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, error) {
 	addr := fmt.Sprintf(CREATE_INSTANCE_PREFIX_TEMPLATE, endpoint, token)
-	debug := os.Getenv("DEBUG")
-	if debug == "true" {
-		addr = fmt.Sprintf(CREATE_INSTANCE_PREFIX_TEMPLATE, "10.152.183.53:5000", token)
-	}
 	r := bytes.NewReader(instanceInfo)
 	req, err := http.NewRequest("PUT", addr, r)
 	if err != nil {
