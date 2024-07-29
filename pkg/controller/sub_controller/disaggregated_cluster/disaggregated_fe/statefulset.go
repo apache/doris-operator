@@ -95,6 +95,7 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregated
 			PodManagementPolicy:  appv1.ParallelPodManagement,
 		},
 	}
+
 	return st
 }
 
