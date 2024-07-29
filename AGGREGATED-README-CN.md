@@ -14,7 +14,7 @@ Doris 存算分离包括以下组件：fdb, ms, recycler, fe, be 。 Doris-Opera
 ## 安装 Operator
 1. 下发资源定义：
 ```
-kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/doris.disaggregated.cluster.yaml
+kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/crds.yaml
 ```
 预期结果：
 ```
