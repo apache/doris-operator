@@ -9,8 +9,8 @@ In separation of storage and compute architecture, cluster contains the followin
 - the `open files` should greater than 65535 for host system config. (ulimit -n)
 
 >[!NOTE]
-> The total resources of cpu and memory about K8s worker should greater than the required to deploy doris cluster.
-> The resources of a K8s worker node should be greater than the resources required by one fe or be. fe or be default resource requirement: 4c, 4Gi.
+>1. The total resources of cpu and memory about K8s worker should greater than the required to deploy doris cluster.
+>2. The resources of a K8s worker node should be greater than the resources required by one fe or be. fe or be default resource requirement: 4c, 4Gi.
 
 ## Install Operator
 1. deploy CustomResourceDefinitions
@@ -56,8 +56,8 @@ Expected result:
 configmap/vault-test created
 ```
 >[!NOTE]
-> 1. Deploying a storage computing separation cluster requires pre-planning the object storage to be used, Configure the object storage information to the namespace that the Doris storage and computation separation cluster needs to deployed, through a `ConfigMap`.
-> 2. The configuration in the examples only displays the basic configuration required for object storage, all values are fictional and cannot be used in real-life scenarios. If you need to build a real and usable cluster, please use real data to fill in.
+>1. Deploying a storage computing separation cluster requires pre-planning the object storage to be used, Configure the object storage information to the namespace that the Doris storage and computation separation cluster needs to deployed, through a `ConfigMap`.
+>2. The configuration in the examples only displays the basic configuration required for object storage, all values are fictional and cannot be used in real-life scenarios. If you need to build a real and usable cluster, please use real data to fill in.
 
 3. Deploy `DorisDisaggregatedCluster` resource:
 ```
