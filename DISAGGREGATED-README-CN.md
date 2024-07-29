@@ -1,4 +1,4 @@
-中文 | [English](AGGREGATED-README.md)
+中文 | [English](DISAGGREGATED-README.md)
 # 存算分离模式部署
 存算分离是 Doris 从 3.0.0 开始提供的一种架构模式。存储和计算分离能够显著降低存储成本，在基本不降低性能的情况下将数据存储到价格更低廉的对象存储中，降低成本的同时也能更好地应对计算资源需求剧烈变化的场景。
 ## 资源简介
@@ -7,9 +7,9 @@ Doris 存算分离包括以下组件：fdb, ms, recycler, fe, be 。 Doris-Opera
 - Kubernetes 1.19+
 - 宿主机的能够使用的 open files 大于等于 65535 (ulimit -n)
 
->[!NOTICE]
+>[!NOTE]
 >K8s worker 所有节点总资源量大于部署 doris 需要的资源总量。
->worker 单个节点的资源量需要大于一个 fe 或 be 所需要的最大资源量。fe 或 be 默认最低启动配置 4c 4Gi。
+>worker 单个节点的资源量需要大于一个 fe 或 be 所需要的最大资源量。fe 或 be 默认最低启动配置 4c 4Gi 。
 
 ## 安装 Operator
 1. 下发资源定义：
@@ -22,7 +22,7 @@ customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundati
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedclusters.disaggregated.cluster.doris.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedmetaservices.disaggregated.metaservice.doris.com created
 ```
-2. 部署 Operator 以及下发其依赖的相关权限：
+2. 部署 Operator 以及依赖的 RBAC 规则：
 ```
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/disaggregated-operator.yaml
 ```
@@ -54,9 +54,8 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 ```
 configmap/vault-test created
 ```
-
-> [!NOTICE]
-> 1. 部署存算分离集群需要预先规划好使用的对象存储，将对象存储信息通过 ConfigMap 配置到 doris 存算分离集群需要部署的 Namespace 空间。
+> [!NOTE]
+> 1. 部署存算分离集群需要预先规划好使用的对象存储，将对象存储信息通过 ConfigMap 配置到 doris 存算分离集群需要部署的 Namespace 下。
 > 2. 案例中的配置主要为展示对象存储的基本配置所需信息，所有的值均为虚构不能用于真实场景，如果需要搭建真实可用集群请使用真实数据填写。
 
 3. 下发 `DorisDisaggregatedCluster` 资源部署集群：

@@ -1,3 +1,4 @@
+DorisCluster | [DorisDisaggregatedCluster](DISAGGREGATED-README-CN.md)
 中文 | [English](README.md)
 # doris-operator
 Doris-Operator 用于在 Kubernetes 上创建、配置和管理 Doris 集群，能够部署和管理 fe、be、cn、broker 所有组件。  

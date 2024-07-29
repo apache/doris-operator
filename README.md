@@ -1,4 +1,4 @@
-DorisCluster | [DorisDisaggregatedCluster](AGGREGATED-README)  
+DorisCluster | [DorisDisaggregatedCluster](DISAGGREGATED-README.md)
 
 English | [中文](README-CN.md)
 # doris-operator
