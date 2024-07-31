@@ -145,8 +145,8 @@ type BaseSpec struct {
 	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
 
 	//+optional
-	// podLabels for user selector or classify pods
-	PodLabels map[string]string `json:"podLabels,omitempty"`
+	// Labels for user selector or classify pods
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts
 	// file if specified. This is only valid for non-hostNetwork pods.

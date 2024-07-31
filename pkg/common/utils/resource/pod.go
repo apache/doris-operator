@@ -154,8 +154,9 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 
 func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
 	var vs []corev1.Volume
+	si := cs.SystemInitialization
+	var defaultInitContainers []corev1.Container
 	vs, _ = appendPodInfoVolumesVolumeMounts(vs, nil)
-
 	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        strings.ToLower(string(componentType)),
@@ -170,10 +171,12 @@ func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.Disa
 			Affinity:           cs.Affinity.DeepCopy(),
 			Tolerations:        cs.Tolerations,
 			HostAliases:        cs.HostAliases,
+			InitContainers:     defaultInitContainers,
 			SecurityContext:    cs.SecurityContext,
 			Volumes:            vs,
 		},
 	}
+	constructDisaggregatedInitContainers(componentType, &pts.Spec, si)
 	return pts
 }
 
@@ -219,6 +222,35 @@ func constructInitContainers(componentType v1.ComponentType, podSpec *corev1.Pod
 	// the init containers have sequence，should confirm use initial is always in the first priority.
 	if componentType == v1.Component_BE || componentType == v1.Component_CN {
 		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(defaultImage))
+	}
+	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
+}
+
+func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedComponentType, podSpec *corev1.PodSpec, si *dv1.SystemInitialization) {
+	initImage := DEFAULT_INIT_IMAGE
+	var defaultInitContains []corev1.Container
+	if si != nil {
+		enablePrivileged := true
+		if si.InitImage != "" {
+			initImage = si.InitImage
+		}
+		initContainer := corev1.Container{
+			Image:           initImage,
+			Name:            "init",
+			Command:         si.Command,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Args:            si.Args,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &enablePrivileged,
+			},
+		}
+		si.InitImage = initImage
+		defaultInitContains = append(defaultInitContains, initContainer)
+	}
+
+	// the init containers have sequence，should confirm use initial is always in the first priority.
+	if componentType == dv1.DisaggregatedBE {
+		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(initImage))
 	}
 	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
 }
