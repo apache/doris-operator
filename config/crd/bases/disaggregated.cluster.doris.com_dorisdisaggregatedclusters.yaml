@@ -1855,6 +1855,25 @@ spec:
                       description: pod start timeout, unit is second
                       format: int32
                       type: integer
+                    systemInitialization:
+                      description: SystemInitialization for fe, be setting system
+                        parameters.
+                      properties:
+                        args:
+                          description: Arguments to the entrypoint.
+                          items:
+                            type: string
+                          type: array
+                        command:
+                          description: Entrypoint array. Not executed within a shell.
+                          items:
+                            type: string
+                          type: array
+                        initImage:
+                          description: Image for doris initialization, default is
+                            selectdb/alpine:latest.
+                          type: string
+                      type: object
                     tolerations:
                       description: (Optional) Tolerations for scheduling pods onto
                         some dedicated nodes
@@ -3663,6 +3682,23 @@ spec:
                     description: pod start timeout, unit is second
                     format: int32
                     type: integer
+                  systemInitialization:
+                    description: SystemInitialization for fe, be setting system parameters.
+                    properties:
+                      args:
+                        description: Arguments to the entrypoint.
+                        items:
+                          type: string
+                        type: array
+                      command:
+                        description: Entrypoint array. Not executed within a shell.
+                        items:
+                          type: string
+                        type: array
+                      initImage:
+                        description: Image for doris initialization, default is selectdb/alpine:latest.
+                        type: string
+                    type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes

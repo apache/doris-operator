@@ -125,7 +125,7 @@ func GenerateComponentStatefulSetName(dms *DorisDisaggregatedMetaService, compon
 func GetPodLabels(dms *DorisDisaggregatedMetaService, componentType ComponentType) metadata.Labels {
 	labels := GenerateStatefulSetSelector(dms, componentType)
 	labels.AddLabel(getDefaultLabels(dms))
-	labels.AddLabel(dms.Spec.MS.PodLabels)
+	labels.AddLabel(dms.Spec.MS.Labels)
 	return labels
 }
 

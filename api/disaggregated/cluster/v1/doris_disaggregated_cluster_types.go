@@ -134,6 +134,20 @@ type CommonSpec struct {
 
 	//EnvVars is a slice of environment variables that are added to the pods, the default is empty.
 	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
+
+	//SystemInitialization for fe, be setting system parameters.
+	SystemInitialization *SystemInitialization `json:"systemInitialization,omitempty"`
+}
+
+type SystemInitialization struct {
+	//Image for doris initialization, default is selectdb/alpine:latest.
+	InitImage string `json:"initImage,omitempty"`
+
+	// Entrypoint array. Not executed within a shell.
+	Command []string `json:"command,omitempty"`
+
+	// Arguments to the entrypoint.
+	Args []string `json:"args,omitempty"`
 }
 
 // PersistentVolume defines volume information and container mount information.

@@ -2626,6 +2626,11 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels for user selector or classify pods
+                    type: object
                   limits:
                     additionalProperties:
                       anyOf:
@@ -2867,11 +2872,6 @@ spec:
                               PersistentVolume backing this claim.
                             type: string
                         type: object
-                    type: object
-                  podLabels:
-                    additionalProperties:
-                      type: string
-                    description: podLabels for user selector or classify pods
                     type: object
                   replicas:
                     description: Replicas represent the number of metaservice. default
@@ -4408,6 +4408,11 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels for user selector or classify pods
+                    type: object
                   limits:
                     additionalProperties:
                       anyOf:
@@ -4649,11 +4654,6 @@ spec:
                               PersistentVolume backing this claim.
                             type: string
                         type: object
-                    type: object
-                  podLabels:
-                    additionalProperties:
-                      type: string
-                    description: podLabels for user selector or classify pods
                     type: object
                   replicas:
                     description: Replicas represent the number of metaservice. default
