@@ -129,28 +129,46 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddm *mv1.DorisDi
 		},
 	}
 
-	if ddm.Spec.FDB.Image == "" {
-		return fdb
-	}
-	bi, v, err := imageSplit(ddm.Spec.FDB.Image)
-	if err != nil {
-		klog.Infof("disaggregatedFDBController split config image error, err=%s", err.Error())
-		fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.Image+" format not provided, please reference docker definition.")
-		return fdb
+	if ddm.Spec.FDB.Image != "" {
+		bi, v, err := imageSplit(ddm.Spec.FDB.Image)
+		if err != nil {
+			klog.Infof("disaggregatedFDBController split config image error, err=%s", err.Error())
+			fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.Image+" format not provided, please reference docker definition.")
+			return fdb
 
-	}
+		}
 
-	co := v1beta2.ContainerOverrides{
-		ImageConfigs: []v1beta2.ImageConfig{
-			v1beta2.ImageConfig{
-				Version:   v,
-				BaseImage: bi,
+		co := v1beta2.ContainerOverrides{
+			ImageConfigs: []v1beta2.ImageConfig{
+				v1beta2.ImageConfig{
+					Version:   v,
+					BaseImage: bi,
+				},
 			},
-		},
+		}
+
+		fdb.Spec.MainContainer = co
 	}
 
-	fdb.Spec.MainContainer = co
-	fdb.Spec.SidecarContainer = co
+	if ddm.Spec.FDB.SidecarImage != "" {
+		sidecarImage, sidecarImageVersion, err := imageSplit(ddm.Spec.FDB.SidecarImage)
+		if err != nil {
+			klog.Infof("disaggregatedFDBController split config SidecarImage error, err=%s", err.Error())
+			fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.SidecarImage+" format not provided, please reference docker definition.")
+			return fdb
+
+		}
+		sidecarContainer := v1beta2.ContainerOverrides{
+			ImageConfigs: []v1beta2.ImageConfig{
+				v1beta2.ImageConfig{
+					Version:   sidecarImageVersion,
+					BaseImage: sidecarImage,
+				},
+			},
+		}
+		fdb.Spec.SidecarContainer = sidecarContainer
+	}
+
 	return fdb
 }
 

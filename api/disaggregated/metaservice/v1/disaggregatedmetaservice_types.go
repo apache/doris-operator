@@ -62,6 +62,9 @@ type FoundationDB struct {
 	//usually no need config, operator will use default image.
 	Image string `json:"image,omitempty"`
 
+	//SidecarImage is the fdb sidecar image to deploy. pelease reference the selectdb repository to find.
+	SidecarImage string `json:"sidecarImage,omitempty"`
+
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
