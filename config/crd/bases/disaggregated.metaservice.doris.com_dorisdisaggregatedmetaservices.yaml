@@ -1003,6 +1003,10 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  sidecarImage:
+                    description: SidecarImage is the fdb sidecar image to deploy.
+                      pelease reference the selectdb repository to find.
+                    type: string
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
                       dedicated nodes
