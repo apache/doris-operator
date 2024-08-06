@@ -26,34 +26,34 @@ import (
 please use get function to replace new function.
 */
 
-func newCGStatefulsetName(ddcName /*dorisDisaggregatedCluster Name*/, cgName /*computegroup's name*/ string) string {
-	//cgName use "_", but name in kubernetes object use "-"
-	stName := ddcName + "-" + cgName
+func newCCStatefulsetName(ddcName /*dorisDisaggregatedCluster Name*/, ccName /*computeCluster's name*/ string) string {
+	//ccName use "_", but name in kubernetes object use "-"
+	stName := ddcName + "-" + ccName
 	stName = strings.ReplaceAll(stName, "_", "-")
 	return stName
 }
 
 // RE:[a-zA-Z][0-9a-zA-Z_]+
-func newCGClusterId(namespace, stsName string) string {
+func newCCId(namespace, stsName string) string {
 	return strings.ReplaceAll(namespace+"_"+stsName, "-", "_")
 }
 
-func newCGCloudUniqueIdPre(instanceId string) string {
+func newCCCloudUniqueIdPre(instanceId string) string {
 	return fmt.Sprintf("1:%s", instanceId)
 }
 
-func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
-	cgStsName := ""
-	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId {
-			cgStsName = cgs.StatefulsetName
+func (ddc *DorisDisaggregatedCluster) GetCCStatefulsetName(cc *ComputeCluster) string {
+	ccStsName := ""
+	for _, ccs := range ddc.Status.ComputeClusterStatuses {
+		if ccs.ComputeClusterName == cc.Name || ccs.ClusterId == cc.ClusterId {
+			ccStsName = ccs.StatefulsetName
 		}
 	}
 
-	if cgStsName != "" {
-		return cgStsName
+	if ccStsName != "" {
+		return ccStsName
 	}
-	return newCGStatefulsetName(ddc.Name, cg.Name)
+	return newCCStatefulsetName(ddc.Name, cc.Name)
 }
 
 func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
@@ -64,38 +64,38 @@ func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
 	// need config in vaultConfigMap.
 	return ""
 }
-func (ddc *DorisDisaggregatedCluster) GetCGClusterId(cg *ComputeGroup) string {
-	if cg == nil || ddc == nil {
+func (ddc *DorisDisaggregatedCluster) GetCCId(cc *ComputeCluster) string {
+	if cc == nil || ddc == nil {
 		return ""
 	}
-	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cg.Name == cgs.ComputeGroupName || cg.ClusterId == cgs.ClusterId {
-			return cg.ClusterId
+	for _, ccs := range ddc.Status.ComputeClusterStatuses {
+		if cc.Name == ccs.ComputeClusterName || cc.ClusterId == ccs.ClusterId {
+			return cc.ClusterId
 		}
 	}
 
-	stsName := ddc.GetCGStatefulsetName(cg)
-	//update cg' clusterId for auto assemble, if not config.
-	if cg.ClusterId == "" {
-		cg.ClusterId = newCGClusterId(ddc.Namespace, stsName)
+	stsName := ddc.GetCCStatefulsetName(cc)
+	//update cc' clusterId for auto assemble, if not config.
+	if cc.ClusterId == "" {
+		cc.ClusterId = newCCId(ddc.Namespace, stsName)
 	}
 
-	return cg.ClusterId
+	return cc.ClusterId
 }
 
-func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre() string {
-	return newCGCloudUniqueIdPre(ddc.GetInstanceId())
+func (ddc *DorisDisaggregatedCluster) GetCCCloudUniqueIdPre() string {
+	return newCCCloudUniqueIdPre(ddc.GetInstanceId())
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
 	return ddc.Name + "-" + "fe"
 }
 
-func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string {
+func (ddc *DorisDisaggregatedCluster) GetCCServiceName(cc *ComputeCluster) string {
 	svcName := ""
-	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupName == cg.Name || cgs.ClusterId == cg.ClusterId {
-			svcName = cgs.ServiceName
+	for _, ccs := range ddc.Status.ComputeClusterStatuses {
+		if ccs.ComputeClusterName == cc.Name || ccs.ClusterId == cc.ClusterId {
+			svcName = ccs.ServiceName
 		}
 	}
 
@@ -103,7 +103,7 @@ func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string 
 		return svcName
 	}
 
-	svcName = ddc.Name + "-" + cg.Name
+	svcName = ddc.Name + "-" + cc.Name
 	svcName = strings.ReplaceAll(svcName, "_", "-")
 	return svcName
 }

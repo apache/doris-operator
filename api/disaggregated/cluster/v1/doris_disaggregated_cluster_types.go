@@ -33,8 +33,8 @@ type DorisDisaggregatedClusterSpec struct {
 	//FeSpec describe the fe specification of doris disaggregated cluster.
 	FeSpec FeSpec `json:"feSpec,omitempty"`
 
-	//ComputeGroups describe a list of computeGroup, computeGroup is a group of compute node to do same thing.
-	ComputeGroups []ComputeGroup `json:"computeGroups,omitempty"`
+	//ComputeClusters describe a list of ComputeCluster, ComputeCluster is a group of compute node to do same thing.
+	ComputeClusters []ComputeCluster `json:"computeClusters,omitempty"`
 }
 
 type DisMS struct {
@@ -51,12 +51,12 @@ type FeSpec struct {
 	CommonSpec `json:",inline"`
 }
 
-// ComputeGroup describe the specification that a group of compute node.
-type ComputeGroup struct {
-	//Name is the identifier of computeGroup, name can be used specify what computegroup to run sql. if not set, will use `computegroup` and the index in array to set.ep: computegroup-1.
+// ComputeCluster describe the specification that a group of compute node.
+type ComputeCluster struct {
+	//Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use `computeCluster` and the index in array to set.ep: computeCluster-1.
 	Name string `json:"name,omitempty"`
 
-	//ClusterId is the identifier of computeGroup, this will distinguish all computeGroup in meta.
+	//ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	//Replicas represent the number of compute node.
@@ -112,7 +112,7 @@ type CommonSpec struct {
 	//secrets describe all secret that need to be mounted.
 	//Secrets []Secret `json:"secrets,omitempty"`
 
-	// specify what's node to deploy compute group pod.
+	// specify what's node to deploy compute cluster pod.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -240,8 +240,8 @@ type DorisDisaggregatedClusterStatus struct {
 
 	ClusterHealth ClusterHealth `json:"clusterHealth,omitempty"`
 
-	//ComputeGroupStatuses reflect a list of computecgroup status.
-	ComputeGroupStatuses []ComputeGroupStatus `json:"computeGroupStatuses,omitempty"`
+	//ComputeClusterStatuses reflect a list of computeCluster status.
+	ComputeClusterStatuses []ComputeClusterStatus `json:"computeClusterStatuses,omitempty"`
 }
 type Health string
 
@@ -256,12 +256,12 @@ type ClusterHealth struct {
 	Health Health `json:"health,omitempty"`
 	//represents the fe available or not.
 	FeAvailable bool `json:"feAvailable,omitempty"`
-	//the number of compute group.
-	CGCount int32 `json:"cgCount,omitempty"`
-	//the available numbers of compute group.
-	CGAvailableCount int32 `json:"cgAvailableCount,omitempty"`
-	//the full available numbers of compute group, represents all pod in compute group are ready.
-	CGFullAvailableCount int32 `json:"cgFullAvailableCount,omitempty"`
+	//the number of compute cluster.
+	CCCount int32 `json:"ccCount,omitempty"`
+	//the available numbers of compute cluster.
+	CCAvailableCount int32 `json:"ccAvailableCount,omitempty"`
+	//the full available numbers of compute cluster, represents all pod in compute cluster are ready.
+	CCFullAvailableCount int32 `json:"ccFullAvailableCount,omitempty"`
 }
 
 type Phase string
@@ -286,18 +286,18 @@ const (
 	UnAvailable AvailableStatus = "UnAvailable"
 )
 
-type ComputeGroupStatus struct {
+type ComputeClusterStatus struct {
 	//Phase represent the stage of reconciling.
 	Phase Phase `json:"phase,omitempty"`
-	// the statefulset of control this compute group pods.
+	// the statefulset of control this compute cluster pods.
 	StatefulsetName string `json:"statefulsetName,omitempty"`
-	// the service that can access the compute group pods.
+	// the service that can access the compute cluster pods.
 	ServiceName string `json:"serviceName,omitempty"`
-	//represents the compute group.
-	ComputeGroupName string `json:"ComputeGroupName,omitempty"`
-	//AvailableStatus represents the compute group available or not.
+	//represents the compute cluster.
+	ComputeClusterName string `json:"ComputeClusterName,omitempty"`
+	//AvailableStatus represents the compute cluster available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
-	//ClusterId display  the clusterId of compute group in meta.
+	//ClusterId display  the clusterId of compute cluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// replicas is the number of Pods created by the StatefulSet controller.
@@ -324,9 +324,9 @@ type FEStatus struct {
 // +kubebuilder:resource:shortName=ddc
 // +kubebuilder:printcolumn:name="ClusterHealth",type=string,JSONPath=`.status.clusterHealth.health`
 // +kubebuilder:printcolumn:name="FEPhase",type=string,JSONPath=`.status.feStatus.phase`
-// +kubebuilder:printcolumn:name="CGCount",type=integer,JSONPath=`.status.clusterHealth.cgCount`
-// +kubebuilder:printcolumn:name="CGAvailableCount",type=integer,JSONPath=`.status.clusterHealth.cgAvailableCount`
-// +kubebuilder:printcolumn:name="CGFullAvailableCount",type=integer,JSONPath=`.status.clusterHealth.cgFullAvailableCount`
+// +kubebuilder:printcolumn:name="CCCount",type=integer,JSONPath=`.status.clusterHealth.ccCount`
+// +kubebuilder:printcolumn:name="CCAvailableCount",type=integer,JSONPath=`.status.clusterHealth.ccAvailableCount`
+// +kubebuilder:printcolumn:name="CCFullAvailableCount",type=integer,JSONPath=`.status.clusterHealth.ccFullAvailableCount`
 // +kubebuilder:storageversion
 // DorisDisaggregatedCluster defined as CRD format, have type, metadata, spec, status, fields.
 type DorisDisaggregatedCluster struct {

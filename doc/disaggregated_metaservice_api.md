@@ -321,14 +321,14 @@ map[string]string
 </tr>
 <tr>
 <td>
-<code>podLabels</code><br/>
+<code>labels</code><br/>
 <em>
 map[string]string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>podLabels for user selector or classify pods</p>
+<p>Labels for user selector or classify pods</p>
 </td>
 </tr>
 <tr>
@@ -758,6 +758,17 @@ usually no need config, operator will use default image.</p>
 </tr>
 <tr>
 <td>
+<code>sidecarImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SidecarImage is the fdb sidecar image to deploy. pelease reference the selectdb repository to find.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>imagePullSecrets</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#localobjectreference-v1-core">
@@ -1082,5 +1093,5 @@ BaseSpec <code>json:&quot;baseSpec,omitempty&quot;</code></p>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>a60f4a0</code>.
+on git commit <code>dfcbd33</code>.
 </em></p>

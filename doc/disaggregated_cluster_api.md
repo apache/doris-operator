@@ -13,7 +13,7 @@ Resource Types:
 <h3 id="disaggregated.cluster.doris.com/v1.AvailableStatus">AvailableStatus
 (<code>string</code> alias)</h3>
 <p>
-(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>)
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeClusterStatus">ComputeClusterStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>)
 </p>
 <div>
 </div>
@@ -73,35 +73,35 @@ bool
 </tr>
 <tr>
 <td>
-<code>cgCount</code><br/>
+<code>ccCount</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<p>the number of compute group.</p>
+<p>the number of compute cluster.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>cgAvailableCount</code><br/>
+<code>ccAvailableCount</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<p>the available numbers of compute group.</p>
+<p>the available numbers of compute cluster.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>cgFullAvailableCount</code><br/>
+<code>ccFullAvailableCount</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<p>the full available numbers of compute group, represents all pod in compute group are ready.</p>
+<p>the full available numbers of compute cluster, represents all pod in compute cluster are ready.</p>
 </td>
 </tr>
 </tbody>
@@ -109,7 +109,7 @@ int32
 <h3 id="disaggregated.cluster.doris.com/v1.CommonSpec">CommonSpec
 </h3>
 <p>
-(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroup">ComputeGroup</a>, <a href="#disaggregated.cluster.doris.com/v1.FeSpec">FeSpec</a>)
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeCluster">ComputeCluster</a>, <a href="#disaggregated.cluster.doris.com/v1.FeSpec">FeSpec</a>)
 </p>
 <div>
 </div>
@@ -285,7 +285,7 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>specify what&rsquo;s node to deploy compute group pod.</p>
+<p>specify what&rsquo;s node to deploy compute cluster pod.</p>
 </td>
 </tr>
 <tr>
@@ -355,15 +355,28 @@ Kubernetes core/v1.SecurityContext
 <p>EnvVars is a slice of environment variables that are added to the pods, the default is empty.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>systemInitialization</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.SystemInitialization">
+SystemInitialization
+</a>
+</em>
+</td>
+<td>
+<p>SystemInitialization for fe, be setting system parameters.</p>
+</td>
+</tr>
 </tbody>
 </table>
-<h3 id="disaggregated.cluster.doris.com/v1.ComputeGroup">ComputeGroup
+<h3 id="disaggregated.cluster.doris.com/v1.ComputeCluster">ComputeCluster
 </h3>
 <p>
 (<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterSpec">DorisDisaggregatedClusterSpec</a>)
 </p>
 <div>
-<p>ComputeGroup describe the specification that a group of compute node.</p>
+<p>ComputeCluster describe the specification that a group of compute node.</p>
 </div>
 <table>
 <thead>
@@ -381,7 +394,7 @@ string
 </em>
 </td>
 <td>
-<p>Name is the identifier of computeGroup, name can be used specify what computegroup to run sql. if not set, will use <code>computegroup</code> and the index in array to set.ep: computegroup-1.</p>
+<p>Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use <code>computeCluster</code> and the index in array to set.ep: computeCluster-1.</p>
 </td>
 </tr>
 <tr>
@@ -392,7 +405,7 @@ string
 </em>
 </td>
 <td>
-<p>ClusterId is the identifier of computeGroup, this will distinguish all computeGroup in meta.</p>
+<p>ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.</p>
 </td>
 </tr>
 <tr>
@@ -423,7 +436,7 @@ CommonSpec
 </tr>
 </tbody>
 </table>
-<h3 id="disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus
+<h3 id="disaggregated.cluster.doris.com/v1.ComputeClusterStatus">ComputeClusterStatus
 </h3>
 <p>
 (<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterStatus">DorisDisaggregatedClusterStatus</a>)
@@ -459,7 +472,7 @@ string
 </em>
 </td>
 <td>
-<p>the statefulset of control this compute group pods.</p>
+<p>the statefulset of control this compute cluster pods.</p>
 </td>
 </tr>
 <tr>
@@ -470,18 +483,18 @@ string
 </em>
 </td>
 <td>
-<p>the service that can access the compute group pods.</p>
+<p>the service that can access the compute cluster pods.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>ComputeGroupName</code><br/>
+<code>ComputeClusterName</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<p>represents the compute group.</p>
+<p>represents the compute cluster.</p>
 </td>
 </tr>
 <tr>
@@ -494,7 +507,7 @@ AvailableStatus
 </em>
 </td>
 <td>
-<p>AvailableStatus represents the compute group available or not.</p>
+<p>AvailableStatus represents the compute cluster available or not.</p>
 </td>
 </tr>
 <tr>
@@ -505,7 +518,7 @@ string
 </em>
 </td>
 <td>
-<p>ClusterId display  the clusterId of compute group in meta.</p>
+<p>ClusterId display  the clusterId of compute cluster in meta.</p>
 </td>
 </tr>
 <tr>
@@ -696,15 +709,15 @@ FeSpec
 </tr>
 <tr>
 <td>
-<code>computeGroups</code><br/>
+<code>computeClusters</code><br/>
 <em>
-<a href="#disaggregated.cluster.doris.com/v1.ComputeGroup">
-[]ComputeGroup
+<a href="#disaggregated.cluster.doris.com/v1.ComputeCluster">
+[]ComputeCluster
 </a>
 </em>
 </td>
 <td>
-<p>ComputeGroups describe a list of computeGroup, computeGroup is a group of compute node to do same thing.</p>
+<p>ComputeClusters describe a list of ComputeCluster, ComputeCluster is a group of compute node to do same thing.</p>
 </td>
 </tr>
 </table>
@@ -779,15 +792,15 @@ FeSpec
 </tr>
 <tr>
 <td>
-<code>computeGroups</code><br/>
+<code>computeClusters</code><br/>
 <em>
-<a href="#disaggregated.cluster.doris.com/v1.ComputeGroup">
-[]ComputeGroup
+<a href="#disaggregated.cluster.doris.com/v1.ComputeCluster">
+[]ComputeCluster
 </a>
 </em>
 </td>
 <td>
-<p>ComputeGroups describe a list of computeGroup, computeGroup is a group of compute node to do same thing.</p>
+<p>ComputeClusters describe a list of ComputeCluster, ComputeCluster is a group of compute node to do same thing.</p>
 </td>
 </tr>
 </tbody>
@@ -867,15 +880,15 @@ ClusterHealth
 </tr>
 <tr>
 <td>
-<code>computeGroupStatuses</code><br/>
+<code>computeClusterStatuses</code><br/>
 <em>
-<a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">
-[]ComputeGroupStatus
+<a href="#disaggregated.cluster.doris.com/v1.ComputeClusterStatus">
+[]ComputeClusterStatus
 </a>
 </em>
 </td>
 <td>
-<p>ComputeGroupStatuses reflect a list of computecgroup status.</p>
+<p>ComputeClusterStatuses reflect a list of computeCluster status.</p>
 </td>
 </tr>
 </tbody>
@@ -1110,7 +1123,7 @@ It only takes effect in the first configuration and cannot be added or modified 
 <h3 id="disaggregated.cluster.doris.com/v1.Phase">Phase
 (<code>string</code> alias)</h3>
 <p>
-(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>)
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeClusterStatus">ComputeClusterStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>)
 </p>
 <div>
 </div>
@@ -1228,8 +1241,58 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="disaggregated.cluster.doris.com/v1.SystemInitialization">SystemInitialization
+</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.CommonSpec">CommonSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>initImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Image for doris initialization, default is selectdb/alpine:latest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>command</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Entrypoint array. Not executed within a shell.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>args</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Arguments to the entrypoint.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>e03b350</code>.
+on git commit <code>dfcbd33</code>.
 </em></p>

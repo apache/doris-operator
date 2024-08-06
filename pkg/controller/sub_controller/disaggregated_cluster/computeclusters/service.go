@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package computegroups
+package computeclusters
 
 import (
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
@@ -25,19 +25,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (dccs *DisaggregatedComputeGroupsController) newService(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *corev1.Service {
-	cgClusterId := ddc.GetCGClusterId(cg)
-	svcConf := cg.CommonSpec.Service
+func (dccs *DisaggregatedComputeClustersController) newService(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster, cvs map[string]interface{}) *corev1.Service {
+	ccClusterId := ddc.GetCCId(cc)
+	svcConf := cc.CommonSpec.Service
 	sps := newComputeServicePorts(cvs, svcConf)
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ddc.GetCGServiceName(cg),
+			Name:            ddc.GetCCServiceName(cc),
 			Namespace:       ddc.Namespace,
-			Labels:          dccs.newCG2LayerSchedulerLabels(ddc.Namespace, cgClusterId),
+			Labels:          dccs.newCC2LayerSchedulerLabels(ddc.Namespace, ccClusterId),
 			OwnerReferences: []metav1.OwnerReference{resource.GetOwnerReference(ddc)},
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: dccs.newCGPodsSelector(ddc.Name, cgClusterId),
+			Selector: dccs.newCCPodsSelector(ddc.Name, ccClusterId),
 			Type:     corev1.ServiceTypeClusterIP,
 			Ports:    sps,
 		},
