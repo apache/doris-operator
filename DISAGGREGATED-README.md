@@ -47,7 +47,7 @@ NAME                   FDBSTATUS   MSSTATUS   RECYCLERSTATUS
 meta-service-release   Available   Ready      Ready
 ```
 2. Deploy `ConfigMap` that contains object information for cluster:
-Separation of storage and compute uses object storage as the backend storage, requiring prior planning of the object storage to be used. Configure object storage information in JSON format according to the [Storage and computation separation interface](https://doris.apache.org/zh-CN/docs/dev/compute-storage-decoupled/creating-cluster#%E5%86%85%E7%BD%AE%E5%AD%98%E5%82%A8%E5%90%8E%E7%AB%AF) format.
+Separation of storage and compute uses object storage as the backend storage, requiring prior planning of the object storage to be used. Configure object storage information in JSON format according to the [Storage and computation separation interface](https://doris.apache.org/docs/dev/compute-storage-decoupled/creating-cluster/#built-in-storage-vault) format.
 ```
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/cluster/object-store-info.yaml
 ```
