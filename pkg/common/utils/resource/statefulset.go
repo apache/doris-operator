@@ -88,12 +88,12 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 	return st
 }
 
-// use computeGroup build base statefulset.
-func NewStatefulSetWithComputeGroup(cg *dv1.ComputeGroup) *appv1.StatefulSet {
+// use ComputeCluster build base statefulset.
+func NewStatefulSetWithComputeCluster(cc *dv1.ComputeCluster) *appv1.StatefulSet {
 	st := &appv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{},
 		Spec: appv1.StatefulSetSpec{
-			Replicas: cg.Replicas,
+			Replicas: cc.Replicas,
 		},
 	}
 	return st

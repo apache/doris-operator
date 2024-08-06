@@ -207,7 +207,7 @@ func (dfc *DisaggregatedFEController) getConfigValuesFromConfigMaps(namespace st
 	return nil
 }
 
-// initial compute group status before sync resources. status changing with sync steps, and generate the last status by classify pods.
+// initial fe status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dfc *DisaggregatedFEController) initialFEStatus(ddc *dv1.DorisDisaggregatedCluster) {
 	if ddc.Status.FEStatus.Phase == dv1.Reconciling {
 		return

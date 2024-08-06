@@ -3,7 +3,7 @@ English | [中文](DISAGGREGATED-README-CN.md)
 # Deploy Separation of Storage and Compute Cluster
 Separation of storage and compute is an architecture pattern provided by Doris from 3.0.0 version. The separation of storage and compute can significantly reduce storage costs, allowing data to be stored in cheaper object storage without significantly compromising performance. This not only reduces costs but also better responds to scenarios with rapidly changing demands for computing resources.
 ## Custom Resources
-In separation of storage and compute architecture, cluster contains the following components: fdb, ms, recycler, fe, be. Doris Operator deploys fdb, ms, and recycler using the 'DorisDisaggregatedMetaService' resource. The 'DorisDisaggregatedCluster' resource be used to deploy fe and compute groups (be).
+In separation of storage and compute architecture, cluster contains the following components: fdb, ms, recycler, fe, be. Doris Operator deploys fdb, ms, and recycler using the 'DorisDisaggregatedMetaService' resource. The 'DorisDisaggregatedCluster' resource be used to deploy fe and compute cluster (the group of be).
 ## Requirements
 - Kubernetes 1.19+
 - the `open files` should greater than 65535 for host system config. (ulimit -n)
@@ -47,7 +47,7 @@ NAME                   FDBSTATUS   MSSTATUS   RECYCLERSTATUS
 meta-service-release   Available   Ready      Ready
 ```
 2. Deploy `ConfigMap` that contains object information for cluster:
-Separation of storage and compute uses object storage as the backend storage, requiring prior planning of the object storage to be used. Configure object storage information in JSON format according to the [Storage and computation separation interface](https://doris.apache.org/zh-CN/docs/dev/compute-storage-decoupled/creating-cluster#%E5%86%85%E7%BD%AE%E5%AD%98%E5%82%A8%E5%90%8E%E7%AB%AF) format.
+Separation of storage and compute uses object storage as the backend storage, requiring prior planning of the object storage to be used. Configure object storage information in JSON format according to the [Storage and computation separation interface](https://doris.apache.org/docs/dev/compute-storage-decoupled/creating-cluster/#built-in-storage-vault) format.
 ```
 kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/cluster/object-store-info.yaml
 ```
@@ -66,6 +66,6 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 Expected result:
 ```
 kubectl get ddc                                                                                                
-NAME                         CLUSTERHEALTH   FEPHASE   CGCOUNT   CGAVAILABLECOUNT   CGFULLAVAILABLECOUNT       
+NAME                         CLUSTERHEALTH   FEPHASE   CCCOUNT   CCAVAILABLECOUNT   CCFULLAVAILABLECOUNT
 test-disaggregated-cluster   green           Ready     1         1                  1                          
 ```

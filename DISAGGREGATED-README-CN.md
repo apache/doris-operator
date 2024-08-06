@@ -2,7 +2,7 @@
 # 存算分离模式部署
 存算分离是 Doris 从 3.0.0 开始提供的一种架构模式。存储和计算分离能够显著降低存储成本，在基本不降低性能的情况下将数据存储到价格更低廉的对象存储中，降低成本的同时也能更好地应对计算资源需求剧烈变化的场景。
 ## 资源简介
-Doris 存算分离包括以下组件：fdb, ms, recycler, fe, be 。 Doris-Operator 使用 `DorisDiaggregatedMetaService` 资源部署 fdb, ms, recycler 。使用 `DorisDisaggregatedCluster` 资源部署 fe，计算资源组（be）。
+Doris 存算分离包括以下组件：fdb, ms, recycler, fe, be 。 Doris-Operator 使用 `DorisDiaggregatedMetaService` 资源部署 fdb, ms, recycler 。使用 `DorisDisaggregatedCluster` 资源部署 fe，计算集群（一组 be）。
 ## 环境要求
 - Kubernetes 1.19+
 - 宿主机的能够使用的 open files 大于等于 65535 (ulimit -n)
@@ -65,6 +65,6 @@ kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/maste
 预期结果：
 ```
 kubectl get ddc
-NAME                         CLUSTERHEALTH   FEPHASE   CGCOUNT   CGAVAILABLECOUNT   CGFULLAVAILABLECOUNT
+NAME                         CLUSTERHEALTH   FEPHASE   CCCOUNT   CCAVAILABLECOUNT   CCFULLAVAILABLECOUNT
 test-disaggregated-cluster   green           Ready     1         1                  1
 ```

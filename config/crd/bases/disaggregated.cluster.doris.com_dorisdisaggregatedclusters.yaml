@@ -24,14 +24,14 @@ spec:
     - jsonPath: .status.feStatus.phase
       name: FEPhase
       type: string
-    - jsonPath: .status.clusterHealth.cgCount
-      name: CGCount
+    - jsonPath: .status.clusterHealth.ccCount
+      name: CCCount
       type: integer
-    - jsonPath: .status.clusterHealth.cgAvailableCount
-      name: CGAvailableCount
+    - jsonPath: .status.clusterHealth.ccAvailableCount
+      name: CCAvailableCount
       type: integer
-    - jsonPath: .status.clusterHealth.cgFullAvailableCount
-      name: CGFullAvailableCount
+    - jsonPath: .status.clusterHealth.ccFullAvailableCount
+      name: CCFullAvailableCount
       type: integer
     name: v1
     schema:
@@ -53,11 +53,11 @@ spec:
             type: object
           spec:
             properties:
-              computeGroups:
-                description: ComputeGroups describe a list of computeGroup, computeGroup
+              computeClusters:
+                description: ComputeClusters describe a list of ComputeCluster, ComputeCluster
                   is a group of compute node to do same thing.
                 items:
-                  description: ComputeGroup describe the specification that a group
+                  description: ComputeCluster describe the specification that a group
                     of compute node.
                   properties:
                     affinity:
@@ -970,8 +970,8 @@ spec:
                       - name
                       x-kubernetes-list-type: map
                     clusterId:
-                      description: ClusterId is the identifier of computeGroup, this
-                        will distinguish all computeGroup in meta.
+                      description: ClusterId is the identifier of computeCluster,
+                        this will distinguish all computeCluster in meta.
                       type: string
                     configMaps:
                       description: ConfigMaps describe all configmap that need to
@@ -1340,10 +1340,10 @@ spec:
                         resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                       type: object
                     name:
-                      description: 'Name is the identifier of computeGroup, name can
-                        be used specify what computegroup to run sql. if not set,
-                        will use `computegroup` and the index in array to set.ep:
-                        computegroup-1.'
+                      description: 'Name is the identifier of computeCluster, name
+                        can be used specify what computeCluster to run sql. if not
+                        set, will use `computeCluster` and the index in array to set.ep:
+                        computeCluster-1.'
                       type: string
                     noStoreLog:
                       description: when set true, the log will store in disk that
@@ -1352,7 +1352,7 @@ spec:
                     nodeSelector:
                       additionalProperties:
                         type: string
-                      description: specify what's node to deploy compute group pod.
+                      description: specify what's node to deploy compute cluster pod.
                       type: object
                     persistentVolume:
                       description: VolumeClaimTemplate allows customizing the persistent
@@ -3192,7 +3192,7 @@ spec:
                   nodeSelector:
                     additionalProperties:
                       type: string
-                    description: specify what's node to deploy compute group pod.
+                    description: specify what's node to deploy compute cluster pod.
                     type: object
                   persistentVolume:
                     description: VolumeClaimTemplate allows customizing the persistent
@@ -3752,17 +3752,17 @@ spec:
             properties:
               clusterHealth:
                 properties:
-                  cgAvailableCount:
-                    description: the available numbers of compute group.
+                  ccAvailableCount:
+                    description: the available numbers of compute cluster.
                     format: int32
                     type: integer
-                  cgCount:
-                    description: the number of compute group.
+                  ccCount:
+                    description: the number of compute cluster.
                     format: int32
                     type: integer
-                  cgFullAvailableCount:
-                    description: the full available numbers of compute group, represents
-                      all pod in compute group are ready.
+                  ccFullAvailableCount:
+                    description: the full available numbers of compute cluster, represents
+                      all pod in compute cluster are ready.
                     format: int32
                     type: integer
                   feAvailable:
@@ -3772,13 +3772,13 @@ spec:
                     description: represents the cluster overall status.
                     type: string
                 type: object
-              computeGroupStatuses:
-                description: ComputeGroupStatuses reflect a list of computecgroup
+              computeClusterStatuses:
+                description: ComputeClusterStatuses reflect a list of computeCluster
                   status.
                 items:
                   properties:
-                    ComputeGroupName:
-                      description: represents the compute group.
+                    ComputeClusterName:
+                      description: represents the compute cluster.
                       type: string
                     availableReplicas:
                       description: Total number of available pods (ready for at least
@@ -3786,11 +3786,11 @@ spec:
                       format: int32
                       type: integer
                     availableStatus:
-                      description: AvailableStatus represents the compute group available
-                        or not.
+                      description: AvailableStatus represents the compute cluster
+                        available or not.
                       type: string
                     clusterId:
-                      description: ClusterId display  the clusterId of compute group
+                      description: ClusterId display  the clusterId of compute cluster
                         in meta.
                       type: string
                     phase:
@@ -3802,10 +3802,12 @@ spec:
                       format: int32
                       type: integer
                     serviceName:
-                      description: the service that can access the compute group pods.
+                      description: the service that can access the compute cluster
+                        pods.
                       type: string
                     statefulsetName:
-                      description: the statefulset of control this compute group pods.
+                      description: the statefulset of control this compute cluster
+                        pods.
                       type: string
                   type: object
                 type: array
