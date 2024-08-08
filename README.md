@@ -1,6 +1,5 @@
 DorisCluster | [DorisDisaggregatedCluster](DISAGGREGATED-README.md)
 
-
 English | [中文](README-CN.md)
 # doris-operator
 Doris-Operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn，broker components.
