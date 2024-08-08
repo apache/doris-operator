@@ -822,7 +822,7 @@ spec:
         env:
         - name: LD_LIBRARY_PATH
           value: /usr/bin/fdb/primary/lib
-        image: foundationdb/fdb-kubernetes-operator:v1.36.0
+        image: selectdb/fdb-kubernetes-operator:v1.36.0
         name: manager
         ports:
         - containerPort: 8080
@@ -858,7 +858,7 @@ spec:
         - --output-dir
         - /var/output-files/7.1.36
         - --init-mode
-        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.36-1
+        image: selectdb/foundationdb-kubernetes-sidecar:7.1.36-1
         name: foundationdb-kubernetes-init-7-1
         volumeMounts:
         - mountPath: /var/output-files
@@ -869,7 +869,7 @@ spec:
         - --output-dir
         - /var/output-files/primary
         - --init-mode
-        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.36-1
+        image: selectdb/foundationdb-kubernetes-sidecar:7.1.36-1
         name: foundationdb-kubernetes-init-7-1-primary
         volumeMounts:
         - name: fdb-binaries
