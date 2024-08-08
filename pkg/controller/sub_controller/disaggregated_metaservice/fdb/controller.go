@@ -125,52 +125,28 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddm *mv1.DorisDi
 			SidecarContainer: v1beta2.ContainerOverrides{
 				EnableLivenessProbe:  pointer.Bool(true),
 				EnableReadinessProbe: pointer.Bool(false)},
+
 			Skip:                                false,
 			UseExplicitListenAddress:            pointer.Bool(true),
 			ReplaceInstancesWhenResourcesChange: pointer.Bool(true),
 		},
 	}
 
-	if ddm.Spec.FDB.Image != "" {
-		bi, v, err := imageSplit(ddm.Spec.FDB.Image)
-		if err != nil {
-			klog.Infof("disaggregatedFDBController split config image error, err=%s", err.Error())
-			fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.Image+" format not provided, please reference docker definition.")
-			return fdb
-
-		}
-
-		co := v1beta2.ContainerOverrides{
-			ImageConfigs: []v1beta2.ImageConfig{
-				v1beta2.ImageConfig{
-					Version:   v,
-					BaseImage: bi,
-				},
-			},
-		}
-
-		fdb.Spec.MainContainer = co
+	mainContainer, err := fdbImageOverride(ddm.Spec.FDB.Image)
+	if err != nil {
+		klog.Infof("disaggregatedFDBController split config Image error, err=%s", err.Error())
+		fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.Image+" format not provided, please reference docker definition.")
+		return fdb
 	}
+	fdb.Spec.MainContainer = mainContainer
 
-	if ddm.Spec.FDB.SidecarImage != "" {
-		sidecarImage, sidecarImageVersion, err := imageSplit(ddm.Spec.FDB.SidecarImage)
-		if err != nil {
-			klog.Infof("disaggregatedFDBController split config SidecarImage error, err=%s", err.Error())
-			fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.SidecarImage+" format not provided, please reference docker definition.")
-			return fdb
-
-		}
-		sidecarContainer := v1beta2.ContainerOverrides{
-			ImageConfigs: []v1beta2.ImageConfig{
-				v1beta2.ImageConfig{
-					Version:   sidecarImageVersion,
-					BaseImage: sidecarImage,
-				},
-			},
-		}
-		fdb.Spec.SidecarContainer = sidecarContainer
+	sidecarContainer, err := fdbSidecarImageOverride(ddm.Spec.FDB.SidecarImage)
+	if err != nil {
+		klog.Infof("disaggregatedFDBController split config SidecarImage error, err=%s", err.Error())
+		fdbc.k8sRecorder.Event(ddm, "Warning", string(sc.ImageFormatError), ddm.Spec.FDB.SidecarImage+" format not provided, please reference docker definition.")
+		return fdb
 	}
-
+	fdb.Spec.SidecarContainer = sidecarContainer
 	return fdb
 }
 
