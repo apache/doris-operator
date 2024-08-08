@@ -108,6 +108,8 @@ func (fdbc *DisaggregatedFDBController) buildFDBClusterResource(ddm *mv1.DorisDi
 			ProcessCounts: v1beta2.ProcessCounts{
 				ClusterController: 1,
 				Stateless:         -1,
+				Log:               2,
+				Storage:           2,
 			},
 
 			Processes: map[v1beta2.ProcessClass]v1beta2.ProcessSettings{
