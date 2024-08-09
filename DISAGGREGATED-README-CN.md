@@ -21,6 +21,7 @@ kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/$(cu
 customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
 customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
 customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/dorisclusters.doris.selectdb.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedclusters.disaggregated.cluster.doris.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedmetaservices.disaggregated.metaservice.doris.com created
 ```
