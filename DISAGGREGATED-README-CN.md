@@ -14,17 +14,19 @@ Doris 存算分离包括以下组件：fdb, ms, recycler, fe, be 。 Doris-Opera
 ## 安装 Operator
 1. 下发资源定义：
 ```
-kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/crds.yaml
+kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/crds.yaml
 ```
 预期结果：
 ```
 customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedclusters.disaggregated.cluster.doris.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedmetaservices.disaggregated.metaservice.doris.com created
 ```
 2. 部署 Operator 以及依赖的 RBAC 规则：
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/disaggregated-operator.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/operator/disaggregated-operator.yaml
 ```
 预期结果：
 ```
@@ -37,7 +39,7 @@ doris-operator-5b667b4954-d674k              1/1     Running   0          11s
 [部署案例](./doc/examples/disaggregated/cluster) 中提供了常见配置的部署样例。以下使用最简单模式快速搭建拥有 1 套计算集群的 Doris 存算分离数据仓库：
 1. 下发 `DorisDisaggregatedMetaService` 资源: 
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/metaservice/ddm-sample.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/metaservice/ddm-sample.yaml
 ```
 预期结果：
 ```
@@ -48,7 +50,7 @@ meta-service-release   Available   Ready      Ready
 2. 下发包含对象存储信息的 ConfigMap 资源：  
 存算分离以对象存储作为后端存储，需要提前规划好使用的对象存储。按照 [Doris 存算分离接口](https://doris.apache.org/zh-CN/docs/dev/compute-storage-decoupled/creating-cluster#%E5%86%85%E7%BD%AE%E5%AD%98%E5%82%A8%E5%90%8E%E7%AB%AF)接口格式将对象存储信息配置成 json 格式，以 `instance.conf` 为 key ， json 格式的对象存储信息作为 value 配置到 ConfigMap 的 data 中。  
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/cluster/object-store-info.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/object-store-info.yaml
 ```
 预期结果：
 ```
@@ -60,7 +62,7 @@ configmap/vault-test created
 
 3. 下发 `DorisDisaggregatedCluster` 资源部署集群：
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/cluster/ddc-sample.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/ddc-sample.yaml
 ```
 预期结果：
 ```
