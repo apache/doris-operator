@@ -15,17 +15,20 @@ In separation of storage and compute architecture, cluster contains the followin
 ## Install Operator
 1. deploy CustomResourceDefinitions
 ```
-kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/crd/bases/crds.yaml
+kubectl create -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/crds.yaml
 ```
 Expected result:
 ```
 customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/dorisclusters.doris.selectdb.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedclusters.disaggregated.cluster.doris.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedmetaservices.disaggregated.metaservice.doris.com created
 ```
 2. Install the operator with its RBAC rules:
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/config/operator/disaggregated-operator.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/operator/disaggregated-operator.yaml
 ```
 Expected result:
 ```
@@ -38,7 +41,7 @@ doris-operator-5b667b4954-d674k              1/1     Running   0          11s
 [examples](./doc/examples/disaggregated/cluster) contains deployment examples for common configurations. The simple example deployment as follows:
 1. Deploy `DorisDisaggregatedMetaService` resource:
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/metaservice/ddm-sample.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/metaservice/ddm-sample.yaml
 ```
 Expected result:
 ```
@@ -49,7 +52,7 @@ meta-service-release   Available   Ready      Ready
 2. Deploy `ConfigMap` that contains object information for cluster:
 Separation of storage and compute uses object storage as the backend storage, requiring prior planning of the object storage to be used. Configure object storage information in JSON format according to the [Storage and computation separation interface](https://doris.apache.org/docs/dev/compute-storage-decoupled/creating-cluster/#built-in-storage-vault) format.
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/cluster/object-store-info.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/object-store-info.yaml
 ```
 Expected result:
 ```
@@ -61,7 +64,7 @@ configmap/vault-test created
 
 3. Deploy `DorisDisaggregatedCluster` resource:
 ```
-kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/master/doc/examples/disaggregated/cluster/ddc-sample.yaml
+kubectl apply -f https://raw.githubusercontent.com/selectdb/doris-operator/$(curl -s https://api.github.com/repos/selectdb/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/ddc-sample.yaml
 ```
 Expected result:
 ```
