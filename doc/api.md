@@ -572,6 +572,20 @@ Kubernetes core/v1.SecurityContext
 <p>Security context for all containers running in the pod (unless they override it).</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>initContainers</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#container-v1-core">
+[]Kubernetes core/v1.Container
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InitContainers is a list of containers that should be run before the app containers are started.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.BeSpec">BeSpec
@@ -2593,5 +2607,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>3663d17</code>.
+on git commit <code>51f0c78</code>.
 </em></p>
