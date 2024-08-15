@@ -388,3 +388,12 @@ func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName 
 	}
 	return nil
 }
+
+// clear unused pvc of statefulset previously used, as the replicas decrease.
+// return clear pvc number and error
+func ClearStatefulsetUnusedPVCs(ctx context.Context, k8sclient client.Client, namespace, statefulsetName string) (int, error) {
+	//TODO: use labels to select pods and pvcs.
+	//1. list pods and pvcs, if pvcs > pods clear not unused pvcs.
+	//2. delete  all unused pvc
+	return 0, nil
+}
