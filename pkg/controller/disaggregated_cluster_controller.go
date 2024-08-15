@@ -117,7 +117,7 @@ func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dv1.DorisDisaggregatedClusterName]
 			if dorisName != "" {
@@ -161,7 +161,7 @@ func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder)
 }
 func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			namespace := a.GetNamespace()
 			name := a.GetName()
 			cmnn := types.NamespacedName{Namespace: namespace, Name: name}
