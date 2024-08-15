@@ -48,25 +48,25 @@ func (w *WatchMutationWebhookConfiguration) GetType() client.Object {
 	return w.Type
 }
 
-func (w *WatchMutationWebhookConfiguration) Create(event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchMutationWebhookConfiguration) Create(ctx context.Context, event event.CreateEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchMutationWebhookConfiguration) Update(event event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchMutationWebhookConfiguration) Update(ctx context.Context, event event.UpdateEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.ObjectNew) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchMutationWebhookConfiguration) Delete(event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchMutationWebhookConfiguration) Delete(ctx context.Context, event event.DeleteEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchMutationWebhookConfiguration) Generic(event event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchMutationWebhookConfiguration) Generic(ctx context.Context, event event.GenericEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
