@@ -49,25 +49,25 @@ func (w *WatchValidatingWebhookConfiguration) GetType() client.Object {
 	return w.Type
 }
 
-func (w *WatchValidatingWebhookConfiguration) Create(event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchValidatingWebhookConfiguration) Create(ctx context.Context, event event.CreateEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) Update(event event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchValidatingWebhookConfiguration) Update(ctx context.Context, event event.UpdateEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.ObjectNew) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) Delete(event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchValidatingWebhookConfiguration) Delete(ctx context.Context, event event.DeleteEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) Generic(event event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchValidatingWebhookConfiguration) Generic(ctx context.Context, event event.GenericEvent, limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
