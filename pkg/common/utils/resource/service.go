@@ -112,7 +112,7 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 		exportService = dcr.Spec.CnSpec.Service
 		ports = getBeServicePorts(config)
 	default:
-		klog.Infof("BuildExternalService componentType %s not supported.")
+		klog.Infof("BuildExternalService componentType %s not supported.", componentType)
 	}
 
 	svc := corev1.Service{

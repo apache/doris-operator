@@ -71,7 +71,7 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 
 	config, err := cn.GetConfig(ctx, &cnSpec.ConfigMapInfo, dcr.Namespace)
 	if err != nil {
-		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s ，err :", dcr.Namespace, err)
+		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s, err: %s", dcr.Namespace, err.Error())
 		return err
 	}
 	cn.CheckConfigMountPath(dcr, dorisv1.Component_CN)
@@ -97,7 +97,7 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 
 	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
-			cnStatefulSet.Name, cnStatefulSet.Namespace)
+			cnStatefulSet.Name, cnStatefulSet.Namespace, dcr.Name, err.Error())
 		return err
 	}
 

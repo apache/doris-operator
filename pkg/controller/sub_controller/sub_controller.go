@@ -201,7 +201,7 @@ func (d *SubDefaultController) PrepareReconcileResources(ctx context.Context, dc
 	case dorisv1.Component_CN:
 		return d.prepareCNReconcileResources(ctx, dcr)
 	default:
-		klog.Infof("prepareReconcileResource not support type=", componentType)
+		klog.Infof("prepareReconcileResource not support type=%s", componentType)
 		return true
 	}
 }
@@ -334,7 +334,7 @@ func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.Doris
 		pvc := resource.BuildPVC(volume, selector, dcr.Namespace, stsName, strconv.Itoa(baseOrdinal))
 		if err := d.K8sclient.Create(ctx, &pvc); err != nil && !apierrors.IsAlreadyExists(err) {
 			d.K8srecorder.Event(dcr, string(EventWarning), PVCCreateFailed, err.Error())
-			klog.Errorf("SubDefaultController namespace %s name %s create pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name)
+			klog.Errorf("SubDefaultController namespace %s name %s create pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name, err.Error())
 		}
 	}
 
@@ -431,7 +431,7 @@ func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.Dori
 		pvcName := resource.BuildPVCName(stsName, strconv.Itoa(maxOrdinal-1), volumeName)
 		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvcName, selector); err != nil {
 			d.K8srecorder.Event(dcr, string(EventWarning), PVCDeleteFailed, err.Error())
-			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvcName)
+			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvcName, err)
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}
@@ -445,7 +445,7 @@ func (d *SubDefaultController) InitStatus(dcr *dorisv1.DorisCluster, componentTy
 	case dorisv1.Component_BE:
 		d.initBEStatus(dcr)
 	default:
-		klog.Infof("InitStatus not support type=", componentType)
+		klog.Infof("InitStatus not support type=%s", componentType)
 	}
 }
 
