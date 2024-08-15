@@ -315,7 +315,7 @@ func SetDorisClusterPhase(
 		isStatusEqual = (edcr.Status.BrokerStatus.ComponentCondition.Phase == phase)
 		edcr.Status.BrokerStatus.ComponentCondition.Phase = phase
 	default:
-		klog.Infof("SetDorisClusterPhase not support type=", componentType)
+		klog.Infof("SetDorisClusterPhase not support type=%s", componentType)
 		return nil
 	}
 	if isStatusEqual {

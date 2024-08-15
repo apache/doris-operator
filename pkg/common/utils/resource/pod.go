@@ -417,7 +417,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		prestopScript = BROKER_PRESTOP
 		commands = append(commands, HEALTH_BROKER_LIVE_COMMAND, strconv.Itoa(int(livenessPort)))
 	default:
-		klog.Infof("the componentType %s is not supported in probe.")
+		klog.Infof("the componentType %s is not supported in probe.", componentType)
 	}
 
 	// if tcpSocket the health_api_path will ignore.
