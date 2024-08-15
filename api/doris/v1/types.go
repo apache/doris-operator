@@ -208,6 +208,10 @@ type BaseSpec struct {
 	//Security context for all containers running in the pod (unless they override it).
 	//+optional
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+
+	// InitContainers is a list of containers that should be run before the app containers are started.
+	// +optional
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 }
 
 type SystemInitialization struct {
