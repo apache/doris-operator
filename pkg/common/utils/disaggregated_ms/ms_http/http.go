@@ -114,3 +114,20 @@ func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, e
 
 	return mr, nil
 }
+
+// drop all nodes of specify cluster from ms
+func DropNodesFromSpecifyCluster() (*MSResponse, error) {
+	//TODO: drop nodes
+	return nil, nil
+}
+
+// suspend cluster
+func SuspendComputeCluster() (*MSResponse, error) {
+	//TODO: suspend compute cluster
+	return nil, nil
+}
+
+func DropComputeCluster() (*MSResponse, error) {
+	//TODO: drop compute cluster
+	return nil, nil
+}

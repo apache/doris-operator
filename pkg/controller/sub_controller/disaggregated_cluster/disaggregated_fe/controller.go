@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
@@ -80,6 +81,12 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		klog.Errorf("disaggregatedFEController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
 		return err
 	}
+	//TODO: 3. check fe replicas greater 1 or not. response the step `check the decrease`
+	dfc.ensureFEReplicas(ddc)
+
+	//TODO: 6. drop all will delete nodes
+	ms_http.DropNodesFromSpecifyCluster()
+
 	event, err = dfc.reconcileStatefulset(ctx, st)
 	if err != nil {
 		if event != nil {
@@ -92,15 +99,26 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	return nil
 }
 
+// ensure the fe's replicas in ddc is not less 1.
+func (dfc *DisaggregatedFEController) ensureFEReplicas(ddc *dv1.DorisDisaggregatedCluster) {
+
+}
+
 func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 
-	if ddc.DeletionTimestamp.IsZero() {
-		return true, nil
-	}
-
 	statefulsetName := ddc.GetFEStatefulsetName()
 	serviceName := ddc.GetFEServiceName()
+	//TODO: 8,9,10 clear unused pvcs
+	if ddc.DeletionTimestamp.IsZero() {
+		_, err := k8s.ClearStatefulsetUnusedPVCs(ctx, dfc.k8sClient, ddc.Namespace, statefulsetName)
+		if err != nil {
+			return false, err
+		}
+		//TODO:11. drop fe node
+		ms_http.DropNodesFromSpecifyCluster()
+		return true, nil
+	}
 
 	if err := k8s.DeleteService(ctx, dfc.k8sClient, ddc.Namespace, serviceName); err != nil {
 		klog.Errorf("disaggregatedFEController delete service namespace %s name %s failed, err=%s", ddc.Namespace, serviceName, err.Error())

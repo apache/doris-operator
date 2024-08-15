@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/common/utils/set"
@@ -125,6 +126,11 @@ func (dccs *DisaggregatedComputeClustersController) computeClusterSync(ctx conte
 	//1. generate resources.
 	//2. initial compute cluster status.
 	//3. sync resources.
+	//TODO: 3. judge suspend
+	if cc.Replicas != nil && *cc.Replicas == 0 {
+		ms_http.SuspendComputeCluster()
+	}
+
 	cvs := dccs.getConfigValuesFromConfigMaps(ddc.Namespace, cc.CommonSpec.ConfigMaps)
 	st := dccs.NewStatefulset(ddc, cc, cvs)
 	svc := dccs.newService(ddc, cc, cvs)
@@ -342,12 +348,28 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 		}
 		if !cleared {
 			eCCs = append(eCCs, clearCCs[i])
+		} else {
+			//TODO: 12. drop compute cluster from meta
+			ms_http.DropComputeCluster()
 		}
+	}
+
+	//TODO:13. drop pvcs
+	for _, cc := range eCCs {
+		dccs.ClearStatefulsetUnusedPVCs(cc)
+	}
+	//TODO:13. drop pvcs
+	for _, cc := range clearCCs {
+		dccs.ClearStatefulsetUnusedPVCs(cc)
 	}
 
 	ddc.Status.ComputeClusterStatuses = eCCs
 
 	return true, nil
+}
+
+func (dccs *DisaggregatedComputeClustersController) ClearStatefulsetUnusedPVCs(cc dv1.ComputeClusterStatus) {
+
 }
 
 func (dccs *DisaggregatedComputeClustersController) GetControllerName() string {
