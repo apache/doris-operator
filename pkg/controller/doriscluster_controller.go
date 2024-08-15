@@ -228,7 +228,7 @@ func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Bu
 func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
 
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dorisv1.DorisClusterLabelKey]
 			if dorisName != "" {
