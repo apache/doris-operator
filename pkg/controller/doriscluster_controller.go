@@ -53,7 +53,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -228,7 +227,7 @@ func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Bu
 func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
 
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dorisv1.DorisClusterLabelKey]
 			if dorisName != "" {
@@ -267,7 +266,7 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
+	return builder.Watches(&corev1.Pod{},
 		mapFn, controller_builder.WithPredicates(p))
 }
 
@@ -300,7 +299,7 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	}
 	klog.Infof("dorisclusterreconcile %t", options.EnableWebHook)
 	if options.EnableWebHook {
-		if err := (&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		if _, err := (&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			klog.Error(err, " unable to create unnamedwatches ", " controller ", " DorisCluster ")
 			os.Exit(1)
 		}

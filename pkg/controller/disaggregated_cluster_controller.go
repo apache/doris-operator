@@ -49,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 	"time"
 )
@@ -101,7 +100,7 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 	}
 
 	if options.EnableWebHook {
-		if err := (&dv1.DorisDisaggregatedCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		if _, err := (&dv1.DorisDisaggregatedCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			klog.Error(err, " unable to create unnamedwatches ", " controller ", " DorisDisaggregatedCluster ")
 			os.Exit(1)
 		}
@@ -117,7 +116,7 @@ func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dv1.DorisDisaggregatedClusterName]
 			if dorisName != "" {
@@ -156,12 +155,12 @@ func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder)
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
+	return builder.Watches(&corev1.Pod{},
 		mapFn, controller_builder.WithPredicates(p))
 }
 func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			namespace := a.GetNamespace()
 			name := a.GetName()
 			cmnn := types.NamespacedName{Namespace: namespace, Name: name}
@@ -191,7 +190,7 @@ func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Bu
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+	return builder.Watches(&corev1.ConfigMap{},
 		mapFn, controller_builder.WithPredicates(p))
 }
 

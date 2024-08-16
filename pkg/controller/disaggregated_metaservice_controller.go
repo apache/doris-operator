@@ -76,7 +76,7 @@ func (dmsr *DisaggregatedMetaServiceReconciler) Init(mgr ctrl.Manager, options *
 	}
 
 	if options.EnableWebHook {
-		if err := (&mv1.DorisDisaggregatedMetaService{}).SetupWebhookWithManager(mgr); err != nil {
+		if _, err := (&mv1.DorisDisaggregatedMetaService{}).SetupWebhookWithManager(mgr); err != nil {
 			klog.Error(err, "  unable to create unamedwatches ", " controller ", " DorisDisaggregatedMetaService ")
 			os.Exit(1)
 		}
