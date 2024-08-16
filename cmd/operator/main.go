@@ -171,7 +171,7 @@ func main() {
 		//wait for the secret have
 		interval := time.Second * 1
 		timeout := time.Second * 30
-		keyPath := filepath.Join(mgr.GetWebhookServer().CertDir, certificate.TLsCertName)
+		keyPath := filepath.Join(mgr.GetWebhookServer().(*webhook.DefaultServer).Options.CertDir, certificate.TLsCertName)
 		err = wait.PollImmediate(interval, timeout, func() (bool, error) {
 			_, err := os.Stat(keyPath)
 			if os.IsNotExist(err) {
