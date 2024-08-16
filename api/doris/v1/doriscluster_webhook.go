@@ -40,12 +40,13 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
 
-func (r *DorisCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
+func (r *DorisCluster) SetupWebhookWithManager(mgr ctrl.Manager) (admission.Warnings, error) {
+	return nil, ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
 }
@@ -65,15 +66,15 @@ func (r *DorisCluster) Default() {
 var _ webhook.Validator = &DorisCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
-func (r *DorisCluster) ValidateCreate() error {
+func (r *DorisCluster) ValidateCreate() (admission.Warnings, error) {
 	klog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
-func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
+func (r *DorisCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", r.Name)
 	var errors []error
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
@@ -82,16 +83,16 @@ func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if len(errors) != 0 {
-		return kerrors.NewAggregate(errors)
+		return nil, kerrors.NewAggregate(errors)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a unnamedwatches will be registered for the type
-func (r *DorisCluster) ValidateDelete() error {
+func (r *DorisCluster) ValidateDelete() (admission.Warnings, error) {
 	klog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }
