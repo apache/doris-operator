@@ -22,11 +22,12 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
-func (ddm *DorisDisaggregatedMetaService) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
+func (ddm *DorisDisaggregatedMetaService) SetupWebhookWithManager(mgr ctrl.Manager) (admission.Warnings, error) {
+	return nil, ctrl.NewWebhookManagedBy(mgr).
 		For(ddm).
 		Complete()
 }
@@ -45,25 +46,25 @@ func (ddm *DorisDisaggregatedMetaService) Default() {
 var _ webhook.Validator = &DorisDisaggregatedMetaService{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
-func (ddm *DorisDisaggregatedMetaService) ValidateCreate() error {
+func (ddm *DorisDisaggregatedMetaService) ValidateCreate() (admission.Warnings, error) {
 	klog.Info("validate create", "name", ddm.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
-func (ddm *DorisDisaggregatedMetaService) ValidateUpdate(old runtime.Object) error {
+func (ddm *DorisDisaggregatedMetaService) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", ddm.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a unnamedwatches will be registered for the type
-func (ddm *DorisDisaggregatedMetaService) ValidateDelete() error {
+func (ddm *DorisDisaggregatedMetaService) ValidateDelete() (admission.Warnings, error) {
 	klog.Info("validate delete", "name", ddm.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }
