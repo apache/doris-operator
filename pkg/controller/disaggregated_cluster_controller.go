@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
 	"time"
 )
 
@@ -141,7 +142,7 @@ func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder)
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
+	return builder.Watches(&corev1.Pod{},
 		mapFn, controller_builder.WithPredicates(p))
 }
 
