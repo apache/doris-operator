@@ -44,11 +44,15 @@ import (
 	"github.com/selectdb/doris-operator/pkg/controller"
 	"github.com/selectdb/doris-operator/pkg/controller/unnamedwatches"
 	"io"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/config"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -111,17 +115,16 @@ func main() {
 	printVersionInfos(f.PrintVar)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&f.Opts)))
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	ctrlOptions := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     f.MetricsAddr,
-		Port:                   9443,
+		Metrics:                metricsserver.Options{BindAddress: f.MetricsAddr},
+		WebhookServer:          webhook.NewServer(webhook.Options{Port: 9443}),
 		HealthProbeBindAddress: f.ProbeAddr,
-		Namespace:              f.Namespace,
 		LeaderElection:         f.EnableLeaderElection,
 		LeaderElectionID:       "e1370669.selectdb.com",
 		//if one reconcile failed, others will not be affected.
-		Controller: v1alpha1.ControllerConfigurationSpec{
-			RecoverPanic: pointer.Bool(true),
+		Controller: config.Controller{
+			RecoverPanic: ptr.To(true),
 		},
 
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
@@ -135,7 +138,15 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-	})
+	}
+	// cannot set DefaultNamespaces = corev1.NamespaceAll
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/2628
+	if f.Namespace != corev1.NamespaceAll {
+		ctrlOptions.Cache.DefaultNamespaces = map[string]cache.Config{
+			f.Namespace: {},
+		}
+	}
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrlOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
