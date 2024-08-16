@@ -116,7 +116,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&DorisCluster{}).SetupWebhookWithManager(mgr)
+	_, err = (&DorisCluster{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:unnamedwatches
