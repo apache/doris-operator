@@ -7,10 +7,10 @@ spec:
   fdb:
     requests:
       cpu: 1
-      memory: 4Gi
+      memory: 2Gi
     limits:
       cpu: 1
-      memory: 2Gi
+      memory: 4Gi
   ms:
     image: selectdb/doris.ms-ubuntu:3.0.0
     replicas: 2
