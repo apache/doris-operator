@@ -55,7 +55,7 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	}
 
 	if *(dms.Spec.MS.Replicas) != DefaultMetaserviceNumber {
-		klog.Errorf("disaggregatedMSController sync DorisDisaggregatedMetaService namespace=%s,name=%s ,The number of disaggregated ms replicas is fixed to %d and cannot be modified", dms.Namespace, dms.Name, DefaultMetaserviceNumber)
+		klog.Infof("disaggregatedMSController sync DorisDisaggregatedMetaService namespace=%s,name=%s ,The number of disaggregated ms replicas is fixed to %d and cannot be modified", dms.Namespace, dms.Name, DefaultMetaserviceNumber)
 		msc.K8srecorder.Event(dms, string(sub_controller.EventNormal), string(sub_controller.MSSpecSetFix), "The number of disaggregated ms replicas is fixed to 2 and cannot be modified")
 		dms.Spec.MS.Replicas = &DefaultMetaserviceNumber
 	}
