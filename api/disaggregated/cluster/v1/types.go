@@ -45,9 +45,6 @@ type DisMS struct {
 }
 
 type FeSpec struct {
-	//Replicas represent the number of fe. default is 2. fe is master-slave architecture only one is master.
-	Replicas *int32 `json:"replicas,omitempty"`
-
 	CommonSpec `json:",inline"`
 }
 
@@ -59,13 +56,14 @@ type ComputeCluster struct {
 	//ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
-	//Replicas represent the number of compute node.
-	Replicas *int32 `json:"replicas,omitempty"`
-
 	CommonSpec `json:",inline"`
 }
 
 type CommonSpec struct {
+	//Replicas represent the number
+	// fe default is 2. fe is master-slave architecture only one is master.
+	Replicas *int32 `json:"replicas,omitempty"`
+
 	//Image is the be of Disaggregated docker image to deploy. please reference the selectdb repository to find.
 	Image string `json:"image,omitempty"`
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.

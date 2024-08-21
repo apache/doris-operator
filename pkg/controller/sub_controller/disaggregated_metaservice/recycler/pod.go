@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	DefaultRecyclerNumber int32 = 2
+	DefaultRecyclerNumber int32 = 1
 )
 
 func (rc *RecyclerController) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService) corev1.PodTemplateSpec {
@@ -47,7 +47,7 @@ func (rc *RecyclerController) rcContainer(dms *mv1.DorisDisaggregatedMetaService
 	}
 
 	ports := resource.GetDMSContainerPorts(brpcPort, mv1.Component_RC)
-	c.Name = "disaggregated-recyler"
+	c.Name = "disaggregated-recycler"
 	c.Ports = append(c.Ports, ports...)
 
 	return c

@@ -52,8 +52,8 @@ const (
 )
 
 var (
-	Default_Election_Number   int32 = 1
-	Default_Fe_Replica_Number int32 = 2
+	DefaultElectionNumber  int32 = 1
+	DefaultFeReplicaNumber int32 = 2
 )
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
@@ -73,8 +73,8 @@ func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[s
 
 func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	spec := ddc.Spec.FeSpec
-	if *ddc.Spec.FeSpec.Replicas < Default_Fe_Replica_Number {
-		ddc.Spec.FeSpec.Replicas = &(Default_Fe_Replica_Number)
+	if *ddc.Spec.FeSpec.Replicas < DefaultFeReplicaNumber {
+		ddc.Spec.FeSpec.Replicas = &(DefaultFeReplicaNumber)
 	}
 	selector := dfc.newFEPodsSelector(ddc.Name)
 	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
@@ -193,7 +193,7 @@ func (dfc *DisaggregatedFEController) buildConfigMapVolumesVolumeMounts(fe *dv1.
 func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 
 	//if ddc.Spec.FeSpec.ElectionNumber == nil {
-	//	ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(Default_Election_Number)
+	//	ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(DefaultElectionNumber)
 	//}
 
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
@@ -351,7 +351,7 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregate
 		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: MS_TOKEN, Value: ms_token},
-		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(Default_Election_Number), 10)},
+		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(DefaultElectionNumber), 10)},
 	)
 	return feEnvs
 }

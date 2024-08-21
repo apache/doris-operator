@@ -50,8 +50,14 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	dms := obj.(*mv1.DorisDisaggregatedMetaService)
 
 	if dms.Status.FDBStatus.AvailableStatus != mv1.Available {
-		klog.Info("MS Controller Sync: ", "the FDB is UnAvailable ", "namespace ", dms.Namespace, " disaggregated doris cluster name ", dms.Name)
+		klog.Info("MS Controller Sync: the FDB is UnAvailable namespace ", dms.Namespace, " disaggregated doris cluster name ", dms.Name)
 		return nil
+	}
+
+	if *(dms.Spec.MS.Replicas) != DefaultMetaserviceNumber {
+		klog.Errorf("disaggregatedMSController sync DorisDisaggregatedMetaService namespace=%s,name=%s ,The number of disaggregated ms replicas is fixed to %d and cannot be modified", dms.Namespace, dms.Name, DefaultMetaserviceNumber)
+		msc.K8srecorder.Event(dms, string(sub_controller.EventNormal), string(sub_controller.MSSpecSetFix), "The number of disaggregated ms replicas is fixed to 2 and cannot be modified")
+		dms.Spec.MS.Replicas = &DefaultMetaserviceNumber
 	}
 
 	msc.initMSStatus(dms)
@@ -99,7 +105,7 @@ func (msc *Controller) ClearResources(ctx context.Context, obj client.Object) (b
 	}
 
 	if dms.Spec.MS == nil {
-		return msc.ClearCommonResources(ctx, dms, mv1.Component_MS)
+		return msc.ClearMSCommonResources(ctx, dms, mv1.Component_MS)
 	}
 	return true, nil
 }
