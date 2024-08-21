@@ -101,7 +101,62 @@ func NewStatefulSetWithComputeCluster(cc *dv1.ComputeCluster) *appv1.StatefulSet
 
 // StatefulSetDeepEqual judge two statefulset equal or not.
 func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
-	return StatefulsetDeepEqualWithOmitKey(new, old, v1.ComponentResourceHash, false, excludeReplicas)
+	equal := StatefulsetDeepEqualWithOmitKey(new, old, v1.ComponentResourceHash, false, excludeReplicas)
+	if !equal {
+		return clear_config_env_path_Interfere(new, old, excludeReplicas)
+	}
+
+	return true
+}
+
+func clear_config_env_path_Interfere(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
+	var newEnvs []corev1.EnvVar
+	for _, c := range new.Spec.Template.Spec.Containers {
+		if c.Name == string(v1.Component_FE) || c.Name == string(v1.Component_BE) || c.Name == string(v1.Component_CN) || c.Name == string(v1.Component_Broker) {
+			newEnvs = c.Env
+			break
+		}
+	}
+
+	var oldEnvs []corev1.EnvVar
+	for _, c := range old.Spec.Template.Spec.Containers {
+		if c.Name == string(v1.Component_FE) || c.Name == string(v1.Component_BE) || c.Name == string(v1.Component_CN) || c.Name == string(v1.Component_Broker) {
+			oldEnvs = c.Env
+			break
+		}
+	}
+
+	//delete env.Name = CONFIGMAP_MOUNT_PATH
+	for i := 0; i < len(oldEnvs); i++ {
+		if oldEnvs[i].Name == config_env_name {
+			oldEnvs = append(oldEnvs[:i], oldEnvs[i+1:]...)
+			i--
+		}
+	}
+
+	//find env position when env.Name = CONFIGMAP_MOUNT_PATH
+	index := -1
+	for i := 0; i < len(newEnvs); i++ {
+		if newEnvs[i].Name == config_env_name {
+			index = i
+			break
+		}
+	}
+	if index != -1 {
+		env := corev1.EnvVar{
+			Name:  config_env_name,
+			Value: config_env_path,
+		}
+		lastEnvs := append([]corev1.EnvVar{env}, oldEnvs[index:]...)
+		oldEnvs = append(oldEnvs[:index], lastEnvs...)
+	}
+
+	//exclude the envs interfere.
+	if len(newEnvs) != len(oldEnvs) {
+		return false
+	}
+
+	return true
 }
 
 func StatefulsetDeepEqualWithOmitKey(new, old *appv1.StatefulSet, annoKey string, omit bool, excludeReplicas bool) bool {
