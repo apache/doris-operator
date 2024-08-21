@@ -129,7 +129,7 @@ int32
 </em>
 </td>
 <td>
-<p>Replicas represent the number.
+<p>Replicas represent the number of desired Pod.
 fe default is 2. fe is master-slave architecture only one is master.</p>
 </td>
 </tr>
@@ -141,7 +141,7 @@ string
 </em>
 </td>
 <td>
-<p>Image is the be of Disaggregated docker image to deploy. please reference the selectdb repository to find.</p>
+<p>Image is the Disaggregated docker image to deploy. please reference the selectdb repository to find.</p>
 </td>
 </tr>
 <tr>
@@ -1284,5 +1284,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>ae9db13</code>.
+on git commit <code>7d8fdc8</code>.
 </em></p>
