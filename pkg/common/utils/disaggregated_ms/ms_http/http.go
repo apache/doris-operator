@@ -118,14 +118,6 @@ func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, e
 }
 
 func GetFECluster(endpoint, token, instance_id, cloud_unique_id string) ([]*NodeInfo, error) {
-
-	// curl -XPUT 'test-ms-metaservice-service.default:5000/MetaService/http/get_cluster?token=greedisgood9999' -d '{
-	//    "instance_id":"instance_test",
-	//    "cloud_unique_id": "1:instance_test:test-cluster-fe-0",
-	//    "cluster_name":"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER",
-	//    "cluster_id":"RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
-	//    }'
-
 	param := map[string]interface{}{
 		"instance_id":     instance_id,
 		"cloud_unique_id": cloud_unique_id,
@@ -159,24 +151,8 @@ func GetFECluster(endpoint, token, instance_id, cloud_unique_id string) ([]*Node
 	return mr.MSResponseResultNodesToNodeInfos()
 }
 
-// drop all nodes of specify cluster from ms
+// DropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
 func DropNodesFromSpecifyCluster(endpoint, token, instanceID string, nodes []*NodeInfo) (*MSResponse, error) {
-	// curl -XPUT 'http://test-ms-metaservice-service.default:5000/MetaService/http/drop_node?token=greedisgood9999' -d '{
-	//    "instance_id":"instance_test",
-	//    "cluster":{
-	//        "cluster_name":"RESERVED_CLUSTER_NAME_FOR_SQL_SERVER",
-	//        "cluster_id":"RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
-	//        "type":"SQL",
-	//        "nodes":[
-	//            {
-	//                "cloud_unique_id":"1:instance_test:test-cluster-fe-2",
-	//                "ip":"test-cluster-fe-2.test-cluster-fe.default.svc.cluster.local",
-	//                "edit_log_port":9010,
-	//                "node_type":"FE_OBSERVER"
-	//            }
-	//        ]
-	//    }
-	//}'
 	addr := fmt.Sprintf(DROP_NODE_PREFIX_TEMPLATE, endpoint, token)
 	nodeArr := make([]*NodeInfo, len(nodes))
 	for i, node := range nodes {
