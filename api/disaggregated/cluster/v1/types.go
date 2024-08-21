@@ -60,7 +60,7 @@ type ComputeCluster struct {
 }
 
 type CommonSpec struct {
-	//Replicas represent the number
+	//Replicas represent the number.
 	// fe default is 2. fe is master-slave architecture only one is master.
 	Replicas *int32 `json:"replicas,omitempty"`
 
