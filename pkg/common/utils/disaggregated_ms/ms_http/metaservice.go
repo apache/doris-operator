@@ -17,6 +17,11 @@
 
 package ms_http
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 type MSResponse struct {
 	Code   string                 `json:"code,omitempty"`
 	Msg    string                 `json:"msg,omitempty"`
@@ -29,3 +34,47 @@ const (
 	NotFound       string = "NOT_FOUND"
 	INTERNAL_ERROR string = "INTERNAL_ERROR"
 )
+
+type NodeInfo struct {
+	CloudUniqueID string `json:"cloud_unique_id"`
+	IP            string `json:"ip"`
+	Ctime         string `json:"-"`
+	Mtime         string `json:"-"`
+	Status        string `json:"-"`
+	NodeType      string `json:"node_type,omitempty"`
+	EditLogPort   int    `json:"edit_log_port,omitempty"`
+	HeartbeatPort string `json:"heartbeat_port,omitempty"`
+	Host          string `json:"-"`
+}
+
+type Cluster struct {
+	ClusterName string      `json:"cluster_name"`
+	ClusterID   string      `json:"cluster_id"`
+	Type        string      `json:"type"`
+	Nodes       []*NodeInfo `json:"nodes"`
+}
+
+type MSRequest struct {
+	InstanceID string  `json:"instance_id"`
+	Cluster    Cluster `json:"cluster"`
+}
+
+func (mr *MSResponse) MSResponseResultNodesToNodeInfos() ([]*NodeInfo, error) {
+
+	nodes, ok := mr.Result["nodes"]
+	if !ok {
+		return nil, errors.New("MSResponseResultNodes is not exist")
+	}
+
+	jsonStr, err := json.Marshal(nodes)
+	if err != nil {
+		return nil, errors.New("MSResponseResultNodesToNodeInfos error marshaling map to JSON: " + err.Error())
+	}
+
+	var res []*NodeInfo
+	err = json.Unmarshal(jsonStr, &res)
+	if err != nil {
+		return nil, errors.New("MSResponseResultNodesToNodeInfos Error unmarshaling JSON to struct: " + err.Error())
+	}
+	return res, nil
+}

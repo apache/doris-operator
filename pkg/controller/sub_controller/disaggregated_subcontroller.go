@@ -90,9 +90,9 @@ func (d *DisaggregatedSubDefaultController) RestrictConditionsEqual(nst *appv1.S
 	nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
 }
 
-// ClearCommonResources clear common resources all component have, as statefulset, service.
+// ClearMSCommonResources clear common resources all component have, as statefulset, service.
 // response `bool` represents all resource have deleted, if not and delete resource failed return false for next reconcile retry.
-func (d *DisaggregatedSubDefaultController) ClearCommonResources(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) (bool, error) {
+func (d *DisaggregatedSubDefaultController) ClearMSCommonResources(ctx context.Context, dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) (bool, error) {
 	//if the doris is not have cn.
 	stName := mv1.GenerateComponentStatefulSetName(dms, componentType)
 	//externalServiceName := mv1.GenerateExternalServiceName(dms, componentType)
