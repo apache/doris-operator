@@ -120,12 +120,12 @@ func mergeMapsByPrefix(from map[string]string, to map[string]string, prefix stri
 }
 
 func mergeOwnerReferences(old []metav1.OwnerReference, new []metav1.OwnerReference) []metav1.OwnerReference {
-	existing := make(map[metav1.OwnerReference]bool)
+	existing := make(map[string]bool)
 	for _, ownerRef := range old {
-		existing[ownerRef] = true
+		existing[ownerRef.String()] = true
 	}
 	for _, ownerRef := range new {
-		if _, ok := existing[ownerRef]; !ok {
+		if _, ok := existing[ownerRef.String()]; !ok {
 			old = append(old, ownerRef)
 		}
 	}

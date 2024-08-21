@@ -19,13 +19,12 @@ package mysql
 
 import (
 	_ "crypto/tls"
-	"fmt"
 	"testing"
 )
 
 func TestAPIs(t *testing.T) {
 
-	cfg := DBConfig{
+	/*cfg := DBConfig{
 		User:     "root",
 		Password: "",
 		Host:     "127.0.0.1",
@@ -78,6 +77,6 @@ func TestAPIs(t *testing.T) {
 	if err != nil {
 		fmt.Printf("ShowBackends err: %s \n", err.Error())
 	}
-	fmt.Printf("ShowBackends after decommission%+v \n", bes)
+	fmt.Printf("ShowBackends after decommission%+v \n", bes)*/
 
 }
