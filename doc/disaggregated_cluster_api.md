@@ -129,7 +129,7 @@ int32
 </em>
 </td>
 <td>
-<p>Replicas represent the number
+<p>Replicas represent the number.
 fe default is 2. fe is master-slave architecture only one is master.</p>
 </td>
 </tr>
@@ -1284,5 +1284,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>d2e0db6</code>.
+on git commit <code>119098a</code>.
 </em></p>

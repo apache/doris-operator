@@ -1602,7 +1602,7 @@ spec:
                           type: object
                       type: object
                     replicas:
-                      description: Replicas represent the number fe default is 2.
+                      description: Replicas represent the number. fe default is 2.
                         fe is master-slave architecture only one is master.
                       format: int32
                       type: integer
@@ -3437,7 +3437,7 @@ spec:
                         type: object
                     type: object
                   replicas:
-                    description: Replicas represent the number fe default is 2. fe
+                    description: Replicas represent the number. fe default is 2. fe
                       is master-slave architecture only one is master.
                     format: int32
                     type: integer
