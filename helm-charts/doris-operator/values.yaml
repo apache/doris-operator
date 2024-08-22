@@ -23,7 +23,7 @@ dorisOperator:
   # the namespace of dorisoperator, if not set, the release namespace will be used.
   image:
     repository: selectdb/doris.k8s-operator
-    tag: 24.0.0-beta
+    tag: 1.6.1
     imagePullPolicy: ""
   # ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this deployment.
   # If specified, these secrets will be passed to individual puller implementations for them to use.
