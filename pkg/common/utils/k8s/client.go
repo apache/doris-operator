@@ -355,7 +355,7 @@ func SetClusterPhase(
 			}
 		}
 	default:
-		klog.Infof("SetClusterPhase not support type=", componentType)
+		klog.Infof("SetClusterPhase not support type=%s", componentType)
 		return nil
 	}
 	if isStatusEqual {

@@ -24,10 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var (
-	DefaultMetaserviceNumber int32 = 2
-)
-
 func (dmc *Controller) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewDMSPodTemplateSpec(dms, mv1.Component_MS)
 	var containers []corev1.Container
@@ -42,9 +38,6 @@ func (dmc *Controller) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaSer
 func (dmc *Controller) msContainer(dms *mv1.DorisDisaggregatedMetaService, config map[string]interface{}) corev1.Container {
 	brpcPort := resource.GetPort(config, resource.BRPC_LISTEN_PORT)
 	c := resource.NewDMSBaseMainContainer(dms, brpcPort, config, mv1.Component_MS)
-	if dms.Spec.MS.Replicas == nil {
-		dms.Spec.MS.Replicas = resource.GetInt32Pointer(DefaultMetaserviceNumber)
-	}
 
 	ports := resource.GetDMSContainerPorts(brpcPort, mv1.Component_MS)
 	c.Name = "metaservice"

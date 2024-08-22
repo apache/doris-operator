@@ -33,6 +33,9 @@ const (
 	ALREADY_EXIST  string = "ALREADY_EXISTED"
 	NotFound       string = "NOT_FOUND"
 	INTERNAL_ERROR string = "INTERNAL_ERROR"
+	FeClusterId           = "RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
+	FeClusterName         = "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
+	FeNodeType            = "SQL"
 )
 
 type NodeInfo struct {

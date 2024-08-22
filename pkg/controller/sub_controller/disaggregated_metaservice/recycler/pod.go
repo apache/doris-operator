@@ -24,10 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var (
-	DefaultRecyclerNumber int32 = 1
-)
-
 func (rc *RecyclerController) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewDMSPodTemplateSpec(dms, mv1.Component_RC)
 	var containers []corev1.Container
@@ -42,9 +38,6 @@ func (rc *RecyclerController) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregated
 func (rc *RecyclerController) rcContainer(dms *mv1.DorisDisaggregatedMetaService, config map[string]interface{}) corev1.Container {
 	brpcPort := resource.GetPort(config, resource.BRPC_LISTEN_PORT)
 	c := resource.NewDMSBaseMainContainer(dms, brpcPort, config, mv1.Component_RC)
-	if dms.Spec.MS.Replicas == nil {
-		dms.Spec.MS.Replicas = resource.GetInt32Pointer(DefaultRecyclerNumber)
-	}
 
 	ports := resource.GetDMSContainerPorts(brpcPort, mv1.Component_RC)
 	c.Name = "disaggregated-recycler"

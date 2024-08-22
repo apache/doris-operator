@@ -19,6 +19,7 @@ package disaggregated_fe
 
 import (
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
@@ -46,8 +47,6 @@ const (
 	LogPathKey               = "LOG_DIR"
 	LogStoreName             = "fe-log"
 	MetaStoreName            = "fe-meta"
-	FeClusterId              = "RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
-	FeClusterName            = "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
 	DefaultStorageSize int64 = 107374182400
 )
 
@@ -345,8 +344,8 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregate
 	ms_token := ddc.Status.MsToken
 	feEnvs = append(feEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
-		corev1.EnvVar{Name: CLUSTER_ID, Value: FeClusterId},
-		corev1.EnvVar{Name: CLUSTER_NAME, Value: FeClusterName},
+		corev1.EnvVar{Name: CLUSTER_ID, Value: ms_http.FeClusterId},
+		corev1.EnvVar{Name: CLUSTER_NAME, Value: ms_http.FeClusterName},
 		corev1.EnvVar{Name: INSTANCE_NAME, Value: ddc.Name},
 		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},

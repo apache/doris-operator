@@ -222,7 +222,7 @@ func (dfc *DisaggregatedFEController) initialFEStatus(ddc *dv1.DorisDisaggregate
 	}
 	feStatus := dv1.FEStatus{
 		Phase:     dv1.Reconciling,
-		ClusterId: FeClusterId,
+		ClusterId: ms_http.FeClusterId,
 	}
 	ddc.Status.FEStatus = feStatus
 }
@@ -327,15 +327,15 @@ func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDis
 	if len(dropNodes) == 0 {
 		return nil
 	}
-	specifyCluster, err := ms_http.DropNodesFromSpecifyCluster(cluster.Status.MsEndpoint, cluster.Status.MsToken, cluster.GetInstanceId(), dropNodes)
+	specifyCluster, err := ms_http.DropFENodes(cluster.Status.MsEndpoint, cluster.Status.MsToken, cluster.GetInstanceId(), dropNodes)
 	if err != nil {
-		klog.Errorf("dropFEFromHttpClient DropNodesFromSpecifyCluster failed, err:%s ", err.Error())
+		klog.Errorf("dropFEFromHttpClient DropFENodes failed, err:%s ", err.Error())
 		return err
 	}
 
 	if specifyCluster.Code != ms_http.SuccessCode {
 		jsonData, _ := json.Marshal(specifyCluster)
-		klog.Errorf("dropFEFromHttpClient DropNodesFromSpecifyCluster response failed , response: %s", jsonData)
+		klog.Errorf("dropFEFromHttpClient DropFENodes response failed , response: %s", jsonData)
 		return err
 	}
 

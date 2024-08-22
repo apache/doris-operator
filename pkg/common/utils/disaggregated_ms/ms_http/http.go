@@ -89,116 +89,88 @@ func DeleteInstance(endpoint, token, instanceId string) (*MSResponse, error) {
 	return mr, nil
 }
 
-func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, error) {
-	addr := fmt.Sprintf(CREATE_INSTANCE_PREFIX_TEMPLATE, endpoint, token)
-	r := bytes.NewReader(instanceInfo)
-	req, err := http.NewRequest("PUT", addr, r)
+func putRequest(requestAddress string, reqBody []byte) (*MSResponse, error) {
+	req, err := http.NewRequest("PUT", requestAddress, bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("putRequest NewRequest error: %w", err)
 	}
 
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("putRequest sending HTTP request error: %w", err)
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("putRequest reading HTTP response body error: %w", err)
 	}
 
 	mr := &MSResponse{}
 	if err := json.Unmarshal(body, mr); err != nil {
-		return mr, err
+		return nil, fmt.Errorf("putRequest unmarshalling JSON response error: %w", err)
 	}
 
 	return mr, nil
 }
 
-func GetFECluster(endpoint, token, instance_id, cloud_unique_id string) ([]*NodeInfo, error) {
+func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, error) {
+	addr := fmt.Sprintf(CREATE_INSTANCE_PREFIX_TEMPLATE, endpoint, token)
+	mr, err := putRequest(addr, instanceInfo)
+	if err != nil {
+		return nil, fmt.Errorf("CreateInstance putRequest failed: %w", err)
+	}
+	return mr, nil
+}
+
+func GetFECluster(endpoint, token, instanceId, cloudUniqueId string) ([]*NodeInfo, error) {
 	param := map[string]interface{}{
-		"instance_id":     instance_id,
-		"cloud_unique_id": cloud_unique_id,
+		"instance_id":     instanceId,
+		"cloud_unique_id": cloudUniqueId,
 		"cluster_name":    "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER",
 		"cluster_id":      "RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
 	}
 	str, _ := json.Marshal(param)
-	r := bytes.NewReader(str)
 	addr := fmt.Sprintf(GET_CLUSTER_PREFIX_TEMPLATE, endpoint, token)
-	req, err := http.NewRequest("PUT", addr, r)
+
+	mr, err := putRequest(addr, str)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetFECluster putRequest failed: %w", err)
 	}
 
-	c := http.Client{}
-	resp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	mr := &MSResponse{}
-	if err := json.Unmarshal(body, mr); err != nil {
-		return nil, err
-	}
 	return mr.MSResponseResultNodesToNodeInfos()
 }
 
-// DropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
-func DropNodesFromSpecifyCluster(endpoint, token, instanceID string, nodes []*NodeInfo) (*MSResponse, error) {
-	addr := fmt.Sprintf(DROP_NODE_PREFIX_TEMPLATE, endpoint, token)
-	nodeArr := make([]*NodeInfo, len(nodes))
-	for i, node := range nodes {
-		nodeParam := NodeInfo{
-			CloudUniqueID: node.CloudUniqueID,
-			IP:            node.IP,
-			EditLogPort:   node.EditLogPort,
-			NodeType:      node.NodeType,
-		}
-		nodeArr[i] = &nodeParam
+func DropFENodes(endpoint, token, instanceID string, nodes []*NodeInfo) (*MSResponse, error) {
+	cluster := Cluster{
+		ClusterName: FeClusterName,
+		ClusterID:   FeClusterId,
+		Type:        FeNodeType,
+		Nodes:       nodes,
 	}
+	mr, err := dropNodesFromSpecifyCluster(endpoint, token, instanceID, cluster)
+	if err != nil {
+		return mr, fmt.Errorf("DropFENodes dropNodesFromSpecifyCluster failed: %w", err)
+	}
+	return mr, nil
+}
+
+// dropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
+func dropNodesFromSpecifyCluster(endpoint, token, instanceID string, cluster Cluster) (*MSResponse, error) {
+	addr := fmt.Sprintf(DROP_NODE_PREFIX_TEMPLATE, endpoint, token)
 	param := MSRequest{
 		InstanceID: instanceID,
-		Cluster: Cluster{
-			ClusterName: "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER",
-			ClusterID:   "RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
-			Type:        "SQL",
-			Nodes:       nodeArr,
-		},
+		Cluster:    cluster,
 	}
 	jsonData, err := json.Marshal(param)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request data: %w", err)
+		return nil, fmt.Errorf("dropNodesFromSpecifyCluster failed to marshal request data: %w", err)
 	}
-	r := bytes.NewReader(jsonData)
 
-	req, err := http.NewRequest("PUT", addr, r)
+	mr, err := putRequest(addr, jsonData)
 	if err != nil {
-		return nil, err
-	}
-
-	c := http.Client{}
-	resp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	mr := &MSResponse{}
-	if err := json.Unmarshal(body, mr); err != nil {
-		return mr, err
+		return nil, fmt.Errorf("dropNodesFromSpecifyCluster putRequest failed: %w", err)
 	}
 	return mr, nil
 

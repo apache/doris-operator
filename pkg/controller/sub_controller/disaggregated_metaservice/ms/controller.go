@@ -54,12 +54,6 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 		return nil
 	}
 
-	if *(dms.Spec.MS.Replicas) != DefaultMetaserviceNumber {
-		klog.Infof("disaggregatedMSController sync DorisDisaggregatedMetaService namespace=%s,name=%s ,The number of disaggregated ms replicas is fixed to %d and cannot be modified", dms.Namespace, dms.Name, DefaultMetaserviceNumber)
-		msc.K8srecorder.Event(dms, string(sub_controller.EventNormal), string(sub_controller.MSSpecSetFix), "The number of disaggregated ms replicas is fixed to 2 and cannot be modified")
-		dms.Spec.MS.Replicas = &DefaultMetaserviceNumber
-	}
-
 	msc.initMSStatus(dms)
 	msSpec := dms.Spec.MS
 
@@ -80,7 +74,7 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	}
 
 	// TODO prepareStatefulsetApply for scaling
-	st := msc.buildMSStatefulSet(dms, config)
+	st := msc.buildMSStatefulSet(dms)
 
 	if err = k8s.ApplyStatefulSet(ctx, msc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
 		msc.RestrictConditionsEqual(new, old)
@@ -120,7 +114,7 @@ func (msc *Controller) UpdateComponentStatus(obj client.Object) error {
 	if dms.Spec.MS == nil {
 		return nil
 	}
-	return msc.ClassifyPodsByStatus(dms.Namespace, &dms.Status.MSStatus, mv1.GenerateStatefulSetSelector(dms, mv1.Component_MS), *dms.Spec.MS.Replicas)
+	return msc.ClassifyPodsByStatus(dms.Namespace, &dms.Status.MSStatus, mv1.GenerateStatefulSetSelector(dms, mv1.Component_MS), mv1.DefaultMetaserviceNumber)
 }
 
 func (d *Controller) initMSStatus(dms *mv1.DorisDisaggregatedMetaService) {

@@ -59,7 +59,8 @@ const (
 )
 
 const (
-	SEARCH_SERVICE_SUFFIX = "-internal"
+	DefaultMetaserviceNumber int32 = 2
+	DefaultRecyclerNumber    int32 = 1
 )
 
 // build foundationdbCluster's label for classify pods.
