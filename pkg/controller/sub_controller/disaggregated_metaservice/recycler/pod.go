@@ -24,10 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var (
-	DefaultRecyclerNumber int32 = 1
-)
-
 func (rc *RecyclerController) buildMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewDMSPodTemplateSpec(dms, mv1.Component_RC)
 	var containers []corev1.Container

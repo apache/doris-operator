@@ -66,7 +66,6 @@ var (
 	ConfigMapGetFailed                EventReason = "ConfigMapGetFailed"
 	ObjectConfigError                 EventReason = "ObjectConfigError"
 	MSInteractError                   EventReason = "MSInteractError"
-	MSSpecSetFix                      EventReason = "MSSpecSetFix"
 	InstanceMetaCreated               EventReason = "InstanceMetaCreated"
 	InstanceIdModified                EventReason = "InstanceIdModified"
 	ConfigMapPathRepeated             EventReason = "ConfigMapPathRepeated"
