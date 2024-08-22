@@ -2877,12 +2877,6 @@ spec:
                             type: string
                         type: object
                     type: object
-                  replicas:
-                    description: Replicas represent the number of metaservice. default
-                      is 2. anytime only one working, config replicas=2 is high availability,
-                      more than 2 is unnecessary.
-                    format: int32
-                    type: integer
                   requests:
                     additionalProperties:
                       anyOf:
@@ -4659,12 +4653,6 @@ spec:
                             type: string
                         type: object
                     type: object
-                  replicas:
-                    description: Replicas represent the number of metaservice. default
-                      is 2. anytime only one working, config replicas=2 is high availability,
-                      more than 2 is unnecessary.
-                    format: int32
-                    type: integer
                   requests:
                     additionalProperties:
                       anyOf:

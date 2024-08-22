@@ -201,17 +201,6 @@ More info: <a href="https://kubernetes.io/docs/concepts/containers/images#specif
 </tr>
 <tr>
 <td>
-<code>replicas</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>Replicas represent the number of metaservice. default is 2. anytime only one working, config replicas=2 is high availability, more than 2 is unnecessary.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>ResourceRequirements</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
@@ -1093,5 +1082,5 @@ BaseSpec <code>json:&quot;baseSpec,omitempty&quot;</code></p>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>7d8fdc8</code>.
+on git commit <code>3663d17</code>.
 </em></p>
