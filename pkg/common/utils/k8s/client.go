@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils"
@@ -324,6 +325,46 @@ func SetDorisClusterPhase(
 	return k8sclient.Status().Update(ctx, &edcr)
 }
 
+func SetClusterPhase(
+	ctx context.Context,
+	k8sclient client.Client,
+	ddcName, namespace string,
+	phase dv1.Phase,
+	componentType dv1.DisaggregatedComponentType,
+	ccStsNames []string,
+) error {
+	var edcr dv1.DorisDisaggregatedCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ddcName}, &edcr); err != nil {
+		return err
+	}
+	isStatusEqual := true
+	switch componentType {
+	case dv1.DisaggregatedFE:
+		isStatusEqual = edcr.Status.FEStatus.Phase == phase
+		edcr.Status.FEStatus.Phase = phase
+	case dv1.DisaggregatedBE:
+		for i, ccs := range edcr.Status.ComputeClusterStatuses {
+			name := ccs.StatefulsetName
+			for _, ccStsName := range ccStsNames {
+				if ccStsName == name {
+					if ccs.Phase != phase {
+						isStatusEqual = false
+					}
+					edcr.Status.ComputeClusterStatuses[i].Phase = phase
+				}
+			}
+		}
+	default:
+		klog.Infof("SetClusterPhase not support type=%s", componentType)
+		return nil
+	}
+	if isStatusEqual {
+		klog.Infof("SetClusterPhase will not change cluster %s Phase, it is already %s ,DDC name: %s, namespace: %s,", componentType, phase, ddcName, namespace)
+		return nil
+	}
+	return k8sclient.Status().Update(ctx, &edcr)
+}
+
 func GetDisaggregatedConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
 	var configMaps []*corev1.ConfigMap
 	errMessage := ""
@@ -387,13 +428,4 @@ func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName 
 		return err
 	}
 	return nil
-}
-
-// clear unused pvc of statefulset previously used, as the replicas decrease.
-// return clear pvc number and error
-func ClearStatefulsetUnusedPVCs(ctx context.Context, k8sclient client.Client, namespace, statefulsetName string) (int, error) {
-	//TODO: use labels to select pods and pvcs.
-	//1. list pods and pvcs, if pvcs > pods clear not unused pvcs.
-	//2. delete  all unused pvc
-	return 0, nil
 }

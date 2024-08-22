@@ -121,7 +121,7 @@ func (rc *RecyclerController) ClearResources(ctx context.Context, obj client.Obj
 	}
 
 	if dms.Spec.Recycler == nil {
-		return rc.ClearCommonResources(ctx, dms, mv1.Component_RC)
+		return rc.ClearMSCommonResources(ctx, dms, mv1.Component_RC)
 	}
 	return true, nil
 }
@@ -136,5 +136,5 @@ func (rc *RecyclerController) UpdateComponentStatus(obj client.Object) error {
 	if ddm.Spec.Recycler == nil {
 		return nil
 	}
-	return rc.ClassifyPodsByStatus(ddm.Namespace, &ddm.Status.RecyclerStatus, mv1.GenerateStatefulSetSelector(ddm, mv1.Component_RC), *ddm.Spec.Recycler.Replicas)
+	return rc.ClassifyPodsByStatus(ddm.Namespace, &ddm.Status.RecyclerStatus, mv1.GenerateStatefulSetSelector(ddm, mv1.Component_RC), mv1.DefaultRecyclerNumber)
 }

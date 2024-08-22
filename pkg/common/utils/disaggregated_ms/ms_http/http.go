@@ -30,6 +30,8 @@ const (
 	CREATE_INSTANCE_PREFIX_TEMPLATE = `http://%s/MetaService/http/create_instance?token=%s`
 	DELETE_INSTANCE_PREFIX_TEMPLATE = `http://%s/MetaService/http/drop_instance?token=%s`
 	GET_INSTANCE_PREFIX_TEMPLATE    = `http://%s/MetaService/http/get_instance?token=%s&instance_id=%s`
+	DROP_NODE_PREFIX_TEMPLATE       = `http://%s/MetaService/http/drop_node?token=%s`
+	GET_CLUSTER_PREFIX_TEMPLATE     = `http://%s/MetaService/http/get_cluster?token=%s`
 )
 
 //realize the metaservice interface
@@ -87,38 +89,91 @@ func DeleteInstance(endpoint, token, instanceId string) (*MSResponse, error) {
 	return mr, nil
 }
 
-func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, error) {
-	addr := fmt.Sprintf(CREATE_INSTANCE_PREFIX_TEMPLATE, endpoint, token)
-	r := bytes.NewReader(instanceInfo)
-	req, err := http.NewRequest("PUT", addr, r)
+func putRequest(requestAddress string, reqBody []byte) (*MSResponse, error) {
+	req, err := http.NewRequest("PUT", requestAddress, bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("putRequest NewRequest error: %w", err)
 	}
 
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("putRequest sending HTTP request error: %w", err)
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("putRequest reading HTTP response body error: %w", err)
 	}
 
 	mr := &MSResponse{}
 	if err := json.Unmarshal(body, mr); err != nil {
-		return mr, err
+		return nil, fmt.Errorf("putRequest unmarshalling JSON response error: %w", err)
 	}
 
 	return mr, nil
 }
 
-// drop all nodes of specify cluster from ms
-func DropNodesFromSpecifyCluster() (*MSResponse, error) {
-	//TODO: drop nodes
-	return nil, nil
+func CreateInstance(endpoint, token string, instanceInfo []byte) (*MSResponse, error) {
+	addr := fmt.Sprintf(CREATE_INSTANCE_PREFIX_TEMPLATE, endpoint, token)
+	mr, err := putRequest(addr, instanceInfo)
+	if err != nil {
+		return nil, fmt.Errorf("CreateInstance putRequest failed: %w", err)
+	}
+	return mr, nil
+}
+
+func GetFECluster(endpoint, token, instanceId, cloudUniqueId string) ([]*NodeInfo, error) {
+	param := map[string]interface{}{
+		"instance_id":     instanceId,
+		"cloud_unique_id": cloudUniqueId,
+		"cluster_name":    "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER",
+		"cluster_id":      "RESERVED_CLUSTER_ID_FOR_SQL_SERVER",
+	}
+	str, _ := json.Marshal(param)
+	addr := fmt.Sprintf(GET_CLUSTER_PREFIX_TEMPLATE, endpoint, token)
+
+	mr, err := putRequest(addr, str)
+	if err != nil {
+		return nil, fmt.Errorf("GetFECluster putRequest failed: %w", err)
+	}
+
+	return mr.MSResponseResultNodesToNodeInfos()
+}
+
+func DropFENodes(endpoint, token, instanceID string, nodes []*NodeInfo) (*MSResponse, error) {
+	cluster := Cluster{
+		ClusterName: FeClusterName,
+		ClusterID:   FeClusterId,
+		Type:        FeNodeType,
+		Nodes:       nodes,
+	}
+	mr, err := dropNodesFromSpecifyCluster(endpoint, token, instanceID, cluster)
+	if err != nil {
+		return mr, fmt.Errorf("DropFENodes dropNodesFromSpecifyCluster failed: %w", err)
+	}
+	return mr, nil
+}
+
+// dropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
+func dropNodesFromSpecifyCluster(endpoint, token, instanceID string, cluster Cluster) (*MSResponse, error) {
+	addr := fmt.Sprintf(DROP_NODE_PREFIX_TEMPLATE, endpoint, token)
+	param := MSRequest{
+		InstanceID: instanceID,
+		Cluster:    cluster,
+	}
+	jsonData, err := json.Marshal(param)
+	if err != nil {
+		return nil, fmt.Errorf("dropNodesFromSpecifyCluster failed to marshal request data: %w", err)
+	}
+
+	mr, err := putRequest(addr, jsonData)
+	if err != nil {
+		return nil, fmt.Errorf("dropNodesFromSpecifyCluster putRequest failed: %w", err)
+	}
+	return mr, nil
+
 }
 
 // suspend cluster

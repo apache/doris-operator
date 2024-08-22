@@ -1303,8 +1303,8 @@ spec:
                         type: object
                       type: array
                     image:
-                      description: Image is the be of Disaggregated docker image to
-                        deploy. please reference the selectdb repository to find.
+                      description: Image is the Disaggregated docker image to deploy.
+                        please reference the selectdb repository to find.
                       type: string
                     imagePullSecrets:
                       description: 'ImagePullSecrets is an optional list of references
@@ -1602,7 +1602,9 @@ spec:
                           type: object
                       type: object
                     replicas:
-                      description: Replicas represent the number of compute node.
+                      description: Replicas represent the number of desired Pod. fe
+                        default is 2. fe is master-slave architecture only one is
+                        master.
                       format: int32
                       type: integer
                     requests:
@@ -3150,8 +3152,8 @@ spec:
                       type: object
                     type: array
                   image:
-                    description: Image is the be of Disaggregated docker image to
-                      deploy. please reference the selectdb repository to find.
+                    description: Image is the Disaggregated docker image to deploy.
+                      please reference the selectdb repository to find.
                     type: string
                   imagePullSecrets:
                     description: 'ImagePullSecrets is an optional list of references
@@ -3436,8 +3438,8 @@ spec:
                         type: object
                     type: object
                   replicas:
-                    description: Replicas represent the number of fe. default is 2.
-                      fe is master-slave architecture only one is master.
+                    description: Replicas represent the number of desired Pod. fe
+                      default is 2. fe is master-slave architecture only one is master.
                     format: int32
                     type: integer
                   requests:

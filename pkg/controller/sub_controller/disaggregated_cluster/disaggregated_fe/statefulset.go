@@ -19,6 +19,7 @@ package disaggregated_fe
 
 import (
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
@@ -46,14 +47,12 @@ const (
 	LogPathKey               = "LOG_DIR"
 	LogStoreName             = "fe-log"
 	MetaStoreName            = "fe-meta"
-	FeClusterId              = "RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
-	FeClusterName            = "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
 	DefaultStorageSize int64 = 107374182400
 )
 
 var (
-	Default_Election_Number   int32 = 1
-	Default_Fe_Replica_Number int32 = 2
+	DefaultElectionNumber  int32 = 1
+	DefaultFeReplicaNumber int32 = 2
 )
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
@@ -73,8 +72,8 @@ func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[s
 
 func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	spec := ddc.Spec.FeSpec
-	if *ddc.Spec.FeSpec.Replicas < Default_Fe_Replica_Number {
-		ddc.Spec.FeSpec.Replicas = &(Default_Fe_Replica_Number)
+	if *ddc.Spec.FeSpec.Replicas < DefaultFeReplicaNumber {
+		ddc.Spec.FeSpec.Replicas = &(DefaultFeReplicaNumber)
 	}
 	selector := dfc.newFEPodsSelector(ddc.Name)
 	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
@@ -193,7 +192,7 @@ func (dfc *DisaggregatedFEController) buildConfigMapVolumesVolumeMounts(fe *dv1.
 func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 
 	//if ddc.Spec.FeSpec.ElectionNumber == nil {
-	//	ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(Default_Election_Number)
+	//	ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(DefaultElectionNumber)
 	//}
 
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
@@ -345,13 +344,13 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregate
 	ms_token := ddc.Status.MsToken
 	feEnvs = append(feEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
-		corev1.EnvVar{Name: CLUSTER_ID, Value: FeClusterId},
-		corev1.EnvVar{Name: CLUSTER_NAME, Value: FeClusterName},
+		corev1.EnvVar{Name: CLUSTER_ID, Value: ms_http.FeClusterId},
+		corev1.EnvVar{Name: CLUSTER_NAME, Value: ms_http.FeClusterName},
 		corev1.EnvVar{Name: INSTANCE_NAME, Value: ddc.Name},
 		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: MS_TOKEN, Value: ms_token},
-		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(Default_Election_Number), 10)},
+		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(DefaultElectionNumber), 10)},
 	)
 	return feEnvs
 }

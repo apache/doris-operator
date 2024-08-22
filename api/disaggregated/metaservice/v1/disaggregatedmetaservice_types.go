@@ -114,9 +114,6 @@ type BaseSpec struct {
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
-	//Replicas represent the number of metaservice. default is 2. anytime only one working, config replicas=2 is high availability, more than 2 is unnecessary.
-	Replicas *int32 `json:"replicas,omitempty"`
-
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 

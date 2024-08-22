@@ -123,13 +123,25 @@ int32
 <tbody>
 <tr>
 <td>
+<code>replicas</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>Replicas represent the number of desired Pod.
+fe default is 2. fe is master-slave architecture only one is master.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>image</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Image is the be of Disaggregated docker image to deploy. please reference the selectdb repository to find.</p>
+<p>Image is the Disaggregated docker image to deploy. please reference the selectdb repository to find.</p>
 </td>
 </tr>
 <tr>
@@ -406,17 +418,6 @@ string
 </td>
 <td>
 <p>ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>replicas</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>Replicas represent the number of compute node.</p>
 </td>
 </tr>
 <tr>
@@ -1020,17 +1021,6 @@ string
 <tbody>
 <tr>
 <td>
-<code>replicas</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>Replicas represent the number of fe. default is 2. fe is master-slave architecture only one is master.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>CommonSpec</code><br/>
 <em>
 <a href="#disaggregated.cluster.doris.com/v1.CommonSpec">
@@ -1294,5 +1284,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>dfcbd33</code>.
+on git commit <code>7d8fdc8</code>.
 </em></p>

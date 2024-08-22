@@ -20,6 +20,7 @@ package disaggregated_fe
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
@@ -61,10 +62,10 @@ func New(mgr ctrl.Manager) *DisaggregatedFEController {
 func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Object) error {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 
-	if *(ddc.Spec.FeSpec.Replicas) < Default_Fe_Replica_Number {
-		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is illegal and has been corrected to the default value %d", ddc.Namespace, ddc.Name, Default_Fe_Replica_Number)
+	if *(ddc.Spec.FeSpec.Replicas) < DefaultFeReplicaNumber {
+		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is illegal and has been corrected to the default value %d", ddc.Namespace, ddc.Name, DefaultFeReplicaNumber)
 		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventNormal), string(sub_controller.FESpecSetError), "The number of disaggregated fe replicas is illegal and has been corrected to the default value 2")
-		ddc.Spec.FeSpec.Replicas = &Default_Fe_Replica_Number
+		ddc.Spec.FeSpec.Replicas = &DefaultFeReplicaNumber
 	}
 
 	confMap := dfc.getConfigValuesFromConfigMaps(ddc.Namespace, ddc.Spec.FeSpec.ConfigMaps)
@@ -81,13 +82,8 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		klog.Errorf("disaggregatedFEController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
 		return err
 	}
-	//TODO: 3. check fe replicas greater 1 or not. response the step `check the decrease`
-	dfc.ensureFEReplicas(ddc)
 
-	//TODO: 6. drop all will delete nodes
-	ms_http.DropNodesFromSpecifyCluster()
-
-	event, err = dfc.reconcileStatefulset(ctx, st)
+	event, err = dfc.reconcileStatefulset(ctx, st, ddc)
 	if err != nil {
 		if event != nil {
 			dfc.k8sRecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
@@ -99,24 +95,18 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	return nil
 }
 
-// ensure the fe's replicas in ddc is not less 1.
-func (dfc *DisaggregatedFEController) ensureFEReplicas(ddc *dv1.DorisDisaggregatedCluster) {
-
-}
-
 func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 
 	statefulsetName := ddc.GetFEStatefulsetName()
 	serviceName := ddc.GetFEServiceName()
-	//TODO: 8,9,10 clear unused pvcs
+
+	if err := dfc.RecycleResources(ctx, ddc); err != nil {
+		klog.Errorf("DisaggregatedFE ClearResources RecycleResources failed, namespace %s name %s, err:%s.", ddc.Namespace, ddc.Name, err.Error())
+		return false, err
+	}
+
 	if ddc.DeletionTimestamp.IsZero() {
-		_, err := k8s.ClearStatefulsetUnusedPVCs(ctx, dfc.k8sClient, ddc.Namespace, statefulsetName)
-		if err != nil {
-			return false, err
-		}
-		//TODO:11. drop fe node
-		ms_http.DropNodesFromSpecifyCluster()
 		return true, nil
 	}
 
@@ -192,7 +182,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	if masterAliveReplicas == Default_Election_Number && availableReplicas == *(feSpec.Replicas) {
+	if masterAliveReplicas == DefaultElectionNumber && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = dv1.Ready
 	}
 
@@ -232,7 +222,7 @@ func (dfc *DisaggregatedFEController) initialFEStatus(ddc *dv1.DorisDisaggregate
 	}
 	feStatus := dv1.FEStatus{
 		Phase:     dv1.Reconciling,
-		ClusterId: FeClusterId,
+		ClusterId: ms_http.FeClusterId,
 	}
 	ddc.Status.FEStatus = feStatus
 }
@@ -259,7 +249,7 @@ func (dfc *DisaggregatedFEController) reconcileService(ctx context.Context, svc 
 	return nil, nil
 }
 
-func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet) (*sub_controller.Event, error) {
+func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster) (*sub_controller.Event, error) {
 	var est appv1.StatefulSet
 	if err := dfc.k8sClient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
 		if err = k8s.CreateClientObject(ctx, dfc.k8sClient, st); err != nil {
@@ -273,6 +263,23 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		return nil, err
 	}
 
+	// fe scale check and set FEStatus phase
+	if cluster.Spec.FeSpec.Replicas == nil {
+		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
+	}
+	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(est.Spec.Replicas)
+	if scaleNumber != 0 { // set fe Phase as Reconciling
+		cluster.Status.FEStatus.Phase = dv1.Reconciling
+		// In Reconcile, it is possible that the status cannot be updated in time,
+		// resulting in an error in the status judgment based on the last status,
+		// so the status will be forced to modify here
+		if err := k8s.SetClusterPhase(ctx, dfc.k8sClient, cluster.Name, cluster.Namespace, dv1.Reconciling, dv1.DisaggregatedFE, nil); err != nil {
+			klog.Errorf("reconcileStatefulset SetClusterPhase 'Reconciling' failed err:%s ", err.Error())
+			return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEStatusUpdateFailed, Message: err.Error()}, err
+		}
+	}
+
+	// apply fe StatefulSet
 	if err := k8s.ApplyStatefulSet(ctx, dfc.k8sClient, st, func(st, est *appv1.StatefulSet) bool {
 		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
@@ -280,5 +287,65 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEApplyResourceFailed, Message: err.Error()}, err
 	}
 
+	//  if fe scale, drop fe node by http
+	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == dv1.Reconciling {
+		if err := dfc.dropFEFromHttpClient(cluster); err != nil {
+			klog.Errorf("reconcileStatefulset dropFEFromHttpClient failed, err:%s ", err.Error())
+			return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEHTTPFailed, Message: err.Error()},
+				err
+		}
+	}
+
 	return nil, nil
+}
+
+// dropFEFromHttpClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
+func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDisaggregatedCluster) error {
+	feReplica := cluster.Spec.FeSpec.Replicas
+
+	unionId := "1:" + cluster.GetInstanceId() + cluster.GetFEStatefulsetName() + "-0"
+
+	feCluster, err := ms_http.GetFECluster(cluster.Status.MsEndpoint, cluster.Status.MsToken, cluster.GetInstanceId(), unionId)
+	if err != nil {
+		klog.Errorf("dropFEFromHttpClient GetFECluster failed, err:%s ", err.Error())
+		return err
+	}
+
+	var dropNodes []*ms_http.NodeInfo
+	for _, node := range feCluster {
+		splitCloudUniqueIDArr := strings.Split(node.CloudUniqueID, "-")
+		podNum, err := strconv.Atoi(splitCloudUniqueIDArr[len(splitCloudUniqueIDArr)-1])
+		if err != nil {
+			klog.Errorf("dropFEFromHttpClient splitCloudUniqueIDArr can not split CloudUniqueID : %s,err:%s", node.CloudUniqueID, err.Error())
+			return err
+		}
+		if podNum >= int(*feReplica) {
+			dropNodes = append(dropNodes, node)
+		}
+
+	}
+	if len(dropNodes) == 0 {
+		return nil
+	}
+	specifyCluster, err := ms_http.DropFENodes(cluster.Status.MsEndpoint, cluster.Status.MsToken, cluster.GetInstanceId(), dropNodes)
+	if err != nil {
+		klog.Errorf("dropFEFromHttpClient DropFENodes failed, err:%s ", err.Error())
+		return err
+	}
+
+	if specifyCluster.Code != ms_http.SuccessCode {
+		jsonData, _ := json.Marshal(specifyCluster)
+		klog.Errorf("dropFEFromHttpClient DropFENodes response failed , response: %s", jsonData)
+		return err
+	}
+
+	return nil
+}
+
+// RecycleResources pvc resource for fe recycle
+func (dfc *DisaggregatedFEController) RecycleResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) error {
+	if ddc.Spec.FeSpec.PersistentVolume != nil {
+		return dfc.listAndDeletePersistentVolumeClaim(ctx, ddc)
+	}
+	return nil
 }

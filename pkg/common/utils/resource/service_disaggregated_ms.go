@@ -29,7 +29,7 @@ import (
 func BuildDMSService(ddm *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType, brpcPort int32) corev1.Service {
 	labels := mv1.GenerateServiceLabels(ddm, componentType)
 	selector := mv1.GenerateServiceSelector(ddm, componentType)
-	spec := GetDMSBaseSpecFromCluster(ddm, componentType)
+	spec, _ := GetDMSBaseSpecFromCluster(ddm, componentType)
 	exportService := spec.Service
 
 	svc := corev1.Service{

@@ -50,7 +50,7 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	dms := obj.(*mv1.DorisDisaggregatedMetaService)
 
 	if dms.Status.FDBStatus.AvailableStatus != mv1.Available {
-		klog.Info("MS Controller Sync: ", "the FDB is UnAvailable ", "namespace ", dms.Namespace, " disaggregated doris cluster name ", dms.Name)
+		klog.Info("MS Controller Sync: the FDB is UnAvailable namespace ", dms.Namespace, " disaggregated doris cluster name ", dms.Name)
 		return nil
 	}
 
@@ -74,7 +74,7 @@ func (msc *Controller) Sync(ctx context.Context, obj client.Object) error {
 	}
 
 	// TODO prepareStatefulsetApply for scaling
-	st := msc.buildMSStatefulSet(dms, config)
+	st := msc.buildMSStatefulSet(dms)
 
 	if err = k8s.ApplyStatefulSet(ctx, msc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
 		msc.RestrictConditionsEqual(new, old)
@@ -99,7 +99,7 @@ func (msc *Controller) ClearResources(ctx context.Context, obj client.Object) (b
 	}
 
 	if dms.Spec.MS == nil {
-		return msc.ClearCommonResources(ctx, dms, mv1.Component_MS)
+		return msc.ClearMSCommonResources(ctx, dms, mv1.Component_MS)
 	}
 	return true, nil
 }
@@ -114,7 +114,7 @@ func (msc *Controller) UpdateComponentStatus(obj client.Object) error {
 	if dms.Spec.MS == nil {
 		return nil
 	}
-	return msc.ClassifyPodsByStatus(dms.Namespace, &dms.Status.MSStatus, mv1.GenerateStatefulSetSelector(dms, mv1.Component_MS), *dms.Spec.MS.Replicas)
+	return msc.ClassifyPodsByStatus(dms.Namespace, &dms.Status.MSStatus, mv1.GenerateStatefulSetSelector(dms, mv1.Component_MS), mv1.DefaultMetaserviceNumber)
 }
 
 func (d *Controller) initMSStatus(dms *mv1.DorisDisaggregatedMetaService) {
