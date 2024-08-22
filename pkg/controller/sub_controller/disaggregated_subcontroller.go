@@ -65,7 +65,7 @@ func (d *DisaggregatedSubDefaultController) GetMSConfig(ctx context.Context, cms
 
 // generate map for mountpath:configmap
 func (d *DisaggregatedSubDefaultController) CheckMSConfigMountPath(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) {
-	bspec := resource.GetDMSBaseSpecFromCluster(dms, componentType)
+	bspec, _ := resource.GetDMSBaseSpecFromCluster(dms, componentType)
 	cms := bspec.ConfigMaps
 
 	var mountsMap = make(map[string]mv1.ConfigMap)

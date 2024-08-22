@@ -19,6 +19,7 @@ package resource
 
 import (
 	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -37,7 +38,7 @@ const (
 )
 
 func NewDMSPodTemplateSpec(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) corev1.PodTemplateSpec {
-	spec := GetDMSBaseSpecFromCluster(dms, componentType)
+	spec, _ := GetDMSBaseSpecFromCluster(dms, componentType)
 	volumes := newVolumesFromDMSBaseSpec(*spec)
 	dmsAffinity := spec.Affinity
 	SecurityContext := spec.SecurityContext
@@ -122,7 +123,7 @@ func buildDMSVolumeMounts(spec mv1.BaseSpec, config map[string]interface{}) []co
 
 func NewDMSBaseMainContainer(dms *mv1.DorisDisaggregatedMetaService, brpcPort int32, config map[string]interface{}, componentType mv1.ComponentType) corev1.Container {
 	var envs []corev1.EnvVar
-	spec := GetDMSBaseSpecFromCluster(dms, componentType)
+	spec, _ := GetDMSBaseSpecFromCluster(dms, componentType)
 
 	command, args := buildDMSEntrypointCommand(componentType)
 
@@ -226,18 +227,21 @@ func generateDMSPodTemplateName(dms *mv1.DorisDisaggregatedMetaService, componen
 	return dms.Name + "-" + string(componentType)
 }
 
-func GetDMSBaseSpecFromCluster(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) *mv1.BaseSpec {
+func GetDMSBaseSpecFromCluster(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) (*mv1.BaseSpec, *int32) {
 	var bSpec *mv1.BaseSpec
+	var replicas *int32
 	switch componentType {
 	case mv1.Component_MS:
 		bSpec = &dms.Spec.MS.BaseSpec
+		replicas = metadata.GetInt32Pointer(mv1.DefaultMetaserviceNumber)
 	case mv1.Component_RC:
 		bSpec = &dms.Spec.Recycler.BaseSpec
+		replicas = metadata.GetInt32Pointer(mv1.DefaultRecyclerNumber)
 	default:
 		klog.Infof("the componentType %s is not supported!", componentType)
 	}
 
-	return bSpec
+	return bSpec, replicas
 }
 
 // getConfigmapVolumeAndVolumeMount get Volume And VolumeMount base on configmaps

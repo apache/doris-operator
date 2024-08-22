@@ -36,7 +36,7 @@ const (
 
 // NewDMSStatefulSet construct statefulset for metaservice and recycler.
 func NewDMSStatefulSet(dms *mv1.DorisDisaggregatedMetaService, componentType mv1.ComponentType) appv1.StatefulSet {
-	bSpec := GetDMSBaseSpecFromCluster(dms, componentType)
+	bSpec, replicas := GetDMSBaseSpecFromCluster(dms, componentType)
 
 	orf := metav1.OwnerReference{
 		APIVersion: dms.APIVersion,
@@ -71,7 +71,7 @@ func NewDMSStatefulSet(dms *mv1.DorisDisaggregatedMetaService, componentType mv1
 		},
 
 		Spec: appv1.StatefulSetSpec{
-			Replicas:             bSpec.Replicas,
+			Replicas:             replicas,
 			Selector:             &selector,
 			Template:             NewDMSPodTemplateSpec(dms, componentType),
 			VolumeClaimTemplates: volumeClaimTemplates,

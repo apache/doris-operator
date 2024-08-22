@@ -13,7 +13,6 @@ spec:
       memory: 2Gi
   ms:
     image: selectdb/doris.ms-ubuntu:3.0.0
-    replicas: 2
     requests:
       cpu: 2
       memory: 4Gi
@@ -25,7 +24,6 @@ spec:
 
   recycler:
     image: selectdb/doris.ms-ubuntu:3.0.0
-    replicas: 2
     requests:
       cpu: 2
       memory: 4Gi
