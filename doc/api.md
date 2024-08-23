@@ -46,7 +46,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -396,7 +396,7 @@ string
 <td>
 <code>imagePullSecrets</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#localobjectreference-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#localobjectreference-v1-core">
 []Kubernetes core/v1.LocalObjectReference
 </a>
 </em>
@@ -426,7 +426,7 @@ ConfigMapInfo
 <td>
 <code>ResourceRequirements</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -454,7 +454,7 @@ map[string]string
 <td>
 <code>envVars</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#envvar-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#envvar-v1-core">
 []Kubernetes core/v1.EnvVar
 </a>
 </em>
@@ -468,7 +468,7 @@ map[string]string
 <td>
 <code>affinity</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#affinity-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#affinity-v1-core">
 Kubernetes core/v1.Affinity
 </a>
 </em>
@@ -482,7 +482,7 @@ Kubernetes core/v1.Affinity
 <td>
 <code>tolerations</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#toleration-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#toleration-v1-core">
 []Kubernetes core/v1.Toleration
 </a>
 </em>
@@ -508,7 +508,7 @@ map[string]string
 <td>
 <code>hostAliases</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#hostalias-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#hostalias-v1-core">
 []Kubernetes core/v1.HostAlias
 </a>
 </em>
@@ -548,7 +548,7 @@ SystemInitialization
 <td>
 <code>securityContext</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podsecuritycontext-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core">
 Kubernetes core/v1.PodSecurityContext
 </a>
 </em>
@@ -562,7 +562,7 @@ Kubernetes core/v1.PodSecurityContext
 <td>
 <code>containerSecurityContext</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#securitycontext-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core">
 Kubernetes core/v1.SecurityContext
 </a>
 </em>
@@ -576,7 +576,7 @@ Kubernetes core/v1.SecurityContext
 <td>
 <code>initContainers</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#container-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#container-v1-core">
 []Kubernetes core/v1.Container
 </a>
 </em>
@@ -804,7 +804,7 @@ ComponentPhase
 <td>
 <code>lastTransitionTime</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#time-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#time-v1-meta">
 Kubernetes meta/v1.Time
 </a>
 </em>
@@ -1051,7 +1051,7 @@ should be set.</p>
 <td>
 <code>name</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcename-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcename-v1-core">
 Kubernetes core/v1.ResourceName
 </a>
 </em>
@@ -1421,7 +1421,7 @@ int
 <td>
 <code>type</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#servicetype-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#servicetype-v1-core">
 Kubernetes core/v1.ServiceType
 </a>
 </em>
@@ -1936,7 +1936,7 @@ string
 <td>
 <code>selector</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -2356,7 +2356,7 @@ MetricIdentifier
 <td>
 <code>persistentVolumeClaimSpec</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#persistentvolumeclaimspec-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#persistentvolumeclaimspec-v1-core">
 Kubernetes core/v1.PersistentVolumeClaimSpec
 </a>
 </em>
@@ -2487,7 +2487,7 @@ should be set.</p>
 <td>
 <code>name</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcename-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcename-v1-core">
 Kubernetes core/v1.ResourceName
 </a>
 </em>
@@ -2607,5 +2607,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>51f0c78</code>.
+on git commit <code>2763ea1</code>.
 </em></p>
