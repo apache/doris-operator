@@ -98,7 +98,7 @@ func init() {
 	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{})
 	start := os.Getenv("START_DISAGGREGATED_OPERATOR")
 	if start == "true" {
-		controller.Controllers = append(controller.Controllers, &controller.DisaggregatedClusterReconciler{}, &controller.DisaggregatedMetaServiceReconciler{})
+		controller.Controllers = append(controller.Controllers, &controller.DisaggregatedClusterReconciler{})
 	}
 }
 

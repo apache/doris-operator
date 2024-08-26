@@ -3,6 +3,7 @@ module github.com/selectdb/doris-operator
 go 1.21
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/FoundationDB/fdb-kubernetes-operator v1.36.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-sql-driver/mysql v1.8.1

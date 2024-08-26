@@ -359,7 +359,7 @@ func SetClusterPhase(
 		return nil
 	}
 	if isStatusEqual {
-		klog.Infof("SetClusterPhase will not change cluster %s Phase, it is already %s ,DDC name: %s, namespace: %s,", componentType, phase, ddcName, namespace)
+		klog.Infof("UpdateDDCPhase will not change cluster %s Phase, it is already %s ,DDC name: %s, namespace: %s,", componentType, phase, ddcName, namespace)
 		return nil
 	}
 	return k8sclient.Status().Update(ctx, &edcr)
