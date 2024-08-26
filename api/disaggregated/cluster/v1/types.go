@@ -28,7 +28,7 @@ type DorisDisaggregatedClusterSpec struct {
 	InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
 
 	//MetaService describe the metaservice that cluster want to storage metadata.
-	DisMS DisMS `json:"disMS,omitempty"`
+	MetaService `json:"metaService,omitempty"`
 
 	//FeSpec describe the fe specification of doris disaggregated cluster.
 	FeSpec FeSpec `json:"feSpec,omitempty"`
@@ -37,7 +37,7 @@ type DorisDisaggregatedClusterSpec struct {
 	ComputeClusters []ComputeCluster `json:"computeClusters,omitempty"`
 }
 
-type DisMS struct {
+type MetaService struct {
 	//Namespace specify the namespace of metaservice deployed.
 	Namespace string `json:"namespace,omitempty"`
 	//Name specify the name of metaservice resource.
