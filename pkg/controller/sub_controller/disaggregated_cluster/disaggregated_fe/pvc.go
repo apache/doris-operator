@@ -46,12 +46,15 @@ func (dfc *DisaggregatedFEController) listAndDeletePersistentVolumeClaim(ctx con
 	}
 	for _, pvcName := range reservePVCNameList {
 		if _, ok := pvcMap[pvcName]; ok {
-			delete(pvcMap, pvcName)
+			pvcMap[pvcName] = corev1.PersistentVolumeClaim{}
 		}
 	}
 
 	var mergeError error
 	for _, claim := range pvcMap {
+		if claim.Name == "" {
+			continue
+		}
 		if err := k8s.DeletePVC(ctx, dfc.k8sClient, claim.Namespace, claim.Name, pvcLabels); err != nil {
 			dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), sub_controller.PVCDeleteFailed, err.Error())
 			klog.Errorf("listAndDeletePersistentVolumeClaim deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", claim.Namespace, claim.Name, claim.Name, err.Error())

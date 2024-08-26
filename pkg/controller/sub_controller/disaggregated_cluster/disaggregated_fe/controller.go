@@ -274,7 +274,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		// resulting in an error in the status judgment based on the last status,
 		// so the status will be forced to modify here
 		if err := k8s.SetClusterPhase(ctx, dfc.k8sClient, cluster.Name, cluster.Namespace, dv1.Reconciling, dv1.DisaggregatedFE, nil); err != nil {
-			klog.Errorf("reconcileStatefulset SetClusterPhase 'Reconciling' failed err:%s ", err.Error())
+			klog.Errorf("SetDDCPhase 'Reconciling' failed err:%s ", err.Error())
 			return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEStatusUpdateFailed, Message: err.Error()}, err
 		}
 	}
@@ -290,7 +290,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	//  if fe scale, drop fe node by http
 	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == dv1.Reconciling {
 		if err := dfc.dropFEFromHttpClient(cluster); err != nil {
-			klog.Errorf("reconcileStatefulset dropFEFromHttpClient failed, err:%s ", err.Error())
+			klog.Errorf("ScaleDownFE failed, err:%s ", err.Error())
 			return &sub_controller.Event{Type: sub_controller.EventWarning, Reason: sub_controller.FEHTTPFailed, Message: err.Error()},
 				err
 		}
@@ -316,7 +316,7 @@ func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDis
 		splitCloudUniqueIDArr := strings.Split(node.CloudUniqueID, "-")
 		podNum, err := strconv.Atoi(splitCloudUniqueIDArr[len(splitCloudUniqueIDArr)-1])
 		if err != nil {
-			klog.Errorf("dropFEFromHttpClient splitCloudUniqueIDArr can not split CloudUniqueID : %s,err:%s", node.CloudUniqueID, err.Error())
+			klog.Errorf("splitCloudUniqueIDArr can not split CloudUniqueID : %s,err:%s", node.CloudUniqueID, err.Error())
 			return err
 		}
 		if podNum >= int(*feReplica) {
@@ -327,15 +327,15 @@ func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDis
 	if len(dropNodes) == 0 {
 		return nil
 	}
-	specifyCluster, err := ms_http.DropFENodes(cluster.Status.MsEndpoint, cluster.Status.MsToken, cluster.GetInstanceId(), dropNodes)
+	specifyCluster, err := ms_http.DropNodesFromSpecifyCluster(cluster.Status.MsEndpoint, cluster.Status.MsToken, cluster.GetInstanceId(), dropNodes)
 	if err != nil {
-		klog.Errorf("dropFEFromHttpClient DropFENodes failed, err:%s ", err.Error())
+		klog.Errorf("dropFEFromHttpClient DropNodesFromSpecifyCluster failed, err:%s ", err.Error())
 		return err
 	}
 
 	if specifyCluster.Code != ms_http.SuccessCode {
 		jsonData, _ := json.Marshal(specifyCluster)
-		klog.Errorf("dropFEFromHttpClient DropFENodes response failed , response: %s", jsonData)
+		klog.Errorf("dropFEFromHttpClient DropNodesFromSpecifyCluster response failed , response: %s", jsonData)
 		return err
 	}
 

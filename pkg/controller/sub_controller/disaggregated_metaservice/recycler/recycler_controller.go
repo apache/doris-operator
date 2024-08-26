@@ -57,6 +57,12 @@ func (rc *RecyclerController) Sync(ctx context.Context, obj client.Object) error
 		return nil
 	}
 
+	if *(ddm.Spec.MS.Replicas) != DefaultRecyclerNumber {
+		klog.Errorf("disaggregatedRecyclerController sync DorisDisaggregatedMetaService namespace=%s,name=%s ,The number of disaggregated recycler replicas is fixed to %d and cannot be modified", ddm.Namespace, ddm.Name, DefaultRecyclerNumber)
+		rc.K8srecorder.Event(ddm, string(sub_controller.EventNormal), string(sub_controller.MSSpecSetFix), "The number of disaggregated recycler replicas is fixed to 1 and cannot be modified")
+		ddm.Spec.MS.Replicas = &DefaultRecyclerNumber
+	}
+
 	rc.initRCStatus(ddm)
 	rc.CheckMSConfigMountPath(ddm, mv1.Component_RC)
 

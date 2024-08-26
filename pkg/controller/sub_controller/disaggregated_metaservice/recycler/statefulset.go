@@ -23,6 +23,10 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 )
 
+var (
+	DefaultRecyclerReplicaNumber int32 = 2
+)
+
 func (rc *RecyclerController) buildRCStatefulSet(dms *mv1.DorisDisaggregatedMetaService) appv1.StatefulSet {
 	st := resource.NewDMSStatefulSet(dms, mv1.Component_RC)
 	st.Spec.Template = rc.buildMSPodTemplateSpec(dms)

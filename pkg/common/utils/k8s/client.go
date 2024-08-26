@@ -342,7 +342,7 @@ func SetClusterPhase(
 	case dv1.DisaggregatedFE:
 		isStatusEqual = edcr.Status.FEStatus.Phase == phase
 		edcr.Status.FEStatus.Phase = phase
-	case dv1.DisaggregatedBE:
+	case dv1.DisaggregatedFE:
 		for i, ccs := range edcr.Status.ComputeClusterStatuses {
 			name := ccs.StatefulsetName
 			for _, ccStsName := range ccStsNames {
@@ -355,11 +355,11 @@ func SetClusterPhase(
 			}
 		}
 	default:
-		klog.Infof("SetClusterPhase not support type=%s", componentType)
+		klog.Infof("SetDDCPhase not support type=", componentType)
 		return nil
 	}
 	if isStatusEqual {
-		klog.Infof("SetClusterPhase will not change cluster %s Phase, it is already %s ,DDC name: %s, namespace: %s,", componentType, phase, ddcName, namespace)
+		klog.Infof("UpdateDDCPhase will not change cluster %s Phase, it is already %s ,DDC name: %s, namespace: %s,", componentType, phase, ddcName, namespace)
 		return nil
 	}
 	return k8sclient.Status().Update(ctx, &edcr)
@@ -428,4 +428,14 @@ func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName 
 		return err
 	}
 	return nil
+}
+
+// clear unused pvc of statefulset previously used, as the replicas decrease.
+// return clear pvc number and error
+func ClearStatefulsetUnusedPVCs(ctx context.Context, k8sclient client.Client, namespace, statefulsetName string) (int, error) {
+	//TODO: use labels to select pods and pvcs.
+	//1. list pods and pvcs, if pvcs > pods clear not unused pvcs.
+	//2. delete  all unused pvc
+
+	return 0, nil
 }

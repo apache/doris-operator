@@ -60,11 +60,11 @@ type ComputeCluster struct {
 }
 
 type CommonSpec struct {
-	//Replicas represent the number of desired Pod.
+	//Replicas represent the number
 	// fe default is 2. fe is master-slave architecture only one is master.
 	Replicas *int32 `json:"replicas,omitempty"`
 
-	//Image is the Disaggregated docker image to deploy. please reference the selectdb repository to find.
+	//Image is the be of Disaggregated docker image to deploy. please reference the selectdb repository to find.
 	Image string `json:"image,omitempty"`
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
