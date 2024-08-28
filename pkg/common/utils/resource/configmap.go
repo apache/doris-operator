@@ -49,6 +49,10 @@ const (
 	BE_RESOLVEKEY     = "be.conf"
 	CN_RESOLVEKEY     = "be.conf"
 	BROKER_RESOLVEKEY = "apache_hdfs_broker.conf"
+	MS_RESOLVEKEY     = "doris_cloud.conf"
+	RC_RESOLVEKEY     = "doris_cloud.conf"
+	DefaultMsToken    = "greedisgood9999"
+	DefaultMsTokenKey = "http_token"
 )
 
 const BROKER_IPC_PORT = "broker_ipc_port"

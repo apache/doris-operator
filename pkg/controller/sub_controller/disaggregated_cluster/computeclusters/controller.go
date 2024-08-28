@@ -18,7 +18,6 @@
 package computeclusters
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
@@ -27,12 +26,10 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	"github.com/selectdb/doris-operator/pkg/common/utils/set"
 	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
-	"github.com/spf13/viper"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,16 +44,16 @@ var (
 )
 
 type DisaggregatedComputeClustersController struct {
-	k8sClient      client.Client
-	k8sRecorder    record.EventRecorder
-	controllerName string
+	sc.DisaggregatedSubDefaultController
 }
 
 func New(mgr ctrl.Manager) *DisaggregatedComputeClustersController {
 	return &DisaggregatedComputeClustersController{
-		k8sClient:      mgr.GetClient(),
-		k8sRecorder:    mgr.GetEventRecorderFor(disaggregatedComputeClustersController),
-		controllerName: disaggregatedComputeClustersController,
+		sc.DisaggregatedSubDefaultController{
+			K8sclient:      mgr.GetClient(),
+			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedComputeClustersController),
+			ControllerName: disaggregatedComputeClustersController,
+		},
 	}
 }
 
@@ -64,14 +61,19 @@ func (dccs *DisaggregatedComputeClustersController) Sync(ctx context.Context, ob
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 	if len(ddc.Spec.ComputeClusters) == 0 {
 		klog.Errorf("disaggregatedComputeClustersController sync disaggregatedDorisCluster namespace=%s,name=%s have not compute cluster spec.", ddc.Namespace, ddc.Name)
-		dccs.k8sRecorder.Event(ddc, string(sc.EventWarning), string(sc.ComputeClustersEmpty), "compute cluster empty, the cluster will not work normal.")
+		dccs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.ComputeClustersEmpty), "compute cluster empty, the cluster will not work normal.")
+		return nil
+	}
+
+	if !dccs.feAvailable(ddc) {
+		dccs.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.WaitFEAvailable), "fe have not ready.")
 		return nil
 	}
 
 	// validating compute cluster information.
 	if event, res := dccs.validateComputeCluster(ddc.Spec.ComputeClusters); !res {
 		klog.Errorf("disaggregatedComputeClustersController namespace=%s name=%s validateComputeCluster have not match specifications %s.", ddc.Namespace, ddc.Name, sc.EventString(event))
-		dccs.k8sRecorder.Eventf(ddc, string(event.Type), string(event.Reason), event.Message)
+		dccs.K8srecorder.Eventf(ddc, string(event.Type), string(event.Reason), event.Message)
 		return errors.New("validating compute cluster failed")
 	}
 
@@ -81,7 +83,7 @@ func (dccs *DisaggregatedComputeClustersController) Sync(ctx context.Context, ob
 		dccs.revertNotAllowedUpdateFields(ddc, &ccs[i])
 		if event, err := dccs.computeClusterSync(ctx, ddc, &ccs[i]); err != nil {
 			if event != nil {
-				dccs.k8sRecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
+				dccs.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
 			}
 			klog.Errorf("disaggregatedComputeClustersController computeClusters sync failed, compute cluster name %s clusterId %s sync failed, err=%s", ccs[i].Name, ccs[i].ClusterId, sc.EventString(event))
 		}
@@ -109,7 +111,7 @@ func (dccs *DisaggregatedComputeClustersController) feAvailable(ddc *dv1.DorisDi
 	//if fe deploy in k8s, should wait fe available
 	//1. wait for fe ok.
 	endpoints := corev1.Endpoints{}
-	if err := dccs.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.GetFEServiceName()}, &endpoints); err != nil {
+	if err := dccs.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.GetFEServiceName()}, &endpoints); err != nil {
 		klog.Infof("disaggregatedComputeClustersController Sync wait fe service name %s available occur failed %s\n", ddc.GetFEServiceName(), err.Error())
 		return false
 	}
@@ -131,12 +133,12 @@ func (dccs *DisaggregatedComputeClustersController) computeClusterSync(ctx conte
 		ms_http.SuspendComputeCluster()
 	}
 
-	cvs := dccs.getConfigValuesFromConfigMaps(ddc.Namespace, cc.CommonSpec.ConfigMaps)
+	cvs := dccs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cc.CommonSpec.ConfigMaps)
 	st := dccs.NewStatefulset(ddc, cc, cvs)
 	svc := dccs.newService(ddc, cc, cvs)
 	dccs.initialCCStatus(ddc, cc)
 
-	event, err := dccs.reconcileService(ctx, svc)
+	event, err := dccs.DefaultReconcileService(ctx, svc)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeClustersController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
 		return event, err
@@ -149,32 +151,10 @@ func (dccs *DisaggregatedComputeClustersController) computeClusterSync(ctx conte
 	return event, err
 }
 
-func (dccs *DisaggregatedComputeClustersController) reconcileService(ctx context.Context, svc *corev1.Service) (*sc.Event, error) {
-	var esvc corev1.Service
-	if err := dccs.k8sClient.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, &esvc); apierrors.IsNotFound(err) {
-		if err = k8s.CreateClientObject(ctx, dccs.k8sClient, svc); err != nil {
-			klog.Errorf("disaggregatedComputeClustersController reconcileService create service namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.CCCreateResourceFailed, Message: err.Error()}, err
-		}
-	} else if err != nil {
-		klog.Errorf("disaggregatedComputeClustersController reconcileService get service failed, namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
-		return nil, err
-	}
-
-	if err := k8s.ApplyService(ctx, dccs.k8sClient, svc, func(nsvc, osvc *corev1.Service) bool {
-		return resource.ServiceDeepEqualWithAnnoKey(nsvc, osvc, dv1.DisaggregatedSpecHashValueAnnotation)
-	}); err != nil {
-		klog.Errorf("disaggregatedComputeClustersController reconcileService apply service namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.CCApplyResourceFailed, Message: err.Error()}, err
-	}
-
-	return nil, nil
-}
-
 func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet) (*sc.Event, error) {
 	var est appv1.StatefulSet
-	if err := dccs.k8sClient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
-		if err = k8s.CreateClientObject(ctx, dccs.k8sClient, st); err != nil {
+	if err := dccs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
+		if err = k8s.CreateClientObject(ctx, dccs.K8sclient, st); err != nil {
 			klog.Errorf("disaggregatedComputeClustersController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.CCCreateResourceFailed, Message: err.Error()}, err
 		}
@@ -185,7 +165,7 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 		return nil, err
 	}
 
-	if err := k8s.ApplyStatefulSet(ctx, dccs.k8sClient, st, func(st, est *appv1.StatefulSet) bool {
+	if err := k8s.ApplyStatefulSet(ctx, dccs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
 		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
 		klog.Errorf("disaggregatedComputeClustersController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
@@ -216,31 +196,6 @@ func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.Dor
 		ddc.Status.ComputeClusterStatuses = []dv1.ComputeClusterStatus{}
 	}
 	ddc.Status.ComputeClusterStatuses = append(ddc.Status.ComputeClusterStatuses, ccs)
-}
-
-// get compute start config from all configmaps that config in CR, resolve config for config ports in pod or service, etc.
-func (dccs *DisaggregatedComputeClustersController) getConfigValuesFromConfigMaps(namespace string, cms []dv1.ConfigMap) map[string]interface{} {
-	if len(cms) == 0 {
-		return nil
-	}
-
-	for _, cm := range cms {
-		kcm, err := k8s.GetConfigMap(context.Background(), dccs.k8sClient, namespace, cm.Name)
-		if err != nil {
-			klog.Errorf("disaggregatedComputeClustersController getConfigValuesFromConfigMaps namespace=%s, name=%s, failed, err=%s", namespace, cm.Name, err.Error())
-			continue
-		}
-
-		if _, ok := kcm.Data[resource.BE_RESOLVEKEY]; !ok {
-			continue
-		}
-		v := kcm.Data[resource.BE_RESOLVEKEY]
-		viper.SetConfigType("properties")
-		viper.ReadConfig(bytes.NewBuffer([]byte(v)))
-		return viper.AllSettings()
-	}
-
-	return nil
 }
 
 // clusterId and cloudUniqueId is not allowed update, when be mistakenly modified on these fields, operator should revert it by status fields.
@@ -335,16 +290,16 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 
 	for i, ccs := range clearCCs {
 		cleared := true
-		if err := k8s.DeleteStatefulset(ctx, dccs.k8sClient, ddc.Namespace, ccs.StatefulsetName); err != nil {
+		if err := k8s.DeleteStatefulset(ctx, dccs.K8sclient, ddc.Namespace, ccs.StatefulsetName); err != nil {
 			cleared = false
 			klog.Errorf("disaggregatedComputeClustersController delete statefulset namespace %s name %s failed, err=%s", ddc.Namespace, ccs.StatefulsetName, err.Error())
-			dccs.k8sRecorder.Event(ddc, string(sc.EventWarning), string(sc.CCStatefulsetDeleteFailed), err.Error())
+			dccs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CCStatefulsetDeleteFailed), err.Error())
 		}
 
-		if err := k8s.DeleteService(ctx, dccs.k8sClient, ddc.Namespace, ccs.ServiceName); err != nil {
+		if err := k8s.DeleteService(ctx, dccs.K8sclient, ddc.Namespace, ccs.ServiceName); err != nil {
 			cleared = false
 			klog.Errorf("disaggregatedComputeClustersController delete service namespace %s name %s failed, err=%s", ddc.Namespace, ccs.ServiceName, err.Error())
-			dccs.k8sRecorder.Event(ddc, string(sc.EventWarning), string(sc.CCServiceDeleteFailed), err.Error())
+			dccs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CCServiceDeleteFailed), err.Error())
 		}
 		if !cleared {
 			eCCs = append(eCCs, clearCCs[i])
@@ -373,7 +328,7 @@ func (dccs *DisaggregatedComputeClustersController) ClearStatefulsetUnusedPVCs(c
 }
 
 func (dccs *DisaggregatedComputeClustersController) GetControllerName() string {
-	return dccs.controllerName
+	return dccs.ControllerName
 }
 
 func (dccs *DisaggregatedComputeClustersController) UpdateComponentStatus(obj client.Object) error {
@@ -426,7 +381,7 @@ func (dccs *DisaggregatedComputeClustersController) UpdateComponentStatus(obj cl
 func (dccs *DisaggregatedComputeClustersController) updateCCStatus(ddc *dv1.DorisDisaggregatedCluster, ccs *dv1.ComputeClusterStatus) error {
 	selector := dccs.newCCPodsSelector(ddc.Name, ccs.ClusterId)
 	var podList corev1.PodList
-	if err := dccs.k8sClient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
+	if err := dccs.K8sclient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
 		return err
 	}
 

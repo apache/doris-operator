@@ -27,6 +27,8 @@ func GetDisaggregatedCommand(componentType dv1.DisaggregatedComponentType) (comm
 		return []string{"/opt/apache-doris/fe_disaggregated_entrypoint.sh"}, []string{}
 	case dv1.DisaggregatedBE:
 		return []string{"/opt/apache-doris/be_disaggregated_entrypoint.sh"}, []string{}
+	case dv1.DisaggregatedMS:
+		return []string{"/opt/apache-doris/ms_disaggregated_entrypoint.sh"}, []string{"meta-service"}
 	default:
 		return nil, nil
 	}
@@ -39,6 +41,9 @@ func GetDisaggregatedPreStopScript(componentType dv1.DisaggregatedComponentType)
 		return "/opt/apache-doris/fe_disaggregated_prestop.sh"
 	case dv1.DisaggregatedBE:
 		return "/opt/apache-doris/be_disaggregated_prestop.sh"
+	case dv1.DisaggregatedMS:
+		return "/opt/apache-doris/ms_disaggregated_prestop.sh"
+
 	default:
 		return ""
 	}

@@ -21,7 +21,6 @@ import (
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -29,25 +28,29 @@ func (dccs *DisaggregatedComputeClustersController) newService(ddc *dv1.DorisDis
 	ccClusterId := ddc.GetCCId(cc)
 	svcConf := cc.CommonSpec.Service
 	sps := newComputeServicePorts(cvs, svcConf)
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            ddc.GetCCServiceName(cc),
-			Namespace:       ddc.Namespace,
-			Labels:          dccs.newCC2LayerSchedulerLabels(ddc.Namespace, ccClusterId),
-			OwnerReferences: []metav1.OwnerReference{resource.GetOwnerReference(ddc)},
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: dccs.newCCPodsSelector(ddc.Name, ccClusterId),
-			Type:     corev1.ServiceTypeClusterIP,
-			Ports:    sps,
-		},
-	}
+	svc := dccs.NewDefaultService(ddc)
+
+	ob := &svc.ObjectMeta
+	ob.Name = ddc.GetCCServiceName(cc)
+	ob.Labels = dccs.newCC2LayerSchedulerLabels(ddc.Namespace, ccClusterId)
+
+	spec := &svc.Spec
+	spec.Selector = dccs.newCCPodsSelector(ddc.Name, ccClusterId)
+	spec.Ports = sps
 
 	if svcConf != nil && svcConf.Type != "" {
 		svc.Spec.Type = svcConf.Type
 	}
+	if svcConf != nil {
+		svc.Annotations = svcConf.Annotations
+	}
 
-	return &svc
+	// The external load balancer provided by the cloud provider may cause the client IP received by the service to change.
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
+	}
+
+	return svc
 }
 
 // new ports by start config that mounted into container by configMap.

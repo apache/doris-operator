@@ -69,6 +69,12 @@ var (
 	InstanceMetaCreated               EventReason = "InstanceMetaCreated"
 	InstanceIdModified                EventReason = "InstanceIdModified"
 	ConfigMapPathRepeated             EventReason = "ConfigMapPathRepeated"
+	WaitMetaServiceAvailable          EventReason = "WaitMetaServiceAvailable"
+	WaitFEAvailable                   EventReason = "WaitFEAvailable"
+	ServiceApplyedFailed              EventReason = "ServiceApplyedFailed"
+	MSServiceDeletedFailed            EventReason = "MSServiceDeletedFailed"
+	MSStatefulsetDeleteFailed         EventReason = "MSStatefulsetDeleteFailed"
+	FDBAddressNotConfiged             EventReason = "FDBAddressNotConfiged"
 )
 
 type Event struct {

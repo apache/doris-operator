@@ -18,7 +18,6 @@
 package resource
 
 import (
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	v1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
 	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
@@ -88,32 +87,29 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 	return st
 }
 
-// use ComputeCluster build base statefulset.
-func NewStatefulSetWithComputeCluster(cc *dv1.ComputeCluster) *appv1.StatefulSet {
-	st := &appv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec: appv1.StatefulSetSpec{
-			Replicas: cc.Replicas,
-		},
-	}
-	return st
-}
-
 // StatefulSetDeepEqual judge two statefulset equal or not.
 func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
 	equal := StatefulsetDeepEqualWithOmitKey(new, old, v1.ComponentResourceHash, false, excludeReplicas)
 	if !equal {
-		return clear_config_env_path_Interfere(new, old, excludeReplicas)
+		return clear_config_env_path_numbers_alwaysEquals(new, old, v1.ComponentResourceHash, excludeReplicas)
+
 	}
 
 	return true
 }
 
-func clear_config_env_path_Interfere(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
+// clear duplicate env for compatible 1.4.1, 1.5.1,1.6.1
+// Note, Note,Note, please delete the logic code in 2024.12.31,
+// used deepcopy for envs will assign to new and the operation will result new updated in unexpected.
+func clear_config_env_path_numbers_alwaysEquals(new *appv1.StatefulSet, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
+	newAvoidEnvsSt := new.DeepCopy()
 	var newEnvs []corev1.EnvVar
-	for _, c := range new.Spec.Template.Spec.Containers {
+	//for find the main container position for assign envs to new equal.
+	nMainContainerIndex := -1
+	for i, c := range new.Spec.Template.Spec.Containers {
 		if c.Name == string(v1.Component_FE) || c.Name == string(v1.Component_BE) || c.Name == string(v1.Component_CN) || c.Name == string(v1.Component_Broker) {
 			newEnvs = c.Env
+			nMainContainerIndex = i
 			break
 		}
 	}
@@ -126,37 +122,58 @@ func clear_config_env_path_Interfere(new *appv1.StatefulSet, old *appv1.Stateful
 		}
 	}
 
-	//delete env.Name = CONFIGMAP_MOUNT_PATH
-	for i := 0; i < len(oldEnvs); i++ {
-		if oldEnvs[i].Name == config_env_name {
-			oldEnvs = append(oldEnvs[:i], oldEnvs[i+1:]...)
+	for i := 0; i < len(newEnvs); i++ {
+		if newEnvs[i].Name == config_env_name {
+			newEnvs = append(newEnvs[:i], newEnvs[i+1:]...)
 			i--
 		}
 	}
 
-	//find env position when env.Name = CONFIGMAP_MOUNT_PATH
-	index := -1
-	for i := 0; i < len(newEnvs); i++ {
-		if newEnvs[i].Name == config_env_name {
-			index = i
-			break
+	poss := []int{}
+	for i := 0; i < len(oldEnvs); i++ {
+		if oldEnvs[i].Name == config_env_name {
+			poss = append(poss, i)
 		}
 	}
-	if index != -1 {
-		env := corev1.EnvVar{
-			Name:  config_env_name,
-			Value: config_env_path,
+	for i := 0; i < len(poss); i++ {
+		if poss[i] >= len(newEnvs) {
+			newEnvs = append(newEnvs, corev1.EnvVar{Name: config_env_name, Value: config_env_path})
+		} else {
+			index := poss[i]
+			lastEnvs := append([]corev1.EnvVar{{Name: config_env_name, Value: config_env_path}}, newEnvs[index:]...)
+			newEnvs = append(newEnvs[:index], lastEnvs...)
 		}
-		lastEnvs := append([]corev1.EnvVar{env}, oldEnvs[index:]...)
-		oldEnvs = append(oldEnvs[:index], lastEnvs...)
 	}
-
-	//exclude the envs interfere.
+	
 	if len(newEnvs) != len(oldEnvs) {
 		return false
+	} else {
+		for i := 0; i < len(newEnvs); i++ {
+			if newEnvs[i].Name != oldEnvs[i].Name {
+				return false
+			}
+			if newEnvs[i].Value != "" && newEnvs[i].Value != oldEnvs[i].Value {
+				return false
+			}
+		}
 	}
 
-	return true
+	newAvoidEnvsSt.Spec.Template.Spec.Containers[nMainContainerIndex].Env = newEnvs
+	if *new.Spec.Replicas == *old.Spec.Replicas {
+		nAvoidOb := statefulSetHashObject(newAvoidEnvsSt, excludeReplicas)
+		nAvoidHash := hash.HashObject(nAvoidOb)
+		oldHash := old.Annotations[annoKey]
+		return nAvoidHash == oldHash
+	} else {
+		*newAvoidEnvsSt.Spec.Replicas = *old.Spec.Replicas
+		nAvoidOb := statefulSetHashObject(newAvoidEnvsSt, excludeReplicas)
+		nAvoidHash := hash.HashObject(nAvoidOb)
+		oldHash := old.Annotations[annoKey]
+		if nAvoidHash == oldHash {
+			new.Spec.Template.Spec.Containers[nMainContainerIndex].Env = newEnvs
+		}
+		return false
+	}
 }
 
 func StatefulsetDeepEqualWithOmitKey(new, old *appv1.StatefulSet, annoKey string, omit bool, excludeReplicas bool) bool {

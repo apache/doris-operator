@@ -21,26 +21,20 @@ import (
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) *corev1.Service {
 	ddcService := ddc.Spec.FeSpec.CommonSpec.Service
 	ports := newFEServicePorts(cvs, ddcService)
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ddc.GetFEServiceName(),
-			Namespace: ddc.Namespace,
-			Labels:    dfc.newFESchedulerLabels(ddc.Namespace),
-		},
-		Spec: corev1.ServiceSpec{
-			Selector:        dfc.newFEPodsSelector(ddc.Name),
-			Type:            corev1.ServiceTypeClusterIP,
-			Ports:           ports,
-			SessionAffinity: corev1.ServiceAffinityClientIP,
-		},
-	}
+	svc := dfc.NewDefaultService(ddc)
+	om := &svc.ObjectMeta
+	om.Name = ddc.GetFEServiceName()
+	om.Labels = dfc.newFESchedulerLabels(ddc.Namespace)
+
+	spec := &svc.Spec
+	spec.Selector = dfc.newFEPodsSelector(ddc.Name)
+	spec.Ports = ports
 
 	if ddcService != nil && ddcService.Type != "" {
 		svc.Spec.Type = ddcService.Type
@@ -53,9 +47,8 @@ func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedClus
 	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
 	}
-	svc.OwnerReferences = []metav1.OwnerReference{resource.GetOwnerReference(ddc)}
 
-	return &svc
+	return svc
 }
 
 // new ports by start config that mounted into container by configMap.

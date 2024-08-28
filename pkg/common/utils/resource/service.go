@@ -221,8 +221,20 @@ func GetDisaggregatedContainerPorts(config map[string]interface{}, componentType
 		return getFeContainerPorts(config)
 	case dv1.DisaggregatedBE:
 		return getBeContainerPorts(config)
+	case dv1.DisaggregatedMS:
+		return getMetaServiceContainerPorts(config)
+
 	default:
 		return nil
+	}
+}
+
+func getMetaServiceContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			Name:          GetPortKey(BROKER_IPC_PORT),
+			ContainerPort: GetPort(config, BROKER_IPC_PORT),
+		},
 	}
 }
 
