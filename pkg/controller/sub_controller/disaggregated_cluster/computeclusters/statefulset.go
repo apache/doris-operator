@@ -77,15 +77,13 @@ func (dccs *DisaggregatedComputeClustersController) newCCPodsSelector(ddcName /*
 }
 
 func (dccs *DisaggregatedComputeClustersController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster, cvs map[string]interface{}) *appv1.StatefulSet {
-	st := resource.NewStatefulSetWithComputeCluster(cc)
+	st := dccs.NewDefaultStatefulset(ddc)
 	ccClusterId := ddc.GetCCId(cc)
 	matchLabels := dccs.newCCPodsSelector(ddc.Name, ccClusterId)
 
 	//build metadata
 	func() {
-		st.Namespace = ddc.Namespace
 		st.Name = ddc.GetCCStatefulsetName(cc)
-		st.OwnerReferences = []metav1.OwnerReference{resource.GetOwnerReference(ddc)}
 		st.Labels = dccs.newCC2LayerSchedulerLabels(ddc.Name, ccClusterId)
 	}()
 
@@ -95,8 +93,8 @@ func (dccs *DisaggregatedComputeClustersController) NewStatefulset(ddc *dv1.Dori
 			MatchLabels: matchLabels,
 		}
 		_, _, vcts := dccs.buildVolumesVolumeMountsAndPVCs(cvs, cc)
+		st.Spec.Replicas = cc.Replicas
 		st.Spec.VolumeClaimTemplates = vcts
-		st.Spec.PodManagementPolicy = appv1.ParallelPodManagement
 		st.Spec.ServiceName = ddc.GetCCServiceName(cc)
 		pts := dccs.NewPodTemplateSpec(ddc, matchLabels, cvs, cc)
 		st.Spec.Template = pts
@@ -118,54 +116,14 @@ func (dccs *DisaggregatedComputeClustersController) NewPodTemplateSpec(ddc *dv1.
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 
 	vs, _, _ := dccs.buildVolumesVolumeMountsAndPVCs(cvs, cc)
-	configVolumes, _ := dccs.buildConfigMapVolumesVolumeMounts(cc)
+	configVolumes, _ := dccs.BuildDefaultConfigMapVolumesVolumeMounts(cc.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 
 	ccClusterId := selector[dv1.DorisDisaggregatedComputeClusterId]
-	pts.Spec.Affinity = dccs.constructAffinity(dv1.DorisDisaggregatedComputeClusterId, ccClusterId, pts.Spec.Affinity)
+	pts.Spec.Affinity = dccs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeClusterId, ccClusterId, pts.Spec.Affinity)
 
 	return pts
-}
-
-func (dccs *DisaggregatedComputeClustersController) constructAffinity(matchKey, value string, ddcAffinity *corev1.Affinity) *corev1.Affinity {
-	affinity := dccs.newCCDefaultAffinity(matchKey, value)
-
-	if ddcAffinity == nil {
-		return affinity
-	}
-
-	ddcPodAntiAffinity := ddcAffinity.PodAntiAffinity
-	if ddcPodAntiAffinity != nil {
-		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = ddcPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, ddcPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-	}
-	affinity.NodeAffinity = ddcAffinity.NodeAffinity
-	affinity.PodAffinity = ddcAffinity.PodAffinity
-	return affinity
-}
-
-func (dccs *DisaggregatedComputeClustersController) newCCDefaultAffinity(matchKey, value string) *corev1.Affinity {
-	if matchKey == "" || value == "" {
-		return nil
-	}
-
-	podAffinityTerm := corev1.WeightedPodAffinityTerm{
-		Weight: 20,
-		PodAffinityTerm: corev1.PodAffinityTerm{
-			LabelSelector: &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{Key: matchKey, Operator: metav1.LabelSelectorOpIn, Values: []string{value}},
-				},
-			},
-			TopologyKey: resource.NODE_TOPOLOGYKEY,
-		},
-	}
-	return &corev1.Affinity{
-		PodAntiAffinity: &corev1.PodAntiAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
-		},
-	}
 }
 
 func (dccs *DisaggregatedComputeClustersController) NewCCContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}, cc *dv1.ComputeCluster) corev1.Container {
@@ -181,11 +139,9 @@ func (dccs *DisaggregatedComputeClustersController) NewCCContainer(ddc *dv1.Dori
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dccs.newSpecificEnvs(ddc, cc)...)
 
-	c.LivenessProbe = dccs.newCCLivenessProbe(cvs)
-	c.StartupProbe = dccs.newCCStartUpProbe(cvs)
-	c.ReadinessProbe = dccs.newCCReadinessProbe(cvs)
+	resource.BuildDisaggregatedProbe(&c, cc.StartTimeout, dv1.DisaggregatedBE)
 	_, vms, _ := dccs.buildVolumesVolumeMountsAndPVCs(cvs, cc)
-	_, cmvms := dccs.buildConfigMapVolumesVolumeMounts(cc)
+	_, cmvms := dccs.BuildDefaultConfigMapVolumesVolumeMounts(cc.ConfigMaps)
 	c.VolumeMounts = vms
 	if c.VolumeMounts == nil {
 		c.VolumeMounts = cmvms
@@ -193,34 +149,6 @@ func (dccs *DisaggregatedComputeClustersController) NewCCContainer(ddc *dv1.Dori
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
 	return c
-}
-
-func (dccs *DisaggregatedComputeClustersController) buildConfigMapVolumesVolumeMounts(cc *dv1.ComputeCluster) ([]corev1.Volume, []corev1.VolumeMount) {
-	var vs []corev1.Volume
-	var vms []corev1.VolumeMount
-	for _, cm := range cc.ConfigMaps {
-		v := corev1.Volume{
-			Name: cm.Name,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cm.Name,
-					},
-				},
-			},
-		}
-
-		vs = append(vs, v)
-		vm := corev1.VolumeMount{
-			Name:      cm.Name,
-			MountPath: cm.MountPath,
-		}
-		if vm.MountPath == "" {
-			vm.MountPath = resource.ConfigEnvPath
-		}
-		vms = append(vms, vm)
-	}
-	return vs, vms
 }
 
 func (dccs *DisaggregatedComputeClustersController) buildVolumesVolumeMountsAndPVCs(cvs map[string]interface{}, cc *dv1.ComputeCluster) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
@@ -396,22 +324,6 @@ func (dccs *DisaggregatedComputeClustersController) getLogPath(cvs map[string]in
 	return path
 }
 
-func (dccs *DisaggregatedComputeClustersController) newCCLivenessProbe(cvs /*config values*/ map[string]interface{}) *corev1.Probe {
-	heartBeatPort := resource.GetPort(cvs, resource.HEARTBEAT_SERVICE_PORT)
-	commands := []string{BE_PROBE_COMMAND, "alive"}
-	return resource.LivenessProbe(heartBeatPort, "", commands, resource.Exec)
-}
-
-func (dccs *DisaggregatedComputeClustersController) newCCStartUpProbe(cvs /*config values*/ map[string]interface{}) *corev1.Probe {
-	return dccs.newCCLivenessProbe(cvs)
-}
-
-func (dccs *DisaggregatedComputeClustersController) newCCReadinessProbe(cvs /*config values*/ map[string]interface{}) *corev1.Probe {
-	webserverPort := resource.GetPort(cvs, resource.WEBSERVER_PORT)
-	commands := []string{BE_PROBE_COMMAND, "ready"}
-	return resource.ReadinessProbe(webserverPort, "", commands, resource.Exec)
-}
-
 func (dccs *DisaggregatedComputeClustersController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) []corev1.EnvVar {
 	var ccEnvs []corev1.EnvVar
 	stsName := ddc.GetCCStatefulsetName(cc)
@@ -419,8 +331,8 @@ func (dccs *DisaggregatedComputeClustersController) newSpecificEnvs(ddc *dv1.Dor
 	cloudUniqueIdPre := ddc.GetCCCloudUniqueIdPre()
 
 	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
-	ms_endpoint := ddc.Status.MsEndpoint
-	ms_token := ddc.Status.MsToken
+	ms_endpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
+	ms_token := ddc.Status.MetaServiceStatus.MsToken
 	ccEnvs = append(ccEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
 		corev1.EnvVar{Name: CLOUD_UNIQUE_ID_PRE, Value: cloudUniqueIdPre},

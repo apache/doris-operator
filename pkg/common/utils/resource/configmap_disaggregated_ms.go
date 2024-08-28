@@ -31,12 +31,6 @@ const (
 	BRPC_LISTEN_PORT = "brpc_listen_port"
 )
 
-// the default ResolveKey
-const (
-	MS_RESOLVEKEY = "doris_cloud.conf"
-	RC_RESOLVEKEY = "doris_cloud.conf"
-)
-
 func getDefaultDMSResolveKey(componentType mv1.ComponentType) string {
 	switch componentType {
 	case mv1.Component_MS:

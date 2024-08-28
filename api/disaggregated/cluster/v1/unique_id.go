@@ -91,6 +91,10 @@ func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
 	return ddc.Name + "-" + "fe"
 }
 
+func (ddc *DorisDisaggregatedCluster) GetMSStatefulsetName() string {
+	return ddc.Name + "-" + "ms"
+}
+
 func (ddc *DorisDisaggregatedCluster) GetCCServiceName(cc *ComputeCluster) string {
 	svcName := ""
 	for _, ccs := range ddc.Status.ComputeClusterStatuses {
@@ -110,4 +114,8 @@ func (ddc *DorisDisaggregatedCluster) GetCCServiceName(cc *ComputeCluster) strin
 
 func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {
 	return ddc.Name + "-" + "fe"
+}
+
+func (ddc *DorisDisaggregatedCluster) GetMSServiceName() string {
+	return ddc.Name + "-" + "ms"
 }

@@ -78,22 +78,20 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregated
 	selector := dfc.newFEPodsSelector(ddc.Name)
 	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
 	pts := dfc.NewPodTemplateSpec(ddc, selector, confMap)
-	st := &appv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       ddc.Namespace,
-			Name:            ddc.GetFEStatefulsetName(),
-			OwnerReferences: []metav1.OwnerReference{resource.GetOwnerReference(ddc)},
-			Labels:          dfc.newFESchedulerLabels(ddc.Name),
-		},
-		Spec: appv1.StatefulSetSpec{
-			Replicas:             ddc.Spec.FeSpec.Replicas,
-			Selector:             &metav1.LabelSelector{MatchLabels: selector},
-			VolumeClaimTemplates: vcts,
-			ServiceName:          ddc.GetFEServiceName(),
-			Template:             pts,
-			PodManagementPolicy:  appv1.ParallelPodManagement,
-		},
-	}
+	st := dfc.NewDefaultStatefulset(ddc)
+	//metadata
+	func() {
+		st.Name = ddc.GetFEStatefulsetName()
+		st.Labels = dfc.newFESchedulerLabels(ddc.Name)
+	}()
+
+	func() {
+		st.Spec.Replicas = ddc.Spec.FeSpec.Replicas
+		st.Spec.Selector = &metav1.LabelSelector{MatchLabels: selector}
+		st.Spec.VolumeClaimTemplates = vcts
+		st.Spec.ServiceName = ddc.GetFEServiceName()
+		st.Spec.Template = pts
+	}()
 
 	return st
 }
@@ -110,91 +108,16 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *dv1.DorisDisaggreg
 	c := dfc.NewFEContainer(ddc, confMap)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 	vs, _, _ := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &ddc.Spec.FeSpec)
-	configVolumes, _ := dfc.buildConfigMapVolumesVolumeMounts(&ddc.Spec.FeSpec)
+	configVolumes, _ := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 
-	pts.Spec.Affinity = dfc.constructAffinity(dv1.DorisDisaggregatedClusterName, selector[dv1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
+	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(dv1.DorisDisaggregatedClusterName, selector[dv1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
 
 	return pts
 }
 
-func (dfc *DisaggregatedFEController) constructAffinity(matchKey, value string, ddcAffinity *corev1.Affinity) *corev1.Affinity {
-	affinity := newFEDefaultAffinity(matchKey, value)
-
-	if ddcAffinity == nil {
-		return affinity
-	}
-
-	ddcPodAntiAffinity := ddcAffinity.PodAntiAffinity
-	if ddcPodAntiAffinity != nil {
-		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = ddcPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, ddcPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-	}
-
-	affinity.NodeAffinity = ddcAffinity.NodeAffinity
-	affinity.PodAffinity = ddcAffinity.PodAffinity
-
-	return affinity
-}
-
-func newFEDefaultAffinity(matchKey, value string) *corev1.Affinity {
-	if matchKey == "" || value == "" {
-		return nil
-	}
-
-	podAffinityTerm := corev1.WeightedPodAffinityTerm{
-		Weight: 20,
-		PodAffinityTerm: corev1.PodAffinityTerm{
-			LabelSelector: &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{Key: matchKey, Operator: metav1.LabelSelectorOpIn, Values: []string{value}},
-				},
-			},
-			TopologyKey: resource.NODE_TOPOLOGYKEY,
-		},
-	}
-	return &corev1.Affinity{
-		PodAntiAffinity: &corev1.PodAntiAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{podAffinityTerm},
-		},
-	}
-}
-
-func (dfc *DisaggregatedFEController) buildConfigMapVolumesVolumeMounts(fe *dv1.FeSpec) ([]corev1.Volume, []corev1.VolumeMount) {
-	var vs []corev1.Volume
-	var vms []corev1.VolumeMount
-	for _, cm := range fe.ConfigMaps {
-		v := corev1.Volume{
-			Name: cm.Name,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cm.Name,
-					},
-				},
-			},
-		}
-
-		vs = append(vs, v)
-		vm := corev1.VolumeMount{
-			Name:      cm.Name,
-			MountPath: cm.MountPath,
-		}
-		if vm.MountPath == "" {
-			vm.MountPath = resource.ConfigEnvPath
-		}
-		vms = append(vms, vm)
-	}
-	return vs, vms
-}
-
 func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
-
-	//if ddc.Spec.FeSpec.ElectionNumber == nil {
-	//	ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(DefaultElectionNumber)
-	//}
-
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
 	resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedFE))
 	cmd, args := sub.GetDisaggregatedCommand(dv1.DisaggregatedFE)
@@ -208,7 +131,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregated
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
 	resource.BuildDisaggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, dv1.DisaggregatedFE)
 	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
-	_, cmvms := dfc.buildConfigMapVolumesVolumeMounts(&ddc.Spec.FeSpec)
+	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
 	c.VolumeMounts = vms
 	if c.VolumeMounts == nil {
 		c.VolumeMounts = cmvms
@@ -340,8 +263,8 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregate
 	stsName := ddc.GetFEStatefulsetName()
 
 	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
-	ms_endpoint := ddc.Status.MsEndpoint
-	ms_token := ddc.Status.MsToken
+	ms_endpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
+	ms_token := ddc.Status.MetaServiceStatus.MsToken
 	feEnvs = append(feEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: ms_http.FeClusterId},

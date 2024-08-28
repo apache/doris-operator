@@ -45,16 +45,17 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 	}
 	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
 	// fe scale
-	if scaleNumber != 0 { // set fe Phase as SCALING
+	/*	if scaleNumber != 0 { // set fe Phase as SCALING
 		cluster.Status.FEStatus.ComponentCondition.Phase = v1.Scaling
 		// In Reconcile, it is possible that the status cannot be updated in time,
 		// resulting in an error in the status judgment based on the last status,
 		// so the status will be forced to modify here
-		if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.Scaling, v1.Component_FE); err != nil {
+			if err := k8s.SetDorisClusterPhase(ctx, fc.K8sclient, cluster.Name, cluster.Namespace, v1.Scaling, v1.Component_FE); err != nil {
 			klog.Errorf("SetDorisClusterPhase 'SCALING' failed err:%s ", err.Error())
 			return err
 		}
-	}
+	}*/
+
 	if scaleNumber < 0 {
 		if err := fc.dropObserverFromSqlClient(ctx, fc.K8sclient, cluster); err != nil {
 			klog.Errorf("ScaleDownObserver failed, err:%s ", err.Error())

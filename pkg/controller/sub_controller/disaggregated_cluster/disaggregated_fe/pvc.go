@@ -26,8 +26,8 @@ func (dfc *DisaggregatedFEController) listAndDeletePersistentVolumeClaim(ctx con
 	pvcLabels := dfc.newFEPodsSelector(ddc.Name)
 	stsName := ddc.GetFEStatefulsetName()
 
-	if err := dfc.k8sClient.List(ctx, &currentPVCs, client.InNamespace(ddc.Namespace), client.MatchingLabels(pvcLabels)); err != nil {
-		dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), sub_controller.PVCListFailed, fmt.Sprintf("DisaggregatedFEController listAndDeletePersistentVolumeClaim list pvc failed:%s!", err.Error()))
+	if err := dfc.K8sclient.List(ctx, &currentPVCs, client.InNamespace(ddc.Namespace), client.MatchingLabels(pvcLabels)); err != nil {
+		dfc.K8srecorder.Event(ddc, string(sub_controller.EventWarning), sub_controller.PVCListFailed, fmt.Sprintf("DisaggregatedFEController listAndDeletePersistentVolumeClaim list pvc failed:%s!", err.Error()))
 		return err
 	}
 
@@ -52,8 +52,8 @@ func (dfc *DisaggregatedFEController) listAndDeletePersistentVolumeClaim(ctx con
 
 	var mergeError error
 	for _, claim := range pvcMap {
-		if err := k8s.DeletePVC(ctx, dfc.k8sClient, claim.Namespace, claim.Name, pvcLabels); err != nil {
-			dfc.k8sRecorder.Event(ddc, string(sub_controller.EventWarning), sub_controller.PVCDeleteFailed, err.Error())
+		if err := k8s.DeletePVC(ctx, dfc.K8sclient, claim.Namespace, claim.Name, pvcLabels); err != nil {
+			dfc.K8srecorder.Event(ddc, string(sub_controller.EventWarning), sub_controller.PVCDeleteFailed, err.Error())
 			klog.Errorf("listAndDeletePersistentVolumeClaim deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", claim.Namespace, claim.Name, claim.Name, err.Error())
 			mergeError = utils.MergeError(mergeError, err)
 		}

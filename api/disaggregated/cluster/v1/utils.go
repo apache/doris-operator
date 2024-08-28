@@ -35,4 +35,5 @@ type DisaggregatedComponentType string
 var (
 	DisaggregatedFE DisaggregatedComponentType = "FE"
 	DisaggregatedBE DisaggregatedComponentType = "BE"
+	DisaggregatedMS DisaggregatedComponentType = "MS"
 )
