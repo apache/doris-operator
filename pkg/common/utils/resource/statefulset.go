@@ -108,7 +108,10 @@ func clear_config_env_path_numbers_alwaysEquals(new *appv1.StatefulSet, old *app
 	nMainContainerIndex := -1
 	for i, c := range new.Spec.Template.Spec.Containers {
 		if c.Name == string(v1.Component_FE) || c.Name == string(v1.Component_BE) || c.Name == string(v1.Component_CN) || c.Name == string(v1.Component_Broker) {
-			newEnvs = c.Env
+			for _, env := range c.Env {
+				newEnv := env.DeepCopy()
+				newEnvs = append(newEnvs, *newEnv)
+			}
 			nMainContainerIndex = i
 			break
 		}
@@ -144,7 +147,7 @@ func clear_config_env_path_numbers_alwaysEquals(new *appv1.StatefulSet, old *app
 			newEnvs = append(newEnvs[:index], lastEnvs...)
 		}
 	}
-	
+
 	if len(newEnvs) != len(oldEnvs) {
 		return false
 	} else {
