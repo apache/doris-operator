@@ -19,8 +19,11 @@ package computeclusters
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
+	"github.com/selectdb/doris-operator/pkg/common/utils"
 	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
@@ -34,6 +37,8 @@ import (
 	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -125,14 +130,9 @@ func (dccs *DisaggregatedComputeClustersController) feAvailable(ddc *dv1.DorisDi
 }
 
 func (dccs *DisaggregatedComputeClustersController) computeClusterSync(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) (*sc.Event, error) {
-	//1. generate resources.
-	//2. initial compute cluster status.
-	//3. sync resources.
-	//TODO: 3. judge suspend
-	if cc.Replicas != nil && *cc.Replicas == 0 {
-		ms_http.SuspendComputeCluster()
+	if cc.Replicas == nil {
+		cc.Replicas = resource.GetInt32Pointer(1)
 	}
-
 	cvs := dccs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cc.CommonSpec.ConfigMaps)
 	st := dccs.NewStatefulset(ddc, cc, cvs)
 	svc := dccs.newService(ddc, cc, cvs)
@@ -143,7 +143,7 @@ func (dccs *DisaggregatedComputeClustersController) computeClusterSync(ctx conte
 		klog.Errorf("disaggregatedComputeClustersController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
 		return event, err
 	}
-	event, err = dccs.reconcileStatefulset(ctx, st)
+	event, err = dccs.reconcileStatefulset(ctx, st, ddc, cc)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeClustersController reconcile statefulset namespace %s name %s failed, err=%s", st.Namespace, st.Name, err.Error())
 	}
@@ -151,7 +151,7 @@ func (dccs *DisaggregatedComputeClustersController) computeClusterSync(ctx conte
 	return event, err
 }
 
-func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet) (*sc.Event, error) {
+func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) (*sc.Event, error) {
 	var est appv1.StatefulSet
 	if err := dccs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
 		if err = k8s.CreateClientObject(ctx, dccs.K8sclient, st); err != nil {
@@ -172,30 +172,92 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CCApplyResourceFailed, Message: err.Error()}, err
 	}
 
+	var ccStatus *dv1.ComputeClusterStatus
+
+	for i := range cluster.Status.ComputeClusterStatuses {
+		if cluster.Status.ComputeClusterStatuses[i].ClusterId == cc.ClusterId {
+			ccStatus = &cluster.Status.ComputeClusterStatuses[i]
+			break
+		}
+	}
+
+	//scaleType = "resume"
+	if (*(st.Spec.Replicas) > *(est.Spec.Replicas) && *(est.Spec.Replicas) == 0) || ccStatus.Phase == dv1.ResumeFailed {
+		klog.Errorf("------------  resume : %d", *(st.Spec.Replicas)-*(est.Spec.Replicas))
+		response, err := ms_http.ResumeComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
+		if response.Code != ms_http.SuccessCode {
+			ccStatus.Phase = dv1.ResumeFailed
+			jsonData, _ := json.Marshal(response)
+			klog.Errorf("computeClusterSync ResumeComputeCluster response failed , response: %s", jsonData)
+			return &sc.Event{
+				Type:    sc.EventNormal,
+				Reason:  sc.CCResumeStatusRequestFailed,
+				Message: "ResumeComputeCluster request of disaggregated BE failed: " + response.Msg,
+			}, err
+		}
+		ccStatus.Phase = dv1.Scaling
+	}
+
+	//scaleType = "scaleDown"
+	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) > 0) || ccStatus.Phase == dv1.ScaleDownFailed {
+		klog.Errorf("------------  scaleDown : %d", *(st.Spec.Replicas)-*(est.Spec.Replicas))
+		if err := dccs.dropCCFromHttpClient(cluster, cc); err != nil {
+			ccStatus.Phase = dv1.ScaleDownFailed
+			klog.Errorf("ScaleDownBE failed, err:%s ", err.Error())
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CCHTTPFailed, Message: err.Error()},
+				err
+		}
+		ccStatus.Phase = dv1.Scaling
+	}
+
+	//scaleType = "suspend"
+	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) == 0) || ccStatus.Phase == dv1.SuspendFailed {
+		klog.Errorf("------------  suspend : %d", *(st.Spec.Replicas)-*(est.Spec.Replicas))
+		response, err := ms_http.SuspendComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
+		if response.Code != ms_http.SuccessCode {
+			ccStatus.Phase = dv1.SuspendFailed
+			jsonData, _ := json.Marshal(response)
+			klog.Errorf("computeClusterSync SuspendComputeCluster response failed , response: %s", jsonData)
+			return &sc.Event{
+				Type:    sc.EventNormal,
+				Reason:  sc.CCSuspendStatusRequestFailed,
+				Message: "SuspendComputeCluster request of disaggregated BE failed: " + response.Msg,
+			}, err
+		}
+		ccStatus.Phase = dv1.Suspended
+	}
+
 	return nil, nil
 }
 
 // initial compute cluster status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) {
 	ccss := ddc.Status.ComputeClusterStatuses
-	for i, _ := range ccss {
-		if ccss[i].ComputeClusterName == cc.Name || ccss[i].ClusterId == cc.ClusterId {
-			ccss[i].Phase = dv1.Reconciling
+	klog.Errorf("------------------------------ init status for cc: %s ", cc.Name)
+	defCcs := dv1.ComputeClusterStatus{
+		Phase:              dv1.Reconciling,
+		ComputeClusterName: cc.Name,
+		ClusterId:          cc.ClusterId,
+		StatefulsetName:    ddc.GetCCStatefulsetName(cc),
+		ServiceName:        ddc.GetCCServiceName(cc),
+		//set for status updated.
+		Replicas: *cc.Replicas,
+	}
+
+	for i := range ccss {
+		if ccss[i].ClusterId == cc.ClusterId {
+			klog.Errorf("------------------------------ init status for status: %s ", ccss[i].Phase)
+			if ccss[i].Phase == dv1.ScaleDownFailed || ccss[i].Phase == dv1.Suspended ||
+				ccss[i].Phase == dv1.SuspendFailed || ccss[i].Phase == dv1.ResumeFailed ||
+				ccss[i].Phase == dv1.Scaling {
+				defCcs.Phase = ccss[i].Phase
+			}
+			ccss[i] = defCcs
 			return
 		}
 	}
 
-	ccs := dv1.ComputeClusterStatus{
-		Phase:              dv1.Reconciling,
-		ComputeClusterName: cc.Name,
-		ClusterId:          cc.ClusterId,
-		//set for status updated.
-		Replicas: *cc.Replicas,
-	}
-	if ddc.Status.ComputeClusterStatuses == nil {
-		ddc.Status.ComputeClusterStatuses = []dv1.ComputeClusterStatus{}
-	}
-	ddc.Status.ComputeClusterStatuses = append(ddc.Status.ComputeClusterStatuses, ccs)
+	ddc.Status.ComputeClusterStatuses = append(ddc.Status.ComputeClusterStatuses, defCcs)
 }
 
 // clusterId and cloudUniqueId is not allowed update, when be mistakenly modified on these fields, operator should revert it by status fields.
@@ -275,9 +337,11 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 	var clearCCs []dv1.ComputeClusterStatus
 	var eCCs []dv1.ComputeClusterStatus
+	klog.Errorf("ComputeClusterStatuses len 0 -----------%d ", len(ddc.Status.ComputeClusterStatuses))
+
 	for i, ccs := range ddc.Status.ComputeClusterStatuses {
 		for _, cc := range ddc.Spec.ComputeClusters {
-			if ccs.ComputeClusterName == cc.Name || ccs.ClusterId == cc.ClusterId {
+			if ccs.ClusterId == cc.ClusterId {
 				eCCs = append(eCCs, ddc.Status.ComputeClusterStatuses[i])
 				goto NoNeedAppend
 			}
@@ -288,7 +352,9 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 	NoNeedAppend:
 	}
 
-	for i, ccs := range clearCCs {
+	for i := range clearCCs {
+		ccs := clearCCs[i]
+		klog.Errorf("%d-------clearCCs:%s : %s ", i, ccs.ClusterId, ccs.StatefulsetName)
 		cleared := true
 		if err := k8s.DeleteStatefulset(ctx, dccs.K8sclient, ddc.Namespace, ccs.StatefulsetName); err != nil {
 			cleared = false
@@ -304,27 +370,111 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 		if !cleared {
 			eCCs = append(eCCs, clearCCs[i])
 		} else {
-			//TODO: 12. drop compute cluster from meta
-			ms_http.DropComputeCluster()
+			// drop compute cluster from meta
+			response, err := ms_http.DropComputeCluster(ddc.Status.MetaServiceStatus.MetaServiceEndpoint, ddc.Status.MetaServiceStatus.MsToken, ddc.Status.InstanceId, &ccs)
+			if err != nil {
+				klog.Errorf("computeClusterSync ClearResources DropComputeCluster response failed , response: %s", err.Error())
+				dccs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CCHTTPFailed), "DropComputeCluster request failed: "+err.Error())
+			}
+			if response.Code != ms_http.SuccessCode {
+				jsonData, _ := json.Marshal(response)
+				klog.Errorf("computeClusterSync ClearResources DropComputeCluster response failed , response: %s", jsonData)
+				dccs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CCHTTPFailed), "DropComputeCluster request failed: "+response.Msg)
+			}
+
+		}
+
+	}
+
+	// TODO:13. drop pvcs
+	for i, _ := range eCCs {
+		klog.Errorf(" drop eccs pvc  -----------%s " + eCCs[i].ClusterId)
+
+		err := dccs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCCs[i])
+		if err != nil {
+			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs eCCs failed, err=%s", err.Error())
+		}
+	}
+	// TODO:13. drop pvcs
+	for i, _ := range clearCCs {
+		klog.Errorf("------------clearCCs pvc: ", clearCCs[i].ClusterId)
+		err := dccs.ClearStatefulsetUnusedPVCs(ctx, ddc, clearCCs[i])
+		if err != nil {
+			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs clearCCs failed, err=%s", err.Error())
 		}
 	}
 
-	//TODO:13. drop pvcs
-	for _, cc := range eCCs {
-		dccs.ClearStatefulsetUnusedPVCs(cc)
-	}
-	//TODO:13. drop pvcs
-	for _, cc := range clearCCs {
-		dccs.ClearStatefulsetUnusedPVCs(cc)
-	}
-
+	klog.Errorf("ComputeClusterStatuses len 3 -----------%d ", len(ddc.Status.ComputeClusterStatuses))
 	ddc.Status.ComputeClusterStatuses = eCCs
+	klog.Errorf("ComputeClusterStatuses len 4 -----------%d ", len(ddc.Status.ComputeClusterStatuses))
 
 	return true, nil
 }
 
-func (dccs *DisaggregatedComputeClustersController) ClearStatefulsetUnusedPVCs(cc dv1.ComputeClusterStatus) {
+// ClearStatefulsetUnusedPVCs
+// 1.delete unused pvc skip cluster is Suspend
+// 2.delete unused pvc for statefulset
+// 3.delete pvc if not used by any statefulset
+func (dccs *DisaggregatedComputeClustersController) ClearStatefulsetUnusedPVCs(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, ccs dv1.ComputeClusterStatus) error {
+	var cc *dv1.ComputeCluster
+	for i := range ddc.Spec.ComputeClusters {
+		if ddc.Spec.ComputeClusters[i].ClusterId == ccs.ClusterId {
+			cc = &ddc.Spec.ComputeClusters[i]
+		}
+	}
 
+	currentPVCs := corev1.PersistentVolumeClaimList{}
+	pvcMap := make(map[string]*corev1.PersistentVolumeClaim)
+
+	pvcLabels := dccs.newCCPodsSelector(ddc.Name, ccs.ClusterId)
+
+	if err := dccs.K8sclient.List(ctx, &currentPVCs, client.InNamespace(ddc.Namespace), client.MatchingLabels(pvcLabels)); err != nil {
+		dccs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCListFailed, fmt.Sprintf("DisaggregatedComputeClustersController ClearStatefulsetUnusedPVCs list pvc failed:%s!", err.Error()))
+		return err
+	}
+
+	for i := range currentPVCs.Items {
+		pvcMap[currentPVCs.Items[i].Name] = &currentPVCs.Items[i]
+	}
+
+	if cc != nil {
+		replicas := int(*cc.Replicas)
+		stsName := ddc.GetCCStatefulsetName(cc)
+		cvs := dccs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cc.CommonSpec.ConfigMaps)
+		paths, _ := dccs.getCacheMaxSizeAndPaths(cvs)
+
+		if ccs.Phase == dv1.Suspended || ccs.Phase == dv1.SuspendFailed || replicas == 0 {
+			klog.Infof("ClearStatefulsetUnusedPVCs compute cluster phase is %v, no need to delete pvc", ccs.Phase)
+			return nil
+		}
+
+		var reservePVCNameList []string
+
+		for i := 0; i < replicas; i++ {
+			iStr := strconv.Itoa(i)
+			reservePVCNameList = append(reservePVCNameList, resource.BuildPVCName(stsName, iStr, LogStoreName))
+			for j := 0; j < len(paths); j++ {
+				jStr := strconv.Itoa(j)
+				reservePVCNameList = append(reservePVCNameList, resource.BuildPVCName(stsName, iStr, StorageStorePreName+jStr))
+			}
+		}
+
+		for _, pvcName := range reservePVCNameList {
+			if _, ok := pvcMap[pvcName]; ok {
+				delete(pvcMap, pvcName)
+			}
+		}
+	}
+
+	var mergeError error
+	for _, claim := range pvcMap {
+		if err := k8s.DeletePVC(ctx, dccs.K8sclient, claim.Namespace, claim.Name, pvcLabels); err != nil {
+			dccs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCDeleteFailed, err.Error())
+			klog.Errorf("ClearStatefulsetUnusedPVCs deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", claim.Namespace, claim.Name, claim.Name, err.Error())
+			mergeError = utils.MergeError(mergeError, err)
+		}
+	}
+	return mergeError
 }
 
 func (dccs *DisaggregatedComputeClustersController) GetControllerName() string {
@@ -403,5 +553,55 @@ func (dccs *DisaggregatedComputeClustersController) updateCCStatus(ddc *dv1.Dori
 	if availableReplicas == ccs.Replicas {
 		ccs.Phase = dv1.Ready
 	}
+	return nil
+}
+
+func (dfc *DisaggregatedComputeClustersController) dropCCFromHttpClient(cluster *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) error {
+	ccReplica := cc.Replicas
+
+	// drop be can also use the unique id of fe
+	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
+
+	ccNodes, err := ms_http.GetBECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, unionId, cc.ClusterId)
+	if err != nil {
+		klog.Errorf("dropCCFromHttpClient GetBECluster failed, err:%s ", err.Error())
+		return err
+	}
+
+	var dropNodes []*ms_http.NodeInfo
+	for _, node := range ccNodes {
+		splitCloudUniqueIDArr := strings.Split(node.CloudUniqueID, "-")
+		podNum, err := strconv.Atoi(splitCloudUniqueIDArr[len(splitCloudUniqueIDArr)-1])
+		if err != nil {
+			klog.Errorf("splitCloudUniqueIDArr can not split CloudUniqueID : %s,err:%s", node.CloudUniqueID, err.Error())
+			return err
+		}
+		if podNum >= int(*ccReplica) {
+			dropNodes = append(dropNodes, node)
+		}
+	}
+	if len(dropNodes) == 0 {
+		return nil
+	}
+
+	reqCluster := ms_http.Cluster{
+		ClusterName: cc.Name,
+		ClusterID:   cc.ClusterId,
+		Type:        ms_http.BeNodeType,
+		Nodes:       dropNodes,
+	}
+
+	specifyCluster, err := ms_http.DropBENodes(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), reqCluster)
+	if err != nil {
+		klog.Errorf("dropCCFromHttpClient DropBENodes failed, err:%s ", err.Error())
+		return err
+	}
+
+	if specifyCluster.Code != ms_http.SuccessCode {
+		jsonData, _ := json.Marshal(specifyCluster)
+		klog.Errorf("dropCCFromHttpClient DropBENodes response failed , response: %s", jsonData)
+		return err
+	}
+
 	return nil
 }

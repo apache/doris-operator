@@ -46,6 +46,8 @@ import (
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
@@ -103,6 +105,11 @@ func init() {
 }
 
 func main() {
+
+	go func() {
+		http.ListenAndServe("0.0.0.0:6060", nil)
+	}()
+
 	//parse then parameters from console.
 	f := conf.ParseFlags()
 	//parse env

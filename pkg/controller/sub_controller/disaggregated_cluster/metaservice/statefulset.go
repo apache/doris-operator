@@ -4,6 +4,7 @@ import (
 	"context"
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
+	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
 	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
 	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
@@ -58,8 +59,10 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *dv1.DorisDisaggregated
 		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
 	}
 
+	replicas := metadata.GetInt32Pointer(dv1.DefaultMetaserviceNumber)
+
 	func() {
-		st.Spec.Replicas = msSpec.Replicas
+		st.Spec.Replicas = replicas
 		st.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: matchLabels,
 		}

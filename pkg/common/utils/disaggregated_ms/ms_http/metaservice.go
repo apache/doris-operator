@@ -36,6 +36,7 @@ const (
 	FeClusterId           = "RESERVED_CLUSTER_ID_FOR_SQL_SERVER"
 	FeClusterName         = "RESERVED_CLUSTER_NAME_FOR_SQL_SERVER"
 	FeNodeType            = "SQL"
+	BeNodeType            = "COMPUTE"
 )
 
 type NodeInfo struct {
@@ -46,7 +47,7 @@ type NodeInfo struct {
 	Status        string `json:"-"`
 	NodeType      string `json:"node_type,omitempty"`
 	EditLogPort   int    `json:"edit_log_port,omitempty"`
-	HeartbeatPort string `json:"heartbeat_port,omitempty"`
+	HeartbeatPort int    `json:"heartbeat_port,omitempty"`
 	Host          string `json:"-"`
 }
 

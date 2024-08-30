@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
 	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils"
@@ -320,46 +319,6 @@ func SetDorisClusterPhase(
 	}
 	if isStatusEqual {
 		klog.Infof("UpdateDorisClusterPhase will not change cluster %s Phase, it is already %s ,DCR name: %s, namespace: %s,", componentType, phase, dcrName, namespace)
-		return nil
-	}
-	return k8sclient.Status().Update(ctx, &edcr)
-}
-
-func SetClusterPhase(
-	ctx context.Context,
-	k8sclient client.Client,
-	ddcName, namespace string,
-	phase dv1.Phase,
-	componentType dv1.DisaggregatedComponentType,
-	ccStsNames []string,
-) error {
-	var edcr dv1.DorisDisaggregatedCluster
-	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ddcName}, &edcr); err != nil {
-		return err
-	}
-	isStatusEqual := true
-	switch componentType {
-	case dv1.DisaggregatedFE:
-		isStatusEqual = edcr.Status.FEStatus.Phase == phase
-		edcr.Status.FEStatus.Phase = phase
-	case dv1.DisaggregatedBE:
-		for i, ccs := range edcr.Status.ComputeClusterStatuses {
-			name := ccs.StatefulsetName
-			for _, ccStsName := range ccStsNames {
-				if ccStsName == name {
-					if ccs.Phase != phase {
-						isStatusEqual = false
-					}
-					edcr.Status.ComputeClusterStatuses[i].Phase = phase
-				}
-			}
-		}
-	default:
-		klog.Infof("SetClusterPhase not support type=%s", componentType)
-		return nil
-	}
-	if isStatusEqual {
-		klog.Infof("UpdateDDCPhase will not change cluster %s Phase, it is already %s ,DDC name: %s, namespace: %s,", componentType, phase, ddcName, namespace)
 		return nil
 	}
 	return k8sclient.Status().Update(ctx, &edcr)

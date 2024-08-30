@@ -294,8 +294,14 @@ const (
 	//Failed represents service failed to start, can't be accessed.
 	Failed Phase = "Failed"
 	//Creating represents service in creating stage.
-	Reconciling          Phase = "Reconciling"
-	ReconclingDropFailed Phase = "ReconclingDropFailed"
+	Reconciling Phase = "Reconciling"
+
+	//Scaling represents service in Scaling.
+	Scaling         Phase = "Scaling"
+	ScaleDownFailed Phase = "ScaleDownFailed"
+	ResumeFailed    Phase = "ResumeFailed"
+	SuspendFailed   Phase = "SuspendFailed"
+	Suspended       Phase = "Suspended"
 )
 
 type AvailableStatus string
@@ -307,6 +313,8 @@ const (
 	//UnAvailable represents the service not available for using.
 	UnAvailable AvailableStatus = "UnAvailable"
 )
+
+// AvailableStatus  StatefulsetName  ServiceName
 
 type ComputeClusterStatus struct {
 	//Phase represent the stage of reconciling.
