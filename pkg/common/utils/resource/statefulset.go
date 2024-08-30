@@ -212,6 +212,8 @@ func StatefulsetDeepEqualWithKey(new, old *appv1.StatefulSet, annoKey string, ex
 	new.Annotations = anno
 
 	klog.Info("the statefulset name "+new.Name+" new hash value ", newHashv, " old have value ", oldHashv)
+	klog.Info("the statefulset name "+new.Name+" new namespace ", new.Namespace, " old namespace ", old.Namespace)
+	klog.Info("equal=", newHashv == oldHashv && new.Namespace == old.Namespace)
 	return newHashv == oldHashv &&
 		new.Namespace == old.Namespace
 }
