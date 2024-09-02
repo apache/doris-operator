@@ -24,7 +24,6 @@ import (
 	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
 	"io"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/klog/v2"
 	"net/http"
 )
 
@@ -152,13 +151,9 @@ func GetBECluster(endpoint, token, cloudUniqueId, clusterId string) ([]*NodeInfo
 		"cluster_id":      clusterId,
 	}
 	str, _ := json.Marshal(param)
-	klog.Errorf("---------------GetBECluster param: %v", param)
-	klog.Errorf("---------------GetBECluster param: %s", str)
-
 	addr := fmt.Sprintf(GET_CLUSTER_PREFIX_TEMPLATE, endpoint, token)
 
 	mr, err := putRequest(addr, str)
-	klog.Errorf("---------------GetBECluster putRequest: %v", mr)
 	if err != nil {
 		return nil, fmt.Errorf("GetBECluster putRequest failed: %w", err)
 	}
@@ -202,29 +197,6 @@ func dropNodesFromSpecifyCluster(endpoint, token, instanceID string, cluster Clu
 
 // dropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
 func DropBENodes(endpoint, token, instanceID string, cluster Cluster) (*MSResponse, error) {
-
-	//curl 'http://test-ms-metaservice-service.default:5000/MetaService/http/drop_node?token=greedisgood9999' -d '{
-	//    "instance_id":"instance_test",
-	//    "cluster":{
-	//        "cluster_name":"test2",
-	//        "cluster_id":"default_test_cluster_test2",
-	//        "type":"COMPUTE",
-	//        "nodes":[
-	//            {
-	//                "cloud_unique_id": "1:instance_test:test-cluster-test2-1",
-	//                "ip": "test-cluster-test2-1.test-cluster-test2.default.svc.cluster.local",
-	//                "heartbeat_port":9050
-	//            }
-	//        ]
-	//    }
-	//}'
-
-	//cluster := Cluster{
-	//	ClusterName: FeClusterName,
-	//	ClusterID:   FeClusterId,
-	//	Type:        FeNodeType,
-	//	Nodes:       nodes,
-	//}
 	mr, err := dropNodesFromSpecifyCluster(endpoint, token, instanceID, cluster)
 	if err != nil {
 		return mr, fmt.Errorf("DropFENodes dropNodesFromSpecifyCluster failed: %w", err)
@@ -243,14 +215,6 @@ func ResumeComputeCluster(endpoint, token, instanceID, clusterID string) (*MSRes
 
 // SetClusterStatus resume cluster
 func SetClusterStatus(endpoint, token, instanceID, clusterID, status string) (*MSResponse, error) {
-	//curl 'http://test-ms-metaservice-service.default:5000/MetaService/http/set_cluster_status?token=greedisgood9999' -d '{
-	//	"instance_id":"instance_test",
-	//	"cluster":{
-	//		"cluster_status":"SUSPENDED",
-	//		"cluster_id":"default_test_cluster_test2",
-	//	}
-	//}'
-
 	param := map[string]interface{}{
 		"instance_id": instanceID,
 		"cluster": map[string]interface{}{
@@ -269,14 +233,6 @@ func SetClusterStatus(endpoint, token, instanceID, clusterID, status string) (*M
 }
 
 func DropComputeCluster(endpoint, token, instanceID string, ccs *dv1.ComputeClusterStatus) (*MSResponse, error) {
-	//curl 'http://test-ms-metaservice-service.default:5000/MetaService/http/drop_cluster?token=greedisgood9999' -d '{
-	//    "instance_id":"instance_test",
-	//    "cluster":{
-	//        "cluster_name":"test2",
-	//        "cluster_id":"default_test_cluster_test2"
-	//    }
-	//}'
-
 	param := map[string]interface{}{
 		"instance_id": instanceID,
 		"cluster": map[string]interface{}{

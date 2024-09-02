@@ -183,7 +183,6 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 
 	//scaleType = "resume"
 	if (*(st.Spec.Replicas) > *(est.Spec.Replicas) && *(est.Spec.Replicas) == 0) || ccStatus.Phase == dv1.ResumeFailed {
-		klog.Errorf("------------  resume : %d", *(st.Spec.Replicas)-*(est.Spec.Replicas))
 		response, err := ms_http.ResumeComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
 		if response.Code != ms_http.SuccessCode {
 			ccStatus.Phase = dv1.ResumeFailed
@@ -200,7 +199,6 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 
 	//scaleType = "scaleDown"
 	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) > 0) || ccStatus.Phase == dv1.ScaleDownFailed {
-		klog.Errorf("------------  scaleDown : %d", *(st.Spec.Replicas)-*(est.Spec.Replicas))
 		if err := dccs.dropCCFromHttpClient(cluster, cc); err != nil {
 			ccStatus.Phase = dv1.ScaleDownFailed
 			klog.Errorf("ScaleDownBE failed, err:%s ", err.Error())
@@ -212,7 +210,6 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 
 	//scaleType = "suspend"
 	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) == 0) || ccStatus.Phase == dv1.SuspendFailed {
-		klog.Errorf("------------  suspend : %d", *(st.Spec.Replicas)-*(est.Spec.Replicas))
 		response, err := ms_http.SuspendComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
 		if response.Code != ms_http.SuccessCode {
 			ccStatus.Phase = dv1.SuspendFailed
@@ -233,7 +230,6 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 // initial compute cluster status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) {
 	ccss := ddc.Status.ComputeClusterStatuses
-	klog.Errorf("------------------------------ init status for cc: %s ", cc.Name)
 	defCcs := dv1.ComputeClusterStatus{
 		Phase:              dv1.Reconciling,
 		ComputeClusterName: cc.Name,
@@ -246,7 +242,6 @@ func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.Dor
 
 	for i := range ccss {
 		if ccss[i].ClusterId == cc.ClusterId {
-			klog.Errorf("------------------------------ init status for status: %s ", ccss[i].Phase)
 			if ccss[i].Phase == dv1.ScaleDownFailed || ccss[i].Phase == dv1.Suspended ||
 				ccss[i].Phase == dv1.SuspendFailed || ccss[i].Phase == dv1.ResumeFailed ||
 				ccss[i].Phase == dv1.Scaling {
@@ -337,7 +332,6 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 	var clearCCs []dv1.ComputeClusterStatus
 	var eCCs []dv1.ComputeClusterStatus
-	klog.Errorf("ComputeClusterStatuses len 0 -----------%d ", len(ddc.Status.ComputeClusterStatuses))
 
 	for i, ccs := range ddc.Status.ComputeClusterStatuses {
 		for _, cc := range ddc.Spec.ComputeClusters {
@@ -354,7 +348,6 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 
 	for i := range clearCCs {
 		ccs := clearCCs[i]
-		klog.Errorf("%d-------clearCCs:%s : %s ", i, ccs.ClusterId, ccs.StatefulsetName)
 		cleared := true
 		if err := k8s.DeleteStatefulset(ctx, dccs.K8sclient, ddc.Namespace, ccs.StatefulsetName); err != nil {
 			cleared = false
@@ -386,27 +379,20 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 
 	}
 
-	// TODO:13. drop pvcs
-	for i, _ := range eCCs {
-		klog.Errorf(" drop eccs pvc  -----------%s " + eCCs[i].ClusterId)
-
+	for i := range eCCs {
 		err := dccs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCCs[i])
 		if err != nil {
 			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs eCCs failed, err=%s", err.Error())
 		}
 	}
-	// TODO:13. drop pvcs
-	for i, _ := range clearCCs {
-		klog.Errorf("------------clearCCs pvc: ", clearCCs[i].ClusterId)
+	for i := range clearCCs {
 		err := dccs.ClearStatefulsetUnusedPVCs(ctx, ddc, clearCCs[i])
 		if err != nil {
 			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs clearCCs failed, err=%s", err.Error())
 		}
 	}
 
-	klog.Errorf("ComputeClusterStatuses len 3 -----------%d ", len(ddc.Status.ComputeClusterStatuses))
 	ddc.Status.ComputeClusterStatuses = eCCs
-	klog.Errorf("ComputeClusterStatuses len 4 -----------%d ", len(ddc.Status.ComputeClusterStatuses))
 
 	return true, nil
 }
@@ -444,7 +430,6 @@ func (dccs *DisaggregatedComputeClustersController) ClearStatefulsetUnusedPVCs(c
 		paths, _ := dccs.getCacheMaxSizeAndPaths(cvs)
 
 		if ccs.Phase == dv1.Suspended || ccs.Phase == dv1.SuspendFailed || replicas == 0 {
-			klog.Infof("ClearStatefulsetUnusedPVCs compute cluster phase is %v, no need to delete pvc", ccs.Phase)
 			return nil
 		}
 
