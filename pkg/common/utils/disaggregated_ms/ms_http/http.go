@@ -195,11 +195,11 @@ func dropNodesFromSpecifyCluster(endpoint, token, instanceID string, cluster Clu
 
 }
 
-// dropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
+// DropBENodes dropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
 func DropBENodes(endpoint, token, instanceID string, cluster Cluster) (*MSResponse, error) {
 	mr, err := dropNodesFromSpecifyCluster(endpoint, token, instanceID, cluster)
 	if err != nil {
-		return mr, fmt.Errorf("DropFENodes dropNodesFromSpecifyCluster failed: %w", err)
+		return mr, fmt.Errorf("DropBENodes dropNodesFromSpecifyCluster failed: %w", err)
 	}
 	return mr, nil
 }

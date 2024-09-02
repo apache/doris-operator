@@ -417,7 +417,7 @@ string
 </em>
 </td>
 <td>
-<p>ClusterId is the identifier of computeCluster, this will distinguish all com puteCluster in meta.</p>
+<p>ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.</p>
 </td>
 </tr>
 <tr>
@@ -1435,5 +1435,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>029b98e</code>.
+on git commit <code>1d205b5</code>.
 </em></p>

@@ -9420,7 +9420,7 @@ spec:
                       x-kubernetes-list-type: map
                     clusterId:
                       description: ClusterId is the identifier of computeCluster,
-                        this will distinguish all com puteCluster in meta.
+                        this will distinguish all computeCluster in meta.
                       type: string
                     configMaps:
                       description: ConfigMaps describe all configmap that need to

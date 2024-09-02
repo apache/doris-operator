@@ -64,7 +64,7 @@ type ComputeCluster struct {
 	//Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use `computeCluster` and the index in array to set.ep: computeCluster-1.
 	Name string `json:"name,omitempty"`
 
-	//ClusterId is the identifier of computeCluster, this will distinguish all com puteCluster in meta.
+	//ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	CommonSpec `json:",inline"`

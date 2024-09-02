@@ -230,7 +230,7 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 // initial compute cluster status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) {
 	ccss := ddc.Status.ComputeClusterStatuses
-	defCcs := dv1.ComputeClusterStatus{
+	defaultStatus := dv1.ComputeClusterStatus{
 		Phase:              dv1.Reconciling,
 		ComputeClusterName: cc.Name,
 		ClusterId:          cc.ClusterId,
@@ -245,14 +245,14 @@ func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.Dor
 			if ccss[i].Phase == dv1.ScaleDownFailed || ccss[i].Phase == dv1.Suspended ||
 				ccss[i].Phase == dv1.SuspendFailed || ccss[i].Phase == dv1.ResumeFailed ||
 				ccss[i].Phase == dv1.Scaling {
-				defCcs.Phase = ccss[i].Phase
+				defaultStatus.Phase = ccss[i].Phase
 			}
-			ccss[i] = defCcs
+			ccss[i] = defaultStatus
 			return
 		}
 	}
 
-	ddc.Status.ComputeClusterStatuses = append(ddc.Status.ComputeClusterStatuses, defCcs)
+	ddc.Status.ComputeClusterStatuses = append(ddc.Status.ComputeClusterStatuses, defaultStatus)
 }
 
 // clusterId and cloudUniqueId is not allowed update, when be mistakenly modified on these fields, operator should revert it by status fields.
@@ -382,13 +382,13 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 	for i := range eCCs {
 		err := dccs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCCs[i])
 		if err != nil {
-			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs eCCs failed, err=%s", err.Error())
+			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs clear whole ComputeCluster PVC failed, err=%s", err.Error())
 		}
 	}
 	for i := range clearCCs {
 		err := dccs.ClearStatefulsetUnusedPVCs(ctx, ddc, clearCCs[i])
 		if err != nil {
-			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs clearCCs failed, err=%s", err.Error())
+			klog.Errorf("disaggregatedComputeClustersController ClearStatefulsetUnusedPVCs clear part ComputeCluster PVC failed, err=%s", err.Error())
 		}
 	}
 

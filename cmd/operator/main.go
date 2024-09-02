@@ -46,7 +46,6 @@ import (
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
-	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
