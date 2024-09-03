@@ -97,7 +97,20 @@ func (ddc *DorisDisaggregatedCluster) GetMSStatefulsetName() string {
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCCServiceName(cc *ComputeCluster) string {
-	return ddc.GetCCStatefulsetName(cc)
+	svcName := ""
+	for _, ccs := range ddc.Status.ComputeClusterStatuses {
+		if ccs.ComputeClusterName == cc.Name || ccs.ClusterId == cc.ClusterId {
+			svcName = ccs.ServiceName
+		}
+	}
+
+	if svcName != "" {
+		return svcName
+	}
+
+	svcName = ddc.Name + "-" + cc.Name
+	svcName = strings.ReplaceAll(svcName, "_", "-")
+	return svcName
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {
