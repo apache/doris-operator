@@ -299,6 +299,7 @@ func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc 
 // when spec revert by operator should update cr or directly update status.
 func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, preHv string) (ctrl.Result, error) {
 	postHv := hash.HashObject(ddc.Spec)
+	deepCopyDDC := ddc.DeepCopy()
 	if preHv != postHv {
 		var eddc dv1.DorisDisaggregatedCluster
 		if err := dc.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}, &eddc); err == nil || !apierrors.IsNotFound(err) {
@@ -308,24 +309,19 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 		}
 		if err := dc.Update(ctx, ddc); err != nil {
 			klog.Errorf("disaggreatedClusterReconciler update DorisDisaggregatedCluster namespace %s name %s  failed, err=%s", ddc.Namespace, ddc.Name, err.Error())
-			return ctrl.Result{}, err
+			//return ctrl.Result{}, err
 		}
-
-		//if cr updated, update cr. or update status.
-		return ctrl.Result{}, nil
 	}
-
-	return dc.updateDorisDisaggregatedClusterStatus(ctx, ddc)
+	return dc.updateDorisDisaggregatedClusterStatus(ctx, deepCopyDDC)
 }
 
 func (dc *DisaggregatedClusterReconciler) updateDorisDisaggregatedClusterStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
 	var eddc dv1.DorisDisaggregatedCluster
-	if err := dc.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}, &eddc); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	ddc.Status.DeepCopyInto(&eddc.Status)
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := dc.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}, &eddc); err != nil {
+			return err
+		}
+		ddc.Status.DeepCopyInto(&eddc.Status)
 		return dc.Status().Update(ctx, &eddc)
 	}); err != nil {
 		klog.Errorf("updateDorisDisaggregatedClusterStatus update status failed err: %s", err.Error())

@@ -64,7 +64,7 @@ type ComputeCluster struct {
 	//Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use `computeCluster` and the index in array to set.ep: computeCluster-1.
 	Name string `json:"name,omitempty"`
 
-	//ClusterId is the identifier of computeCluster, this will distinguish all com puteCluster in meta.
+	//ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	CommonSpec `json:",inline"`
@@ -294,8 +294,14 @@ const (
 	//Failed represents service failed to start, can't be accessed.
 	Failed Phase = "Failed"
 	//Creating represents service in creating stage.
-	Reconciling          Phase = "Reconciling"
-	ReconclingDropFailed Phase = "ReconclingDropFailed"
+	Reconciling Phase = "Reconciling"
+
+	//Scaling represents service in Scaling.
+	Scaling         Phase = "Scaling"
+	ScaleDownFailed Phase = "ScaleDownFailed"
+	ResumeFailed    Phase = "ResumeFailed"
+	SuspendFailed   Phase = "SuspendFailed"
+	Suspended       Phase = "Suspended"
 )
 
 type AvailableStatus string
@@ -307,6 +313,8 @@ const (
 	//UnAvailable represents the service not available for using.
 	UnAvailable AvailableStatus = "UnAvailable"
 )
+
+// AvailableStatus  StatefulsetName  ServiceName
 
 type ComputeClusterStatus struct {
 	//Phase represent the stage of reconciling.
@@ -321,6 +329,8 @@ type ComputeClusterStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of compute cluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
+	//suspend replicas display the replicas of compute cluster before resume.
+	SuspendReplicas int32 `json:"suspendReplicas,omitempty"`
 
 	// replicas is the number of Pods created by the StatefulSet controller.
 	Replicas int32 `json:"replicas,omitempty"`

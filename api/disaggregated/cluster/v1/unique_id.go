@@ -64,6 +64,7 @@ func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
 	// need config in vaultConfigMap.
 	return ""
 }
+
 func (ddc *DorisDisaggregatedCluster) GetCCId(cc *ComputeCluster) string {
 	if cc == nil || ddc == nil {
 		return ""

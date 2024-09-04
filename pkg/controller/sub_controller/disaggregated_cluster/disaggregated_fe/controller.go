@@ -99,7 +99,7 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return err
 	}
 
-	if *(ddc.Spec.FeSpec.Replicas) < DefaultFeReplicaNumber {
+	if ddc.Spec.FeSpec.Replicas == nil || *(ddc.Spec.FeSpec.Replicas) < DefaultFeReplicaNumber {
 		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is illegal and has been corrected to the default value %d", ddc.Namespace, ddc.Name, DefaultFeReplicaNumber)
 		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is illegal and has been corrected to the default value 2")
 		ddc.Spec.FeSpec.Replicas = &DefaultFeReplicaNumber
@@ -243,7 +243,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 
 // initial fe status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dfc *DisaggregatedFEController) initialFEStatus(ddc *dv1.DorisDisaggregatedCluster) {
-	if ddc.Status.FEStatus.Phase == dv1.Reconciling {
+	if ddc.Status.FEStatus.Phase == dv1.Reconciling || ddc.Status.FEStatus.Phase == dv1.ScaleDownFailed || ddc.Status.FEStatus.Phase == dv1.Scaling {
 		return
 	}
 	feStatus := dv1.FEStatus{
@@ -268,20 +268,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	// fe scale check and set FEStatus phase
-	if cluster.Spec.FeSpec.Replicas == nil {
-		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
-	}
 	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(est.Spec.Replicas)
-	if scaleNumber != 0 { // set fe Phase as Reconciling
-		cluster.Status.FEStatus.Phase = dv1.Reconciling
-		// In Reconcile, it is possible that the status cannot be updated in time,
-		// resulting in an error in the status judgment based on the last status,
-		// so the status will be forced to modify here
-		if err := k8s.SetClusterPhase(ctx, dfc.K8sclient, cluster.Name, cluster.Namespace, dv1.Reconciling, dv1.DisaggregatedFE, nil); err != nil {
-			klog.Errorf("SetDDCPhase 'Reconciling' failed err:%s ", err.Error())
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.FEStatusUpdateFailed, Message: err.Error()}, err
-		}
-	}
 
 	// apply fe StatefulSet
 	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
@@ -292,12 +279,14 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	//  if fe scale, drop fe node by http
-	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == dv1.Reconciling {
+	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == dv1.ScaleDownFailed {
 		if err := dfc.dropFEFromHttpClient(cluster); err != nil {
+			cluster.Status.FEStatus.Phase = dv1.ScaleDownFailed
 			klog.Errorf("ScaleDownFE failed, err:%s ", err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.FEHTTPFailed, Message: err.Error()},
 				err
 		}
+		cluster.Status.FEStatus.Phase = dv1.Scaling
 	}
 	//dropped
 
@@ -308,7 +297,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDisaggregatedCluster) error {
 	feReplica := cluster.Spec.FeSpec.Replicas
 
-	unionId := "1:" + cluster.GetInstanceId() + cluster.GetFEStatefulsetName() + "-0"
+	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
 	feCluster, err := ms_http.GetFECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), unionId)
 	if err != nil {
 		klog.Errorf("dropFEFromHttpClient GetFECluster failed, err:%s ", err.Error())

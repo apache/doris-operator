@@ -37,3 +37,7 @@ var (
 	DisaggregatedBE DisaggregatedComponentType = "BE"
 	DisaggregatedMS DisaggregatedComponentType = "MS"
 )
+
+const (
+	DefaultMetaserviceNumber int32 = 2
+)

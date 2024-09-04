@@ -20,18 +20,22 @@ package ms_http
 import (
 	"bytes"
 	"fmt"
+	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
 	"io"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
+	"strings"
 )
 
 const (
-	CREATE_INSTANCE_PREFIX_TEMPLATE = `http://%s/MetaService/http/create_instance?token=%s`
-	DELETE_INSTANCE_PREFIX_TEMPLATE = `http://%s/MetaService/http/drop_instance?token=%s`
-	GET_INSTANCE_PREFIX_TEMPLATE    = `http://%s/MetaService/http/get_instance?token=%s&instance_id=%s`
-	DROP_NODE_PREFIX_TEMPLATE       = `http://%s/MetaService/http/drop_node?token=%s`
-	GET_CLUSTER_PREFIX_TEMPLATE     = `http://%s/MetaService/http/get_cluster?token=%s`
+	CREATE_INSTANCE_PREFIX_TEMPLATE     = `http://%s/MetaService/http/create_instance?token=%s`
+	DELETE_INSTANCE_PREFIX_TEMPLATE     = `http://%s/MetaService/http/drop_instance?token=%s`
+	GET_INSTANCE_PREFIX_TEMPLATE        = `http://%s/MetaService/http/get_instance?token=%s&instance_id=%s`
+	DROP_NODE_PREFIX_TEMPLATE           = `http://%s/MetaService/http/drop_node?token=%s`
+	GET_CLUSTER_PREFIX_TEMPLATE         = `http://%s/MetaService/http/get_cluster?token=%s`
+	SET_CLUSTER_STATUS_PREFIX_TEMPLATE  = `http://%s/MetaService/http/set_cluster_status?token=%s`
+	DROP_CLUSTER_STATUS_PREFIX_TEMPLATE = `http://%s/MetaService/http/drop_cluster?token=%s`
 )
 
 //realize the metaservice interface
@@ -142,6 +146,22 @@ func GetFECluster(endpoint, token, instanceId, cloudUniqueId string) ([]*NodeInf
 	return mr.MSResponseResultNodesToNodeInfos()
 }
 
+func GetBECluster(endpoint, token, cloudUniqueId, clusterId string) ([]*NodeInfo, error) {
+	param := map[string]interface{}{
+		"cloud_unique_id": cloudUniqueId,
+		"cluster_id":      clusterId,
+	}
+	str, _ := json.Marshal(param)
+	addr := fmt.Sprintf(GET_CLUSTER_PREFIX_TEMPLATE, endpoint, token)
+
+	mr, err := putRequest(addr, str)
+	if err != nil {
+		return nil, fmt.Errorf("GetBECluster putRequest failed: %w", err)
+	}
+
+	return mr.MSResponseResultNodesToNodeInfos()
+}
+
 func DropFENodes(endpoint, token, instanceID string, nodes []*NodeInfo) (*MSResponse, error) {
 	cluster := Cluster{
 		ClusterName: FeClusterName,
@@ -176,13 +196,71 @@ func dropNodesFromSpecifyCluster(endpoint, token, instanceID string, cluster Clu
 
 }
 
-// suspend cluster
-func SuspendComputeCluster() (*MSResponse, error) {
-	//TODO: suspend compute cluster
-	return nil, nil
+// DropBENodes dropNodesFromSpecifyCluster drop all nodes of specify cluster from ms
+func DropBENodes(endpoint, token, instanceID string, cluster Cluster) (*MSResponse, error) {
+	mr, err := dropNodesFromSpecifyCluster(endpoint, token, instanceID, cluster)
+	if err != nil {
+		return mr, fmt.Errorf("DropBENodes dropNodesFromSpecifyCluster failed: %w", err)
+	}
+	return mr, nil
 }
 
-func DropComputeCluster() (*MSResponse, error) {
-	//TODO: drop compute cluster
-	return nil, nil
+// suspend cluster
+func SuspendComputeCluster(endpoint, token, instanceID, clusterID string) error {
+	response, err := SetClusterStatus(endpoint, token, instanceID, clusterID, "SUSPENDED")
+	if err != nil {
+		return fmt.Errorf("SuspendComputeCluster SetClusterStatus failed: %w", err)
+	}
+	if response.Code != SuccessCode && !strings.Contains(response.Msg, "original cluster is SUSPENDED") {
+		return fmt.Errorf("SuspendComputeCluster SetClusterStatus failed: %s", response.Msg)
+	}
+	return nil
+}
+
+func ResumeComputeCluster(endpoint, token, instanceID, clusterID string) error {
+	response, err := SetClusterStatus(endpoint, token, instanceID, clusterID, "NORMAL")
+	if err != nil {
+		return fmt.Errorf("ResumeComputeCluster SetClusterStatus failed: %w", err)
+	}
+	if response.Code != SuccessCode && !strings.Contains(response.Msg, "original cluster is NORMAL") {
+		return fmt.Errorf("ResumeComputeCluster SetClusterStatus failed: %s", response.Msg)
+	}
+	return nil
+}
+
+// SetClusterStatus resume cluster
+func SetClusterStatus(endpoint, token, instanceID, clusterID, status string) (*MSResponse, error) {
+	param := map[string]interface{}{
+		"instance_id": instanceID,
+		"cluster": map[string]interface{}{
+			"cluster_id":     clusterID,
+			"cluster_status": status,
+		},
+	}
+	str, _ := json.Marshal(param)
+	addr := fmt.Sprintf(SET_CLUSTER_STATUS_PREFIX_TEMPLATE, endpoint, token)
+
+	mr, err := putRequest(addr, str)
+	if err != nil {
+		return nil, fmt.Errorf("SetClusterStatus putRequest failed: %w", err)
+	}
+	return mr, nil
+}
+
+func DropComputeCluster(endpoint, token, instanceID string, ccs *dv1.ComputeClusterStatus) (*MSResponse, error) {
+	param := map[string]interface{}{
+		"instance_id": instanceID,
+		"cluster": map[string]interface{}{
+			"cluster_id":   ccs.ClusterId,
+			"cluster_name": ccs.ComputeClusterName,
+		},
+	}
+	str, _ := json.Marshal(param)
+	addr := fmt.Sprintf(DROP_CLUSTER_STATUS_PREFIX_TEMPLATE, endpoint, token)
+
+	mr, err := putRequest(addr, str)
+	if err != nil {
+		return nil, fmt.Errorf("DropComputeCluster putRequest failed: %w", err)
+	}
+	return mr, nil
 }
