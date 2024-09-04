@@ -329,6 +329,8 @@ type ComputeClusterStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of compute cluster in meta.
 	ClusterId string `json:"clusterId,omitempty"`
+	//suspend replicas display the replicas of compute cluster before resume.
+	SuspendReplicas int32 `json:"suspendReplicas,omitempty"`
 
 	// replicas is the number of Pods created by the StatefulSet controller.
 	Replicas int32 `json:"replicas,omitempty"`

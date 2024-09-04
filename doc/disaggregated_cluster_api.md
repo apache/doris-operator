@@ -524,6 +524,17 @@ string
 </tr>
 <tr>
 <td>
+<code>suspendReplicas</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>suspend replicas display the replicas of compute cluster before resume.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>replicas</code><br/>
 <em>
 int32
@@ -1435,5 +1446,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>1d205b5</code>.
+on git commit <code>711e5a4</code>.
 </em></p>

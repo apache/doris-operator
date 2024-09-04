@@ -55,6 +55,7 @@ var (
 	ComputeClustersEmpty              EventReason = "CCsEmpty"
 	CCHTTPFailed                      EventReason = "CCHTTPResponseFailed"
 	CCSuspendStatusRequestFailed      EventReason = "CCSuspendStatusRequestFailed"
+	CCResumeReplicasInconsistency     EventReason = "CCSuspendReplicasInconsistency"
 	CCResumeStatusRequestFailed       EventReason = "CCResumeStatusRequestFailed"
 	CCUniqueIdentifierDuplicate       EventReason = "CCUniqueIdentifierDuplicate"
 	CCUniqueIdentifierNotMatchRegex   EventReason = "CCUniqueIdentifierNotMatchRegex"

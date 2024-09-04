@@ -25,6 +25,7 @@ import (
 	"io"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -205,12 +206,26 @@ func DropBENodes(endpoint, token, instanceID string, cluster Cluster) (*MSRespon
 }
 
 // suspend cluster
-func SuspendComputeCluster(endpoint, token, instanceID, clusterID string) (*MSResponse, error) {
-	return SetClusterStatus(endpoint, token, instanceID, clusterID, "SUSPENDED")
+func SuspendComputeCluster(endpoint, token, instanceID, clusterID string) error {
+	response, err := SetClusterStatus(endpoint, token, instanceID, clusterID, "SUSPENDED")
+	if err != nil {
+		return fmt.Errorf("SuspendComputeCluster SetClusterStatus failed: %w", err)
+	}
+	if response.Code != SuccessCode && !strings.Contains(response.Msg, "original cluster is SUSPENDED") {
+		return fmt.Errorf("SuspendComputeCluster SetClusterStatus failed: %s", response.Msg)
+	}
+	return nil
 }
 
-func ResumeComputeCluster(endpoint, token, instanceID, clusterID string) (*MSResponse, error) {
-	return SetClusterStatus(endpoint, token, instanceID, clusterID, "NORMAL")
+func ResumeComputeCluster(endpoint, token, instanceID, clusterID string) error {
+	response, err := SetClusterStatus(endpoint, token, instanceID, clusterID, "NORMAL")
+	if err != nil {
+		return fmt.Errorf("ResumeComputeCluster SetClusterStatus failed: %w", err)
+	}
+	if response.Code != SuccessCode && !strings.Contains(response.Msg, "original cluster is NORMAL") {
+		return fmt.Errorf("ResumeComputeCluster SetClusterStatus failed: %s", response.Msg)
+	}
+	return nil
 }
 
 // SetClusterStatus resume cluster

@@ -65,9 +65,13 @@ type MSRequest struct {
 
 func (mr *MSResponse) MSResponseResultNodesToNodeInfos() ([]*NodeInfo, error) {
 
+	if mr.Code != SuccessCode {
+		return nil, errors.New("MSResponseResultNodesToNodeInfos response code is not OK，code is: " + mr.Code + ", msg: " + mr.Msg + "")
+	}
+
 	nodes, ok := mr.Result["nodes"]
 	if !ok {
-		return nil, errors.New("MSResponseResultNodes is not exist")
+		return nil, errors.New("MSResponseResultNodesToNodeInfos get nodes failed")
 	}
 
 	jsonStr, err := json.Marshal(nodes)

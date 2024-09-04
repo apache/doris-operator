@@ -165,13 +165,6 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 		return nil, err
 	}
 
-	if err := k8s.ApplyStatefulSet(ctx, dccs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
-	}); err != nil {
-		klog.Errorf("disaggregatedComputeClustersController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.CCApplyResourceFailed, Message: err.Error()}, err
-	}
-
 	var ccStatus *dv1.ComputeClusterStatus
 
 	for i := range cluster.Status.ComputeClusterStatuses {
@@ -180,25 +173,41 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 			break
 		}
 	}
+	scaleType := getScaleType(st, &est, ccStatus.Phase)
 
-	//scaleType = "resume"
-	if (*(st.Spec.Replicas) > *(est.Spec.Replicas) && *(est.Spec.Replicas) == 0) || ccStatus.Phase == dv1.ResumeFailed {
-		response, err := ms_http.ResumeComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
-		if response.Code != ms_http.SuccessCode {
+	if scaleType == "resume" {
+		if ccStatus.SuspendReplicas != *(st.Spec.Replicas) {
+			errMessage := fmt.Sprintf("ResumeComputeCluster configuration is abnormal. The replicas of resumes(%d) is not equal to the replicas of suspends(%d).", *st.Spec.Replicas, ccStatus.SuspendReplicas)
+			return &sc.Event{
+				Type:    sc.EventNormal,
+				Reason:  sc.CCResumeReplicasInconsistency,
+				Message: errMessage,
+			}, errors.New(errMessage)
+		}
+	}
+
+	if err := k8s.ApplyStatefulSet(ctx, dccs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
+		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
+	}); err != nil {
+		klog.Errorf("disaggregatedComputeClustersController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CCApplyResourceFailed, Message: err.Error()}, err
+	}
+
+	switch scaleType {
+	case "resume":
+		err := ms_http.ResumeComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
+		ccStatus.SuspendReplicas = 0
+		if err != nil {
 			ccStatus.Phase = dv1.ResumeFailed
-			jsonData, _ := json.Marshal(response)
-			klog.Errorf("computeClusterSync ResumeComputeCluster response failed , response: %s", jsonData)
+			klog.Errorf("computeClusterSync ResumeComputeCluster response failed , err: %s", err.Error())
 			return &sc.Event{
 				Type:    sc.EventNormal,
 				Reason:  sc.CCResumeStatusRequestFailed,
-				Message: "ResumeComputeCluster request of disaggregated BE failed: " + response.Msg,
+				Message: "ResumeComputeCluster request of disaggregated BE failed: " + err.Error(),
 			}, err
 		}
 		ccStatus.Phase = dv1.Scaling
-	}
-
-	//scaleType = "scaleDown"
-	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) > 0) || ccStatus.Phase == dv1.ScaleDownFailed {
+	case "scaleDown":
 		if err := dccs.dropCCFromHttpClient(cluster, cc); err != nil {
 			ccStatus.Phase = dv1.ScaleDownFailed
 			klog.Errorf("ScaleDownBE failed, err:%s ", err.Error())
@@ -206,25 +215,37 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 				err
 		}
 		ccStatus.Phase = dv1.Scaling
-	}
-
-	//scaleType = "suspend"
-	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) == 0) || ccStatus.Phase == dv1.SuspendFailed {
-		response, err := ms_http.SuspendComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
-		if response.Code != ms_http.SuccessCode {
+	case "suspend":
+		err := ms_http.SuspendComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
+		if err != nil {
 			ccStatus.Phase = dv1.SuspendFailed
-			jsonData, _ := json.Marshal(response)
-			klog.Errorf("computeClusterSync SuspendComputeCluster response failed , response: %s", jsonData)
+			klog.Errorf("computeClusterSync SuspendComputeCluster response failed , err: %s", err.Error())
 			return &sc.Event{
 				Type:    sc.EventNormal,
 				Reason:  sc.CCSuspendStatusRequestFailed,
-				Message: "SuspendComputeCluster request of disaggregated BE failed: " + response.Msg,
+				Message: "SuspendComputeCluster request of disaggregated BE failed: " + err.Error(),
 			}, err
 		}
+		ccStatus.SuspendReplicas = *est.Spec.Replicas
 		ccStatus.Phase = dv1.Suspended
 	}
 
 	return nil, nil
+}
+
+func getScaleType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
+	if (*(st.Spec.Replicas) > *(est.Spec.Replicas) && *(est.Spec.Replicas) == 0) || phase == dv1.ResumeFailed {
+		return "resume"
+	}
+
+	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) > 0) || phase == dv1.ScaleDownFailed {
+		return "scaleDown"
+	}
+
+	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) == 0) || phase == dv1.SuspendFailed {
+		return "suspend"
+	}
+	return ""
 }
 
 // initial compute cluster status before sync resources. status changing with sync steps, and generate the last status by classify pods.
@@ -247,6 +268,7 @@ func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.Dor
 				ccss[i].Phase == dv1.Scaling {
 				defaultStatus.Phase = ccss[i].Phase
 			}
+			defaultStatus.SuspendReplicas = ccss[i].SuspendReplicas
 			ccss[i] = defaultStatus
 			return
 		}

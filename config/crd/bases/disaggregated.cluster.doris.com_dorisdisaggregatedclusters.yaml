@@ -5635,6 +5635,11 @@ spec:
                       description: the statefulset of control this compute cluster
                         pods.
                       type: string
+                    suspendReplicas:
+                      description: suspend replicas display the replicas of compute
+                        cluster before resume.
+                      format: int32
+                      type: integer
                   type: object
                 type: array
               feStatus:
