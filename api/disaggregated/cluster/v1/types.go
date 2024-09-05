@@ -61,11 +61,14 @@ type FeSpec struct {
 
 // ComputeCluster describe the specification that a group of compute node.
 type ComputeCluster struct {
-	//Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use `computeCluster` and the index in array to set.ep: computeCluster-1.
-	Name string `json:"name,omitempty"`
+	////Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use `computeCluster` and the index in array to set.ep: computeCluster-1.
+	//Name string `json:"name,omitempty"`
+	//
+	////ClusterId is the identifier of computeCluster, this will distinguish all com puteCluster in meta.
+	//ClusterId string `json:"clusterId,omitempty"`
 
-	//ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.
-	ClusterId string `json:"clusterId,omitempty"`
+	//the unique identifier of compute cluster, first register in fe will use UniqueId as cluster name.
+	UniqueId string `json:"uniqueId"`
 
 	CommonSpec `json:",inline"`
 }
@@ -323,8 +326,10 @@ type ComputeClusterStatus struct {
 	StatefulsetName string `json:"statefulsetName,omitempty"`
 	// the service that can access the compute cluster pods.
 	ServiceName string `json:"serviceName,omitempty"`
-	//represents the compute cluster.
-	ComputeClusterName string `json:"ComputeClusterName,omitempty"`
+
+	//
+	UniqueId string `json:"uniqueId,omitempty"`
+
 	//AvailableStatus represents the compute cluster available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of compute cluster in meta.

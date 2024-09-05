@@ -251,8 +251,8 @@ func DropComputeCluster(endpoint, token, instanceID string, ccs *dv1.ComputeClus
 	param := map[string]interface{}{
 		"instance_id": instanceID,
 		"cluster": map[string]interface{}{
-			"cluster_id":   ccs.ClusterId,
-			"cluster_name": ccs.ComputeClusterName,
+			"cluster_id": ccs.ClusterId,
+			//"cluster_name": ccs.ComputeClusterName,
 		},
 	}
 	str, _ := json.Marshal(param)
