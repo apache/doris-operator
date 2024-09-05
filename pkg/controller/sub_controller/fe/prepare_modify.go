@@ -78,6 +78,8 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 	adminUserName, password := v1.GetClusterSecret(targetDCR, secret)
 	// get host and port
 	serviceName := v1.GenerateExternalServiceName(targetDCR, v1.Component_FE)
+	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
+	host := serviceName + "." + targetDCR.Namespace
 	maps, _ := k8s.GetConfig(ctx, k8sclient, &targetDCR.Spec.FeSpec.ConfigMapInfo, targetDCR.Namespace, v1.Component_FE)
 	queryPort := resource.GetPort(maps, resource.QUERY_PORT)
 
@@ -86,7 +88,7 @@ func (fc *Controller) dropObserverFromSqlClient(ctx context.Context, k8sclient c
 	dbConf := mysql.DBConfig{
 		User:     adminUserName,
 		Password: password,
-		Host:     serviceName,
+		Host:     host,
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
