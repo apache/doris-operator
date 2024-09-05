@@ -84,13 +84,13 @@ func (dccs *DisaggregatedComputeClustersController) Sync(ctx context.Context, ob
 
 	ccs := ddc.Spec.ComputeClusters
 	for i, _ := range ccs {
-		// if be unique identifier updated, operator should revert it.
-		dccs.revertNotAllowedUpdateFields(ddc, &ccs[i])
+		//// if be unique identifier updated, operator should revert it.
+		//dccs.revertNotAllowedUpdateFields(ddc, &ccs[i])
 		if event, err := dccs.computeClusterSync(ctx, ddc, &ccs[i]); err != nil {
 			if event != nil {
 				dccs.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
 			}
-			klog.Errorf("disaggregatedComputeClustersController computeClusters sync failed, compute cluster name %s clusterId %s sync failed, err=%s", ccs[i].Name, ccs[i].ClusterId, sc.EventString(event))
+			klog.Errorf("disaggregatedComputeClustersController computeClusters sync failed, compute cluster Uniqueid %s  sync failed, err=%s", ccs[i].UniqueId, sc.EventString(event))
 		}
 	}
 
@@ -99,7 +99,8 @@ func (dccs *DisaggregatedComputeClustersController) Sync(ctx context.Context, ob
 
 // validate compute cluster config information.
 func (dccs *DisaggregatedComputeClustersController) validateComputeCluster(ccs []dv1.ComputeCluster) (*sc.Event, bool) {
-	if dupl, duplicate := dccs.validateDuplicated(ccs); duplicate {
+	dupl := dccs.validateDuplicated(ccs)
+	if dupl != "" {
 		klog.Errorf("disaggregatedComputeClustersController validateComputeCluster validate Duplicated have duplicate unique identifier %s.", dupl)
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CCUniqueIdentifierDuplicate, Message: "unique identifier " + dupl + " duplicate in compute clusters."}, false
 	}
@@ -167,8 +168,9 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 
 	var ccStatus *dv1.ComputeClusterStatus
 
+	clusterId := cluster.GetCCId(cc)
 	for i := range cluster.Status.ComputeClusterStatuses {
-		if cluster.Status.ComputeClusterStatuses[i].ClusterId == cc.ClusterId {
+		if cluster.Status.ComputeClusterStatuses[i].ClusterId == clusterId {
 			ccStatus = &cluster.Status.ComputeClusterStatuses[i]
 			break
 		}
@@ -195,7 +197,7 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 
 	switch scaleType {
 	case "resume":
-		err := ms_http.ResumeComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
+		err := ms_http.ResumeComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, clusterId)
 		ccStatus.SuspendReplicas = 0
 		if err != nil {
 			ccStatus.Phase = dv1.ResumeFailed
@@ -216,7 +218,7 @@ func (dccs *DisaggregatedComputeClustersController) reconcileStatefulset(ctx con
 		}
 		ccStatus.Phase = dv1.Scaling
 	case "suspend":
-		err := ms_http.SuspendComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, cc.ClusterId)
+		err := ms_http.SuspendComputeCluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, clusterId)
 		if err != nil {
 			ccStatus.Phase = dv1.SuspendFailed
 			klog.Errorf("computeClusterSync SuspendComputeCluster response failed , err: %s", err.Error())
@@ -251,18 +253,18 @@ func getScaleType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
 // initial compute cluster status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) {
 	ccss := ddc.Status.ComputeClusterStatuses
+	clusterId := ddc.GetCCId(cc)
 	defaultStatus := dv1.ComputeClusterStatus{
-		Phase:              dv1.Reconciling,
-		ComputeClusterName: cc.Name,
-		ClusterId:          cc.ClusterId,
-		StatefulsetName:    ddc.GetCCStatefulsetName(cc),
-		ServiceName:        ddc.GetCCServiceName(cc),
+		Phase:           dv1.Reconciling,
+		ClusterId:       clusterId,
+		StatefulsetName: ddc.GetCCStatefulsetName(cc),
+		ServiceName:     ddc.GetCCServiceName(cc),
 		//set for status updated.
 		Replicas: *cc.Replicas,
 	}
 
 	for i := range ccss {
-		if ccss[i].ClusterId == cc.ClusterId {
+		if ccss[i].ClusterId == clusterId {
 			if ccss[i].Phase == dv1.ScaleDownFailed || ccss[i].Phase == dv1.Suspended ||
 				ccss[i].Phase == dv1.SuspendFailed || ccss[i].Phase == dv1.ResumeFailed ||
 				ccss[i].Phase == dv1.Scaling {
@@ -278,7 +280,7 @@ func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.Dor
 }
 
 // clusterId and cloudUniqueId is not allowed update, when be mistakenly modified on these fields, operator should revert it by status fields.
-func (dccs *DisaggregatedComputeClustersController) revertNotAllowedUpdateFields(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) {
+/*func (dccs *DisaggregatedComputeClustersController) revertNotAllowedUpdateFields(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeCluster) {
 	for _, ccs := range ddc.Status.ComputeClusterStatuses {
 		if (ccs.ComputeClusterName != "" && ccs.ComputeClusterName == cc.Name) || (ccs.ClusterId != "" && ccs.ClusterId == cc.ClusterId) {
 			if ccs.ClusterId != "" && ccs.ClusterId != cc.ClusterId {
@@ -286,34 +288,45 @@ func (dccs *DisaggregatedComputeClustersController) revertNotAllowedUpdateFields
 			}
 		}
 	}
-}
+}*/
 
 // check compute clusters unique identifier duplicated or not. return duplicated key.
-func (dccs *DisaggregatedComputeClustersController) validateDuplicated(ccs []dv1.ComputeCluster) (string, bool) {
-	n_d, _ := validateCCNameDuplicated(ccs)
-	cid_d, _ := validateCCIdDuplicated(ccs)
-	ds := n_d
-	if cid_d != "" {
-		ds = ds + ";" + cid_d
+func (dccs *DisaggregatedComputeClustersController) validateDuplicated(ccs []dv1.ComputeCluster) string {
+	/*	n_d, _ := validateCCNameDuplicated(ccs)
+		cid_d, _ := validateCCIdDuplicated(ccs)
+		ds := n_d
+		if cid_d != "" {
+			ds = ds + ";" + cid_d
+		}
+
+		if ds == "" {
+			return ds, false
+		}
+		return ds, true*/
+
+	dupl := ""
+	uniqueIds := set.NewSetString()
+	for _, cc := range ccs {
+		if uniqueIds.Find(cc.UniqueId) {
+			dupl = dupl + cc.UniqueId + ";"
+		}
+		uniqueIds.Add(cc.UniqueId)
 	}
 
-	if ds == "" {
-		return ds, false
-	}
-	return ds, true
+	return dupl
 }
 
 // checking the cc name compliant with regular expression or not.
 func (dccs *DisaggregatedComputeClustersController) validateRegex(ccs []dv1.ComputeCluster) (string, bool) {
 	var regStr = ""
 	for _, cc := range ccs {
-		res, err := regexp.Match(compute_cluster_name_regex, []byte(cc.Name))
+		res, err := regexp.Match(compute_cluster_name_regex, []byte(cc.UniqueId))
 		if !res {
-			regStr = regStr + cc.Name + " not match " + compute_cluster_name_regex
+			regStr = regStr + cc.UniqueId + " not match " + compute_cluster_name_regex
 		}
 		//for debugging, output the error in log
 		if err != nil {
-			klog.Errorf("disaggregatedComputeClustersController validateRegex compute cluster name %s failed, err=%s", cc.Name, err.Error())
+			klog.Errorf("disaggregatedComputeClustersController validateRegex compute cluster name %s failed, err=%s", cc.UniqueId, err.Error())
 		}
 	}
 	if regStr != "" {
@@ -323,7 +336,7 @@ func (dccs *DisaggregatedComputeClustersController) validateRegex(ccs []dv1.Comp
 	return "", true
 }
 
-// validate the name of compute cluster is duplicated or not in compute cluster.
+/*// validate the name of compute cluster is duplicated or not in compute cluster.
 // the cc name must be configured.
 func validateCCNameDuplicated(ccs []dv1.ComputeCluster) (string, bool) {
 	ss := set.NewSetString()
@@ -348,7 +361,7 @@ func validateCCIdDuplicated(ccs []dv1.ComputeCluster) (string, bool) {
 	}
 	return "", false
 }
-
+*/
 // clear not configed cc resources, delete not configed cc status from ddc.status .
 func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
@@ -357,7 +370,7 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 
 	for i, ccs := range ddc.Status.ComputeClusterStatuses {
 		for _, cc := range ddc.Spec.ComputeClusters {
-			if ccs.ClusterId == cc.ClusterId {
+			if ccs.UniqueId == cc.UniqueId {
 				eCCs = append(eCCs, ddc.Status.ComputeClusterStatuses[i])
 				goto NoNeedAppend
 			}
@@ -426,7 +439,8 @@ func (dccs *DisaggregatedComputeClustersController) ClearResources(ctx context.C
 func (dccs *DisaggregatedComputeClustersController) ClearStatefulsetUnusedPVCs(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, ccs dv1.ComputeClusterStatus) error {
 	var cc *dv1.ComputeCluster
 	for i := range ddc.Spec.ComputeClusters {
-		if ddc.Spec.ComputeClusters[i].ClusterId == ccs.ClusterId {
+		clusterId := ddc.GetCCId(&ddc.Spec.ComputeClusters[i])
+		if clusterId == ccs.ClusterId {
 			cc = &ddc.Spec.ComputeClusters[i]
 		}
 	}
@@ -568,8 +582,8 @@ func (dfc *DisaggregatedComputeClustersController) dropCCFromHttpClient(cluster 
 
 	// drop be can also use the unique id of fe
 	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
-
-	ccNodes, err := ms_http.GetBECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, unionId, cc.ClusterId)
+	clusterId := cluster.GetCCId(cc)
+	ccNodes, err := ms_http.GetBECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, unionId, clusterId)
 	if err != nil {
 		klog.Errorf("dropCCFromHttpClient GetBECluster failed, err:%s ", err.Error())
 		return err
@@ -592,10 +606,10 @@ func (dfc *DisaggregatedComputeClustersController) dropCCFromHttpClient(cluster 
 	}
 
 	reqCluster := ms_http.Cluster{
-		ClusterName: cc.Name,
-		ClusterID:   cc.ClusterId,
-		Type:        ms_http.BeNodeType,
-		Nodes:       dropNodes,
+		//	ClusterName: cc.Name,
+		ClusterID: clusterId,
+		Type:      ms_http.BeNodeType,
+		Nodes:     dropNodes,
 	}
 
 	specifyCluster, err := ms_http.DropBENodes(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), reqCluster)

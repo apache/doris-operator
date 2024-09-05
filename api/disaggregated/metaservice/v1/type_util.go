@@ -22,10 +22,8 @@ import (
 )
 
 var (
-	FDBNameSuffix  = "-foundationdb"
-	NameLabelKey   = "disaggregated.metaservice.doris.com/name"
-	MsPort         = "5000"
-	DefaultMsToken = "greedisgood9999"
+	FDBNameSuffix = "-foundationdb"
+	NameLabelKey  = "disaggregated.metaservice.doris.com/name"
 )
 
 // the labels key
