@@ -972,10 +972,6 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                    clusterId:
-                      description: ClusterId is the identifier of computeCluster,
-                        this will distinguish all computeCluster in meta.
-                      type: string
                     configMaps:
                       description: ConfigMaps describe all configmap that need to
                         be mounted.
@@ -1342,12 +1338,6 @@ spec:
                       description: 'Limits describes the maximum amount of compute
                         resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                       type: object
-                    name:
-                      description: 'Name is the identifier of computeCluster, name
-                        can be used specify what computeCluster to run sql. if not
-                        set, will use `computeCluster` and the index in array to set.ep:
-                        computeCluster-1.'
-                      type: string
                     noStoreLog:
                       description: when set true, the log will store in disk that
                         created by volumeClaimTemplate
@@ -1922,6 +1912,12 @@ spec:
                             type: string
                         type: object
                       type: array
+                    uniqueId:
+                      description: the unique identifier of compute cluster, first
+                        register in fe will use UniqueId as cluster name.
+                      type: string
+                  required:
+                  - uniqueId
                   type: object
                 type: array
               feSpec:
@@ -5603,9 +5599,6 @@ spec:
                   status.
                 items:
                   properties:
-                    ComputeClusterName:
-                      description: represents the compute cluster.
-                      type: string
                     availableReplicas:
                       description: Total number of available pods (ready for at least
                         minReadySeconds) targeted by this statefulset.
@@ -5640,6 +5633,8 @@ spec:
                         cluster before resume.
                       format: int32
                       type: integer
+                    uniqueId:
+                      type: string
                   type: object
                 type: array
               feStatus:

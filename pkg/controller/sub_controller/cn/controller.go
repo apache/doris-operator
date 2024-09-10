@@ -74,7 +74,9 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s ，err :", dcr.Namespace, err)
 		return err
 	}
+	k8s.CheckSecretExist(ctx, cn.K8sclient, dcr.Namespace, dcr.Spec.CnSpec.Secrets)
 	cn.CheckConfigMountPath(dcr, dorisv1.Component_CN)
+	cn.CheckSecretMountPath(dcr, dorisv1.Component_CN)
 	svc := resource.BuildExternalService(dcr, dorisv1.Component_CN, config)
 	internalSVC := resource.BuildInternalService(dcr, dorisv1.Component_CN, config)
 

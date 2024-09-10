@@ -208,6 +208,10 @@ type BaseSpec struct {
 	//Security context for all containers running in the pod (unless they override it).
 	//+optional
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+
+	// Multi Secret for pod.
+	// +optional
+	Secrets []Secret `json:"secrets,omitempty"`
 }
 
 type SystemInitialization struct {
@@ -279,6 +283,20 @@ type MountConfigMapInfo struct {
 	// Current ConfigMap Mount Path.
 	// If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
 	MountPath string `json:"mountPath,omitempty"`
+}
+
+type Secret struct {
+	// name of secret that needs to mount.
+	SecretName string `json:"secretName,omitempty"`
+
+	// Current Secret Mount Path, default is "/etc/doris"
+	// +optional
+	MountPath string `json:"mountPath,omitempty"`
+
+	// Mounted read-only if true, read-write otherwise (false or unspecified).
+	// Defaults to false.
+	// +optional
+	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
 }
 
 // ExportService consisting of expose ports for user access to software service.

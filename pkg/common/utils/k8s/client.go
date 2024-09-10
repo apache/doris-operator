@@ -229,6 +229,20 @@ func GetConfigMap(ctx context.Context, k8scient client.Client, namespace, name s
 	return &configMap, nil
 }
 
+// CheckSecretExist check if the secret is in the namespace.
+func CheckSecretExist(ctx context.Context, k8scient client.Client, namespace string, secrets []dorisv1.Secret) {
+	errMessage := ""
+	for _, secret := range secrets {
+		var s corev1.Secret
+		if getErr := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: secret.SecretName}, &s); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", secret.SecretName, namespace, getErr.Error())
+		}
+	}
+	if errMessage != "" {
+		klog.Errorf("CheckSecretExist error: %s.", errMessage)
+	}
+}
+
 // GetConfigMaps get the configmap by the array of MountConfigMapInfo and namespace.
 func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []dorisv1.MountConfigMapInfo) ([]*corev1.ConfigMap, error) {
 	var configMaps []*corev1.ConfigMap

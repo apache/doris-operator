@@ -1628,6 +1628,22 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  secrets:
+                    description: Multi Secret for pod.
+                    items:
+                      properties:
+                        mountPath:
+                          description: Current Secret Mount Path, default is "/etc/doris"
+                          type: string
+                        readOnly:
+                          description: Mounted read-only if true, read-write otherwise
+                            (false or unspecified). Defaults to false.
+                          type: boolean
+                        secretName:
+                          description: name of secret that needs to mount.
+                          type: string
+                      type: object
+                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -3500,6 +3516,22 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  secrets:
+                    description: Multi Secret for pod.
+                    items:
+                      properties:
+                        mountPath:
+                          description: Current Secret Mount Path, default is "/etc/doris"
+                          type: string
+                        readOnly:
+                          description: Mounted read-only if true, read-write otherwise
+                            (false or unspecified). Defaults to false.
+                          type: boolean
+                        secretName:
+                          description: name of secret that needs to mount.
+                          type: string
+                      type: object
+                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -6045,6 +6077,22 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  secrets:
+                    description: Multi Secret for pod.
+                    items:
+                      properties:
+                        mountPath:
+                          description: Current Secret Mount Path, default is "/etc/doris"
+                          type: string
+                        readOnly:
+                          description: Mounted read-only if true, read-write otherwise
+                            (false or unspecified). Defaults to false.
+                          type: boolean
+                        secretName:
+                          description: name of secret that needs to mount.
+                          type: string
+                      type: object
+                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -7917,6 +7965,22 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  secrets:
+                    description: Multi Secret for pod.
+                    items:
+                      properties:
+                        mountPath:
+                          description: Current Secret Mount Path, default is "/etc/doris"
+                          type: string
+                        readOnly:
+                          description: Mounted read-only if true, read-write otherwise
+                            (false or unspecified). Defaults to false.
+                          type: boolean
+                        secretName:
+                          description: name of secret that needs to mount.
+                          type: string
+                      type: object
+                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:

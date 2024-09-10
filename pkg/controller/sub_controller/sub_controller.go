@@ -125,11 +125,43 @@ func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, c
 	var mountsMap = make(map[string]dorisv1.MountConfigMapInfo)
 	for _, cm := range cms {
 		path := cm.MountPath
+		if cm.MountPath == "" {
+			path = resource.ConfigEnvPath + "[default]"
+		}
 		if m, exist := mountsMap[path]; exist {
 			klog.Errorf("CheckConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
 			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapPathRepeated), fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
 		}
 		mountsMap[path] = cm
+	}
+}
+
+// generate map for mountpath:secret
+func (d *SubDefaultController) CheckSecretMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	var secrets []dorisv1.Secret
+	switch componentType {
+	case dorisv1.Component_FE:
+		secrets = dcr.Spec.FeSpec.Secrets
+	case dorisv1.Component_BE:
+		secrets = dcr.Spec.BeSpec.Secrets
+	case dorisv1.Component_CN:
+		secrets = dcr.Spec.CnSpec.Secrets
+	case dorisv1.Component_Broker:
+		secrets = dcr.Spec.BrokerSpec.Secrets
+	default:
+		klog.Infof("the componentType %s is not supported.", componentType)
+	}
+	var mountsMap = make(map[string]dorisv1.Secret)
+	for _, secret := range secrets {
+		path := secret.MountPath
+		if secret.MountPath == "" {
+			path = resource.ConfigEnvPath + "[default]"
+		}
+		if s, exist := mountsMap[path]; exist {
+			klog.Errorf("CheckSecretMountPath error: the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName)
+			d.K8srecorder.Event(dcr, string(EventWarning), string(SecretPathRepeated), fmt.Sprintf("the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName))
+		}
+		mountsMap[path] = secret
 	}
 }
 

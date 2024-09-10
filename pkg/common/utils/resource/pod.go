@@ -129,6 +129,11 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		volumes = append(volumes, configVolumes...)
 	}
 
+	if len(spec.Secrets) != 0 {
+		secretVolumes, _ := getMultiSecretVolumeAndVolumeMount(spec, componentType)
+		volumes = append(volumes, secretVolumes...)
+	}
+
 	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        GeneratePodTemplateName(dcr, componentType),
@@ -362,6 +367,11 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		_, configVolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
 		volumeMounts = append(volumeMounts, configVolumeMounts...)
+	}
+
+	if len(spec.Secrets) != 0 {
+		_, secretVolumeMounts := getMultiSecretVolumeAndVolumeMount(&spec, componentType)
+		volumeMounts = append(volumeMounts, secretVolumeMounts...)
 	}
 
 	// add basic auth secret volumeMount
@@ -674,6 +684,55 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 				},
 			)
 		}
+	}
+	return volumes, volumeMounts
+}
+
+func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
+
+	if bSpec.Secrets == nil {
+		return volumes, volumeMounts
+	}
+
+	defaultMountPath := ""
+	switch componentType {
+	case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
+		defaultMountPath = config_env_path
+	default:
+		klog.Infof("getMultiSecretVolumeAndVolumeMount componentType %s not supported.", componentType)
+	}
+
+	for _, secret := range bSpec.Secrets {
+		path := secret.MountPath
+		if secret.MountPath == "" {
+			path = defaultMountPath
+		}
+		volumes = append(
+			volumes,
+			corev1.Volume{
+				Name: secret.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret.SecretName,
+					},
+				},
+			},
+		)
+
+		readOnly := false
+		if secret.ReadOnly == true {
+			readOnly = secret.ReadOnly
+		}
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      secret.SecretName,
+				MountPath: path,
+				ReadOnly:  readOnly,
+			},
+		)
 	}
 	return volumes, volumeMounts
 }

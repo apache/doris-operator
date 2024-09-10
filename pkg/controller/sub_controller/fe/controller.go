@@ -89,7 +89,9 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " error :", err)
 		return err
 	}
+	k8s.CheckSecretExist(ctx, fc.K8sclient, cluster.Namespace, cluster.Spec.FeSpec.Secrets)
 	fc.CheckConfigMountPath(cluster, v1.Component_FE)
+	fc.CheckSecretMountPath(cluster, v1.Component_FE)
 
 	//generate new fe service.
 	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)

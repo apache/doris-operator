@@ -257,7 +257,7 @@ func (dccs *DisaggregatedComputeClustersController) initialCCStatus(ddc *dv1.Dor
 	defaultStatus := dv1.ComputeClusterStatus{
 		Phase:           dv1.Reconciling,
 		ClusterId:       clusterId,
-		UniqueId:	 cc.UniqueId,
+		UniqueId:        cc.UniqueId,
 		StatefulsetName: ddc.GetCCStatefulsetName(cc),
 		ServiceName:     ddc.GetCCServiceName(cc),
 		//set for status updated.
