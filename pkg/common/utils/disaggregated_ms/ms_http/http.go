@@ -206,24 +206,24 @@ func DropBENodes(endpoint, token, instanceID string, cluster Cluster) (*MSRespon
 }
 
 // suspend cluster
-func SuspendComputeCluster(endpoint, token, instanceID, clusterID string) error {
+func SuspendComputeGroup(endpoint, token, instanceID, clusterID string) error {
 	response, err := SetClusterStatus(endpoint, token, instanceID, clusterID, "SUSPENDED")
 	if err != nil {
-		return fmt.Errorf("SuspendComputeCluster SetClusterStatus failed: %w", err)
+		return fmt.Errorf("SuspendComputeGroup SetClusterStatus failed: %w", err)
 	}
 	if response.Code != SuccessCode && !strings.Contains(response.Msg, "original cluster is SUSPENDED") {
-		return fmt.Errorf("SuspendComputeCluster SetClusterStatus failed: %s", response.Msg)
+		return fmt.Errorf("SuspendComputeGroup SetClusterStatus failed: %s", response.Msg)
 	}
 	return nil
 }
 
-func ResumeComputeCluster(endpoint, token, instanceID, clusterID string) error {
+func ResumeComputeGroup(endpoint, token, instanceID, clusterID string) error {
 	response, err := SetClusterStatus(endpoint, token, instanceID, clusterID, "NORMAL")
 	if err != nil {
-		return fmt.Errorf("ResumeComputeCluster SetClusterStatus failed: %w", err)
+		return fmt.Errorf("ResumeComputeGroup SetClusterStatus failed: %w", err)
 	}
 	if response.Code != SuccessCode && !strings.Contains(response.Msg, "original cluster is NORMAL") {
-		return fmt.Errorf("ResumeComputeCluster SetClusterStatus failed: %s", response.Msg)
+		return fmt.Errorf("ResumeComputeGroup SetClusterStatus failed: %s", response.Msg)
 	}
 	return nil
 }
@@ -247,12 +247,11 @@ func SetClusterStatus(endpoint, token, instanceID, clusterID, status string) (*M
 	return mr, nil
 }
 
-func DropComputeCluster(endpoint, token, instanceID string, ccs *dv1.ComputeClusterStatus) (*MSResponse, error) {
+func DropComputeGroup(endpoint, token, instanceID string, cgs *dv1.ComputeGroupStatus) (*MSResponse, error) {
 	param := map[string]interface{}{
 		"instance_id": instanceID,
 		"cluster": map[string]interface{}{
-			"cluster_id": ccs.ClusterId,
-			//"cluster_name": ccs.ComputeClusterName,
+			"cluster_id": cgs.ClusterId,
 		},
 	}
 	str, _ := json.Marshal(param)
@@ -260,7 +259,7 @@ func DropComputeCluster(endpoint, token, instanceID string, ccs *dv1.ComputeClus
 
 	mr, err := putRequest(addr, str)
 	if err != nil {
-		return nil, fmt.Errorf("DropComputeCluster putRequest failed: %w", err)
+		return nil, fmt.Errorf("DropComputeGroup putRequest failed: %w", err)
 	}
 	return mr, nil
 }

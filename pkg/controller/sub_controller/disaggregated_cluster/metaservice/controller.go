@@ -139,7 +139,7 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 	if err := dms.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
 		if err = k8s.CreateClientObject(ctx, dms.K8sclient, st); err != nil {
 			klog.Errorf("dms controller reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.CCCreateResourceFailed, Message: err.Error()}, err
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
 		}
 
 		return nil, nil
@@ -152,7 +152,7 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
 		klog.Errorf("dms controller reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.CCApplyResourceFailed, Message: err.Error()}, err
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
 	}
 
 	return nil, nil

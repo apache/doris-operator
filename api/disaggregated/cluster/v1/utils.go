@@ -23,7 +23,7 @@ const (
 	//OwnerReference list ownerReferences this object
 	DorisDisaggregatedOwnerReference string = "app.doris.disaggregated.ownerreference/name"
 
-	DorisDisaggregatedComputeClusterId string = "app.doris.disaggregated.cc-clusterid"
+	DorisDisaggregatedComputeGroupClusterId string = "app.doris.disaggregated.cg-clusterid"
 
 	DorisDisaggregatedPodType string = "app.doris.disaggregated.type"
 
