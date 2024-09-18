@@ -89,7 +89,6 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " error :", err)
 		return err
 	}
-	k8s.CheckSecretExist(ctx, fc.K8sclient, cluster.Namespace, cluster.Spec.FeSpec.Secrets)
 	fc.CheckConfigMountPath(cluster, v1.Component_FE)
 	fc.CheckSecretMountPath(cluster, v1.Component_FE)
 
@@ -125,6 +124,11 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, cluster.Name, err.Error())
 		return err
+	}
+
+	// check if the secret exists in the namespace
+	if cluster.Spec.FeSpec.Secrets != nil {
+		k8s.CheckSecretExist(ctx, fc.K8sclient, cluster.Namespace, cluster.Spec.FeSpec.Secrets)
 	}
 
 	return nil

@@ -1634,11 +1634,9 @@ spec:
                       properties:
                         mountPath:
                           description: Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their MountPath
+                            cannot be repeated.
                           type: string
-                        readOnly:
-                          description: Mounted read-only if true, read-write otherwise
-                            (false or unspecified). Defaults to false.
-                          type: boolean
                         secretName:
                           description: name of secret that needs to mount.
                           type: string
@@ -3522,11 +3520,9 @@ spec:
                       properties:
                         mountPath:
                           description: Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their MountPath
+                            cannot be repeated.
                           type: string
-                        readOnly:
-                          description: Mounted read-only if true, read-write otherwise
-                            (false or unspecified). Defaults to false.
-                          type: boolean
                         secretName:
                           description: name of secret that needs to mount.
                           type: string
@@ -6083,11 +6079,9 @@ spec:
                       properties:
                         mountPath:
                           description: Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their MountPath
+                            cannot be repeated.
                           type: string
-                        readOnly:
-                          description: Mounted read-only if true, read-write otherwise
-                            (false or unspecified). Defaults to false.
-                          type: boolean
                         secretName:
                           description: name of secret that needs to mount.
                           type: string
@@ -7971,11 +7965,9 @@ spec:
                       properties:
                         mountPath:
                           description: Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their MountPath
+                            cannot be repeated.
                           type: string
-                        readOnly:
-                          description: Mounted read-only if true, read-write otherwise
-                            (false or unspecified). Defaults to false.
-                          type: boolean
                         secretName:
                           description: name of secret that needs to mount.
                           type: string

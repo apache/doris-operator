@@ -721,16 +721,11 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 			},
 		)
 
-		readOnly := false
-		if secret.ReadOnly == true {
-			readOnly = secret.ReadOnly
-		}
 		volumeMounts = append(
 			volumeMounts,
 			corev1.VolumeMount{
 				Name:      secret.SecretName,
 				MountPath: path,
-				ReadOnly:  readOnly,
 			},
 		)
 	}

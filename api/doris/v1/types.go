@@ -290,13 +290,9 @@ type Secret struct {
 	SecretName string `json:"secretName,omitempty"`
 
 	// Current Secret Mount Path, default is "/etc/doris"
+	// If Secret belongs to the same Secrets, their MountPath cannot be repeated.
 	// +optional
 	MountPath string `json:"mountPath,omitempty"`
-
-	// Mounted read-only if true, read-write otherwise (false or unspecified).
-	// Defaults to false.
-	// +optional
-	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
 }
 
 // ExportService consisting of expose ports for user access to software service.
