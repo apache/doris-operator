@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package computeclusters
+package computegroups
 
 // regex
 var (
-	compute_cluster_name_regex = "[a-zA-Z](_?[0-9a-zA-Z])*"
-	compute_cluster_id_regex   = "[a-zA-Z](_?[0-9a-zA-Z])*"
+	compute_group_name_regex = "[a-zA-Z](_?[0-9a-zA-Z])*"
+	compute_group_id_regex   = "[a-zA-Z](_?[0-9a-zA-Z])*"
 )

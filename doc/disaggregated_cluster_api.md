@@ -13,7 +13,7 @@ Resource Types:
 <h3 id="disaggregated.cluster.doris.com/v1.AvailableStatus">AvailableStatus
 (<code>string</code> alias)</h3>
 <p>
-(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeClusterStatus">ComputeClusterStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.MetaServiceStatus">MetaServiceStatus</a>)
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.MetaServiceStatus">MetaServiceStatus</a>)
 </p>
 <div>
 </div>
@@ -73,35 +73,35 @@ bool
 </tr>
 <tr>
 <td>
-<code>ccCount</code><br/>
+<code>cgCount</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<p>the number of compute cluster.</p>
+<p>the number of compute group.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>ccAvailableCount</code><br/>
+<code>cgAvailableCount</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<p>the available numbers of compute cluster.</p>
+<p>the available numbers of compute group.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>ccFullAvailableCount</code><br/>
+<code>cgFullAvailableCount</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<p>the full available numbers of compute cluster, represents all pod in compute cluster are ready.</p>
+<p>the full available numbers of compute group, represents all pod in compute group are ready.</p>
 </td>
 </tr>
 </tbody>
@@ -109,7 +109,7 @@ int32
 <h3 id="disaggregated.cluster.doris.com/v1.CommonSpec">CommonSpec
 </h3>
 <p>
-(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeCluster">ComputeCluster</a>, <a href="#disaggregated.cluster.doris.com/v1.FeSpec">FeSpec</a>, <a href="#disaggregated.cluster.doris.com/v1.MetaService">MetaService</a>)
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroup">ComputeGroup</a>, <a href="#disaggregated.cluster.doris.com/v1.FeSpec">FeSpec</a>, <a href="#disaggregated.cluster.doris.com/v1.MetaService">MetaService</a>)
 </p>
 <div>
 </div>
@@ -297,7 +297,7 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>specify what&rsquo;s node to deploy compute cluster pod.</p>
+<p>specify what&rsquo;s node to deploy compute group pod.</p>
 </td>
 </tr>
 <tr>
@@ -382,13 +382,13 @@ SystemInitialization
 </tr>
 </tbody>
 </table>
-<h3 id="disaggregated.cluster.doris.com/v1.ComputeCluster">ComputeCluster
+<h3 id="disaggregated.cluster.doris.com/v1.ComputeGroup">ComputeGroup
 </h3>
 <p>
 (<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterSpec">DorisDisaggregatedClusterSpec</a>)
 </p>
 <div>
-<p>ComputeCluster describe the specification that a group of compute node.</p>
+<p>ComputeGroup describe the specification that a group of compute node.</p>
 </div>
 <table>
 <thead>
@@ -400,24 +400,13 @@ SystemInitialization
 <tbody>
 <tr>
 <td>
-<code>name</code><br/>
+<code>uniqueId</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Name is the identifier of computeCluster, name can be used specify what computeCluster to run sql. if not set, will use <code>computeCluster</code> and the index in array to set.ep: computeCluster-1.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>clusterId</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>ClusterId is the identifier of computeCluster, this will distinguish all computeCluster in meta.</p>
+<p>the unique identifier of compute group, first register in fe will use UniqueId as cluster name.</p>
 </td>
 </tr>
 <tr>
@@ -437,7 +426,7 @@ CommonSpec
 </tr>
 </tbody>
 </table>
-<h3 id="disaggregated.cluster.doris.com/v1.ComputeClusterStatus">ComputeClusterStatus
+<h3 id="disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus
 </h3>
 <p>
 (<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterStatus">DorisDisaggregatedClusterStatus</a>)
@@ -473,7 +462,7 @@ string
 </em>
 </td>
 <td>
-<p>the statefulset of control this compute cluster pods.</p>
+<p>the statefulset of control this compute group pods.</p>
 </td>
 </tr>
 <tr>
@@ -484,18 +473,17 @@ string
 </em>
 </td>
 <td>
-<p>the service that can access the compute cluster pods.</p>
+<p>the service that can access the compute group pods.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>ComputeClusterName</code><br/>
+<code>uniqueId</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<p>represents the compute cluster.</p>
 </td>
 </tr>
 <tr>
@@ -508,7 +496,7 @@ AvailableStatus
 </em>
 </td>
 <td>
-<p>AvailableStatus represents the compute cluster available or not.</p>
+<p>AvailableStatus represents the compute group available or not.</p>
 </td>
 </tr>
 <tr>
@@ -519,7 +507,7 @@ string
 </em>
 </td>
 <td>
-<p>ClusterId display  the clusterId of compute cluster in meta.</p>
+<p>ClusterId display  the clusterId of compute group in meta.</p>
 </td>
 </tr>
 <tr>
@@ -530,7 +518,7 @@ int32
 </em>
 </td>
 <td>
-<p>suspend replicas display the replicas of compute cluster before resume.</p>
+<p>suspend replicas display the replicas of compute group before resume.</p>
 </td>
 </tr>
 <tr>
@@ -682,15 +670,15 @@ FeSpec
 </tr>
 <tr>
 <td>
-<code>computeClusters</code><br/>
+<code>computeGroups</code><br/>
 <em>
-<a href="#disaggregated.cluster.doris.com/v1.ComputeCluster">
-[]ComputeCluster
+<a href="#disaggregated.cluster.doris.com/v1.ComputeGroup">
+[]ComputeGroup
 </a>
 </em>
 </td>
 <td>
-<p>ComputeClusters describe a list of ComputeCluster, ComputeCluster is a group of compute node to do same thing.</p>
+<p>ComputeGroups describe a list of ComputeGroup, ComputeGroup is a group of compute node to do same thing.</p>
 </td>
 </tr>
 </table>
@@ -765,15 +753,15 @@ FeSpec
 </tr>
 <tr>
 <td>
-<code>computeClusters</code><br/>
+<code>computeGroups</code><br/>
 <em>
-<a href="#disaggregated.cluster.doris.com/v1.ComputeCluster">
-[]ComputeCluster
+<a href="#disaggregated.cluster.doris.com/v1.ComputeGroup">
+[]ComputeGroup
 </a>
 </em>
 </td>
 <td>
-<p>ComputeClusters describe a list of ComputeCluster, ComputeCluster is a group of compute node to do same thing.</p>
+<p>ComputeGroups describe a list of ComputeGroup, ComputeGroup is a group of compute node to do same thing.</p>
 </td>
 </tr>
 </tbody>
@@ -844,15 +832,15 @@ ClusterHealth
 </tr>
 <tr>
 <td>
-<code>computeClusterStatuses</code><br/>
+<code>computeGroupStatuses</code><br/>
 <em>
-<a href="#disaggregated.cluster.doris.com/v1.ComputeClusterStatus">
-[]ComputeClusterStatus
+<a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">
+[]ComputeGroupStatus
 </a>
 </em>
 </td>
 <td>
-<p>ComputeClusterStatuses reflect a list of computeCluster status.</p>
+<p>ComputeGroupStatuses reflect a list of computeGroup status.</p>
 </td>
 </tr>
 </tbody>
@@ -1264,7 +1252,7 @@ It only takes effect in the first configuration and cannot be added or modified 
 <h3 id="disaggregated.cluster.doris.com/v1.Phase">Phase
 (<code>string</code> alias)</h3>
 <p>
-(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeClusterStatus">ComputeClusterStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.MetaServiceStatus">MetaServiceStatus</a>)
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.FEStatus">FEStatus</a>, <a href="#disaggregated.cluster.doris.com/v1.MetaServiceStatus">MetaServiceStatus</a>)
 </p>
 <div>
 </div>
@@ -1446,5 +1434,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>711e5a4</code>.
+on git commit <code>f7ca884</code>.
 </em></p>
