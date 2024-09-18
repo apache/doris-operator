@@ -23,7 +23,7 @@ import (
 	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
 	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
 	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
-	dccs "github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/computeclusters"
+	dcgs "github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/computegroups"
 	dfe "github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/disaggregated_fe"
 	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/metaservice"
 	appv1 "k8s.io/api/apps/v1"
@@ -73,7 +73,7 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 
 	dfec := dfe.New(mgr)
 	scs[dfec.GetControllerName()] = dfec
-	dccsc := dccs.New(mgr)
+	dccsc := dcgs.New(mgr)
 	scs[dccsc.GetControllerName()] = dccsc
 
 	if err := (&DisaggregatedClusterReconciler{
@@ -268,9 +268,9 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 	}
 
 	ddc.Status.ClusterHealth.Health = dv1.Green
-	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CCAvailableCount <= (ddc.Status.ClusterHealth.CCCount/2) {
+	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
 		ddc.Status.ClusterHealth.Health = dv1.Red
-	} else if ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CCAvailableCount < ddc.Status.ClusterHealth.CCCount {
+	} else if ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
 		ddc.Status.ClusterHealth.Health = dv1.Yellow
 	}
 	return ctrl.Result{}, nil

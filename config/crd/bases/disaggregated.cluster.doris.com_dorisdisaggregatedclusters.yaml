@@ -27,14 +27,14 @@ spec:
     - jsonPath: .status.feStatus.phase
       name: FEPhase
       type: string
-    - jsonPath: .status.clusterHealth.ccCount
-      name: CCCount
+    - jsonPath: .status.clusterHealth.cgCount
+      name: CGCount
       type: integer
-    - jsonPath: .status.clusterHealth.ccAvailableCount
-      name: CCAvailableCount
+    - jsonPath: .status.clusterHealth.cgAvailableCount
+      name: CGAvailableCount
       type: integer
-    - jsonPath: .status.clusterHealth.ccFullAvailableCount
-      name: CCFullAvailableCount
+    - jsonPath: .status.clusterHealth.cgFullAvailableCount
+      name: CGFullAvailableCount
       type: integer
     name: v1
     schema:
@@ -56,11 +56,11 @@ spec:
             type: object
           spec:
             properties:
-              computeClusters:
-                description: ComputeClusters describe a list of ComputeCluster, ComputeCluster
+              computeGroups:
+                description: ComputeGroups describe a list of ComputeGroup, ComputeGroup
                   is a group of compute node to do same thing.
                 items:
-                  description: ComputeCluster describe the specification that a group
+                  description: ComputeGroup describe the specification that a group
                     of compute node.
                   properties:
                     affinity:
@@ -1345,7 +1345,7 @@ spec:
                     nodeSelector:
                       additionalProperties:
                         type: string
-                      description: specify what's node to deploy compute cluster pod.
+                      description: specify what's node to deploy compute group pod.
                       type: object
                     persistentVolume:
                       description: VolumeClaimTemplate allows customizing the persistent
@@ -1913,8 +1913,8 @@ spec:
                         type: object
                       type: array
                     uniqueId:
-                      description: the unique identifier of compute cluster, first
-                        register in fe will use UniqueId as cluster name.
+                      description: the unique identifier of compute group, first register
+                        in fe will use UniqueId as cluster name.
                       type: string
                   required:
                   - uniqueId
@@ -3182,7 +3182,7 @@ spec:
                   nodeSelector:
                     additionalProperties:
                       type: string
-                    description: specify what's node to deploy compute cluster pod.
+                    description: specify what's node to deploy compute group pod.
                     type: object
                   persistentVolume:
                     description: VolumeClaimTemplate allows customizing the persistent
@@ -5019,7 +5019,7 @@ spec:
                   nodeSelector:
                     additionalProperties:
                       type: string
-                    description: specify what's node to deploy compute cluster pod.
+                    description: specify what's node to deploy compute group pod.
                     type: object
                   persistentVolume:
                     description: VolumeClaimTemplate allows customizing the persistent
@@ -5574,17 +5574,17 @@ spec:
             properties:
               clusterHealth:
                 properties:
-                  ccAvailableCount:
-                    description: the available numbers of compute cluster.
+                  cgAvailableCount:
+                    description: the available numbers of compute group.
                     format: int32
                     type: integer
-                  ccCount:
-                    description: the number of compute cluster.
+                  cgCount:
+                    description: the number of compute group.
                     format: int32
                     type: integer
-                  ccFullAvailableCount:
-                    description: the full available numbers of compute cluster, represents
-                      all pod in compute cluster are ready.
+                  cgFullAvailableCount:
+                    description: the full available numbers of compute group, represents
+                      all pod in compute group are ready.
                     format: int32
                     type: integer
                   feAvailable:
@@ -5594,9 +5594,8 @@ spec:
                     description: represents the cluster overall status.
                     type: string
                 type: object
-              computeClusterStatuses:
-                description: ComputeClusterStatuses reflect a list of computeCluster
-                  status.
+              computeGroupStatuses:
+                description: ComputeGroupStatuses reflect a list of computeGroup status.
                 items:
                   properties:
                     availableReplicas:
@@ -5605,11 +5604,11 @@ spec:
                       format: int32
                       type: integer
                     availableStatus:
-                      description: AvailableStatus represents the compute cluster
-                        available or not.
+                      description: AvailableStatus represents the compute group available
+                        or not.
                       type: string
                     clusterId:
-                      description: ClusterId display  the clusterId of compute cluster
+                      description: ClusterId display  the clusterId of compute group
                         in meta.
                       type: string
                     phase:
@@ -5621,16 +5620,14 @@ spec:
                       format: int32
                       type: integer
                     serviceName:
-                      description: the service that can access the compute cluster
-                        pods.
+                      description: the service that can access the compute group pods.
                       type: string
                     statefulsetName:
-                      description: the statefulset of control this compute cluster
-                        pods.
+                      description: the statefulset of control this compute group pods.
                       type: string
                     suspendReplicas:
                       description: suspend replicas display the replicas of compute
-                        cluster before resume.
+                        group before resume.
                       format: int32
                       type: integer
                     uniqueId:
