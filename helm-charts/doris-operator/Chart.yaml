@@ -32,8 +32,6 @@ icon: https://charts.selectdb.com/images/doris.jpg
 type: application
 
 maintainers:
-  - name: Shilei Fu
-    email: fushilei@selectdb.com
   - name: Dechao Hu
     email: hudechao@selectdb.com
 
