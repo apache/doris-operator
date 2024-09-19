@@ -31,7 +31,7 @@ func (ddc *DorisDisaggregatedCluster) SetupWebhookWithManager(mgr ctrl.Manager) 
 		Complete()
 }
 
-// +kubebuilder:unnamedwatches:path=/mutate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster,mutating=true,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update;delete,versions=v1,name=mdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
+// +kubebuilder:unnamedwatches:path=/mutate-disaggregated-doris-com-v1-dorisdisaggregatedcluster,mutating=true,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update;delete,versions=v1,name=mdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
 var _ webhook.Defaulter = &DorisDisaggregatedCluster{}
 
 // Default implements webhook.Defaulter so a unnamedwatches will be registered for the type
@@ -41,7 +41,7 @@ func (ddc *DorisDisaggregatedCluster) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:unnamedwatches:path=/validate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster,mutating=false,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update,versions=v1,name=vdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
+// +kubebuilder:unnamedwatches:path=/validate-disaggregated-doris-com-v1-dorisdisaggregatedcluster,mutating=false,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update,versions=v1,name=vdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
 var _ webhook.Validator = &DorisDisaggregatedCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type

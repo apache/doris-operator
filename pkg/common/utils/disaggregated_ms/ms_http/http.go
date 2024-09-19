@@ -20,8 +20,8 @@ package ms_http
 import (
 	"bytes"
 	"fmt"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
 	"io"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"

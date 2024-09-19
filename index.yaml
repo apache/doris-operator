@@ -25,7 +25,7 @@ entries:
       database based on MPP architecture, known for its extreme speed and ease of
       use.
     digest: a6862c9c17a813942207c29e99b298374badf609680c9952b725fa413e44fdae
-    home: https://github.com/selectdb/doris-operator
+    home: https://github.com/apache/doris-operator
     icon: https://charts.selectdb.com/images/doris.jpg
     name: doris
     sources:
@@ -42,7 +42,7 @@ entries:
       running on kubernetes. Operator provide deploy and manage fe, be, cn，broker
       components.
     digest: ac7b77dabbc250e6400df1157e0b66b86a0fb4afa82a442a8a9aaa14f839d2f0
-    home: https://github.com/selectdb/doris-operator
+    home: https://github.com/apache/doris-operator
     icon: https://charts.selectdb.com/images/selectdb.jpg
     name: doris-operator
     sources:

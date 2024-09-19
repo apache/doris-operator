@@ -1,20 +1,3 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 /*
 Copyright 2023.
 
@@ -39,9 +22,10 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/selectdb/doris-operator/client/clientset/versioned"
-	doris "github.com/selectdb/doris-operator/client/informers/externalversions/doris"
-	internalinterfaces "github.com/selectdb/doris-operator/client/informers/externalversions/internalinterfaces"
+	versioned "github.com/apache/doris-operator/client/clientset/versioned"
+	disaggregated "github.com/apache/doris-operator/client/informers/externalversions/disaggregated"
+	doris "github.com/apache/doris-operator/client/informers/externalversions/doris"
+	internalinterfaces "github.com/apache/doris-operator/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -58,6 +42,7 @@ type sharedInformerFactory struct {
 	lock             sync.Mutex
 	defaultResync    time.Duration
 	customResync     map[reflect.Type]time.Duration
+	transform        cache.TransformFunc
 
 	informers map[reflect.Type]cache.SharedIndexInformer
 	// startedInformers is used for tracking which informers have been started.
@@ -92,6 +77,14 @@ func WithTweakListOptions(tweakListOptions internalinterfaces.TweakListOptionsFu
 func WithNamespace(namespace string) SharedInformerOption {
 	return func(factory *sharedInformerFactory) *sharedInformerFactory {
 		factory.namespace = namespace
+		return factory
+	}
+}
+
+// WithTransform sets a transform on all informers.
+func WithTransform(transform cache.TransformFunc) SharedInformerOption {
+	return func(factory *sharedInformerFactory) *sharedInformerFactory {
+		factory.transform = transform
 		return factory
 	}
 }
@@ -200,6 +193,7 @@ func (f *sharedInformerFactory) InformerFor(obj runtime.Object, newFunc internal
 	}
 
 	informer = newFunc(f.client, resyncPeriod)
+	informer.SetTransform(f.transform)
 	f.informers[informerType] = informer
 
 	return informer
@@ -259,7 +253,12 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
+	Disaggregated() disaggregated.Interface
 	Doris() doris.Interface
+}
+
+func (f *sharedInformerFactory) Disaggregated() disaggregated.Interface {
+	return disaggregated.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Doris() doris.Interface {

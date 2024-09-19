@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package v1
+package meta_v1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,7 +31,7 @@ func (ddm *DorisDisaggregatedMetaService) SetupWebhookWithManager(mgr ctrl.Manag
 		Complete()
 }
 
-// +kubebuilder:unnamedwatches:path=/mutate-disaggregated-metaservice-doris-com-v1-dorisdisaggregatedmetaservice,mutating=true,failurePolicy=ignore,sideEffects=None,groups=disaggregated.metaservice.doris.com,resources=dorisdisaggregatedmetaservices,verbs=create;update;delete,versions=v1,name=mdorisdisaggregatedmetaservice.kb.io,admissionReviewVersions=v1
+// +kubebuilder:unnamedwatches:path=/mutate-disaggregated-metaservice-doris-com-meta_v1-dorisdisaggregatedmetaservice,mutating=true,failurePolicy=ignore,sideEffects=None,groups=disaggregated.metaservice.doris.com,resources=dorisdisaggregatedmetaservices,verbs=create;update;delete,versions=meta_v1,name=mdorisdisaggregatedmetaservice.kb.io,admissionReviewVersions=meta_v1
 var _ webhook.Defaulter = &DorisDisaggregatedMetaService{}
 
 // Default implements webhook.Defaulter so a unnamedwatches will be registered for the type
@@ -41,7 +41,7 @@ func (ddm *DorisDisaggregatedMetaService) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:unnamedwatches:path=/validate-disaggregated-metaservice-doris-com-v1-dorisdisaggregatedmetaservice,mutating=false,failurePolicy=ignore,sideEffects=None,groups=disaggregated.metaservice.doris.com,resources=dorisdisaggregatedmetaservices,verbs=create;update,versions=v1,name=vdorisdisaggregatedmetaservice.kb.io,admissionReviewVersions=v1
+// +kubebuilder:unnamedwatches:path=/validate-disaggregated-metaservice-doris-com-meta_v1-dorisdisaggregatedmetaservice,mutating=false,failurePolicy=ignore,sideEffects=None,groups=disaggregated.metaservice.doris.com,resources=dorisdisaggregatedmetaservices,verbs=create;update,versions=meta_v1,name=vdorisdisaggregatedmetaservice.kb.io,admissionReviewVersions=meta_v1
 var _ webhook.Validator = &DorisDisaggregatedMetaService{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type

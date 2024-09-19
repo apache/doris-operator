@@ -19,12 +19,12 @@ package controller
 
 import (
 	"context"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/fdb"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/ms"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/recycler"
 	"github.com/google/go-cmp/cmp"
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/fdb"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/ms"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/disaggregated_metaservice/recycler"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

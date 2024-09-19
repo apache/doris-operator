@@ -1,20 +1,3 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 /*
 Copyright 2023.
 
@@ -38,7 +21,8 @@ import (
 	"fmt"
 	"net/http"
 
-	dorisv1 "github.com/selectdb/doris-operator/client/clientset/versioned/typed/doris/v1"
+	disaggregatedv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/disaggregated/v1"
+	dorisv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/doris/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -46,13 +30,20 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	DisaggregatedV1() disaggregatedv1.DisaggregatedV1Interface
 	DorisV1() dorisv1.DorisV1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	dorisV1 *dorisv1.DorisV1Client
+	disaggregatedV1 *disaggregatedv1.DisaggregatedV1Client
+	dorisV1         *dorisv1.DorisV1Client
+}
+
+// DisaggregatedV1 retrieves the DisaggregatedV1Client
+func (c *Clientset) DisaggregatedV1() disaggregatedv1.DisaggregatedV1Interface {
+	return c.disaggregatedV1
 }
 
 // DorisV1 retrieves the DorisV1Client
@@ -104,6 +95,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
+	cs.disaggregatedV1, err = disaggregatedv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.dorisV1, err = dorisv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -129,6 +124,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.disaggregatedV1 = disaggregatedv1.New(c)
 	cs.dorisV1 = dorisv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

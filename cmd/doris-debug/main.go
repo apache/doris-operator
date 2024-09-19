@@ -20,8 +20,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/spf13/viper"
 	"net/http"
 	"os"

@@ -19,5 +19,6 @@ package doris
 
 // GroupName is the group name used in this package
 const (
+	//the project provided by selectdb. before be denoted, doris-operator have used by many users, so the group Name be retained.
 	GroupName = "doris.selectdb.com"
 )

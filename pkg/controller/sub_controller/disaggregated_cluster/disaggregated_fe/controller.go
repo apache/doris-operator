@@ -22,12 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
-	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
+	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,7 +69,7 @@ func New(mgr ctrl.Manager) *DisaggregatedFEController {
 }
 
 func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Object) error {
-	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+	ddc := obj.(*v1.DorisDisaggregatedCluster)
 	//TODO: check ms status
 	if !dfc.msAvailable(ddc) {
 		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.WaitMetaServiceAvailable), "meta service have not ready.")
@@ -132,7 +132,7 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	return nil
 }
 
-func (dfc *DisaggregatedFEController) msAvailable(ddc *dv1.DorisDisaggregatedCluster) bool {
+func (dfc *DisaggregatedFEController) msAvailable(ddc *v1.DorisDisaggregatedCluster) bool {
 	endpoints := corev1.Endpoints{}
 	if err := dfc.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.GetMSServiceName()}, &endpoints); err != nil {
 		klog.Infof("DisaggregatedFEController Sync wait fe service name %s available occur failed %s\n", ddc.GetMSServiceName(), err.Error())
@@ -148,7 +148,7 @@ func (dfc *DisaggregatedFEController) msAvailable(ddc *dv1.DorisDisaggregatedClu
 }
 
 func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
-	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+	ddc := obj.(*v1.DorisDisaggregatedCluster)
 
 	statefulsetName := ddc.GetFEStatefulsetName()
 	serviceName := ddc.GetFEServiceName()
@@ -200,7 +200,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	var creatingReplicas int32
 	var failedReplicas int32
 
-	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+	ddc := obj.(*v1.DorisDisaggregatedCluster)
 
 	stfName := ddc.GetFEStatefulsetName()
 
@@ -229,31 +229,31 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	// ClusterHealth.FeAvailable is true,
 	// for ClusterHealth.Health is yellow
 	if masterAliveReplicas > 0 {
-		ddc.Status.FEStatus.AvailableStatus = dv1.Available
+		ddc.Status.FEStatus.AvailableStatus = v1.Available
 		ddc.Status.ClusterHealth.FeAvailable = true
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
 	if masterAliveReplicas == DefaultElectionNumber && availableReplicas == *(feSpec.Replicas) {
-		ddc.Status.FEStatus.Phase = dv1.Ready
+		ddc.Status.FEStatus.Phase = v1.Ready
 	}
 
 	return nil
 }
 
 // initial fe status before sync resources. status changing with sync steps, and generate the last status by classify pods.
-func (dfc *DisaggregatedFEController) initialFEStatus(ddc *dv1.DorisDisaggregatedCluster) {
-	if ddc.Status.FEStatus.Phase == dv1.Reconciling || ddc.Status.FEStatus.Phase == dv1.ScaleDownFailed || ddc.Status.FEStatus.Phase == dv1.Scaling {
+func (dfc *DisaggregatedFEController) initialFEStatus(ddc *v1.DorisDisaggregatedCluster) {
+	if ddc.Status.FEStatus.Phase == v1.Reconciling || ddc.Status.FEStatus.Phase == v1.ScaleDownFailed || ddc.Status.FEStatus.Phase == v1.Scaling {
 		return
 	}
-	feStatus := dv1.FEStatus{
-		Phase:     dv1.Reconciling,
+	feStatus := v1.FEStatus{
+		Phase:     v1.Reconciling,
 		ClusterId: ms_http.FeClusterId,
 	}
 	ddc.Status.FEStatus = feStatus
 }
 
-func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster) (*sc.Event, error) {
+func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *v1.DorisDisaggregatedCluster) (*sc.Event, error) {
 	var est appv1.StatefulSet
 	if err := dfc.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
 		if err = k8s.CreateClientObject(ctx, dfc.K8sclient, st); err != nil {
@@ -272,21 +272,21 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 
 	// apply fe StatefulSet
 	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
+		return resource.StatefulsetDeepEqualWithOmitKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
 		klog.Errorf("disaggregatedFEController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.FEApplyResourceFailed, Message: err.Error()}, err
 	}
 
 	//  if fe scale, drop fe node by http
-	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == dv1.ScaleDownFailed {
+	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {
 		if err := dfc.dropFEFromHttpClient(cluster); err != nil {
-			cluster.Status.FEStatus.Phase = dv1.ScaleDownFailed
+			cluster.Status.FEStatus.Phase = v1.ScaleDownFailed
 			klog.Errorf("ScaleDownFE failed, err:%s ", err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.FEHTTPFailed, Message: err.Error()},
 				err
 		}
-		cluster.Status.FEStatus.Phase = dv1.Scaling
+		cluster.Status.FEStatus.Phase = v1.Scaling
 	}
 	//dropped
 
@@ -294,7 +294,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 }
 
 // dropFEFromHttpClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
-func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDisaggregatedCluster) error {
+func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *v1.DorisDisaggregatedCluster) error {
 	feReplica := cluster.Spec.FeSpec.Replicas
 
 	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
@@ -336,7 +336,7 @@ func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *dv1.DorisDis
 }
 
 // RecycleResources pvc resource for fe recycle
-func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) error {
+func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) error {
 	if ddc.Spec.FeSpec.PersistentVolume != nil {
 		return dfc.listAndDeletePersistentVolumeClaim(ctx, ddc)
 	}
@@ -465,12 +465,12 @@ func (dfc *DisaggregatedFEController) CreateOrUpdateObjectMeta(endpoint, token s
 	return nil, nil
 }
 
-func (dfc *DisaggregatedFEController) displayInstanceInfo(instanceConf map[string]interface{}, ddc *dv1.DorisDisaggregatedCluster) {
+func (dfc *DisaggregatedFEController) displayInstanceInfo(instanceConf map[string]interface{}, ddc *v1.DorisDisaggregatedCluster) {
 	instanceId := (instanceConf[ms_meta.Instance_id]).(string)
 	ddc.Status.InstanceId = instanceId
 }
 
-func (dfc *DisaggregatedFEController) getInstanceConfig(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (map[string]interface{}, error) {
+func (dfc *DisaggregatedFEController) getInstanceConfig(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (map[string]interface{}, error) {
 	if ddc.Spec.InstanceConfigMap == "" {
 		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), "vaultConfigmap should config a configMap that have object info.")
 		return nil, errors.New("vaultConfigmap for object info should be specified")

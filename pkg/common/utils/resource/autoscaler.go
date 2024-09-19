@@ -18,7 +18,7 @@
 package resource
 
 import (
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/autoscaling/v1"
 	v2 "k8s.io/api/autoscaling/v2"

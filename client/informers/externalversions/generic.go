@@ -1,20 +1,3 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 /*
 Copyright 2023.
 
@@ -37,7 +20,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
+	v1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -68,8 +52,12 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=doris.selectdb.com, Version=v1
-	case v1.SchemeGroupVersion.WithResource("dorisclusters"):
+	// Group=disaggregated.cluster.doris.com, Version=v1
+	case v1.SchemeGroupVersion.WithResource("dorisdisaggregatedclusters"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Disaggregated().V1().DorisDisaggregatedClusters().Informer()}, nil
+
+		// Group=doris.selectdb.com, Version=v1
+	case dorisv1.SchemeGroupVersion.WithResource("dorisclusters"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Doris().V1().DorisClusters().Informer()}, nil
 
 	}

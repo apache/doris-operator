@@ -1,7 +1,7 @@
 package resource
 
 import (
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"testing"
 )
 

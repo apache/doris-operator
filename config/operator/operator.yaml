@@ -229,18 +229,6 @@ rules:
       - update
       - watch
   - apiGroups:
-      - disaggregated.metaservice.doris.com
-    resources:
-      - dorisdisaggregatedmetaservices
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
       - disaggregated.cluster.doris.com
     resources:
       - dorisdisaggregatedclusters
@@ -274,14 +262,6 @@ rules:
       - doris.selectdb.com
     resources:
       - dorisclusters/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - disaggregated.metaservice.doris.com
-    resources:
-      - dorisdisaggregatedmetaservices/status
     verbs:
       - get
       - patch
@@ -398,26 +378,6 @@ webhooks:
         resources:
           - dorisdisaggregatedclusters
     sideEffects: None
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: doris-operator-service
-        namespace: doris
-        path: /validate-disaggregated-metaservice-doris-com-v1-dorisdisaggregatedmetaservice
-    failurePolicy: Ignore
-    name: vdorisdisaggregatedmetaservice.kb.io
-    rules:
-      - apiGroups:
-          - disaggregated.metaservice.doris.com
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - dorisdisaggregatedmetaservices
-    sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -464,26 +424,6 @@ webhooks:
           - UPDATE
         resources:
           - dorisdisaggregatedclusters
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: doris-operator-service
-        namespace: doris
-        path:  /mutate-disaggregated-metaservice-doris-com-v1-dorisdisaggregatedmetaservice
-    failurePolicy: Ignore
-    name: mdorisdisaggregatedmetaservice.kb.io
-    rules:
-      - apiGroups:
-          - disaggregated.metaservice.doris.com
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - dorisdisaggregatedmetaservices
     sideEffects: None
 ---
 apiVersion: v1

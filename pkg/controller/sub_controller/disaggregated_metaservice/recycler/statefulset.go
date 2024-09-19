@@ -18,8 +18,8 @@
 package recycler
 
 import (
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 )
 

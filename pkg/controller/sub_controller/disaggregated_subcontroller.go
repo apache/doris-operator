@@ -21,12 +21,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	"github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/metadata"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/spf13/viper"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +62,7 @@ func (d *DisaggregatedSubDefaultController) GetMSConfig(ctx context.Context, cms
 	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
 	}
-	configMaps, err := k8s.GetDisaggregatedConfigMaps(ctx, d.K8sclient, namespace, cms)
+	configMaps, err := k8s.GetDisaggregatedMetaServiceConfigMaps(ctx, d.K8sclient, namespace, cms)
 	if err != nil {
 		klog.Errorf("DisaggregatedSubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
@@ -70,7 +70,7 @@ func (d *DisaggregatedSubDefaultController) GetMSConfig(ctx context.Context, cms
 	return res, utils.MergeError(err, resolveErr)
 }
 
-func (d *DisaggregatedSubDefaultController) GetConfigValuesFromConfigMaps(namespace string, resolveKey string, cms []dv1.ConfigMap) map[string]interface{} {
+func (d *DisaggregatedSubDefaultController) GetConfigValuesFromConfigMaps(namespace string, resolveKey string, cms []v1.ConfigMap) map[string]interface{} {
 	if len(cms) == 0 {
 		return nil
 	}
@@ -96,7 +96,7 @@ func (d *DisaggregatedSubDefaultController) GetConfigValuesFromConfigMaps(namesp
 }
 
 // for config default values.
-func (d *DisaggregatedSubDefaultController) NewDefaultService(ddc *dv1.DorisDisaggregatedCluster) *corev1.Service {
+func (d *DisaggregatedSubDefaultController) NewDefaultService(ddc *v1.DorisDisaggregatedCluster) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ddc.Namespace,
@@ -115,7 +115,7 @@ func (d *DisaggregatedSubDefaultController) NewDefaultService(ddc *dv1.DorisDisa
 	}
 }
 
-func (d *DisaggregatedSubDefaultController) NewDefaultStatefulset(ddc *dv1.DorisDisaggregatedCluster) *appv1.StatefulSet {
+func (d *DisaggregatedSubDefaultController) NewDefaultStatefulset(ddc *v1.DorisDisaggregatedCluster) *appv1.StatefulSet {
 	return &appv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       ddc.Namespace,
@@ -134,7 +134,7 @@ func (d *DisaggregatedSubDefaultController) NewDefaultStatefulset(ddc *dv1.Doris
 	}
 }
 
-func (d *DisaggregatedSubDefaultController) BuildDefaultConfigMapVolumesVolumeMounts(cms []dv1.ConfigMap) ([]corev1.Volume, []corev1.VolumeMount) {
+func (d *DisaggregatedSubDefaultController) BuildDefaultConfigMapVolumesVolumeMounts(cms []v1.ConfigMap) ([]corev1.Volume, []corev1.VolumeMount) {
 	var vs []corev1.Volume
 	var vms []corev1.VolumeMount
 	for _, cm := range cms {
@@ -218,7 +218,7 @@ func (d *DisaggregatedSubDefaultController) DefaultReconcileService(ctx context.
 	}
 
 	if err := k8s.ApplyService(ctx, d.K8sclient, svc, func(nsvc, osvc *corev1.Service) bool {
-		return resource.ServiceDeepEqualWithAnnoKey(nsvc, osvc, dv1.DisaggregatedSpecHashValueAnnotation)
+		return resource.ServiceDeepEqualWithAnnoKey(nsvc, osvc, v1.DisaggregatedSpecHashValueAnnotation)
 	}); err != nil {
 		klog.Errorf("disaggregatedSubDefaultController reconcileService apply service namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
 		return &Event{Type: EventWarning, Reason: ServiceApplyedFailed, Message: err.Error()}, err

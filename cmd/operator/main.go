@@ -35,14 +35,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	dmsv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/cmd/operator/conf"
-	"github.com/selectdb/doris-operator/pkg/common/utils/certificate"
-	"github.com/selectdb/doris-operator/pkg/controller"
-	"github.com/selectdb/doris-operator/pkg/controller/unnamedwatches"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+
+	//dmsv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/cmd/operator/conf"
+	"github.com/apache/doris-operator/pkg/common/utils/certificate"
+	"github.com/apache/doris-operator/pkg/controller"
+	"github.com/apache/doris-operator/pkg/controller/unnamedwatches"
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
@@ -90,9 +90,9 @@ func init() {
 
 	utilruntime.Must(dorisv1.AddToScheme(scheme))
 	utilruntime.Must(dv1.AddToScheme(scheme))
-	utilruntime.Must(dmsv1.AddToScheme(scheme))
+	//utilruntime.Must(dmsv1.AddToScheme(scheme))
 	//add foundationdb scheme
-	utilruntime.Must(v1beta2.AddToScheme(scheme))
+	//utilruntime.Must(v1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{})

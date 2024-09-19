@@ -18,8 +18,8 @@
 package controller
 
 import (
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/api/doris/v1"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/api/doris/v1"
 	"reflect"
 	"sort"
 )

@@ -18,10 +18,10 @@
 package disaggregated_fe
 
 import (
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kr "k8s.io/apimachinery/pkg/api/resource"
@@ -57,20 +57,20 @@ var (
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
 	return map[string]string{
-		dv1.DorisDisaggregatedClusterName:    ddcName,
-		dv1.DorisDisaggregatedPodType:        "fe",
-		dv1.DorisDisaggregatedOwnerReference: ddcName,
+		v1.DorisDisaggregatedClusterName:    ddcName,
+		v1.DorisDisaggregatedPodType:        "fe",
+		v1.DorisDisaggregatedOwnerReference: ddcName,
 	}
 }
 
 func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[string]string {
 	return map[string]string{
-		dv1.DorisDisaggregatedClusterName: ddcName,
-		dv1.DorisDisaggregatedPodType:     "fe",
+		v1.DorisDisaggregatedClusterName: ddcName,
+		v1.DorisDisaggregatedPodType:     "fe",
 	}
 }
 
-func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
+func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	spec := ddc.Spec.FeSpec
 	if *ddc.Spec.FeSpec.Replicas < DefaultFeReplicaNumber {
 		ddc.Spec.FeSpec.Replicas = &(DefaultFeReplicaNumber)
@@ -96,8 +96,8 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *dv1.DorisDisaggregated
 	return st
 }
 
-func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
-	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, dv1.DisaggregatedFE)
+func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
+	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	//pod template metadata.
 	func() {
 		l := (resource.Labels)(selector)
@@ -112,24 +112,24 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *dv1.DorisDisaggreg
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 
-	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(dv1.DorisDisaggregatedClusterName, selector[dv1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
+	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, selector[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
 
 	return pts
 }
 
-func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
+func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
-	resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedFE))
-	cmd, args := sub.GetDisaggregatedCommand(dv1.DisaggregatedFE)
+	resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(v1.DisaggregatedFE))
+	cmd, args := sub.GetDisaggregatedCommand(v1.DisaggregatedFE)
 	c.Command = cmd
 	c.Args = args
 	c.Name = "fe"
 
-	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedFE)
+	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedFE)
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
-	resource.BuildDisaggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, dv1.DisaggregatedFE)
+	resource.BuildDisaggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, v1.DisaggregatedFE)
 	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
 	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
 	c.VolumeMounts = vms
@@ -141,7 +141,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *dv1.DorisDisaggregated
 	return c
 }
 
-func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, fe *dv1.FeSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, fe *v1.FeSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
 	if fe.PersistentVolume == nil {
 		vs, vms := dfc.getDefaultVolumesVolumeMounts(confMap)
 		return vs, vms, nil
@@ -258,7 +258,7 @@ func (dfc *DisaggregatedFEController) getMetaPath(confMap map[string]interface{}
 	return path
 }
 
-func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
+func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregatedCluster) []corev1.EnvVar {
 	var feEnvs []corev1.EnvVar
 	stsName := ddc.GetFEStatefulsetName()
 

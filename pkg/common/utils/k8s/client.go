@@ -22,10 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/autoscaling/v1"
 	v2 "k8s.io/api/autoscaling/v2"
@@ -314,7 +314,7 @@ func SetDorisClusterPhase(
 		isStatusEqual = (edcr.Status.BrokerStatus.ComponentCondition.Phase == phase)
 		edcr.Status.BrokerStatus.ComponentCondition.Phase = phase
 	default:
-		klog.Infof("SetDorisClusterPhase not support type=", componentType)
+		klog.Infof("SetDorisClusterPhase not support type=%s", componentType)
 		return nil
 	}
 	if isStatusEqual {
@@ -324,7 +324,7 @@ func SetDorisClusterPhase(
 	return k8sclient.Status().Update(ctx, &edcr)
 }
 
-func GetDisaggregatedConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
+func GetDisaggregatedMetaServiceConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
 	var configMaps []*corev1.ConfigMap
 	errMessage := ""
 	for _, cm := range cms {
