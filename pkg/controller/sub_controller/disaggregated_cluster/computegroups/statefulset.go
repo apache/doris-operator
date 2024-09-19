@@ -43,7 +43,7 @@ const (
 )
 
 const (
-	DefaultCacheRootPath = "/opt/apache-doris/be/storage"
+	DefaultCacheRootPath = "/opt/apache-doris/be/cache"
 	//default cache storage size: unit=B
 	DefaultCacheSize               int64 = 107374182400
 	FileCachePathKey                     = "file_cache_path"
