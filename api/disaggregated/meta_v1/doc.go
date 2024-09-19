@@ -16,6 +16,6 @@
 // under the License.
 
 // +k8s:deepcopy-gen=package,register
-// Package v1 is the v1 version of the API.
+// Package meta_v1 is the meta_v1 version of the API.
 // +groupName=disaggregated.metaservice.doris.com
-package v1
+package meta_v1

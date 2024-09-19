@@ -19,10 +19,10 @@ package ms
 
 import (
 	"context"
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"

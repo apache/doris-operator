@@ -21,7 +21,7 @@ import (
 	"context"
 	"crypto/x509/pkix"
 	"fmt"
-	"github.com/selectdb/doris-operator/pkg/common/utils/certificate"
+	"github.com/apache/doris-operator/pkg/common/utils/certificate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

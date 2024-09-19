@@ -34,7 +34,7 @@ limitations under the License.
 package controller
 
 import (
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"path/filepath"
 	"testing"
 

@@ -72,7 +72,7 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=helm-charts/doris-operator/crds
-	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/disaggregated/cluster/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/disaggregated/..." output:crd:artifacts:config=config/crd/bases
 	#cat config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml > config/crd/bases/crds.yaml
 	#cat config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml >> config/crd/bases/crds.yaml
 	#cat config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml >> config/crd/bases/crds.yaml
@@ -84,7 +84,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/doris/..."
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/disaggregated/cluster/..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/disaggregated/..."
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -199,8 +199,8 @@ gen-tool: ## Download gen-crd-api-reference-docs locally if necessary.
 .PHONY: gen-api
 gen-api: gen-tool
 	$(GEN_DOCS) -api-dir "./api/doris/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/api.md"
-	$(GEN_DOCS) -api-dir "./api/disaggregated/cluster/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_cluster_api.md"
-	#$(GEN_DOCS) -api-dir "./api/disaggregated/metaservice/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_metaservice_api.md"
+	$(GEN_DOCS) -api-dir "./api/disaggregated/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_api.md"
+	#$(GEN_DOCS) -api-dir "./api/disaggregated/metaservice/meta_v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_metaservice_api.md"
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.

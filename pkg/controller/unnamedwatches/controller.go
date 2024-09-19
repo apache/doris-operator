@@ -19,7 +19,7 @@ package unnamedwatches
 
 import (
 	"context"
-	pc "github.com/selectdb/doris-operator/pkg/controller"
+	pc "github.com/apache/doris-operator/pkg/controller"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"

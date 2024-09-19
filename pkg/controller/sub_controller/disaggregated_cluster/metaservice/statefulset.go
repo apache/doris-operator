@@ -2,11 +2,11 @@ package metaservice
 
 import (
 	"context"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/metadata"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kr "k8s.io/apimachinery/pkg/api/resource"
@@ -24,20 +24,20 @@ const (
 
 func (dms *DisaggregatedMSController) newMSPodsSelector(ddcName string) map[string]string {
 	return map[string]string{
-		dv1.DorisDisaggregatedClusterName:    ddcName,
-		dv1.DorisDisaggregatedPodType:        "ms",
-		dv1.DorisDisaggregatedOwnerReference: ddcName,
+		v1.DorisDisaggregatedClusterName:    ddcName,
+		v1.DorisDisaggregatedPodType:        "ms",
+		v1.DorisDisaggregatedOwnerReference: ddcName,
 	}
 }
 
 func (dms *DisaggregatedMSController) newMSSchedulerLabels(ddcName string) map[string]string {
 	return map[string]string{
-		dv1.DorisDisaggregatedClusterName: ddcName,
-		dv1.DorisDisaggregatedPodType:     "ms",
+		v1.DorisDisaggregatedClusterName: ddcName,
+		v1.DorisDisaggregatedPodType:     "ms",
 	}
 }
 
-func (dms *DisaggregatedMSController) newStatefulset(ddc *dv1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
+func (dms *DisaggregatedMSController) newStatefulset(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	st := dms.NewDefaultStatefulset(ddc)
 	func() {
 		st.Name = ddc.GetMSStatefulsetName()
@@ -59,7 +59,7 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *dv1.DorisDisaggregated
 		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
 	}
 
-	replicas := metadata.GetInt32Pointer(dv1.DefaultMetaserviceNumber)
+	replicas := metadata.GetInt32Pointer(v1.DefaultMetaserviceNumber)
 
 	func() {
 		st.Spec.Replicas = replicas
@@ -74,8 +74,8 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *dv1.DorisDisaggregated
 	return st
 }
 
-func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
-	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, dv1.DisaggregatedMS)
+func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
+	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 	//pod template metadata.
 	func() {
 		l := (resource.Labels)(selector)
@@ -89,12 +89,12 @@ func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *dv1.DorisDisaggreg
 	configVolumes, _ := dms.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.MetaService.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
-	pts.Spec.Affinity = dms.ConstructDefaultAffinity(dv1.DorisDisaggregatedClusterName, selector[dv1.DorisDisaggregatedClusterName], ddc.Spec.MetaService.Affinity)
+	pts.Spec.Affinity = dms.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, selector[v1.DorisDisaggregatedClusterName], ddc.Spec.MetaService.Affinity)
 
 	return pts
 }
 
-func (dms *DisaggregatedMSController) buildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, ms *dv1.MetaService) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+func (dms *DisaggregatedMSController) buildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, ms *v1.MetaService) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
 	if ms.PersistentVolume == nil {
 		vs, vms := dms.getDefaultVolumesVolumeMounts(confMap)
 		return vs, vms, nil
@@ -170,20 +170,20 @@ func (dms *DisaggregatedMSController) getLogPath(confMap map[string]interface{})
 	return path
 }
 
-func (dms *DisaggregatedMSController) NewMSContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
+func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.MetaService.CommonSpec)
 
-	resource.LifeCycleWithPreStopScript(c.Lifecycle, sc.GetDisaggregatedPreStopScript(dv1.DisaggregatedMS))
-	cmd, args := sc.GetDisaggregatedCommand(dv1.DisaggregatedMS)
+	resource.LifeCycleWithPreStopScript(c.Lifecycle, sc.GetDisaggregatedPreStopScript(v1.DisaggregatedMS))
+	cmd, args := sc.GetDisaggregatedCommand(v1.DisaggregatedMS)
 	c.Command = cmd
 	c.Args = args
 	c.Name = "metaservice"
 
-	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedMS)
+	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedMS)
 	c.Env = ddc.Spec.MetaService.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dms.newSpecificEnvs(ddc)...)
-	resource.BuildDisaggregatedProbe(&c, ddc.Spec.MetaService.StartTimeout, dv1.DisaggregatedMS)
+	resource.BuildDisaggregatedProbe(&c, ddc.Spec.MetaService.StartTimeout, v1.DisaggregatedMS)
 	_, vms, _ := dms.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.MetaService)
 	_, cmvms := dms.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.MetaService.ConfigMaps)
 	c.VolumeMounts = vms
@@ -196,7 +196,7 @@ func (dms *DisaggregatedMSController) NewMSContainer(ddc *dv1.DorisDisaggregated
 	return c
 }
 
-func (dms *DisaggregatedMSController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
+func (dms *DisaggregatedMSController) newSpecificEnvs(ddc *v1.DorisDisaggregatedCluster) []corev1.EnvVar {
 	msSpec := ddc.Spec.MetaService
 	if msSpec.FDB.Address == "" && (msSpec.FDB.ConfigMapNamespaceName.Namespace == "" || msSpec.FDB.ConfigMapNamespaceName.Name == "") {
 		dms.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.FDBAddressNotConfiged), "fdb not configed in spec")

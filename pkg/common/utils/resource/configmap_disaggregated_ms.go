@@ -19,7 +19,7 @@ package resource
 
 import (
 	"bytes"
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"

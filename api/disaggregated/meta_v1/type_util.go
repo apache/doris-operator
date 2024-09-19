@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package v1
+package meta_v1
 
 import (
-	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
+	"github.com/apache/doris-operator/pkg/common/utils/metadata"
 )
 
 var (

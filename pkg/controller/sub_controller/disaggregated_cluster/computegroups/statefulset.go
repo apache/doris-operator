@@ -19,9 +19,9 @@ package computegroups
 
 import (
 	"encoding/json"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	sub "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kr "k8s.io/apimachinery/pkg/api/resource"

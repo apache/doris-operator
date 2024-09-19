@@ -1,20 +1,3 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 /*
 Copyright 2023.
 
@@ -35,9 +18,11 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/selectdb/doris-operator/client/clientset/versioned"
-	dorisv1 "github.com/selectdb/doris-operator/client/clientset/versioned/typed/doris/v1"
-	fakedorisv1 "github.com/selectdb/doris-operator/client/clientset/versioned/typed/doris/v1/fake"
+	clientset "github.com/apache/doris-operator/client/clientset/versioned"
+	disaggregatedv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/disaggregated/v1"
+	fakedisaggregatedv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/disaggregated/v1/fake"
+	dorisv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/doris/v1"
+	fakedorisv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/doris/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -94,6 +79,11 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
+
+// DisaggregatedV1 retrieves the DisaggregatedV1Client
+func (c *Clientset) DisaggregatedV1() disaggregatedv1.DisaggregatedV1Interface {
+	return &fakedisaggregatedv1.FakeDisaggregatedV1{Fake: &c.Fake}
+}
 
 // DorisV1 retrieves the DorisV1Client
 func (c *Clientset) DorisV1() dorisv1.DorisV1Interface {

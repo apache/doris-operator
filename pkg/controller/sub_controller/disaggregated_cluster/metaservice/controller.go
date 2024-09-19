@@ -2,10 +2,10 @@ package metaservice
 
 import (
 	"context"
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	sc "github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,7 +21,7 @@ type DisaggregatedMSController struct {
 }
 
 func (dms *DisaggregatedMSController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
-	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+	ddc := obj.(*v1.DorisDisaggregatedCluster)
 
 	statefulsetName := ddc.GetMSStatefulsetName()
 	serviceName := ddc.GetMSServiceName()
@@ -54,7 +54,7 @@ func (dms *DisaggregatedMSController) UpdateComponentStatus(obj client.Object) e
 	var creatingReplicas int32
 	var failedReplicas int32
 
-	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+	ddc := obj.(*v1.DorisDisaggregatedCluster)
 
 	msSpec := ddc.Spec.MetaService
 	confMap := dms.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.MS_RESOLVEKEY, msSpec.ConfigMaps)
@@ -82,8 +82,8 @@ func (dms *DisaggregatedMSController) UpdateComponentStatus(obj client.Object) e
 	}
 
 	if availableReplicas > 0 {
-		ddc.Status.MetaServiceStatus.AvailableStatus = dv1.Available
-		ddc.Status.MetaServiceStatus.Phase = dv1.Ready
+		ddc.Status.MetaServiceStatus.AvailableStatus = v1.Available
+		ddc.Status.MetaServiceStatus.Phase = v1.Ready
 	}
 
 	return nil
@@ -105,7 +105,7 @@ func New(mgr ctrl.Manager) *DisaggregatedMSController {
 }
 
 func (dms *DisaggregatedMSController) Sync(ctx context.Context, obj client.Object) error {
-	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+	ddc := obj.(*v1.DorisDisaggregatedCluster)
 	msSpec := ddc.Spec.MetaService
 	confMap := dms.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.MS_RESOLVEKEY, msSpec.ConfigMaps)
 	svc := dms.newService(ddc, confMap)
@@ -149,7 +149,7 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	if err := k8s.ApplyStatefulSet(ctx, dms.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
+		return resource.StatefulsetDeepEqualWithOmitKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
 		klog.Errorf("dms controller reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
@@ -158,12 +158,12 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 	return nil, nil
 }
 
-func (dms *DisaggregatedMSController) initMSStatus(ddc *dv1.DorisDisaggregatedCluster) {
-	initPhase := dv1.Reconciling
+func (dms *DisaggregatedMSController) initMSStatus(ddc *v1.DorisDisaggregatedCluster) {
+	initPhase := v1.Reconciling
 	if ddc.Status.MetaServiceStatus.Phase != "" {
 		initPhase = ddc.Status.MetaServiceStatus.Phase
 	}
 	//re initial status to un available
-	ddc.Status.MetaServiceStatus.AvailableStatus = dv1.UnAvailable
+	ddc.Status.MetaServiceStatus.AvailableStatus = v1.UnAvailable
 	ddc.Status.MetaServiceStatus.Phase = initPhase
 }
