@@ -19,7 +19,7 @@ apiVersion: v2
 name: doris-operator
 description: Doris-operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn，broker components.
 
-icon: https://charts.selectdb.com/images/selectdb.jpg
+icon: https://charts.selectdb.com/images/doris.jpg
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -30,6 +30,10 @@ icon: https://charts.selectdb.com/images/selectdb.jpg
 # a dependency of application charts to inject those utilities and functions into the rendering
 # pipeline. Library charts do not define any templates and therefore cannot be deployed.
 type: application
+
+maintainers:
+  - name: Dechao Hu
+    email: hudechao@selectdb.com
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
@@ -42,8 +46,16 @@ version: 1.6.1
 # It is recommended to use it with quotes.
 appVersion: "1.6.1"
 
+kubeVersion: ">= 1.19"
+
+keywords:
+  - doris
+  - database
+  - olap
+  - sharding
+
 
 sources:
-  - https://github.com/apache/doris
+  - https://github.com/apache/doris-operator
 
-home: https://github.com/selectdb/doris-operator
+home: https://doris.apache.org

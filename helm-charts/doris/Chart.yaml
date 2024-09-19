@@ -31,6 +31,10 @@ icon: https://charts.selectdb.com/images/doris.jpg
 # pipeline. Library charts do not define any templates and therefore cannot be deployed.
 type: application
 
+maintainers:
+  - name: Dechao Hu
+    email: hudechao@selectdb.com
+
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
@@ -42,8 +46,16 @@ version: 1.6.1
 # It is recommended to use it with quotes.
 appVersion: "2.1.2"
 
+kubeVersion: ">= 1.19"
+
+keywords:
+  - doris
+  - database
+  - olap
+  - sharding
 
 sources:
   - https://github.com/apache/doris
+  - https://github.com/apache/doris-operator
 
-home: https://github.com/selectdb/doris-operator
+home: https://doris.apache.org
