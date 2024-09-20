@@ -16,7 +16,7 @@
 # under the License.
 
 # Build the manager binary
-FROM golang:1.21.12 AS builder
+FROM golang:1.22.4 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
