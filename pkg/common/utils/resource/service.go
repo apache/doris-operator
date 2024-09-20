@@ -170,6 +170,7 @@ func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	rpcPort := GetPort(config, RPC_PORT)
 	queryPort := GetPort(config, QUERY_PORT)
 	editPort := GetPort(config, EDIT_LOG_PORT)
+	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
 	ports = append(ports, corev1.ServicePort{
 		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: GetPortKey(HTTP_PORT),
 	}, corev1.ServicePort{
@@ -177,7 +178,10 @@ func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	}, corev1.ServicePort{
 		Port: queryPort, TargetPort: intstr.FromInt(int(queryPort)), Name: GetPortKey(QUERY_PORT),
 	}, corev1.ServicePort{
-		Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: GetPortKey(EDIT_LOG_PORT)})
+		Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: GetPortKey(EDIT_LOG_PORT),
+	}, corev1.ServicePort{
+		Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
+	})
 
 	return
 }
@@ -187,6 +191,7 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	webseverPort := GetPort(config, WEBSERVER_PORT)
 	heartPort := GetPort(config, HEARTBEAT_SERVICE_PORT)
 	brpcPort := GetPort(config, BRPC_PORT)
+	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
 
 	ports = append(ports, corev1.ServicePort{
 		Port: bePort, TargetPort: intstr.FromInt(int(bePort)), Name: GetPortKey(BE_PORT),
@@ -196,6 +201,8 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 		Port: heartPort, TargetPort: intstr.FromInt(int(heartPort)), Name: GetPortKey(HEARTBEAT_SERVICE_PORT),
 	}, corev1.ServicePort{
 		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: GetPortKey(BRPC_PORT),
+	}, corev1.ServicePort{
+		Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
 	})
 
 	return
@@ -310,6 +317,8 @@ func GetPortKey(configKey string) string {
 		return strings.ReplaceAll(BROKER_IPC_PORT, "_", "-")
 	case BRPC_LISTEN_PORT:
 		return "brpc-port"
+	case ARROW_FLIGHT_SQL_PORT:
+		return "arrow-flight-port"
 	default:
 		return ""
 	}

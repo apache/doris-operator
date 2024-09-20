@@ -55,6 +55,8 @@ const (
 	DefaultMsTokenKey = "http_token"
 )
 
+const ARROW_FLIGHT_SQL_PORT = "arrow_flight_sql_port"
+
 const BROKER_IPC_PORT = "broker_ipc_port"
 const GRACE_SHUTDOWN_WAIT_SECONDS = "grace_shutdown_wait_seconds"
 
@@ -75,6 +77,7 @@ var defMap = map[string]int32{
 	BRPC_PORT:              8060,
 	BROKER_IPC_PORT:        8000,
 	BRPC_LISTEN_PORT:       5000,
+	ARROW_FLIGHT_SQL_PORT:  9090,
 }
 
 // GetStartMode return fe host type, fqdn(host) or ip, from 'fe.conf' enable_fqdn_mode
