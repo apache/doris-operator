@@ -18,7 +18,9 @@
 package v1
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"math/big"
 	"strings"
 )
 
@@ -55,6 +57,23 @@ func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
 	instanceId := ddc.Namespace + "-" + ddc.Name
 	// need config in vaultConfigMap.
 	return instanceId
+}
+
+func (ddc *DorisDisaggregatedCluster) GetInstanceHashId() int64 {
+	instanceId := ddc.Namespace + "-" + ddc.Name
+
+	hasher := sha256.New()
+	hasher.Write([]byte(instanceId))
+	hashBytes := hasher.Sum(nil)
+	hashInt := new(big.Int).SetBytes(hashBytes)
+
+	rangeStart := big.NewInt(1000000000)
+	rangeEnd := big.NewInt(2000000000)
+	rangeSize := new(big.Int).Sub(rangeEnd, rangeStart)
+
+	hashMod := new(big.Int).Mod(hashInt, rangeSize)
+	res := new(big.Int).Add(hashMod, rangeStart)
+	return res.Int64()
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCGId(cg *ComputeGroup) string {
