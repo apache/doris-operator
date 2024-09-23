@@ -20,7 +20,7 @@ package resource
 import (
 	"bytes"
 	"errors"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"

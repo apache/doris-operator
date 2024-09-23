@@ -18,7 +18,7 @@
 package conf
 
 import (
-	"github.com/selectdb/doris-operator/pkg/controller"
+	"github.com/apache/doris-operator/pkg/controller"
 	"os"
 )
 

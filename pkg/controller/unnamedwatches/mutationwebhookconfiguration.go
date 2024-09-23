@@ -19,7 +19,7 @@ package unnamedwatches
 
 import (
 	"context"
-	"github.com/selectdb/doris-operator/pkg/common/utils/certificate"
+	"github.com/apache/doris-operator/pkg/common/utils/certificate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"

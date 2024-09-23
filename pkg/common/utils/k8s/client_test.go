@@ -3,7 +3,7 @@ package k8s
 import (
 	"context"
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

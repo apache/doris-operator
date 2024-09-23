@@ -21,8 +21,8 @@ import (
 	"context"
 	"strconv"
 
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
 )
 

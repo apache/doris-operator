@@ -18,8 +18,8 @@
 package resource
 
 import (
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -426,7 +426,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		prestopScript = BROKER_PRESTOP
 		commands = append(commands, HEALTH_BROKER_LIVE_COMMAND, strconv.Itoa(int(livenessPort)))
 	default:
-		klog.Infof("the componentType %s is not supported in probe.")
+		klog.Infof("the componentType %s is not supported in probe.", componentType)
 	}
 
 	// if tcpSocket the health_api_path will ignore.

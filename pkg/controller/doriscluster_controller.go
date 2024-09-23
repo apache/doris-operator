@@ -35,12 +35,12 @@ package controller
 
 import (
 	"context"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/be"
-	bk "github.com/selectdb/doris-operator/pkg/controller/sub_controller/broker"
-	cn "github.com/selectdb/doris-operator/pkg/controller/sub_controller/cn"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/fe"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
+	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
+	cn "github.com/apache/doris-operator/pkg/controller/sub_controller/cn"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/fe"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"

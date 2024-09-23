@@ -18,10 +18,10 @@
 package resource
 
 import (
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
-	"github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
-	"github.com/selectdb/doris-operator/pkg/common/utils/set"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/hash"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -112,7 +112,7 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 		exportService = dcr.Spec.CnSpec.Service
 		ports = getBeServicePorts(config)
 	default:
-		klog.Infof("BuildExternalService componentType %s not supported.")
+		klog.Infof("BuildExternalService componentType %s not supported.", componentType)
 	}
 
 	svc := corev1.Service{

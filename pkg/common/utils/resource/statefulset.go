@@ -18,9 +18,9 @@
 package resource
 
 import (
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
-	"github.com/selectdb/doris-operator/pkg/common/utils/metadata"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/hash"
+	"github.com/apache/doris-operator/pkg/common/utils/metadata"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

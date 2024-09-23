@@ -18,7 +18,7 @@
 package sub_controller
 
 import (
-	dv1 "github.com/selectdb/doris-operator/api/disaggregated/cluster/v1"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 )
 
 func GetDisaggregatedCommand(componentType dv1.DisaggregatedComponentType) (commands []string, args []string) {

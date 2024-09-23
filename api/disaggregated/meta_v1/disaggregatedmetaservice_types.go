@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package v1
+package meta_v1
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -58,11 +58,11 @@ type DorisDisaggregatedMetaServiceSpec struct {
 }
 
 type FoundationDB struct {
-	//Image is the fdb docker image to deploy. please reference the selectdb repository to find.
+	//Image is the fdb docker image to deploy. please reference the apache doris repository to find.
 	//usually no need config, operator will use default image.
 	Image string `json:"image,omitempty"`
 
-	//SidecarImage is the fdb sidecar image to deploy. pelease reference the selectdb repository to find.
+	//SidecarImage is the fdb sidecar image to deploy. pelease reference the apache doris repository to find.
 	SidecarImage string `json:"sidecarImage,omitempty"`
 
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.

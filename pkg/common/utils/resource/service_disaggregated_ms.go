@@ -18,8 +18,8 @@
 package resource
 
 import (
-	mv1 "github.com/selectdb/doris-operator/api/disaggregated/metaservice/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
