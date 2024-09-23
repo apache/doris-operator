@@ -179,9 +179,13 @@ func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 		Port: queryPort, TargetPort: intstr.FromInt(int(queryPort)), Name: GetPortKey(QUERY_PORT),
 	}, corev1.ServicePort{
 		Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: GetPortKey(EDIT_LOG_PORT),
-	}, corev1.ServicePort{
-		Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
 	})
+
+	if arrowFlightPort != -1 {
+		ports = append(ports, corev1.ServicePort{
+			Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
+		})
+	}
 
 	return
 }
@@ -201,9 +205,13 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 		Port: heartPort, TargetPort: intstr.FromInt(int(heartPort)), Name: GetPortKey(HEARTBEAT_SERVICE_PORT),
 	}, corev1.ServicePort{
 		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: GetPortKey(BRPC_PORT),
-	}, corev1.ServicePort{
-		Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
 	})
+
+	if arrowFlightPort != -1 {
+		ports = append(ports, corev1.ServicePort{
+			Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
+		})
+	}
 
 	return
 }
