@@ -73,6 +73,7 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 	bk.CheckConfigMountPath(dcr, v1.Component_Broker)
 	bk.CheckSecretMountPath(dcr, v1.Component_Broker)
+	bk.CheckSecretExist(ctx, dcr, v1.Component_Broker)
 	internalService := resource.BuildInternalService(dcr, v1.Component_Broker, config)
 	if err := k8s.ApplyService(ctx, bk.K8sclient, &internalService, resource.ServiceDeepEqual); err != nil {
 		klog.Errorf("broker controller sync apply internalService name=%s, namespace=%s, clusterName=%s failed.message=%s.",
@@ -88,11 +89,6 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		klog.Errorf("broker controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, dcr.Name, err.Error())
 		return err
-	}
-
-	// check if the secret exists in the namespace
-	if dcr.Spec.BrokerSpec.Secrets != nil {
-		k8s.CheckSecretExist(ctx, bk.K8sclient, dcr.Namespace, dcr.Spec.BrokerSpec.Secrets)
 	}
 
 	return nil

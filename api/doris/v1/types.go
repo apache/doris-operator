@@ -290,7 +290,7 @@ type Secret struct {
 	SecretName string `json:"secretName,omitempty"`
 
 	// Current Secret Mount Path, default is "/etc/doris"
-	// If Secret belongs to the same Secrets, their MountPath cannot be repeated.
+	// If Secret belongs to the same Secrets, their mountPath can't be repeated.
 	// +optional
 	MountPath string `json:"mountPath,omitempty"`
 }

@@ -69,6 +69,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 
 	be.CheckConfigMountPath(dcr, v1.Component_BE)
 	be.CheckSecretMountPath(dcr, v1.Component_BE)
+	be.CheckSecretExist(ctx, dcr, v1.Component_BE)
 	//generate new be service.
 	svc := resource.BuildExternalService(dcr, v1.Component_BE, config)
 	//create or update be external and domain search service, update the status of fe on src.
@@ -98,11 +99,6 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, dcr.Name, err.Error())
 		return err
-	}
-
-	// check if the secret exists in the namespace
-	if dcr.Spec.BeSpec.Secrets != nil {
-		k8s.CheckSecretExist(ctx, be.K8sclient, dcr.Namespace, dcr.Spec.BeSpec.Secrets)
 	}
 
 	return nil

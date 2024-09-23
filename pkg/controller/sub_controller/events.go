@@ -72,6 +72,7 @@ var (
 	InstanceIdModified                EventReason = "InstanceIdModified"
 	ConfigMapPathRepeated             EventReason = "ConfigMapPathRepeated"
 	SecretPathRepeated                EventReason = "SecretPathRepeated"
+	SecretNotExist                    EventReason = "SecretNotExist"
 	WaitMetaServiceAvailable          EventReason = "WaitMetaServiceAvailable"
 	WaitFEAvailable                   EventReason = "WaitFEAvailable"
 	ServiceApplyedFailed              EventReason = "ServiceApplyedFailed"

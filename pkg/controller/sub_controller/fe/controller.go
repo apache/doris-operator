@@ -91,6 +91,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 	fc.CheckConfigMountPath(cluster, v1.Component_FE)
 	fc.CheckSecretMountPath(cluster, v1.Component_FE)
+	fc.CheckSecretExist(ctx, cluster, v1.Component_FE)
 
 	//generate new fe service.
 	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)
@@ -124,11 +125,6 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, cluster.Name, err.Error())
 		return err
-	}
-
-	// check if the secret exists in the namespace
-	if cluster.Spec.FeSpec.Secrets != nil {
-		k8s.CheckSecretExist(ctx, fc.K8sclient, cluster.Namespace, cluster.Spec.FeSpec.Secrets)
 	}
 
 	return nil

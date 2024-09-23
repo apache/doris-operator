@@ -76,6 +76,7 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 	}
 	cn.CheckConfigMountPath(dcr, dorisv1.Component_CN)
 	cn.CheckSecretMountPath(dcr, dorisv1.Component_CN)
+	cn.CheckSecretExist(ctx, dcr, dorisv1.Component_CN)
 	svc := resource.BuildExternalService(dcr, dorisv1.Component_CN, config)
 	internalSVC := resource.BuildInternalService(dcr, dorisv1.Component_CN, config)
 
@@ -100,11 +101,6 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s,failed. message=%s.",
 			cnStatefulSet.Name, cnStatefulSet.Namespace, err.Error())
 		return err
-	}
-
-	// check if the secret exists in the namespace
-	if dcr.Spec.CnSpec.Secrets != nil {
-		k8s.CheckSecretExist(ctx, cn.K8sclient, dcr.Namespace, dcr.Spec.CnSpec.Secrets)
 	}
 
 	//create autoscaler.

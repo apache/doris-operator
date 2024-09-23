@@ -29,15 +29,16 @@ import (
 )
 
 const (
-	config_env_path  = "/etc/doris"
-	ConfigEnvPath    = config_env_path
-	config_env_name  = "CONFIGMAP_MOUNT_PATH"
-	basic_auth_path  = "/etc/basic_auth"
-	auth_volume_name = "basic-auth"
-	be_storage_name  = "be-storage"
-	be_storage_path  = "/opt/apache-doris/be/storage"
-	fe_meta_path     = "/opt/apache-doris/fe/doris-meta"
-	fe_meta_name     = "fe-meta"
+	config_env_path    = "/etc/doris"
+	ConfigEnvPath      = config_env_path
+	secret_config_path = config_env_path
+	config_env_name    = "CONFIGMAP_MOUNT_PATH"
+	basic_auth_path    = "/etc/basic_auth"
+	auth_volume_name   = "basic-auth"
+	be_storage_name    = "be-storage"
+	be_storage_path    = "/opt/apache-doris/be/storage"
+	fe_meta_path       = "/opt/apache-doris/fe/doris-meta"
+	fe_meta_name       = "fe-meta"
 
 	HEALTH_API_PATH            = "/api/health"
 	HEALTH_BROKER_LIVE_COMMAND = "/opt/apache-doris/broker_is_alive.sh"
@@ -692,14 +693,10 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 
-	if bSpec.Secrets == nil {
-		return volumes, volumeMounts
-	}
-
 	defaultMountPath := ""
 	switch componentType {
 	case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
-		defaultMountPath = config_env_path
+		defaultMountPath = secret_config_path
 	default:
 		klog.Infof("getMultiSecretVolumeAndVolumeMount componentType %s not supported.", componentType)
 	}
