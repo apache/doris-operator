@@ -72,7 +72,7 @@ func Test_ApplyStatefulSet(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test2",
 				Namespace: "test",
-			}, Spec: appv1.StatefulSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "test2"}}}}}
+			}, Spec: appv1.StatefulSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "test2"}}, Replicas: pointer.Int32(1)}}}
 
 	fakeClient := fake.NewClientBuilder().WithObjects(svcs...).Build()
 	tsts := []*appv1.StatefulSet{
@@ -88,14 +88,14 @@ func Test_ApplyStatefulSet(t *testing.T) {
 				Name:      "test2",
 				Namespace: "test",
 			},
-			Spec: appv1.StatefulSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "test2"}}},
+			Spec: appv1.StatefulSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "test2"}}, Replicas: pointer.Int32(1)},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test2",
 				Namespace: "test",
 			},
-			Spec: appv1.StatefulSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "test2"}}, Replicas: pointer.Int32(1)},
+			Spec: appv1.StatefulSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "test2"}}, Replicas: pointer.Int32(1), Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "fe", Image: "test"}}}}},
 		},
 	}
 
