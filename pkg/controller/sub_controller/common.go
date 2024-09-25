@@ -26,9 +26,9 @@ func GetDisaggregatedCommand(componentType dv1.DisaggregatedComponentType) (comm
 	case dv1.DisaggregatedFE:
 		return []string{"/opt/apache-doris/fe_disaggregated_entrypoint.sh"}, []string{}
 	case dv1.DisaggregatedBE:
-		return []string{"/opt/apache-doris/be_disaggregated_entrypoint.sh"}, []string{}
+		return []string{"/opt/apache-doris/be_disaggregated_entrypoint.sh"}, []string{"$(ENV_FE_ADDR)"}
 	case dv1.DisaggregatedMS:
-		return []string{"/opt/apache-doris/ms_disaggregated_entrypoint.sh"}, []string{"meta-service"}
+		return []string{"/opt/apache-doris/ms_disaggregated_entrypoint.sh"}, []string{}
 	default:
 		return nil, nil
 	}

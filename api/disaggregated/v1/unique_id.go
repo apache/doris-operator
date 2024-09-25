@@ -18,7 +18,6 @@
 package v1
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -33,54 +32,8 @@ func newCGStatefulsetName(ddcName /*dorisDisaggregatedCluster Name*/, cgName /*c
 	return stName
 }
 
-func newCGCloudUniqueIdPre(instanceId string) string {
-	return fmt.Sprintf("1:%s", instanceId)
-}
-
 func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
-	//ccStsName := ""
-	//for _, ccs := range ddc.Status.ComputeGroupStatuses {
-	//	if ccs.ComputeClusterName == cg.Name || ccs.ClusterId == cg.ClusterId {
-	//		ccStsName = ccs.StatefulsetName
-	//	}
-	//}
-	//
-	//if ccStsName != "" {
-	//	return ccStsName
-	//}
 	return newCGStatefulsetName(ddc.Name, cg.UniqueId)
-}
-
-func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
-	instanceId := ddc.Namespace + "-" + ddc.Name
-	// need config in vaultConfigMap.
-	return instanceId
-}
-
-func (ddc *DorisDisaggregatedCluster) GetCGId(cg *ComputeGroup) string {
-	if cg == nil || ddc == nil {
-		return ""
-	}
-	//for _, ccs := range ddc.Status.ComputeGroupStatuses {
-	//	if cg.Name == ccs.ComputeClusterName || cg.ClusterId == ccs.ClusterId {
-	//		return cg.ClusterId
-	//	}
-	//}
-	//
-	//stsName := ddc.GetCGStatefulsetName(cg)
-	////update cg' clusterId for auto assemble, if not config.
-	//if cg.ClusterId == "" {
-	//	cg.ClusterId = newCCId(ddc.Namespace, stsName)
-	//}
-	//
-	//return cg.ClusterId
-	stsName := ddc.GetCGStatefulsetName(cg)
-	clusterId := strings.ReplaceAll(stsName, "-", "_")
-	return clusterId
-}
-
-func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre() string {
-	return newCGCloudUniqueIdPre(ddc.GetInstanceId())
 }
 
 func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
@@ -92,20 +45,6 @@ func (ddc *DorisDisaggregatedCluster) GetMSStatefulsetName() string {
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string {
-	//svcName := ""
-	//for _, ccs := range ddc.Status.ComputeGroupStatuses {
-	//	if ccs.ComputeClusterName == cc.Name || ccs.ClusterId == cc.ClusterId {
-	//		svcName = ccs.ServiceName
-	//	}
-	//}
-	//
-	//if svcName != "" {
-	//	return svcName
-	//}
-	//
-	//svcName = ddc.Name + "-" + cc.Name
-	//svcName = strings.ReplaceAll(svcName, "_", "-")
-	//return svcName
 	svcName := ddc.Name + "-" + cg.UniqueId
 	svcName = strings.ReplaceAll(svcName, "_", "-")
 	return svcName

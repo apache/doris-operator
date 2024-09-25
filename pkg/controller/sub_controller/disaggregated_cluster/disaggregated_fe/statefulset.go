@@ -270,7 +270,6 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: CLUSTER_ID, Value: ms_http.FeClusterId},
 		corev1.EnvVar{Name: CLUSTER_NAME, Value: ms_http.FeClusterName},
 		corev1.EnvVar{Name: INSTANCE_NAME, Value: ddc.Name},
-		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: MS_TOKEN, Value: ms_token},
 		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(DefaultElectionNumber), 10)},

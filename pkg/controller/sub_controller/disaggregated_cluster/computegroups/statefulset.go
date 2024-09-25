@@ -29,17 +29,7 @@ import (
 	"k8s.io/klog/v2"
 	"os"
 	"strconv"
-)
-
-// env key
-const (
-	MS_ENDPOINT         string = "MS_ENDPOINT"
-	CLOUD_UNIQUE_ID_PRE string = "CLOUD_UNIQUE_ID_PRE"
-	CLUSTER_ID          string = "CLUSTER_ID"
-	STATEFULSET_NAME    string = "STATEFULSET_NAME"
-	INSTANCE_ID         string = "INSTANCE_ID"
-	INSTANCE_NAME       string = "INSTANCE_NAME"
-	MS_TOKEN            string = "MS_TOKEN"
+	"strings"
 )
 
 const (
@@ -60,31 +50,31 @@ const (
 )
 
 // generate statefulset or service labels
-func (dcgs *DisaggregatedComputeGroupsController) newCG2LayerSchedulerLabels(ddcName /*DisaggregatedClusterName*/, cgClusterId string) map[string]string {
+func (dcgs *DisaggregatedComputeGroupsController) newCG2LayerSchedulerLabels(ddcName /*DisaggregatedClusterName*/, uniqueId string) map[string]string {
 	return map[string]string{
-		dv1.DorisDisaggregatedClusterName:           ddcName,
-		dv1.DorisDisaggregatedComputeGroupClusterId: cgClusterId,
-		dv1.DorisDisaggregatedOwnerReference:        ddcName,
+		dv1.DorisDisaggregatedClusterName:          ddcName,
+		dv1.DorisDisaggregatedComputeGroupUniqueId: uniqueId,
+		dv1.DorisDisaggregatedOwnerReference:       ddcName,
 	}
 }
 
-func (dcgs *DisaggregatedComputeGroupsController) newCGPodsSelector(ddcName /*DisaggregatedClusterName*/, cgClusterId string) map[string]string {
+func (dcgs *DisaggregatedComputeGroupsController) newCGPodsSelector(ddcName /*DisaggregatedClusterName*/, uniqueId string) map[string]string {
 	return map[string]string{
-		dv1.DorisDisaggregatedClusterName:           ddcName,
-		dv1.DorisDisaggregatedComputeGroupClusterId: cgClusterId,
-		dv1.DorisDisaggregatedPodType:               "compute",
+		dv1.DorisDisaggregatedClusterName:          ddcName,
+		dv1.DorisDisaggregatedComputeGroupUniqueId: uniqueId,
+		dv1.DorisDisaggregatedPodType:              "compute",
 	}
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *appv1.StatefulSet {
 	st := dcgs.NewDefaultStatefulset(ddc)
-	cgClusterId := ddc.GetCGId(cg)
-	matchLabels := dcgs.newCGPodsSelector(ddc.Name, cgClusterId)
+	uniqueId := cg.UniqueId
+	matchLabels := dcgs.newCGPodsSelector(ddc.Name, uniqueId)
 
 	//build metadata
 	func() {
 		st.Name = ddc.GetCGStatefulsetName(cg)
-		st.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Name, cgClusterId)
+		st.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Name, uniqueId)
 	}()
 
 	// build st.spec
@@ -120,8 +110,8 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 
-	cgClusterId := selector[dv1.DorisDisaggregatedComputeGroupClusterId]
-	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupClusterId, cgClusterId, pts.Spec.Affinity)
+	cgClusterId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
+	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgClusterId, pts.Spec.Affinity)
 
 	return pts
 }
@@ -324,22 +314,23 @@ func (dcgs *DisaggregatedComputeGroupsController) getLogPath(cvs map[string]inte
 	return path
 }
 
+// add specific envs for be, the env will used by be_disaggregated_entrypoint script.
 func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) []corev1.EnvVar {
 	var cgEnvs []corev1.EnvVar
 	stsName := ddc.GetCGStatefulsetName(cg)
-	clusterId := ddc.GetCGId(cg)
-	cloudUniqueIdPre := ddc.GetCGCloudUniqueIdPre()
+	//use uniqueId as compute group name, the uniqueId restrict not empty, and the computegroup's name should use "_" not "-"
+	cgn := strings.ReplaceAll(cg.UniqueId, "-", "_")
 
-	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
-	ms_endpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
-	ms_token := ddc.Status.MetaServiceStatus.MsToken
+	//get fe config for find query port
+	confMap := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, ddc.Spec.FeSpec.ConfigMaps)
+	fqp := resource.GetPort(confMap, resource.QUERY_PORT)
+	fqpStr := strconv.FormatInt(int64(fqp), 10)
+	//use fe service name as access address.
+	feAddr := ddc.GetFEServiceName()
 	cgEnvs = append(cgEnvs,
-		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
-		corev1.EnvVar{Name: CLOUD_UNIQUE_ID_PRE, Value: cloudUniqueIdPre},
-		corev1.EnvVar{Name: CLUSTER_ID, Value: clusterId},
-		corev1.EnvVar{Name: INSTANCE_NAME, Value: ddc.Name},
-		corev1.EnvVar{Name: INSTANCE_ID, Value: ddc.GetInstanceId()},
-		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
-		corev1.EnvVar{Name: MS_TOKEN, Value: ms_token})
+		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
+		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: cgn},
+		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
+		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
 	return cgEnvs
 }
