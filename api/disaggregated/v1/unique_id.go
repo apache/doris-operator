@@ -35,21 +35,7 @@ func newCGStatefulsetName(ddcName /*dorisDisaggregatedCluster Name*/, cgName /*c
 	return stName
 }
 
-func newCGCloudUniqueIdPre(instanceId string) string {
-	return fmt.Sprintf("1:%s", instanceId)
-}
-
 func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
-	//ccStsName := ""
-	//for _, ccs := range ddc.Status.ComputeGroupStatuses {
-	//	if ccs.ComputeClusterName == cg.Name || ccs.ClusterId == cg.ClusterId {
-	//		ccStsName = ccs.StatefulsetName
-	//	}
-	//}
-	//
-	//if ccStsName != "" {
-	//	return ccStsName
-	//}
 	return newCGStatefulsetName(ddc.Name, cg.UniqueId)
 }
 
@@ -111,20 +97,6 @@ func (ddc *DorisDisaggregatedCluster) GetMSStatefulsetName() string {
 }
 
 func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string {
-	//svcName := ""
-	//for _, ccs := range ddc.Status.ComputeGroupStatuses {
-	//	if ccs.ComputeClusterName == cc.Name || ccs.ClusterId == cc.ClusterId {
-	//		svcName = ccs.ServiceName
-	//	}
-	//}
-	//
-	//if svcName != "" {
-	//	return svcName
-	//}
-	//
-	//svcName = ddc.Name + "-" + cc.Name
-	//svcName = strings.ReplaceAll(svcName, "_", "-")
-	//return svcName
 	svcName := ddc.Name + "-" + cg.UniqueId
 	svcName = strings.ReplaceAll(svcName, "_", "-")
 	return svcName
