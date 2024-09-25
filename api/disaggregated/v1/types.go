@@ -61,12 +61,6 @@ type FeSpec struct {
 
 // ComputeGroup describe the specification that a group of compute node.
 type ComputeGroup struct {
-	////Name is the identifier of ComputeGroup, name can be used specify what computeGroup to run sql. if not set, will use `computeGroup` and the index in array to set.ep: computeGroup-1.
-	//Name string `json:"name,omitempty"`
-	//
-	////ClusterId is the identifier of computeGroup, this will distinguish all com computeGroup in meta.
-	//ClusterId string `json:"clusterId,omitempty"`
-
 	//the unique identifier of compute group, first register in fe will use UniqueId as cluster name.
 	UniqueId string `json:"uniqueId"`
 
@@ -332,8 +326,7 @@ type ComputeGroupStatus struct {
 
 	//AvailableStatus represents the compute group available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
-	//ClusterId display  the clusterId of compute group in meta.
-	ClusterId string `json:"clusterId,omitempty"`
+
 	//suspend replicas display the replicas of compute group before resume.
 	SuspendReplicas int32 `json:"suspendReplicas,omitempty"`
 

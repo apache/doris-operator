@@ -295,7 +295,8 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 
 // dropFEFromHttpClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
 func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *v1.DorisDisaggregatedCluster) error {
-	feReplica := cluster.Spec.FeSpec.Replicas
+	//TODO: cancle for new sql interface debug
+	/*feReplica := cluster.Spec.FeSpec.Replicas
 
 	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
 	feCluster, err := ms_http.GetFECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), unionId)
@@ -331,7 +332,7 @@ func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *v1.DorisDisa
 		klog.Errorf("dropFEFromHttpClient DropFENodes response failed , response: %s", jsonData)
 		return err
 	}
-
+	*/
 	return nil
 }
 

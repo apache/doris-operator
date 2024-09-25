@@ -38,7 +38,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -84,8 +83,7 @@ func (dcgs *DisaggregatedComputeGroupsController) Sync(ctx context.Context, obj 
 
 	cgs := ddc.Spec.ComputeGroups
 	for i, _ := range cgs {
-		//// if be unique identifier updated, operator should revert it.
-		//dcgs.revertNotAllowedUpdateFields(ddc, &cgs[i])
+
 		if event, err := dcgs.computeGroupSync(ctx, ddc, &cgs[i]); err != nil {
 			if event != nil {
 				dcgs.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
@@ -168,9 +166,9 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 
 	var cgStatus *dv1.ComputeGroupStatus
 
-	clusterId := cluster.GetCGId(cg)
+	uniqueId := cg.UniqueId
 	for i := range cluster.Status.ComputeGroupStatuses {
-		if cluster.Status.ComputeGroupStatuses[i].ClusterId == clusterId {
+		if cluster.Status.ComputeGroupStatuses[i].UniqueId == uniqueId {
 			cgStatus = &cluster.Status.ComputeGroupStatuses[i]
 			break
 		}
@@ -197,7 +195,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 
 	switch scaleType {
 	case "resume":
-		err := ms_http.ResumeComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, clusterId)
+		err := ms_http.ResumeComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, "")
 		cgStatus.SuspendReplicas = 0
 		if err != nil {
 			cgStatus.Phase = dv1.ResumeFailed
@@ -218,7 +216,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		}
 		cgStatus.Phase = dv1.Scaling
 	case "suspend":
-		err := ms_http.SuspendComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, clusterId)
+		err := ms_http.SuspendComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, "")
 		if err != nil {
 			cgStatus.Phase = dv1.SuspendFailed
 			klog.Errorf("computeGroupSync SuspendComputeGroup response failed , err: %s", err.Error())
@@ -253,10 +251,10 @@ func getScaleType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
 // initial compute group status before sync resources. status changing with sync steps, and generate the last status by classify pods.
 func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) {
 	cgss := ddc.Status.ComputeGroupStatuses
-	clusterId := ddc.GetCGId(cg)
+	//clusterId := ddc.GetCGId(cg)
+	uniqueId := cg.UniqueId
 	defaultStatus := dv1.ComputeGroupStatus{
 		Phase:           dv1.Reconciling,
-		ClusterId:       clusterId,
 		UniqueId:        cg.UniqueId,
 		StatefulsetName: ddc.GetCGStatefulsetName(cg),
 		ServiceName:     ddc.GetCGServiceName(cg),
@@ -265,7 +263,7 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 	}
 
 	for i := range cgss {
-		if cgss[i].ClusterId == clusterId {
+		if cgss[i].UniqueId == uniqueId {
 			if cgss[i].Phase == dv1.ScaleDownFailed || cgss[i].Phase == dv1.Suspended ||
 				cgss[i].Phase == dv1.SuspendFailed || cgss[i].Phase == dv1.ResumeFailed ||
 				cgss[i].Phase == dv1.Scaling {
@@ -280,31 +278,8 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 	ddc.Status.ComputeGroupStatuses = append(ddc.Status.ComputeGroupStatuses, defaultStatus)
 }
 
-// clusterId and cloudUniqueId is not allowed update, when be mistakenly modified on these fields, operator should revert it by status fields.
-/*func (dccs *DisaggregatedComputeGroupsController) revertNotAllowedUpdateFields(ddc *dv1.DorisDisaggregatedCluster, cc *dv1.ComputeGroup) {
-	for _, ccs := range ddc.Status.ComputeGroupStatuses {
-		if (ccs.ComputeClusterName != "" && ccs.ComputeClusterName == cc.Name) || (ccs.ClusterId != "" && ccs.ClusterId == cc.ClusterId) {
-			if ccs.ClusterId != "" && ccs.ClusterId != cc.ClusterId {
-				cc.ClusterId = ccs.ClusterId
-			}
-		}
-	}
-}*/
-
 // check compute groups unique identifier duplicated or not. return duplicated key.
 func (dcgs *DisaggregatedComputeGroupsController) validateDuplicated(cgs []dv1.ComputeGroup) string {
-	/*	n_d, _ := validateCCNameDuplicated(cgs)
-		cid_d, _ := validateCCIdDuplicated(cgs)
-		ds := n_d
-		if cid_d != "" {
-			ds = ds + ";" + cid_d
-		}
-
-		if ds == "" {
-			return ds, false
-		}
-		return ds, true*/
-
 	dupl := ""
 	uniqueIds := set.NewSetString()
 	for _, cg := range cgs {
@@ -336,33 +311,6 @@ func (dcgs *DisaggregatedComputeGroupsController) validateRegex(cgs []dv1.Comput
 
 	return "", true
 }
-
-/*// validate the name of compute group is duplicated or not in compute group.
-// the cc name must be configured.
-func validateCCNameDuplicated(ccs []dv1.ComputeGroup) (string, bool) {
-	ss := set.NewSetString()
-	for _, cc := range ccs {
-		if ss.Find(cc.Name) {
-			return cc.Name, true
-		}
-		ss.Add(cc.Name)
-	}
-
-	return "", false
-}
-
-// if cluster id have already configured, checking repeating or not. if not configured ignoring check.
-func validateCCIdDuplicated(ccs []dv1.ComputeGroup) (string, bool) {
-	scids := set.NewSetString()
-	for _, cc := range ccs {
-		if cc.ClusterId != "" && scids.Find(cc.ClusterId) {
-			return cc.ClusterId, true
-		}
-		scids.Add(cc.ClusterId)
-	}
-	return "", false
-}
-*/
 
 // clear not configed cg resources, delete not configed cg status from ddc.status .
 func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
@@ -441,8 +389,11 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, cgs dv1.ComputeGroupStatus) error {
 	var cg *dv1.ComputeGroup
 	for i := range ddc.Spec.ComputeGroups {
-		clusterId := ddc.GetCGId(&ddc.Spec.ComputeGroups[i])
-		if clusterId == cgs.ClusterId {
+		/*	uniqueId := ddc.GetCGId(&ddc.Spec.ComputeGroups[i])
+			if clusterId == cgs.ClusterId {
+				cg = &ddc.Spec.ComputeGroups[i]
+			}*/
+		if ddc.Spec.ComputeGroups[i].UniqueId == cgs.UniqueId {
 			cg = &ddc.Spec.ComputeGroups[i]
 		}
 	}
@@ -450,7 +401,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 	currentPVCs := corev1.PersistentVolumeClaimList{}
 	pvcMap := make(map[string]*corev1.PersistentVolumeClaim)
 
-	pvcLabels := dcgs.newCGPodsSelector(ddc.Name, cgs.ClusterId)
+	pvcLabels := dcgs.newCGPodsSelector(ddc.Name, cgs.UniqueId)
 
 	if err := dcgs.K8sclient.List(ctx, &currentPVCs, client.InNamespace(ddc.Namespace), client.MatchingLabels(pvcLabels)); err != nil {
 		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCListFailed, fmt.Sprintf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs list pvc failed:%s!", err.Error()))
@@ -552,7 +503,7 @@ func (dcgs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisDisaggregatedCluster, cgs *dv1.ComputeGroupStatus) error {
-	selector := dcgs.newCGPodsSelector(ddc.Name, cgs.ClusterId)
+	selector := dcgs.newCGPodsSelector(ddc.Name, cgs.UniqueId)
 	var podList corev1.PodList
 	if err := dcgs.K8sclient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
 		return err
@@ -580,11 +531,12 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 }
 
 func (dfc *DisaggregatedComputeGroupsController) dropCGFromHttpClient(cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) error {
+	/* TODO: cancel for sql interface debug
 	cgReplica := cg.Replicas
 
 	// drop be can also use the unique id of fe
-	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
-	clusterId := cluster.GetCGId(cg)
+	//unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
+	//clusterId := cluster.GetCGId(cg)
 	cgNodes, err := ms_http.GetBECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, unionId, clusterId)
 	if err != nil {
 		klog.Errorf("dropCGFromHttpClient GetBECluster failed, err:%s ", err.Error())
@@ -624,7 +576,7 @@ func (dfc *DisaggregatedComputeGroupsController) dropCGFromHttpClient(cluster *d
 		jsonData, _ := json.Marshal(specifyCluster)
 		klog.Errorf("dropCGFromHttpClient DropBENodes response failed , response: %s", jsonData)
 		return err
-	}
+	}*/
 
 	return nil
 }
