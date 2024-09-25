@@ -108,7 +108,7 @@ function show_frontends()
     local addr=$1
     # fist start use root and no password check. avoid use pre setted username and password.
     frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -uroot --batch -e 'show frontends;' 2>&1`
-    log_stderr "[info] use root no password show frotends result '$frontends'"
+    log_stderr "[info] use root no password show frontends result '$frontends'"
     if echo $frontends | grep -w "1045" | grep -q -w "28000" &>/dev/null ; then
         log_stderr "[info] use username and password that configured show frontends."
         frontends=`timeout 15 mysql --connect-timeout 2 -h $addr -P $QUERY_PORT -u$DB_ADMIN_USER -p$DB_ADMIN_PASSWD --batch -e 'show frontends;' 2>&1`
@@ -365,9 +365,9 @@ create_account()
     log_stderr "created new account and grant NODE_PRIV!"
 }
 
-fe_addrs=${FE_ADDR}
+fe_addrs=$1
 if [[ "x$fe_addrs" == "x" ]]; then
-    echo "need fe address as ENV!"
+    echo "need fe address as parameter!"
     exit
 fi
 

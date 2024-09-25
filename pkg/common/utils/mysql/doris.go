@@ -19,6 +19,10 @@ package mysql
 
 import (
 	_ "github.com/go-sql-driver/mysql"
+	"k8s.io/klog/v2"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -75,4 +79,52 @@ type Backend struct {
 	Status                  string `json:"status" db:"Status"`
 	HeartbeatFailureCounter int    `json:"heartbeat_failure_counter" db:"HeartbeatFailureCounter"`
 	NodeRole                string `json:"node_role" db:"NodeRole"`
+}
+
+// BuildSeqNumberToFrontendMap
+// input ipMap key is podIP,value is fe.podName(from 'kubectl get pods -owide')
+// return frontendMap key is fe pod index ,value is frontend
+func BuildSeqNumberToFrontendMap(frontends []*Frontend, ipMap map[string]string, podTemplateName string) (map[int]*Frontend, error) {
+	frontendMap := make(map[int]*Frontend)
+	for _, fe := range frontends {
+		var podSignName string
+		if strings.HasPrefix(fe.Host, podTemplateName) {
+			// use fqdn, not need ipMap
+			// podSignName like: doriscluster-sample-fe-0.doriscluster-sample-fe-internal.doris.svc.cluster.local
+			podSignName = fe.Host
+		} else {
+			// use ip
+			// podSignName like: doriscluster-sample-fe-0
+			podSignName = ipMap[fe.Host]
+		}
+		split := strings.Split(strings.Split(strings.Split(podSignName, podTemplateName)[1], ".")[0], "-")
+		num, err := strconv.Atoi(split[len(split)-1])
+		if err != nil {
+			klog.Errorf("buildSeqNumberToFrontend can not split pod name,pod name: %s,err:%s", podSignName, err.Error())
+			return nil, err
+		}
+		frontendMap[num] = fe
+	}
+	return frontendMap, nil
+}
+
+// GetFirstFewFrontendsAfterDescendOrder means descending sort fe by index and return top scaleNumber
+func FindNeedDeletedFrontends(frontendMap map[int]*Frontend, scaleNumber int32) []*Frontend {
+	var topFrontends []*Frontend
+	if int(scaleNumber) <= len(frontendMap) {
+		keys := make([]int, 0, len(frontendMap))
+		for k := range frontendMap {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i] > keys[j]
+		})
+
+		for i := 0; i < int(scaleNumber); i++ {
+			topFrontends = append(topFrontends, frontendMap[keys[i]])
+		}
+	} else {
+		klog.Errorf("findNeedDeletedFrontends frontendMap size(%d) not larger than scaleNumber(%d)", len(frontendMap), scaleNumber)
+	}
+	return topFrontends
 }

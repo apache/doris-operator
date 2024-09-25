@@ -28,6 +28,8 @@ const (
 	DorisDisaggregatedPodType string = "app.doris.disaggregated.type"
 
 	DisaggregatedSpecHashValueAnnotation string = "doris.disaggregated.cluster/hash"
+
+	ServiceRoleForCluster string = "app.doris.service/role"
 )
 
 type DisaggregatedComponentType string
@@ -38,6 +40,10 @@ var (
 	DisaggregatedMS DisaggregatedComponentType = "MS"
 )
 
+type ServiceRole string
+
 const (
-	DefaultMetaserviceNumber int32 = 2
+	DefaultMetaserviceNumber int32       = 2
+	Service_Role_Access      ServiceRole = "access"
+	Service_Role_Internal    ServiceRole = "internal"
 )

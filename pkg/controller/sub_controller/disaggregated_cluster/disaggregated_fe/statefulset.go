@@ -33,12 +33,8 @@ import (
 const (
 	MS_ENDPOINT      string = "MS_ENDPOINT"
 	STATEFULSET_NAME string = "STATEFULSET_NAME"
-	INSTANCE_ID      string = "INSTANCE_ID"
-	INSTANCE_NAME    string = "INSTANCE_NAME"
 	MS_TOKEN         string = "MS_TOKEN"
 	CLUSTER_ID       string = "CLUSTER_ID"
-	CLUSTER_NAME     string = "CLUSTER_NAME"
-	FE_ADDR          string = "FE_ADDR"
 )
 
 const (
@@ -49,6 +45,8 @@ const (
 	LogStoreName             = "fe-log"
 	MetaStoreName            = "fe-meta"
 	DefaultStorageSize int64 = 107374182400
+	basic_auth_path          = "/etc/basic_auth"
+	auth_volume_name         = "basic-auth"
 )
 
 var (
@@ -73,12 +71,8 @@ func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[s
 
 func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	spec := ddc.Spec.FeSpec
-	if *ddc.Spec.FeSpec.Replicas < DefaultFeReplicaNumber {
-		ddc.Spec.FeSpec.Replicas = &(DefaultFeReplicaNumber)
-	}
-	selector := dfc.newFEPodsSelector(ddc.Name)
 	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
-	pts := dfc.NewPodTemplateSpec(ddc, selector, confMap)
+	pts := dfc.NewPodTemplateSpec(ddc, confMap)
 	st := dfc.NewDefaultStatefulset(ddc)
 	//metadata
 	func() {
@@ -87,25 +81,29 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedC
 	}()
 
 	func() {
+		selector := dfc.newFEPodsSelector(ddc.Name)
 		st.Spec.Replicas = ddc.Spec.FeSpec.Replicas
 		st.Spec.Selector = &metav1.LabelSelector{MatchLabels: selector}
 		st.Spec.VolumeClaimTemplates = vcts
-		st.Spec.ServiceName = ddc.GetFEServiceName()
+		st.Spec.ServiceName = ddc.GetFEInternalServiceName()
 		st.Spec.Template = pts
 	}()
 
 	return st
 }
 
-func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
+func (dfc *DisaggregatedFEController) getFEPodLabels(ddc *v1.DorisDisaggregatedCluster) resource.Labels {
+	selector := dfc.newFEPodsSelector(ddc.Name)
+	labels := (resource.Labels)(selector)
+	labels.AddLabel(ddc.Spec.FeSpec.Labels)
+	return labels
+}
+
+func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) corev1.PodTemplateSpec {
 	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	//pod template metadata.
-	func() {
-		l := (resource.Labels)(selector)
-		l.AddLabel(pts.Labels)
-		pts.Labels = l
-	}()
-
+	labels := dfc.getFEPodLabels(ddc)
+	pts.Labels = labels
 	c := dfc.NewFEContainer(ddc, confMap)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 	vs, _, _ := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &ddc.Spec.FeSpec)
@@ -113,7 +111,18 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 
-	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, selector[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
+	if ddc.Spec.AuthSecret != "" {
+		pts.Spec.Volumes = append(pts.Spec.Volumes, corev1.Volume{
+			Name: auth_volume_name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: ddc.Spec.AuthSecret,
+				},
+			},
+		})
+	}
+
+	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, labels[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
 
 	return pts
 }
@@ -130,6 +139,14 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
+
+	if ddc.Spec.FeSpec.ElectionNumber != nil {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  resource.ENV_FE_ELECT_NUMBER,
+			Value: strconv.FormatInt(int64(*ddc.Spec.FeSpec.ElectionNumber), 10),
+		})
+	}
+
 	resource.BuildDisaggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, v1.DisaggregatedFE)
 	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
 	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
@@ -139,6 +156,15 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	} else {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
+
+	// add basic auth secret volumeMount
+	if ddc.Spec.AuthSecret != "" {
+		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+			Name:      auth_volume_name,
+			MountPath: basic_auth_path,
+		})
+	}
+
 	return c
 }
 
@@ -264,15 +290,15 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 	stsName := ddc.GetFEStatefulsetName()
 
 	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
-	ms_endpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
-	ms_token := ddc.Status.MetaServiceStatus.MsToken
+	msEndpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
+	msToken := ddc.Status.MetaServiceStatus.MsToken
 	feEnvs = append(feEnvs,
-		corev1.EnvVar{Name: MS_ENDPOINT, Value: ms_endpoint},
+		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},
+		corev1.EnvVar{Name: MS_TOKEN, Value: msToken},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: fmt.Sprintf("%d", ddc.GetInstanceHashId())},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
-		corev1.EnvVar{Name: MS_TOKEN, Value: ms_token},
-		corev1.EnvVar{Name: FE_ADDR, Value: ddc.GetFEServiceName()},
-		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(DefaultElectionNumber), 10)},
+		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEServiceName()},
+		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(*ddc.Spec.FeSpec.ElectionNumber), 10)},
 	)
 	return feEnvs
 }

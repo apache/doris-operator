@@ -19,7 +19,6 @@ package v1
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"math/big"
 	"strings"
 )
@@ -28,21 +27,10 @@ import (
 please use get function to replace new function.
 */
 
-func newCGStatefulsetName(ddcName /*dorisDisaggregatedCluster Name*/, cgName /*computeGroup's name*/ string) string {
-	//ccName use "_", but name in kubernetes object use "-"
-	stName := ddcName + "-" + cgName
-	stName = strings.ReplaceAll(stName, "_", "-")
-	return stName
-}
-
 func (ddc *DorisDisaggregatedCluster) GetCGStatefulsetName(cg *ComputeGroup) string {
-	return newCGStatefulsetName(ddc.Name, cg.UniqueId)
-}
-
-func (ddc *DorisDisaggregatedCluster) GetInstanceId() string {
-	instanceId := ddc.Namespace + "-" + ddc.Name
-	// need config in vaultConfigMap.
-	return instanceId
+	//uniqueID use "_", but name in kubernetes object use "-"
+	stName := ddc.Name + "-" + cg.UniqueId
+	return strings.ReplaceAll(stName, "_", "-")
 }
 
 func (ddc *DorisDisaggregatedCluster) GetInstanceHashId() int64 {
@@ -62,32 +50,6 @@ func (ddc *DorisDisaggregatedCluster) GetInstanceHashId() int64 {
 	return res.Int64()
 }
 
-func (ddc *DorisDisaggregatedCluster) GetCGId(cg *ComputeGroup) string {
-	if cg == nil || ddc == nil {
-		return ""
-	}
-	//for _, ccs := range ddc.Status.ComputeGroupStatuses {
-	//	if cg.Name == ccs.ComputeClusterName || cg.ClusterId == ccs.ClusterId {
-	//		return cg.ClusterId
-	//	}
-	//}
-	//
-	//stsName := ddc.GetCGStatefulsetName(cg)
-	////update cg' clusterId for auto assemble, if not config.
-	//if cg.ClusterId == "" {
-	//	cg.ClusterId = newCCId(ddc.Namespace, stsName)
-	//}
-	//
-	//return cg.ClusterId
-	stsName := ddc.GetCGStatefulsetName(cg)
-	clusterId := strings.ReplaceAll(stsName, "-", "_")
-	return clusterId
-}
-
-func (ddc *DorisDisaggregatedCluster) GetCGCloudUniqueIdPre() string {
-	return newCGCloudUniqueIdPre(ddc.GetInstanceId())
-}
-
 func (ddc *DorisDisaggregatedCluster) GetFEStatefulsetName() string {
 	return ddc.Name + "-" + "fe"
 }
@@ -104,6 +66,10 @@ func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string 
 
 func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {
 	return ddc.Name + "-" + "fe"
+}
+
+func (ddc *DorisDisaggregatedCluster) GetFEInternalServiceName() string {
+	return ddc.Name + "-" + "fe-internal"
 }
 
 func (ddc *DorisDisaggregatedCluster) GetMSServiceName() string {

@@ -195,7 +195,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 
 	switch scaleType {
 	case "resume":
-		err := ms_http.ResumeComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, "")
+		err := ms_http.ResumeComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, "", "")
 		cgStatus.SuspendReplicas = 0
 		if err != nil {
 			cgStatus.Phase = dv1.ResumeFailed
@@ -216,7 +216,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		}
 		cgStatus.Phase = dv1.Scaling
 	case "suspend":
-		err := ms_http.SuspendComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.Status.InstanceId, "")
+		err := ms_http.SuspendComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, "", "")
 		if err != nil {
 			cgStatus.Phase = dv1.SuspendFailed
 			klog.Errorf("computeGroupSync SuspendComputeGroup response failed , err: %s", err.Error())
@@ -349,7 +349,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 			eCGs = append(eCGs, clearCGs[i])
 		} else {
 			// drop compute group from meta
-			response, err := ms_http.DropComputeGroup(ddc.Status.MetaServiceStatus.MetaServiceEndpoint, ddc.Status.MetaServiceStatus.MsToken, ddc.Status.InstanceId, &cgs)
+			response, err := ms_http.DropComputeGroup(ddc.Status.MetaServiceStatus.MetaServiceEndpoint, ddc.Status.MetaServiceStatus.MsToken, "", &cgs)
 			if err != nil {
 				klog.Errorf("computeGroupSync ClearResources DropComputeGroup response failed , response: %s", err.Error())
 				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGHTTPFailed), "DropComputeGroup request failed: "+err.Error())

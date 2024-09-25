@@ -56,6 +56,38 @@ func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
 	return &DB{db}, nil
 }
 
+func NewDorisMasterSqlDB(dbConf DBConfig) (*DB, error) {
+	loadBalanceDBClient, err := NewDorisSqlDB(dbConf)
+	if err != nil {
+		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
+		return nil, err
+	}
+	defer loadBalanceDBClient.Close()
+	master, _, err := loadBalanceDBClient.GetFollowers()
+	if err != nil {
+		klog.Errorf("NewDorisMasterSqlDB GetFollowers master failed, err:%s", err.Error())
+		return nil, err
+	}
+	var masterDBClient *DB
+	if master.CurrentConnected == "Yes" {
+		masterDBClient = loadBalanceDBClient
+	} else {
+		// Get the connection to the master
+		masterDBClient, err = NewDorisSqlDB(DBConfig{
+			User:     dbConf.User,
+			Password: dbConf.Password,
+			Host:     master.Host,
+			Port:     dbConf.Port,
+			Database: "mysql",
+		})
+		if err != nil {
+			klog.Errorf("NewDorisMasterSqlDB failed, get fe master connection  err:%s", err.Error())
+			return nil, err
+		}
+	}
+	return masterDBClient, nil
+}
+
 func (db *DB) Close() error {
 	return db.DB.Close()
 }

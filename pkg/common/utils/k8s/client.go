@@ -255,14 +255,14 @@ func GetService(ctx context.Context, k8sclient client.Client, namespace, name st
 	return &svc, nil
 }
 
-func GetPods(ctx context.Context, k8sclient client.Client, targetDCR dorisv1.DorisCluster, componentType dorisv1.ComponentType) (corev1.PodList, error) {
+func GetPods(ctx context.Context, k8sclient client.Client, namespace string, labels map[string]string) (corev1.PodList, error) {
 	pods := corev1.PodList{}
 
 	err := k8sclient.List(
 		ctx,
 		&pods,
-		client.InNamespace(targetDCR.Namespace),
-		client.MatchingLabels(dorisv1.GetPodLabels(&targetDCR, componentType)),
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels),
 	)
 	if err != nil {
 		return pods, err
@@ -284,44 +284,6 @@ func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dori
 	}
 	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
 	return res, utils.MergeError(err, resolveErr)
-}
-
-// SetDorisClusterPhase set DorisCluster Phase status,
-// Perform a check before setting, and do not change if the status is the same as the last time
-func SetDorisClusterPhase(
-	ctx context.Context,
-	k8sclient client.Client,
-	dcrName, namespace string,
-	phase dorisv1.ComponentPhase,
-	componentType dorisv1.ComponentType,
-) error {
-	var edcr dorisv1.DorisCluster
-	if err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: dcrName}, &edcr); err != nil {
-		return err
-	}
-	isStatusEqual := false
-	switch componentType {
-	case dorisv1.Component_FE:
-		isStatusEqual = (edcr.Status.FEStatus.ComponentCondition.Phase == phase)
-		edcr.Status.FEStatus.ComponentCondition.Phase = phase
-	case dorisv1.Component_BE:
-		isStatusEqual = (edcr.Status.BEStatus.ComponentCondition.Phase == phase)
-		edcr.Status.BEStatus.ComponentCondition.Phase = phase
-	case dorisv1.Component_CN:
-		isStatusEqual = (edcr.Status.CnStatus.ComponentCondition.Phase == phase)
-		edcr.Status.CnStatus.ComponentCondition.Phase = phase
-	case dorisv1.Component_Broker:
-		isStatusEqual = (edcr.Status.BrokerStatus.ComponentCondition.Phase == phase)
-		edcr.Status.BrokerStatus.ComponentCondition.Phase = phase
-	default:
-		klog.Infof("SetDorisClusterPhase not support type=%s", componentType)
-		return nil
-	}
-	if isStatusEqual {
-		klog.Infof("UpdateDorisClusterPhase will not change cluster %s Phase, it is already %s ,DCR name: %s, namespace: %s,", componentType, phase, dcrName, namespace)
-		return nil
-	}
-	return k8sclient.Status().Update(ctx, &edcr)
 }
 
 func GetDisaggregatedMetaServiceConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
