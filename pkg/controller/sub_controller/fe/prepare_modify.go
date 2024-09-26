@@ -51,7 +51,7 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		cluster.Spec.FeSpec.Replicas = &ele
 	}
 
-	// wroa means: oldReplicas - newReplicas, the opposite of removedAmount, so, the name should is willRemovedOppositeAmount shortly as wroa
+	// wroa means: oldReplicas - newReplicas, the opposite of removedAmount, willRemovedOppositeAmount shortly as wroa
 	wroa := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
 	// fe scale
 	if wroa < 0 {
