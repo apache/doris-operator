@@ -51,9 +51,10 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		cluster.Spec.FeSpec.Replicas = &ele
 	}
 
-	willRemovedAmount := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
+	// wroa means: oldReplicas - newReplicas, the opposite of removedAmount, so, the name should is willRemovedOppositeAmount shortly as wroa
+	wroa := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
 	// fe scale
-	if willRemovedAmount < 0 {
+	if wroa < 0 {
 		if err := fc.dropObserverBySqlClient(ctx, fc.K8sclient, cluster); err != nil {
 			klog.Errorf("ScaleDownObserver failed, err:%s ", err.Error())
 			return err
