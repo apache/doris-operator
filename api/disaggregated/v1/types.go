@@ -25,7 +25,7 @@ import (
 type DorisDisaggregatedClusterSpec struct {
 	//VaultConfigmap specify the configmap that have configuration of file object information. example S3.
 	//configmap have to config, please reference the doc.
-	InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
+	//InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
 
 	//MetaService describe the metaservice that cluster want to storage metadata.
 	MetaService MetaService `json:"metaService,omitempty"`
@@ -35,6 +35,10 @@ type DorisDisaggregatedClusterSpec struct {
 
 	//ComputeGroups describe a list of ComputeGroup, ComputeGroup is a group of compute node to do same thing.
 	ComputeGroups []ComputeGroup `json:"computeGroups,omitempty"`
+
+	// the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
+	// the password key is `password`. the username defaults to `root` and is omitempty.
+	AuthSecret string `json:"authSecret,omitempty"`
 }
 
 type MetaService struct {
@@ -56,6 +60,9 @@ type NamespaceName struct {
 }
 
 type FeSpec struct {
+	//the number of fe in election. electionNumber <= replicas, left as observers. default value=3
+	ElectionNumber *int32 `json:"electionNumber,omitempty"`
+
 	CommonSpec `json:",inline"`
 }
 
@@ -232,9 +239,6 @@ type PortMap struct {
 }
 
 type DorisDisaggregatedClusterStatus struct {
-	//ClusterId display  the clusterId of DorisDisaggregatedCluster in meta.
-	InstanceId string `json:"instanceId,omitempty"`
-
 	//describe the metaservice status now.
 	MetaServiceStatus MetaServiceStatus `json:"metaServiceStatus,omitempty"`
 
@@ -343,7 +347,8 @@ type FEStatus struct {
 	Phase Phase `json:"phase,omitempty"`
 	//AvailableStatus represents the fe available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
-	//ClusterId display  the clusterId of fe in meta.
+	//ClusterId display  the clusterId of fe in fe.conf,
+	//It is the hash value of the concatenated string of namespace and ddcName
 	ClusterId string `json:"clusterId,omitempty"`
 }
 

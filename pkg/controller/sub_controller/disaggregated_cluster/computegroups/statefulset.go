@@ -45,10 +45,6 @@ const (
 	StorageStorePreName                  = "be-storage"
 )
 
-const (
-	BE_PROBE_COMMAND = "/opt/apache-doris/be_disaggregated_probe.sh"
-)
-
 // generate statefulset or service labels
 func (dcgs *DisaggregatedComputeGroupsController) newCG2LayerSchedulerLabels(ddcName /*DisaggregatedClusterName*/, uniqueId string) map[string]string {
 	return map[string]string{
@@ -110,8 +106,8 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 
-	cgClusterId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
-	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgClusterId, pts.Spec.Affinity)
+	cgUniqueId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
+	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgUniqueId, pts.Spec.Affinity)
 
 	return pts
 }

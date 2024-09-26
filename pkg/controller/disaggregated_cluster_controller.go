@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 	"time"
 )
 
@@ -62,11 +61,11 @@ type DisaggregatedClusterReconciler struct {
 	Scheme   *runtime.Scheme
 	Scs      map[string]sc.DisaggregatedSubController
 	//record configmap response instance. key: configMap namespacedName, value: DorisDisaggregatedCluster namespacedName
-	wcms map[string]string
+	//wcms map[string]string
 }
 
 func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
-	wcms := make(map[string]string)
+	//wcms := make(map[string]string)
 	scs := make(map[string]sc.DisaggregatedSubController)
 	msc := metaservice.New(mgr)
 	scs[msc.GetControllerName()] = msc
@@ -80,7 +79,7 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 		Client:   mgr.GetClient(),
 		Recorder: mgr.GetEventRecorderFor(disaggregatedClusterController),
 		Scs:      scs,
-		wcms:     wcms,
+		//wcms:     wcms,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, "unable to create controller ", "disaggregatedClusterReconciler")
 		os.Exit(1)
@@ -97,7 +96,7 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := dc.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = dc.watchPodBuilder(builder)
-	builder = dc.watchConfigMapBuilder(builder)
+	//builder = dc.watchConfigMapBuilder(builder)
 	return builder.Complete(dc)
 }
 
@@ -145,41 +144,42 @@ func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder)
 	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
 		mapFn, controller_builder.WithPredicates(p))
 }
-func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
-	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
-			namespace := a.GetNamespace()
-			name := a.GetName()
-			cmnn := types.NamespacedName{Namespace: namespace, Name: name}
-			cmnnStr := cmnn.String()
-			if ddc, ok := dc.wcms[cmnnStr]; ok {
-				nna := strings.Split(ddc, "/")
-				// not run only for code standard
-				if len(nna) != 2 {
-					return nil
-				}
 
-				return []reconcile.Request{{NamespacedName: types.NamespacedName{
-					Namespace: nna[0],
-					Name:      nna[1],
-				}}}
-			}
-			return nil
-		})
-
-	p := predicate.Funcs{
-		UpdateFunc: func(u event.UpdateEvent) bool {
-			ns := u.ObjectNew.GetNamespace()
-			name := u.ObjectNew.GetName()
-			nsn := ns + "/" + name
-			_, ok := dc.wcms[nsn]
-			return ok
-		},
-	}
-
-	return builder.Watches(&source.Kind{Type: &corev1.ConfigMap{}},
-		mapFn, controller_builder.WithPredicates(p))
-}
+//func (dc *DisaggregatedClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
+//	mapFn := handler.EnqueueRequestsFromMapFunc(
+//		func(a client.Object) []reconcile.Request {
+//			namespace := a.GetNamespace()
+//			name := a.GetName()
+//			cmnn := types.NamespacedName{Namespace: namespace, Name: name}
+//			cmnnStr := cmnn.String()
+//			if ddc, ok := dc.wcms[cmnnStr]; ok {
+//				nna := strings.Split(ddc, "/")
+//				// not run only for code standard
+//				if len(nna) != 2 {
+//					return nil
+//				}
+//
+//				return []reconcile.Request{{NamespacedName: types.NamespacedName{
+//					Namespace: nna[0],
+//					Name:      nna[1],
+//				}}}
+//			}
+//			return nil
+//		})
+//
+//	p := predicate.Funcs{
+//		UpdateFunc: func(u event.UpdateEvent) bool {
+//			ns := u.ObjectNew.GetNamespace()
+//			name := u.ObjectNew.GetName()
+//			nsn := ns + "/" + name
+//			_, ok := dc.wcms[nsn]
+//			return ok
+//		},
+//	}
+//
+//	return builder.Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+//		mapFn, controller_builder.WithPredicates(p))
+//}
 
 func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dv1.DorisDisaggregatedCluster{}).
@@ -187,7 +187,7 @@ func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder)
 		Owns(&corev1.Service{})
 }
 
-// reconcile steps:
+// Reconcile steps:
 // 1. check and register instance info. info register in memory. periodical sync.
 // 2. sync resource.
 // 3. clear need delete resource.
@@ -203,13 +203,13 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 
 	var res ctrl.Result
 	////TODO: deprecated.
-	cmnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Spec.InstanceConfigMap}
-	ddcnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}
-	cmnnStr := cmnn.String()
-	ddcnnStr := ddcnn.String()
-	if _, ok := dc.wcms[cmnnStr]; !ok {
-		dc.wcms[cmnnStr] = ddcnnStr
-	}
+	//cmnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Spec.InstanceConfigMap}
+	//ddcnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}
+	//cmnnStr := cmnn.String()
+	//ddcnnStr := ddcnn.String()
+	//if _, ok := dc.wcms[cmnnStr]; !ok {
+	//	dc.wcms[cmnnStr] = ddcnnStr
+	//}
 
 	//sync resource.
 	//recall all errors
