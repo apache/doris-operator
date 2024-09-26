@@ -19,6 +19,7 @@ package disaggregated_fe
 
 import (
 	"context"
+	"fmt"
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
@@ -239,7 +240,7 @@ func (dfc *DisaggregatedFEController) initialFEStatus(ddc *v1.DorisDisaggregated
 	}
 	feStatus := v1.FEStatus{
 		Phase:     v1.Reconciling,
-		ClusterId: ddc.GetInstanceHashId(),
+		ClusterId: fmt.Sprintf("%d", ddc.GetInstanceHashId()),
 	}
 	ddc.Status.FEStatus = feStatus
 }
@@ -267,10 +268,10 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	// fe scale check and set FEStatus phase
-	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(est.Spec.Replicas)
+	willRemovedAmount := *(cluster.Spec.FeSpec.Replicas) - *(est.Spec.Replicas)
 
 	//  if fe scale, drop fe node by http
-	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {
+	if willRemovedAmount < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {
 		if err := dfc.dropFEBySQLClient(ctx, dfc.K8sclient, cluster); err != nil {
 			cluster.Status.FEStatus.Phase = v1.ScaleDownFailed
 			klog.Errorf("ScaleDownFE failed, err:%s ", err.Error())
@@ -302,7 +303,7 @@ func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc 
 func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8sclient client.Client, cluster *v1.DorisDisaggregatedCluster) error {
 	// get adminuserName and pwd
 	secret, _ := k8s.GetSecret(ctx, k8sclient, cluster.Namespace, cluster.Spec.AuthSecret)
-	adminUserName, password := resource.GetClusterPWDFromSecret(secret)
+	adminUserName, password := resource.GetDorisLoginInformation(secret)
 
 	// get host and port
 	serviceName := cluster.GetFEServiceName()
@@ -333,10 +334,10 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 		return err
 	}
 
-	// means: realScaleNumber = allobservers - (replicas - election)
+	// means: needRemovedAmount = allobservers - (replicas - election)
 	electionNumber := *(cluster.Spec.FeSpec.ElectionNumber)
-	realScaleNumber := int32(len(allObserves)) - *(cluster.Spec.FeSpec.Replicas) + electionNumber
-	if realScaleNumber <= 0 {
+	needRemovedAmount := int32(len(allObserves)) - *(cluster.Spec.FeSpec.Replicas) + electionNumber
+	if needRemovedAmount <= 0 {
 		klog.Errorf("dropFEFromSQLClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(cluster.Spec.FeSpec.Replicas)-electionNumber)
 		return nil
 	}
@@ -369,7 +370,7 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 			return nil
 		}
 	}
-	observes := mysql.FindNeedDeletedFrontends(frontendMap, realScaleNumber)
+	observes := mysql.FindNeedDeletedFrontends(frontendMap, needRemovedAmount)
 	// drop node and return
 	return masterDBClient.DropObserver(observes)
 }

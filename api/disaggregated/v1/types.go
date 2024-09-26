@@ -349,7 +349,7 @@ type FEStatus struct {
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
 	//ClusterId display  the clusterId of fe in fe.conf,
 	//It is the hash value of the concatenated string of namespace and ddcName
-	ClusterId int64 `json:"clusterId,omitempty"`
+	ClusterId string `json:"clusterId,omitempty"`
 }
 
 // +genclient

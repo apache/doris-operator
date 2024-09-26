@@ -51,9 +51,9 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		cluster.Spec.FeSpec.Replicas = &ele
 	}
 
-	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
+	willRemovedAmount := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
 	// fe scale
-	if scaleNumber < 0 {
+	if willRemovedAmount < 0 {
 		if err := fc.dropObserverBySqlClient(ctx, fc.K8sclient, cluster); err != nil {
 			klog.Errorf("ScaleDownObserver failed, err:%s ", err.Error())
 			return err
@@ -68,7 +68,6 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 
 // dropObserverBySqlClient handles doris'SQL(drop frontend) through the MySQL client when dealing with scale in observer
 // targetDCR is new dcr
-// scaleNumber is the number of Observer needing scale down
 func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient client.Client, targetDCR *v1.DorisCluster) error {
 	// get adminuserName and pwd
 	secret, _ := k8s.GetSecret(ctx, k8sclient, targetDCR.Namespace, targetDCR.Spec.AuthSecret)
@@ -103,14 +102,14 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 		return err
 	}
 
-	// make sure real scaleNumber, this may involve retrying tasks and scaling down followers.
+	// make sure needRemovedAmount, this may involve retrying tasks and scaling down followers.
 	electionNumber := Default_Election_Number
 	if targetDCR.Spec.FeSpec.ElectionNumber != nil {
 		electionNumber = *(targetDCR.Spec.FeSpec.ElectionNumber)
 	}
-	// means: realScaleNumber = allobservers - (replicas - election)
-	realScaleNumber := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + electionNumber
-	if realScaleNumber <= 0 {
+	// means: needRemovedAmount = allobservers - (replicas - election)
+	needRemovedAmount := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + electionNumber
+	if needRemovedAmount <= 0 {
 		klog.Errorf("DropObserverFromSqlClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(targetDCR.Spec.FeSpec.Replicas)-electionNumber)
 		return nil
 	}
@@ -143,7 +142,7 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 			return nil
 		}
 	}
-	observes := mysql.FindNeedDeletedFrontends(frontendMap, realScaleNumber)
+	observes := mysql.FindNeedDeletedFrontends(frontendMap, needRemovedAmount)
 	// drop node and return
 	return masterDBClient.DropObserver(observes)
 

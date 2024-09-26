@@ -108,10 +108,10 @@ func BuildSeqNumberToFrontendMap(frontends []*Frontend, ipMap map[string]string,
 	return frontendMap, nil
 }
 
-// GetFirstFewFrontendsAfterDescendOrder means descending sort fe by index and return top scaleNumber
-func FindNeedDeletedFrontends(frontendMap map[int]*Frontend, scaleNumber int32) []*Frontend {
+// FindNeedDeletedFrontends means descending sort fe by index and return top needRemovedAmount
+func FindNeedDeletedFrontends(frontendMap map[int]*Frontend, needRemovedAmount int32) []*Frontend {
 	var topFrontends []*Frontend
-	if int(scaleNumber) <= len(frontendMap) {
+	if int(needRemovedAmount) <= len(frontendMap) {
 		keys := make([]int, 0, len(frontendMap))
 		for k := range frontendMap {
 			keys = append(keys, k)
@@ -120,11 +120,11 @@ func FindNeedDeletedFrontends(frontendMap map[int]*Frontend, scaleNumber int32) 
 			return keys[i] > keys[j]
 		})
 
-		for i := 0; i < int(scaleNumber); i++ {
+		for i := 0; i < int(needRemovedAmount); i++ {
 			topFrontends = append(topFrontends, frontendMap[keys[i]])
 		}
 	} else {
-		klog.Errorf("findNeedDeletedFrontends frontendMap size(%d) not larger than scaleNumber(%d)", len(frontendMap), scaleNumber)
+		klog.Errorf("findNeedDeletedFrontends frontendMap size(%d) not larger than needRemovedAmount(%d)", len(frontendMap), needRemovedAmount)
 	}
 	return topFrontends
 }
