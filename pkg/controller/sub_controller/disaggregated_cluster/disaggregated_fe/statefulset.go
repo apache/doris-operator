@@ -138,7 +138,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedFE)
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
-	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
+	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc, cvs)...)
 
 	if ddc.Spec.FeSpec.ElectionNumber != nil {
 		c.Env = append(c.Env, corev1.EnvVar{
@@ -285,12 +285,14 @@ func (dfc *DisaggregatedFEController) getMetaPath(confMap map[string]interface{}
 	return path
 }
 
-func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregatedCluster) []corev1.EnvVar {
+func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) []corev1.EnvVar {
 	var feEnvs []corev1.EnvVar
 	stsName := ddc.GetFEStatefulsetName()
 
 	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
-	msEndpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
+	port := resource.GetPort(confMap, resource.BRPC_LISTEN_PORT)
+	msEndpoint := ddc.GetMSServiceName() + "." + ddc.Namespace + ":" + strconv.Itoa(int(port))
+
 	msToken := ddc.Status.MetaServiceStatus.MsToken
 	feEnvs = append(feEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},

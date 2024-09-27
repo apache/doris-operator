@@ -29,7 +29,6 @@ import (
 	"k8s.io/klog/v2"
 	"os"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -314,8 +313,6 @@ func (dcgs *DisaggregatedComputeGroupsController) getLogPath(cvs map[string]inte
 func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) []corev1.EnvVar {
 	var cgEnvs []corev1.EnvVar
 	stsName := ddc.GetCGStatefulsetName(cg)
-	//use uniqueId as compute group name, the uniqueId restrict not empty, and the computegroup's name should use "_" not "-"
-	cgn := strings.ReplaceAll(cg.UniqueId, "-", "_")
 
 	//get fe config for find query port
 	confMap := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, ddc.Spec.FeSpec.ConfigMaps)
@@ -325,7 +322,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	feAddr := ddc.GetFEServiceName()
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
-		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: cgn},
+		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
 		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
 	return cgEnvs

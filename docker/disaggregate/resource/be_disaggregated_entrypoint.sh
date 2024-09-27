@@ -52,10 +52,12 @@ update_conf_from_configmap()
 {
     if [[ "x$CONFIGMAP_MOUNT_PATH" == "x" ]] ; then
         log_stderr '[info] Empty $CONFIGMAP_MOUNT_PATH env var, skip it!'
+        echo "deploy_mode = cloud" >> $DORIS_HOME/conf/be.conf
         return 0
     fi
     if ! test -d $CONFIGMAP_MOUNT_PATH ; then
         log_stderr "[info] $CONFIGMAP_MOUNT_PATH not exist or not a directory, ignore ..."
+        echo "deploy_mode = cloud" >> $DORIS_HOME/conf/be.conf
         return 0
     fi
     local tgtconfdir=$DORIS_HOME/conf
@@ -69,7 +71,7 @@ update_conf_from_configmap()
         fi
         if [[ "$conffile" == "be.conf" ]]; then
              cp $CONFIGMAP_MOUNT_PATH/$conffile $DORIS_HOME/be/conf/$file
-             echo "deploy_mode = true" >> $DORIS_HOME/be/conf/$file
+             echo "deploy_mode = cloud" >> $DORIS_HOME/be/conf/$file
              continue
          fi
         ln -sfT $CONFIGMAP_MOUNT_PATH/$conffile $tgt
