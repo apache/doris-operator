@@ -76,16 +76,7 @@ func (ddc *DorisDisaggregatedCluster) GetMSServiceName() string {
 	return ddc.Name + "-" + "ms"
 }
 
-func uniqueIdToCGName(uniqueId string) string {
-	return strings.ReplaceAll(uniqueId, "_", "-")
-}
-
 func (ddc *DorisDisaggregatedCluster) GetCGName(cg *ComputeGroup) string {
 	// use uniqueId as compute group name, the uniqueId restrict not empty, and the computegroup's name should use "_" not "-"
-	return uniqueIdToCGName(cg.UniqueId)
-}
-
-func (s *ComputeGroupStatus) GetCGName() string {
-	// use uniqueId as compute group name, the uniqueId restrict not empty, and the computegroup's name should use "_" not "-"
-	return uniqueIdToCGName(s.UniqueId)
+	return strings.ReplaceAll(cg.UniqueId, "_", "-")
 }

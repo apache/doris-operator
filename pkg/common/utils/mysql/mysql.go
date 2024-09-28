@@ -183,11 +183,16 @@ func (db *DB) GetBackendsByCGName(cgName string) ([]*Backend, error) {
 		var m map[string]interface{}
 		err := json.Unmarshal([]byte(be.Tag), &m)
 		if err != nil {
-			klog.Errorf("GetBackendsByCGName show backends tag get compute_group_name failed, be: %+v, err: %s\n", be, err.Error())
+			klog.Errorf("GetBackendsByCGName backends tag stirng to map failed, tag: %s, err: %s\n", be.Tag, err.Error())
+			return nil, err
+		}
+		if _, ok := m["compute_group_name"]; !ok {
+			klog.Errorf("GetBackendsByCGName backends tag get compute_group_name failed, tag: %s, err: %s\n", be.Tag, err.Error())
 			return nil, err
 		}
 
-		if fmt.Sprintf("%s", m["compute_group_name"]) == cgName {
+		cgNameFromTag := fmt.Sprintf("%s", m["compute_group_name"])
+		if cgNameFromTag == cgName {
 			res = append(res, be)
 		}
 	}

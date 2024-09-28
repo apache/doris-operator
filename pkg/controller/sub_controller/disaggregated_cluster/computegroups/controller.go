@@ -175,17 +175,6 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 	scaleType := getScaleType(st, &est, cgStatus.Phase)
 
-	//if scaleType == "resume" {
-	//	if cgStatus.SuspendReplicas != *(st.Spec.Replicas) {
-	//		errMessage := fmt.Sprintf("ResumeComputeGroup configuration is abnormal. The replicas of resumes(%d) is not equal to the replicas of suspends(%d).", *st.Spec.Replicas, cgStatus.SuspendReplicas)
-	//		return &sc.Event{
-	//			Type:    sc.EventNormal,
-	//			Reason:  sc.CGResumeReplicasInconsistency,
-	//			Message: errMessage,
-	//		}, errors.New(errMessage)
-	//	}
-	//}
-
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
 		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
@@ -195,61 +184,27 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 
 	switch scaleType {
 	//case "resume":
-	//	err := ms_http.ResumeComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, "", "")
-	//	cgStatus.SuspendReplicas = 0
-	//	if err != nil {
-	//		cgStatus.Phase = dv1.ResumeFailed
-	//		klog.Errorf("computeGroupSync ResumeComputeGroup response failed , err: %s", err.Error())
-	//		return &sc.Event{
-	//			Type:    sc.EventNormal,
-	//			Reason:  sc.CGResumeStatusRequestFailed,
-	//			Message: "ResumeComputeGroup request of disaggregated BE failed: " + err.Error(),
-	//		}, err
-	//	}
-	//	cgStatus.Phase = dv1.Scaling
+	//case "suspend":
 	case "scaleDown":
-		if err := dcgs.dropBENodeBySQLClient(ctx, dcgs.K8sclient, cluster, cg); err != nil {
+		cgKeepAmount := *cg.Replicas
+		cgName := cluster.GetCGName(cg)
+		if err := dcgs.scaledOutBENodesBySQL(ctx, dcgs.K8sclient, cluster, cgName, cgKeepAmount); err != nil {
 			cgStatus.Phase = dv1.ScaleDownFailed
 			klog.Errorf("ScaleDownBE failed, err:%s ", err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
 				err
 		}
 		cgStatus.Phase = dv1.Scaling
-		//case "suspend":
-		//	err := ms_http.SuspendComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, "", "")
-		//	if err != nil {
-		//		cgStatus.Phase = dv1.SuspendFailed
-		//		klog.Errorf("computeGroupSync SuspendComputeGroup response failed , err: %s", err.Error())
-		//		return &sc.Event{
-		//			Type:    sc.EventNormal,
-		//			Reason:  sc.CGSuspendStatusRequestFailed,
-		//			Message: "SuspendComputeGroup request of disaggregated BE failed: " + err.Error(),
-		//		}, err
-		//	}
-		//	cgStatus.SuspendReplicas = *est.Spec.Replicas
-		//	cgStatus.Phase = dv1.Suspended
+
 	}
 
 	return nil, nil
 }
 
 func getScaleType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
-
 	if *(st.Spec.Replicas) < *(est.Spec.Replicas) || phase == dv1.ScaleDownFailed {
 		return "scaleDown"
 	}
-
-	//if (*(st.Spec.Replicas) > *(est.Spec.Replicas) && *(est.Spec.Replicas) == 0) || phase == dv1.ResumeFailed {
-	//	return "resume"
-	//}
-	//
-	//if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) > 0) || phase == dv1.ScaleDownFailed {
-	//	return "scaleDown"
-	//}
-	//
-	//if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) == 0) || phase == dv1.SuspendFailed {
-	//	return "suspend"
-	//}
 	return ""
 }
 
@@ -354,7 +309,9 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 			eCGs = append(eCGs, clearCGs[i])
 		} else {
 			// drop compute group
-			err := dcgs.dropCGBySQLClient(ctx, dcgs.K8sclient, ddc, cgs.GetCGName())
+			cgName := strings.ReplaceAll(cgs.UniqueId, "_", "-")
+			cgKeepAmount := int32(0)
+			err := dcgs.scaledOutBENodesBySQL(ctx, dcgs.K8sclient, ddc, cgName, cgKeepAmount)
 			if err != nil {
 				klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
 				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
@@ -528,20 +485,7 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 	return nil
 }
 
-// dropBENodeBySQLClient drop part of be node in cg by sql interface
-func (dcgs *DisaggregatedComputeGroupsController) dropBENodeBySQLClient(ctx context.Context, k8sclient client.Client, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) error {
-	cgKeepAmount := *cg.Replicas
-	cgName := cluster.GetCGName(cg)
-	return dcgs.dropNodeBySQLClient(ctx, k8sclient, cluster, cgName, cgKeepAmount)
-}
-
-// dropCGBySQLClient drop all be nodes of cg by sql interface
-func (dcgs *DisaggregatedComputeGroupsController) dropCGBySQLClient(ctx context.Context, k8sclient client.Client, cluster *dv1.DorisDisaggregatedCluster, cgName string) error {
-	cgKeepAmount := int32(0)
-	return dcgs.dropNodeBySQLClient(ctx, k8sclient, cluster, cgName, cgKeepAmount)
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) dropNodeBySQLClient(
+func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesBySQL(
 	ctx context.Context, k8sclient client.Client,
 	cluster *dv1.DorisDisaggregatedCluster,
 	cgName string,
@@ -586,7 +530,8 @@ func (dcgs *DisaggregatedComputeGroupsController) dropNodeBySQLClient(
 		dropNodes = allBackends
 	} else { // drop part of be node in cg
 		for _, node := range allBackends {
-			splitCGIDArr := strings.Split(strings.Split(node.Host, ".")[0], "-")
+			split := strings.Split(node.Host, ".")
+			splitCGIDArr := strings.Split(split[0], "-")
 			podNum, err := strconv.Atoi(splitCGIDArr[len(splitCGIDArr)-1])
 			if err != nil {
 				klog.Errorf("dropNodeBySQLClient splitCGIDArr can not split host : %s,err:%s", node.Host, err.Error())
