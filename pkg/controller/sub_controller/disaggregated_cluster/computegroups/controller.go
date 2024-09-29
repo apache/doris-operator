@@ -526,20 +526,17 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesBySQL(
 	}
 
 	var dropNodes []*mysql.Backend
-	if cgKeepAmount == 0 { // drop all be nodes of cg
-		dropNodes = allBackends
-	} else { // drop part of be node in cg
-		for _, node := range allBackends {
-			split := strings.Split(node.Host, ".")
-			splitCGIDArr := strings.Split(split[0], "-")
-			podNum, err := strconv.Atoi(splitCGIDArr[len(splitCGIDArr)-1])
-			if err != nil {
-				klog.Errorf("dropNodeBySQLClient splitCGIDArr can not split host : %s,err:%s", node.Host, err.Error())
-				return err
-			}
-			if podNum >= int(cgKeepAmount) {
-				dropNodes = append(dropNodes, node)
-			}
+	for i := range allBackends {
+		node := allBackends[i]
+		split := strings.Split(node.Host, ".")
+		splitCGIDArr := strings.Split(split[0], "-")
+		podNum, err := strconv.Atoi(splitCGIDArr[len(splitCGIDArr)-1])
+		if err != nil {
+			klog.Errorf("dropNodeBySQLClient splitCGIDArr can not split host : %s,err:%s", node.Host, err.Error())
+			return err
+		}
+		if podNum >= int(cgKeepAmount) {
+			dropNodes = append(dropNodes, node)
 		}
 	}
 

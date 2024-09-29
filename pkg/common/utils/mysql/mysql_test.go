@@ -80,15 +80,18 @@ func Test_ShowBackends(t *testing.T) {
 }
 
 func Test_DecommissionBE(t *testing.T) {
-	values := []*Backend{{BackendID: "10009", Host: "doriscluster-sample-be-0.doriscluster-sample-be-internal.default.svc.cluster.local", HeartbeatPort: 9050, BePort: 9060, HttpPort: 8040, BrpcPort: 8060, ArrowFlightSqlPort: -1, LastStartTime: "2024-08-21 10:05:37",
-		LastHeartbeat: "2024-08-22 08:29:46", Alive: true, TabletNum: 24, DataUsedCapacity: "0.000", TrashUsedCapacity: "0.000", AvailCapacity: "74.619 GB", TotalCapacity: "439.037 GB", UsedPct: "83.00 %", MaxDiskUsedPct: "83.00 %",
-		RemoteUsedCapacity: "0.000", ErrMsg: "", Version: "doris-2.1.5-rc02-d5a02e095d", Status: "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}", HeartbeatFailureCounter: 0, NodeRole: "mix"}}
-	values2 := []*Backend{{BackendID: "10009", Host: "doriscluster-sample-be-0.doriscluster-sample-be-internal.default.svc.cluster.local", HeartbeatPort: 9050, BePort: 9060, HttpPort: 8040, BrpcPort: 8060, ArrowFlightSqlPort: -1, LastStartTime: "2024-08-21 10:05:37",
-		LastHeartbeat: "2024-08-22 08:29:46", Alive: true, TabletNum: 24, DataUsedCapacity: "0.000", TrashUsedCapacity: "0.000", AvailCapacity: "74.619 GB", TotalCapacity: "439.037 GB", UsedPct: "83.00 %", MaxDiskUsedPct: "83.00 %",
-		RemoteUsedCapacity: "0.000", ErrMsg: "", Version: "doris-2.1.5-rc02-d5a02e095d", Status: "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}", HeartbeatFailureCounter: 0, NodeRole: "mix"},
-		{BackendID: "10010", Host: "doriscluster-sample-be-1.doriscluster-sample-be-internal.default.svc.cluster.local", HeartbeatPort: 9050, BePort: 9060, HttpPort: 8040, BrpcPort: 8060, ArrowFlightSqlPort: -1, LastStartTime: "2024-08-21 10:05:37",
-			LastHeartbeat: "2024-08-22 08:29:46", Alive: true, TabletNum: 24, DataUsedCapacity: "0.000", TrashUsedCapacity: "0.000", AvailCapacity: "74.619 GB", TotalCapacity: "439.037 GB", UsedPct: "83.00 %", MaxDiskUsedPct: "83.00 %",
-			RemoteUsedCapacity: "0.000", ErrMsg: "", Version: "doris-2.1.5-rc02-d5a02e095d", Status: "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}", HeartbeatFailureCounter: 0, NodeRole: "mix"}}
+	version := "doris-2.1.5-rc02-d5a02e095d"
+	startTime := "2024-08-21 10:05:37"
+	heartbeat := "2024-08-22 08:29:46"
+	values := []*Backend{{BackendID: "10009", Host: "doriscluster-sample-be-0.doriscluster-sample-be-internal.default.svc.cluster.local", HeartbeatPort: 9050, BePort: 9060, HttpPort: 8040, BrpcPort: 8060, ArrowFlightSqlPort: -1, LastStartTime: &startTime,
+		LastHeartbeat: &heartbeat, Alive: true, TabletNum: 24, DataUsedCapacity: "0.000", TrashUsedCapacity: "0.000", AvailCapacity: "74.619 GB", TotalCapacity: "439.037 GB", UsedPct: "83.00 %", MaxDiskUsedPct: "83.00 %",
+		RemoteUsedCapacity: "0.000", ErrMsg: "", Version: &version, Status: "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}", HeartbeatFailureCounter: 0, NodeRole: "mix"}}
+	values2 := []*Backend{{BackendID: "10009", Host: "doriscluster-sample-be-0.doriscluster-sample-be-internal.default.svc.cluster.local", HeartbeatPort: 9050, BePort: 9060, HttpPort: 8040, BrpcPort: 8060, ArrowFlightSqlPort: -1, LastStartTime: &startTime,
+		LastHeartbeat: &heartbeat, Alive: true, TabletNum: 24, DataUsedCapacity: "0.000", TrashUsedCapacity: "0.000", AvailCapacity: "74.619 GB", TotalCapacity: "439.037 GB", UsedPct: "83.00 %", MaxDiskUsedPct: "83.00 %",
+		RemoteUsedCapacity: "0.000", ErrMsg: "", Version: &version, Status: "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}", HeartbeatFailureCounter: 0, NodeRole: "mix"},
+		{BackendID: "10010", Host: "doriscluster-sample-be-1.doriscluster-sample-be-internal.default.svc.cluster.local", HeartbeatPort: 9050, BePort: 9060, HttpPort: 8040, BrpcPort: 8060, ArrowFlightSqlPort: -1, LastStartTime: &startTime,
+			LastHeartbeat: &heartbeat, Alive: true, TabletNum: 24, DataUsedCapacity: "0.000", TrashUsedCapacity: "0.000", AvailCapacity: "74.619 GB", TotalCapacity: "439.037 GB", UsedPct: "83.00 %", MaxDiskUsedPct: "83.00 %",
+			RemoteUsedCapacity: "0.000", ErrMsg: "", Version: &version, Status: "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}", HeartbeatFailureCounter: 0, NodeRole: "mix"}}
 	tests := [][]*Backend{
 		{},
 		values,
@@ -117,8 +120,11 @@ func Test_DecommissionBE(t *testing.T) {
 }
 
 func Test_DropObserver(t *testing.T) {
-	values := []*Frontend{{"fe_36d7bccc_d358_4dfd_ad4c_6e988f94f12d", "doriscluster-sample-fe-0.doriscluster-sample-fe-internal.default.svc.cluster.local", 9010, 8030, 9030, 9020, -1, "FOLLOWER", true, "1807668748", true, true, "15443", "2024-08-21 10:04:29",
-		"2024-08-22 07:29:55", true, "", "doris-2.1.5-rc02-d5a02e095d", "Yes"}}
+	version := "doris-2.1.5-rc02-d5a02e095d"
+	startTime := "2024-08-21 10:04:29"
+	heartbeat := "2024-08-22 07:29:55"
+	values := []*Frontend{{"fe_36d7bccc_d358_4dfd_ad4c_6e988f94f12d", "doriscluster-sample-fe-0.doriscluster-sample-fe-internal.default.svc.cluster.local", 9010, 8030, 9030, 9020, -1, "FOLLOWER", true, "1807668748", true, true, "15443", &startTime,
+		&heartbeat, true, "", &version, "Yes"}}
 
 	tests := [][]*Frontend{
 		{},
