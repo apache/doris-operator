@@ -50,6 +50,7 @@ log_stderr()
 
 update_conf_from_configmap()
 {
+    echo "deploy_mode = cloud" >> $DORIS_HOME/conf/be.conf
     if [[ "x$CONFIGMAP_MOUNT_PATH" == "x" ]] ; then
         log_stderr '[info] Empty $CONFIGMAP_MOUNT_PATH env var, skip it!'
         return 0
@@ -69,7 +70,7 @@ update_conf_from_configmap()
         fi
         if [[ "$conffile" == "be.conf" ]]; then
              cp $CONFIGMAP_MOUNT_PATH/$conffile $DORIS_HOME/be/conf/$file
-             echo "deploy_mode = true" >> $DORIS_HOME/be/conf/$file
+             echo "deploy_mode = cloud" >> $DORIS_HOME/be/conf/$file
              continue
          fi
         ln -sfT $CONFIGMAP_MOUNT_PATH/$conffile $tgt

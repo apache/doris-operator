@@ -63,9 +63,9 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return nil
 	}
 
-	if ddc.Spec.FeSpec.Replicas == nil || *(ddc.Spec.FeSpec.Replicas) < DefaultFeReplicaNumber {
-		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is illegal and has been corrected to the default value %d", ddc.Namespace, ddc.Name, DefaultFeReplicaNumber)
-		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is illegal and has been corrected to the default value 2")
+	if ddc.Spec.FeSpec.Replicas == nil {
+		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is nil and has been corrected to the default value %d", ddc.Namespace, ddc.Name, DefaultFeReplicaNumber)
+		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is nil and has been corrected to the default value 2")
 		ddc.Spec.FeSpec.Replicas = &DefaultFeReplicaNumber
 	}
 
@@ -120,7 +120,7 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 func (dfc *DisaggregatedFEController) msAvailable(ddc *v1.DorisDisaggregatedCluster) bool {
 	endpoints := corev1.Endpoints{}
 	if err := dfc.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.GetMSServiceName()}, &endpoints); err != nil {
-		klog.Infof("DisaggregatedFEController Sync wait fe service name %s available occur failed %s\n", ddc.GetMSServiceName(), err.Error())
+		klog.Infof("DisaggregatedFEController Sync wait meta service name %s available occur failed %s\n", ddc.GetMSServiceName(), err.Error())
 		return false
 	}
 
@@ -330,7 +330,7 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 
 	allObserves, err := masterDBClient.GetObservers()
 	if err != nil {
-		klog.Errorf("dropFEFromSQLClient failed, ShowFrontends err:%s", err.Error())
+		klog.Errorf("dropFEFromSQLClient failed, GetObservers err:%s", err.Error())
 		return err
 	}
 

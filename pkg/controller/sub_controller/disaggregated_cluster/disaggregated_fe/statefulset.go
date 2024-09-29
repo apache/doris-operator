@@ -289,8 +289,11 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 	var feEnvs []corev1.EnvVar
 	stsName := ddc.GetFEStatefulsetName()
 
-	//config in start reconcile, operator get DorisDisaggregatedMetaService to assign ms info.
-	msEndpoint := ddc.Status.MetaServiceStatus.MetaServiceEndpoint
+	// get meta service endpoint and token
+	// msPort explain ms`s conf(doris_cloud.conf) instead of fe`s conf(fe.conf)
+	msConfMap := dfc.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.MS_RESOLVEKEY, ddc.Spec.MetaService.ConfigMaps)
+	msPort := resource.GetPort(msConfMap, resource.BRPC_LISTEN_PORT)
+	msEndpoint := ddc.GetMSServiceName() + "." + ddc.Namespace + ":" + strconv.Itoa(int(msPort))
 	msToken := ddc.Status.MetaServiceStatus.MsToken
 	feEnvs = append(feEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},

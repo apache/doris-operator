@@ -5700,8 +5700,7 @@ spec:
                     description: ClusterId display  the clusterId of fe in fe.conf,
                       It is the hash value of the concatenated string of namespace
                       and ddcName
-                    format: int64
-                    type: integer
+                    type: string
                   phase:
                     description: Phase represent the stage of reconciling.
                     type: string

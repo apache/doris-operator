@@ -19,13 +19,12 @@ package computegroups
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils"
-	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -38,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -175,17 +175,6 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 	scaleType := getScaleType(st, &est, cgStatus.Phase)
 
-	if scaleType == "resume" {
-		if cgStatus.SuspendReplicas != *(st.Spec.Replicas) {
-			errMessage := fmt.Sprintf("ResumeComputeGroup configuration is abnormal. The replicas of resumes(%d) is not equal to the replicas of suspends(%d).", *st.Spec.Replicas, cgStatus.SuspendReplicas)
-			return &sc.Event{
-				Type:    sc.EventNormal,
-				Reason:  sc.CGResumeReplicasInconsistency,
-				Message: errMessage,
-			}, errors.New(errMessage)
-		}
-	}
-
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
 		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
 	}); err != nil {
@@ -194,56 +183,27 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 
 	switch scaleType {
-	case "resume":
-		err := ms_http.ResumeComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, "", "")
-		cgStatus.SuspendReplicas = 0
-		if err != nil {
-			cgStatus.Phase = dv1.ResumeFailed
-			klog.Errorf("computeGroupSync ResumeComputeGroup response failed , err: %s", err.Error())
-			return &sc.Event{
-				Type:    sc.EventNormal,
-				Reason:  sc.CGResumeStatusRequestFailed,
-				Message: "ResumeComputeGroup request of disaggregated BE failed: " + err.Error(),
-			}, err
-		}
-		cgStatus.Phase = dv1.Scaling
+	//case "resume":
+	//case "suspend":
 	case "scaleDown":
-		if err := dcgs.dropCGFromHttpClient(cluster, cg); err != nil {
+		cgKeepAmount := *cg.Replicas
+		cgName := cluster.GetCGName(cg)
+		if err := dcgs.scaledOutBENodesBySQL(ctx, dcgs.K8sclient, cluster, cgName, cgKeepAmount); err != nil {
 			cgStatus.Phase = dv1.ScaleDownFailed
 			klog.Errorf("ScaleDownBE failed, err:%s ", err.Error())
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGHTTPFailed, Message: err.Error()},
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
 				err
 		}
 		cgStatus.Phase = dv1.Scaling
-	case "suspend":
-		err := ms_http.SuspendComputeGroup(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, "", "")
-		if err != nil {
-			cgStatus.Phase = dv1.SuspendFailed
-			klog.Errorf("computeGroupSync SuspendComputeGroup response failed , err: %s", err.Error())
-			return &sc.Event{
-				Type:    sc.EventNormal,
-				Reason:  sc.CGSuspendStatusRequestFailed,
-				Message: "SuspendComputeGroup request of disaggregated BE failed: " + err.Error(),
-			}, err
-		}
-		cgStatus.SuspendReplicas = *est.Spec.Replicas
-		cgStatus.Phase = dv1.Suspended
+
 	}
 
 	return nil, nil
 }
 
 func getScaleType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
-	if (*(st.Spec.Replicas) > *(est.Spec.Replicas) && *(est.Spec.Replicas) == 0) || phase == dv1.ResumeFailed {
-		return "resume"
-	}
-
-	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) > 0) || phase == dv1.ScaleDownFailed {
+	if *(st.Spec.Replicas) < *(est.Spec.Replicas) || phase == dv1.ScaleDownFailed {
 		return "scaleDown"
-	}
-
-	if (*(st.Spec.Replicas) < *(est.Spec.Replicas) && *(st.Spec.Replicas) == 0) || phase == dv1.SuspendFailed {
-		return "suspend"
 	}
 	return ""
 }
@@ -348,20 +308,15 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 		if !cleared {
 			eCGs = append(eCGs, clearCGs[i])
 		} else {
-			// drop compute group from meta
-			response, err := ms_http.DropComputeGroup(ddc.Status.MetaServiceStatus.MetaServiceEndpoint, ddc.Status.MetaServiceStatus.MsToken, "", &cgs)
+			// drop compute group
+			cgName := strings.ReplaceAll(cgs.UniqueId, "_", "-")
+			cgKeepAmount := int32(0)
+			err := dcgs.scaledOutBENodesBySQL(ctx, dcgs.K8sclient, ddc, cgName, cgKeepAmount)
 			if err != nil {
-				klog.Errorf("computeGroupSync ClearResources DropComputeGroup response failed , response: %s", err.Error())
-				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGHTTPFailed), "DropComputeGroup request failed: "+err.Error())
+				klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
+				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
 			}
-			if response.Code != ms_http.SuccessCode {
-				jsonData, _ := json.Marshal(response)
-				klog.Errorf("computeGroupSync ClearResources DropComputeGroup response failed , response: %s", jsonData)
-				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGHTTPFailed), "DropComputeGroup request failed: "+response.Msg)
-			}
-
 		}
-
 	}
 
 	for i := range eCGs {
@@ -530,53 +485,68 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 	return nil
 }
 
-func (dfc *DisaggregatedComputeGroupsController) dropCGFromHttpClient(cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) error {
-	/* TODO: cancel for sql interface debug
-	cgReplica := cg.Replicas
+func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesBySQL(
+	ctx context.Context, k8sclient client.Client,
+	cluster *dv1.DorisDisaggregatedCluster,
+	cgName string,
+	cgKeepAmount int32) error {
 
-	// drop be can also use the unique id of fe
-	//unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
-	//clusterId := cluster.GetCGId(cg)
-	cgNodes, err := ms_http.GetBECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, unionId, clusterId)
+	// get user and password
+	secret, _ := k8s.GetSecret(ctx, k8sclient, cluster.Namespace, cluster.Spec.AuthSecret)
+	adminUserName, password := resource.GetDorisLoginInformation(secret)
+
+	// get host and port
+	serviceName := cluster.GetFEServiceName()
+	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
+	host := serviceName + "." + cluster.Namespace
+	confMap := dcgs.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
+	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
+
+	// connect to doris sql to get master node
+	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.
+	dbConf := mysql.DBConfig{
+		User:     adminUserName,
+		Password: password,
+		Host:     host,
+		Port:     strconv.FormatInt(int64(queryPort), 10),
+		Database: "mysql",
+	}
+	// Connect to the master and run the SQL statement of system admin, because it is not excluded that the user can shrink be and fe at the same time
+	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf)
 	if err != nil {
-		klog.Errorf("dropCGFromHttpClient GetBECluster failed, err:%s ", err.Error())
+		klog.Errorf("dropNodeBySQLClient NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
+		return err
+	}
+	defer masterDBClient.Close()
+
+	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
+	if err != nil {
+		klog.Errorf("dropNodeBySQLClient failed, ShowBackends err:%s", err.Error())
 		return err
 	}
 
-	var dropNodes []*ms_http.NodeInfo
-	for _, node := range cgNodes {
-		splitCloudUniqueIDArr := strings.Split(node.CloudUniqueID, "-")
-		podNum, err := strconv.Atoi(splitCloudUniqueIDArr[len(splitCloudUniqueIDArr)-1])
+	var dropNodes []*mysql.Backend
+	for i := range allBackends {
+		node := allBackends[i]
+		split := strings.Split(node.Host, ".")
+		splitCGIDArr := strings.Split(split[0], "-")
+		podNum, err := strconv.Atoi(splitCGIDArr[len(splitCGIDArr)-1])
 		if err != nil {
-			klog.Errorf("splitCloudUniqueIDArr can not split CloudUniqueID : %s,err:%s", node.CloudUniqueID, err.Error())
+			klog.Errorf("dropNodeBySQLClient splitCGIDArr can not split host : %s,err:%s", node.Host, err.Error())
 			return err
 		}
-		if podNum >= int(*cgReplica) {
+		if podNum >= int(cgKeepAmount) {
 			dropNodes = append(dropNodes, node)
 		}
 	}
+
 	if len(dropNodes) == 0 {
 		return nil
 	}
-
-	reqCluster := ms_http.Cluster{
-		//	ClusterName: cg.Name,
-		ClusterID: clusterId,
-		Type:      ms_http.BeNodeType,
-		Nodes:     dropNodes,
-	}
-
-	specifyCluster, err := ms_http.DropBENodes(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), reqCluster)
+	err = masterDBClient.DropBE(dropNodes)
 	if err != nil {
-		klog.Errorf("dropCGFromHttpClient DropBENodes failed, err:%s ", err.Error())
+		klog.Errorf("dropNodeBySQLClient DropBENodes failed, err:%s ", err.Error())
 		return err
 	}
-
-	if specifyCluster.Code != ms_http.SuccessCode {
-		jsonData, _ := json.Marshal(specifyCluster)
-		klog.Errorf("dropCGFromHttpClient DropBENodes response failed , response: %s", jsonData)
-		return err
-	}*/
-
 	return nil
 }
