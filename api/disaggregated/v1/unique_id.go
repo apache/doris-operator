@@ -78,5 +78,5 @@ func (ddc *DorisDisaggregatedCluster) GetMSServiceName() string {
 
 func (ddc *DorisDisaggregatedCluster) GetCGName(cg *ComputeGroup) string {
 	// use uniqueId as compute group name, the uniqueId restrict not empty, and the computegroup's name should use "_" not "-"
-	return strings.ReplaceAll(cg.UniqueId, "_", "-")
+	return strings.ReplaceAll(cg.UniqueId, "-", "_")
 }
