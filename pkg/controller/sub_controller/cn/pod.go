@@ -1,11 +1,28 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package cn
 
 import (
 	"context"
 	"strconv"
 
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -15,6 +32,8 @@ func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)
 	containers = append(containers, cnContainer)
+
+	containers = resource.ApplySecurityContext(containers, dcr.Spec.CnSpec.ContainerSecurityContext)
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }
@@ -28,7 +47,7 @@ func (cn *Controller) cnContainer(dcr *v1.DorisCluster) corev1.Container {
 	if address == "" {
 		if dcr.Spec.FeSpec != nil {
 			//if fe exist, get fe config.
-			feConfig, _ = cn.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
+			feConfig, _ = cn.getFeConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace)
 		}
 
 		address = v1.GenerateExternalServiceName(dcr, v1.Component_FE)

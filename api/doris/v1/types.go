@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 /*
 Copyright 2023.
 
@@ -41,7 +58,12 @@ type DorisClusterSpec struct {
 	BrokerSpec *BrokerSpec `json:"brokerSpec,omitempty"`
 
 	//administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.
+	//+Deprecated, from 1.4.1 please use secret config username and password.
 	AdminUser *AdminUser `json:"adminUser,omitempty"`
+
+	// the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
+	// the password key is `password`. the username defaults to `root` and is omitempty.
+	AuthSecret string `json:"authSecret,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
@@ -109,19 +131,23 @@ type BrokerSpec struct {
 
 // BaseSpec describe the foundation spec of pod about doris components.
 type BaseSpec struct {
+
+	// pod start timeout, unit is second
+	StartTimeout int32 `json:"startTimeout,omitempty"`
+
+	//Number of seconds after which the probe times out. Defaults to 180 second.
+	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
 	Annotations map[string]string `json:"annotations,omitempty"`
 
 	//serviceAccount for cn access cloud service.
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
-	//expose the be listen ports
+	//expose doris components for accessing.
+	//example: if you want to use `stream load` to load data into doris out k8s, you can use be service and config different service type for loading data.
 	Service *ExportService `json:"service,omitempty"`
 
-	//A special supplemental group that applies to all containers in a pod.
-	// Some volume types allow the Kubelet to change the ownership of that volume
-	// to be owned by the pod:
-	FsGroup *int64 `json:"fsGroup,omitempty"`
 	// specify register fe addresses
 	FeAddress *FeAddress `json:"feAddress,omitempty"`
 
@@ -142,16 +168,11 @@ type BaseSpec struct {
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 
-	//+optional
-	//set the fe service for register cn, when not set, will use the fe config to find.
-	//Deprecated,
-	//FeServiceName string `json:"feServiceName,omitempty"`
-
 	//the reference for cn configMap.
 	//+optional
 	ConfigMapInfo ConfigMapInfo `json:"configMapInfo,omitempty"`
 
-	//defines the specification of resource cpu and mem.
+	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "16Gi"},"limits":{"cpu":4,"memory":"16Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 	// (Optional) If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
 	// +optional
@@ -182,6 +203,14 @@ type BaseSpec struct {
 
 	//SystemInitialization for fe, be and cn setting system parameters.
 	SystemInitialization *SystemInitialization `json:"systemInitialization,omitempty"`
+
+	//Security context for pod.
+	//+optional
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+
+	//Security context for all containers running in the pod (unless they override it).
+	//+optional
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 }
 
 type SystemInitialization struct {
@@ -207,6 +236,10 @@ type PersistentVolume struct {
 	//the volume name associate with
 	Name string `json:"name,omitempty"`
 
+	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
+	//It only takes effect in the first configuration and cannot be added or modified later.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	//defines pvc provisioner
 	PVCProvisioner PVCProvisioner `json:"provisioner,omitempty"`
 }
@@ -223,11 +256,32 @@ const (
 
 // ConfigMapInfo specify configmap to mount for component.
 type ConfigMapInfo struct {
-	//the config info for start progress.
+
+	// ConfigMapName mapped the configuration files in the doris 'conf/' directory.
+	// such as 'fe.conf', 'be.conf'. If HDFS access is involved, there may also be 'core-site.xml' and other files.
+	// doris-operator mounts these configuration files in the '/etc/doris' directory by default.
+	// links them to the 'conf/' directory of the doris component through soft links.
 	ConfigMapName string `json:"configMapName,omitempty"`
 
-	//the config response key in configmap.
+	// Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+	// It is currently forced to be 'fe.conf', 'be.conf', 'apache_hdfs_broker.conf'
+	// It is no longer effective. the configuration content will not take effect.
+	// +optional
 	ResolveKey string `json:"resolveKey,omitempty"`
+
+	// ConfigMaps can mount multiple configmaps to the specified path.
+	// The mounting path of configmap cannot be repeated.
+	// +optional
+	ConfigMaps []MountConfigMapInfo `json:"configMaps,omitempty"`
+}
+
+type MountConfigMapInfo struct {
+	// name of configmap that needs to mount.
+	ConfigMapName string `json:"configMapName,omitempty"`
+
+	// Current ConfigMap Mount Path.
+	// If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // ExportService consisting of expose ports for user access to software service.
@@ -239,6 +293,9 @@ type ExportService struct {
 
 	//ServicePort config service for NodePort access mode.
 	ServicePorts []DorisServicePort `json:"servicePorts,omitempty"`
+
+	//Annotations for using function on different cloud platform.
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// Only applies to Service Type: LoadBalancer.
 	// This feature depends on whether the underlying cloud-provider supports specifying
@@ -344,6 +401,10 @@ const (
 	WaitScheduling   ComponentPhase = "waitScheduling"
 	HaveMemberFailed ComponentPhase = "haveMemberFailed"
 	Available        ComponentPhase = "available"
+	Initializing     ComponentPhase = "initializing"
+	Upgrading        ComponentPhase = "upgrading"
+	Scaling          ComponentPhase = "scaling"
+	Restarting       ComponentPhase = "restarting"
 )
 
 // +genclient
@@ -352,7 +413,6 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dcr
-// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="FeStatus",type=string,JSONPath=`.status.feStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="BeStatus",type=string,JSONPath=`.status.beStatus.componentCondition.phase`
 // +kubebuilder:printcolumn:name="CnStatus",type=string,JSONPath=`.status.cnStatus.componentCondition.phase`

@@ -18,8 +18,8 @@ limitations under the License.
 package doris
 
 import (
-	v1 "github.com/selectdb/doris-operator/client/informers/externalversions/doris/v1"
-	internalinterfaces "github.com/selectdb/doris-operator/client/informers/externalversions/internalinterfaces"
+	v1 "github.com/apache/doris-operator/client/informers/externalversions/doris/v1"
+	internalinterfaces "github.com/apache/doris-operator/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

@@ -1,0 +1,16 @@
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: test-disaggregated-cluster
+spec:
+  instanceConfigMap: vault-test
+  disMS:
+    namespace: release
+    name: meta-service-release
+  feSpec:
+    image: 10.16.10.8:32000/release.dis.fe:1.1
+    replicas: 2
+  computeGroups:
+    - name: test1
+      image: 10.16.10.8:32000/release.dis.be:1.0
+      replicas: 3

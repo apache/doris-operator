@@ -1,352 +1,697 @@
-
-
-nameOverride: "doris"
-
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 
 # deploy a doris cluster
 dorisCluster:
-  # the name of doriscluster cluster, if not set, the chart name will be used.
-  name: "doris"
-  # the namespace of doriscluster cluster, if not set, the release namespace will be used.
-  namespace: "doris"
+  # the name of doriscluster, if not set, the chart name will be used.
+  name: "doriscluster-helm"
   # annotations for doris cluster.
-  annotations:
-    selectdb/doriscluster: doriscluster-sample
+  annotations: {}
   # specify the cn deploy or not.
-  enabledCn: true
+  enabledCn: false
   # specify the broker deploy or not.
-  enabledBroker: true
-
-  # specify the doris adminuser or not.
+  enabledBroker: false
+  # specify the doriscluster adminuser or not.
+  # set adminUser will record the password in clear text. This method has been abandoned and is not recommended.
+  # When adding adminuser. should follow the steps:
+  # 1. Start dorisclusert without adminUser
+  # 2. Run 'CREATE USER ...' or 'SET PASSWORD ...' in mysql client
+  # 3. Add the name and password added in the previous step to adminUser and execute helm
   adminUser: {}
   # name: root
   # password: "12345"
+  # use authSecret can encrypt and save passwords, recommend this method
+  # 1. run shell:  echo -n '{your_password}' | base64    to get password base64 string
+  # 2. run shell:  echo -n '{your_user}' | base64        to get user base64 string
+  # 3. Fill the encrypted string into the corresponding position
+  # as follow, username is 'root' , password is 't0p-Secret'
+  authSecret: {}
+  # username: cm9vdA==
+  # password: dDBwLVNlY3JldA==
 
-dorisImage:
-  feImage:
-    repository: selectdb/doris.fe-ubuntu
-    tag: 2.0.2
-#    imagePullSecrets:
-#      - name: imagePullSecret
-  beImage:
-    repository: selectdb/doris.be-ubuntu
-    tag: 2.0.2
-#    imagePullSecrets:
-#      - name: imagePullSecret
-  cnImage:
-    repository: selectdb/doris.be-ubuntu
-    tag: 2.0.2
-#    imagePullSecrets:
-#      - name: imagePullSecret
-  brokerImage:
-    repository: selectdb/doris.broker-ubuntu
-    tag: 2.0.2
-#    imagePullSecrets:
-#      - name: imagePullSecret
 feSpec:
   replicas: 3
   # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
-  electionNumber: 3
-  service: {}
-    # the fe service type, only supported ClusterIP, NodePort, LoadBalancer
-#    type: "LoadBalancer"
-    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
-#    loadbalancerIP: "127.0.0.1"
-    # config the service port for fe service.
-    # if you want to use a dedicated port for fe service, you can config the port.
-    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
-#    servicePorts:
-#      - nodePort: 9030
-#        targetPort: 9030
-#      - nodePort: 8030
-#        targetPort: 8030
-  configMapInfo: {}
-#    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
-#    configMapName: "fe-configmap"
-#    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
-#    resolveKey: "fe.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
-  nodeSelector: {}
-    # kubernetes.io/arch: amd64
-  # kubernetes.io/os: linux
-  # app.kubernetes.node.name: "k8s-node1"
-  env: []
-    # - name: "HOME"
-    #   value: "/opt/selectdb"
-    # - name: HOST_IP
-    #   valueFrom:
-    #     fieldRef:
-    #       apiVersion: v1
-  #       fieldPath: status.hostIP
-  affinity: {}
-  # Node tolerations for fe pod scheduling to nodes with taints
-  # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-  tolerations: []
+  # electionNumber: 3
   # the pod labels for user select or classify pods.
-  podLabels: {}
-  ## hostAliases allows adding entries to /etc/hosts inside the containers
-  hostAliases: []
-  # - ip: "127.0.0.1"
-  #   hostnames: "hostname1"
-  persistentVolumes:
-  # - mountPath: /opt/apache-doris/fe/doris-meta
-  #   name: fe-meta
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #       - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 10Gi
-  systemInitializationCommand: []
-  # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  labels: {}
+    # selectdb.app.classify: "classify-1"
+  image:
+    repository: selectdb/doris.fe-ubuntu
+    tag: 2.0.3
+    # imagePullSecrets:
+    # - name: imagePullSecret
+  # config the service port for fe service.
+  # if you want to use a dedicated port for fe service, you can config the port.
+  # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+  service:
+    # the fe service type, only supported ClusterIP, NodePort, LoadBalancer
+    type: ClusterIP
+    # type: NodePort
+    # servicePorts:
+    # - nodePort: 30001
+    #   targetPort: 9030
+    # - nodePort: 30002
+    #   targetPort: 8030
+    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+    # type: "LoadBalancer"
+    # loadbalancerIP: "127.0.0.1"
+    # use LoadBalancer on cloud platform, try to configure it using annotations:
+    annotations: {}
+      # service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"
+  # specify the configMap, as a dictionary.
+  # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
+  # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
+  configMap: {}
+    # 'fe.conf' is the startup config file of fe, and the name must be 'fe.conf'.
+    # fe.conf: |
+    #   http_port = 8030
+    #   rpc_port = 9020
+    #   query_port = 9030
+    #   edit_log_port = 9010
+    # Other config files can also be specified here
+    # hdfs-site.xml: |
+    #   <?xml version="1.0" encoding="UTF-8"?>
+    #
+    #   <configuration>
+    #     <property>
+    #       <name>dfs.nameservices</name>
+    #       <value>ns</value>
+    #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
 
-beSpec:
-  replicas: 3
-  service: {}
-#    # the be service type, only supported ClusterIP, NodePort, LoadBalancer
-#    type: "LoadBalancer"
-#    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
-#    loadbalancerIP: "127.0.0.1"
-#    # config the service port for be service.
-#    # if you want to use a dedicated port for be service, you can config the port.
-#    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
-#    servicePorts:
-#      - nodePort: 9040
-#        targetPort: 9040
-#      - nodePort: 8040
-#        targetPort: 8040
-  configMapInfo: {}
-#    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
-#    configMapName: "be-configmap"
-#    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
-#    resolveKey: "be.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
+  # If configured separately here, it will overwrite the total resources configuration default.
+  # but the default configuration of other types will still take effect.
+  resource: {}
+    # requests:
+    #   cpu: 8
+    #   memory: 16Gi
+    # limits:
+    #   cpu: 16
+    #   memory: 32Gi
+  # If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
   nodeSelector: {}
     # kubernetes.io/arch: amd64
     # kubernetes.io/os: linux
-  # app.kubernetes.node.name: "k8s-node1"
+    # app.kubernetes.node.name: "k8s-node1"
+  # env represents an environment variable present in a Container.
+  # 'name' of the environment variable. Must be a C_IDENTIFIER.
+  # no more than one of the following may be specified: 'value' or 'valueFrom',
+  # 'value' is the value of environment.
+  # 'valueFrom' is source for the environment variable's value. Cannot be used if 'value' is not empty.
   env: []
-    # - name: "HOME"
-    #   value: "/opt/selectdb"
-    # - name: HOST_IP
-    #   valueFrom:
-    #     fieldRef:
-    #     apiVersion: v1
-  #     fieldPath: status.hostIP
-  affinity: {}
-  # Node tolerations for fe pod scheduling to nodes with taints
-  # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-  tolerations: []
-  # key: "toleration"
-  # value: "master"
-  # the pod labels for user select or classify pods.
-  podLabels: {}
-  # selectdb.app.classify: "classify-1"
-  ## hostAliases allows adding entries to /etc/hosts inside the containers
-  hostAliases: []
-  # - ip: "127.0.0.1"
-  #   hostnames: "hostname1"
-  persistentVolumes:
-  # - mountPath: /opt/apache-doris/be/log
-  #   name: be-log
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #     - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 10Gi
-  # - mountPath: /opt/apache-doris/be/storage
-  #   name: be-storage
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #     - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 1024Gi
-  systemInitializationCommand: []
-  # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
-
-
-cnSpec:
-  replicas: 3
-  service: {}
-#    # the be service type, only supported ClusterIP, NodePort, LoadBalancer
-#    type: "LoadBalancer"
-#    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
-#    loadbalancerIP: "127.0.0.1"
-#    # config the service port for be service.
-#    # if you want to use a dedicated port for be service, you can config the port.
-#    # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
-#    servicePorts:
-#      - nodePort: 9040
-#        targetPort: 9040
-#      - nodePort: 8040
-#        targetPort: 8040
-  configMapInfo: {}
-#    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
-#    configMapName: "be-configmap"
-#    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
-#    resolveKey: "be.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
-  nodeSelector: {}
-  # kubernetes.io/arch: amd64
-  # kubernetes.io/os: linux
-  # app.kubernetes.node.name: "k8s-node1"
-  env: []
-    # - name: "HOME"
-    #   value: "/opt/selectdb"
-    # - name: HOST_IP
-  #   valueFrom:
-  #     fieldRef:
-  #       apiVersion: v1
-  #       fieldPath: status.hostIP
-  affinity: {}
-  # Node tolerations for fe pod scheduling to nodes with taints
-  # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-  tolerations: []
-  # key: "toleration"
-  # value: "master"
-  # the pod labels for user select or classify pods.
-  podLabels: {}
-  # selectdb.app.classify: "classify-1"
-  ## hostAliases allows adding entries to /etc/hosts inside the containers
-  hostAliases: []
-  # - ip: "127.0.0.1"
-  #   hostnames: "hostname1"
-  persistentVolumes:
-  # - mountPath: /opt/apache-doris/be/log
-  #   name: be-log
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #     - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 10Gi
-  # - mountPath: /opt/apache-doris/be/storage
-  #   name: be-storage
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #     - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 1024Gi
-  systemInitializationCommand: []
-  # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
-  autoScalingPolicy:
-    # version: v2
-    minReplicas: 1
-    maxReplicas: 4
-    # hpaPolicy response to horizontlaPodAutoscaler's HorizontalPodAutoscalerSpec
-    hpaPolicy:
-      metrics:
-        - type: Resource
-          resource:
-            name: cpu
-            target:
-              type: Utilization
-              averageUtilization: 30
-
-
-brokerSpec:
-  replicas: 3
-  configMapInfo: {}
-#    # configMapName specify the configmap will be used by fe, configmap must deployed in same namespace with fe.
-#    configMapName: "broker-configmap"
-#    # the resolveKey is fixed as "fe.conf", only when your build image as your self dockerfile.
-#    resolveKey: "broker.conf"
-  resource:
-    requests:
-      cpu: 8
-      memory: 16Gi
-    limits:
-      cpu: 16
-      memory: 32Gi
-  nodeSelector: {}
-  # kubernetes.io/arch: amd64
-  # kubernetes.io/os: linux
-  # app.kubernetes.node.name: "k8s-node1"
-  env: []
-    # - name: "HOME"
-    #   value: "/opt/selectdb"
+  # - name: "HOME"
+  #   value: "/opt/selectdb"
   # - name: HOST_IP
   #   valueFrom:
   #     fieldRef:
   #       apiVersion: v1
   #       fieldPath: status.hostIP
+
+  # affinity is the constraints of pod scheduling
+  # nodeAffinity: Describes node affinity scheduling rules for the pod.
+  # podAffinity: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+  # PodAntiAffinity: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+  # reference: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
   affinity: {}
-  # Node tolerations for fe pod scheduling to nodes with taints
-  # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "k8s-node1"
+    #                 "k8s-node2"
+    # podAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "fe1"
+    #                 "fe2"
+    # podAntiAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "NotIn"
+    #           values:
+    #             - "fe1"
+    #               "fe2"
+
+  # the pod this Toleration is attached to tolerates any taint that matches. Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # the triple <key,value,effect> using the matching operator <operator>.
+  # 'key' is the taint key that the toleration applies to. Empty means match all taint keys. if the 'key' is empty, 'operator' must be Exists; this combination means to match all values and all keys.
+  # 'operator' represents a key's relationship to the 'value'. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+  # 'value' is the taint value the toleration matches to. If the 'operator' is Exists, the 'value' should be empty, otherwise just a regular string.
+  # 'effect' indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
   tolerations: []
   # - key: "toleration"
+  #   operator: "Equal"
   #   value: "master"
-  # the pod labels for user select or classify pods.
-  podLabels: {}
-  # selectdb.app.classify: "classify-1"
-  ## hostAliases allows adding entries to /etc/hosts inside the containers
+  # - key: "node-role.kubernetes.io/master"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"
+  # - operator: "Exists"
+
+  # hostAliases allows adding entries to /etc/hosts inside the containers
   hostAliases: []
+  # If doris use hdfs or catalog, config the map of namenode host here is beneficial
   # - ip: "127.0.0.1"
-  #   hostnames: "hostname1"
-  persistentVolumes:
-  # - mountPath: /opt/apache-doris/be/log
-  #   name: be-log
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #     - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 10Gi
-  # - mountPath: /opt/apache-doris/be/storage
-  #   name: be-storage
-  #   persistentVolumeClaimSpec:
-  #     # when use specific storageclass, the storageClassName should reConfig, example as annotation.
-  #     #storageClassName: openebs-jiva-csi-default
-  #     accessModes:
-  #     - ReadWriteOnce
-  #     resources:
-  #       requests:
-  #         storage: 1024Gi
-  systemInitializationCommand: []
-  # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  #   hostnames:
+  #   - "hostname1"
+  # - ip: "127.0.0.2"
+  #   hostnames:
+  #   - "hostname2"
+  persistentVolumeClaim: {}
+    # meta volume, mountPath is /opt/apache-doris/fe/doris-meta
+    # metaPersistentVolume:
+    #   storage: 200Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+    # logs volume, mountPath is /opt/apache-doris/fe/log
+    # logsPersistentVolume:
+    #   storage: 100Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+  systemInitialization: {}
+    # initImage: "selectdb/alpine:latest"
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
+beSpec:
+  replicas: 3
+  # the pod labels for user select or classify pods.
+  labels: {}
+    # selectdb.app.classify: "classify-1"
+  image:
+    repository: selectdb/doris.be-ubuntu
+    tag: 2.0.3
+    # imagePullSecrets:
+    # - name: imagePullSecret
+  # config the service port for be service.
+  # if you want to use a dedicated port for be service, you can config the port.
+  # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+  service:
+    # the be service type, only supported ClusterIP, NodePort, LoadBalancer
+    type: ClusterIP
+    # type: NodePort
+    # servicePorts:
+    # - nodePort: 30003
+    #   targetPort: 9040
+    # - nodePort: 30004
+    #   targetPort: 8040
+    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+    # type: "LoadBalancer"
+    # loadbalancerIP: "127.0.0.1"
+    # use LoadBalancer on cloud platform, try to configure it using annotations
+    annotations: {}
+      # service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"
+  # specify the configMap, as a dictionary.
+  # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
+  # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
+  configMap: {}
+    # 'be.conf' is the startup config file of be, and the name must be 'be.conf'.
+    # be.conf: |
+    #   be_port = 9060
+    #   webserver_port = 8040
+    #   heartbeat_service_port = 9050
+    #   brpc_port = 8060
+    #   storage_root_path = /data/doris/be/storage
+    # Other config files can also be specified here
+    # hdfs-site.xml: |
+    #   <?xml version="1.0" encoding="UTF-8"?>
+    #
+    #   <configuration>
+    #     <property>
+    #       <name>dfs.nameservices</name>
+    #       <value>ns</value>
+    #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
 
+  # If configured separately here, it will overwrite the total resources configuration default.
+  # but the default configuration of other types will still take effect.
+  resource: {}
+    # requests:
+    #   cpu: 8
+    #   memory: 16Gi
+    # limits:
+    #   cpu: 16
+    #   memory: 32Gi
+  # If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
+  nodeSelector: {}
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+  # env represents an environment variable present in a Container.
+  # 'name' of the environment variable. Must be a C_IDENTIFIER.
+  # no more than one of the following may be specified: 'value' or 'valueFrom',
+  # 'value' is the value of environment.
+  # 'valueFrom' is source for the environment variable's value. Cannot be used if 'value' is not empty.
+  env: []
+  # - name: "HOME"
+  #   value: "/opt/selectdb"
+  # - name: HOST_IP
+  #   valueFrom:
+  #     fieldRef:
+  #       apiVersion: v1
+  #       fieldPath: status.hostIP
 
+  # affinity is the constraints of pod scheduling
+  # nodeAffinity: Describes node affinity scheduling rules for the pod.
+  # podAffinity: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+  # PodAntiAffinity: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+  # reference: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+  affinity: {}
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "k8s-node1"
+    #                 "k8s-node2"
+    # podAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "fe1"
+    #                 "fe2"
+    # podAntiAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "NotIn"
+    #           values:
+    #             - "fe1"
+    #               "fe2"
 
+  # the pod this Toleration is attached to tolerates any taint that matches. Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # the triple <key,value,effect> using the matching operator <operator>.
+  # 'key' is the taint key that the toleration applies to. Empty means match all taint keys. if the 'key' is empty, 'operator' must be Exists; this combination means to match all values and all keys.
+  # 'operator' represents a key's relationship to the 'value'. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+  # 'value' is the taint value the toleration matches to. If the 'operator' is Exists, the 'value' should be empty, otherwise just a regular string.
+  # 'effect' indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+  tolerations: []
+  # - key: "toleration"
+  #   operator: "Equal"
+  #   value: "master"
+  # - key: "node-role.kubernetes.io/master"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"
+  # - operator: "Exists"
 
+  # hostAliases allows adding entries to /etc/hosts inside the containers
+  hostAliases: []
+  # If doris use hdfs or catalog, config the map of namenode host here is beneficial
+  # - ip: "127.0.0.1"
+  #   hostnames:
+  #   - "hostname1"
+  # - ip: "127.0.0.2"
+  #   hostnames:
+  #   - "hostname2"
+  persistentVolumeClaim: {}
+    # data volume, mountPath is /opt/apache-doris/be/storage
+    # dataPersistentVolume:
+    #   storage: 200Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+    # logs volume, mountPath is /opt/apache-doris/be/log
+    # logsPersistentVolume:
+    #   storage: 100Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+  systemInitialization: {}
+    # initImage: "selectdb/alpine:latest"
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
+cnSpec:
+  replicas: 3
+  # the pod labels for user select or classify pods.
+  labels: {}
+    # selectdb.app.classify: "classify-1"
+  image:
+    repository: selectdb/doris.be-ubuntu
+    tag: 2.0.3
+    # imagePullSecrets:
+    # - name: imagePullSecret
+  # config the service port for cn service.
+  # if you want to use a dedicated port for cn service, you can config the port.
+  # see https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more details.
+  service:
+    # the cn service type, only supported ClusterIP, NodePort, LoadBalancer
+    type: ClusterIP
+    # type: NodePort
+    # servicePorts:
+    # - nodePort: 30005
+    #   targetPort: 9040
+    # - nodePort: 30006
+    #   targetPort: 8040
+    # type: "LoadBalancer"
+    # the loadBalancerIP for static ip config when the type=LoadBalancer and loadbalancerIp is not empty.
+    # loadbalancerIP: "127.0.0.1"
+    # use LoadBalancer on cloud platform, try to configure it using annotations
+    annotations: {}
+      # service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"
+  # specify the configMap, as a dictionary.
+  # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
+  # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
+  configMap: {}
+    # 'be.conf' is the startup config file of cn, and the name must be 'be.conf'.
+    # be.conf: |
+    #   be_port = 9060
+    #   webserver_port = 8040
+    #   heartbeat_service_port = 9050
+    #   brpc_port = 8060
+    #   storage_root_path = /data/doris/be/storage
+    #   be_node_role=computation
+    # Other config files can also be specified here
+    # hdfs-site.xml: |
+    #   <?xml version="1.0" encoding="UTF-8"?>
+    #
+    #   <configuration>
+    #     <property>
+    #       <name>dfs.nameservices</name>
+    #       <value>ns</value>
+    #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
 
+  # If configured separately here, it will overwrite the total resources configuration default.
+  # but the default configuration of other types will still take effect.
+  resource: {}
+    # requests:
+    #   cpu: 8
+    #   memory: 16Gi
+    # limits:
+    #   cpu: 16
+    #   memory: 32Gi
+  # If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
+  nodeSelector: {}
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+  # env represents an environment variable present in a Container.
+  # 'name' of the environment variable. Must be a C_IDENTIFIER.
+  # no more than one of the following may be specified: 'value' or 'valueFrom',
+  # 'value' is the value of environment.
+  # 'valueFrom' is source for the environment variable's value. Cannot be used if 'value' is not empty.
+  env: []
+  # - name: "HOME"
+  #   value: "/opt/selectdb"
+  # - name: HOST_IP
+  #   valueFrom:
+  #     fieldRef:
+  #       apiVersion: v1
+  #       fieldPath: status.hostIP
 
+  # affinity is the constraints of pod scheduling
+  # nodeAffinity: Describes node affinity scheduling rules for the pod.
+  # podAffinity: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+  # PodAntiAffinity: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+  # reference: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+  affinity: {}
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "k8s-node1"
+    #                 "k8s-node2"
+    # podAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "fe1"
+    #                 "fe2"
+    # podAntiAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "NotIn"
+    #           values:
+    #             - "fe1"
+    #               "fe2"
 
+  # the pod this Toleration is attached to tolerates any taint that matches. Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # the triple <key,value,effect> using the matching operator <operator>.
+  # 'key' is the taint key that the toleration applies to. Empty means match all taint keys. if the 'key' is empty, 'operator' must be Exists; this combination means to match all values and all keys.
+  # 'operator' represents a key's relationship to the 'value'. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+  # 'value' is the taint value the toleration matches to. If the 'operator' is Exists, the 'value' should be empty, otherwise just a regular string.
+  # 'effect' indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+  tolerations: []
+  # - key: "toleration"
+  #   operator: "Equal"
+  #   value: "master"
+  # - key: "node-role.kubernetes.io/master"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"
+  # - operator: "Exists"
 
+  # hostAliases allows adding entries to /etc/hosts inside the containers
+  hostAliases: []
+  # If doris use hdfs or catalog, config the map of namenode host here is beneficial
+  # - ip: "127.0.0.1"
+  #   hostnames:
+  #   - "hostname1"
+  # - ip: "127.0.0.2"
+  #   hostnames:
+  #   - "hostname2"
+  persistentVolumeClaim: {}
+    # data volume, mountPath is /opt/apache-doris/be/storage
+    # dataPersistentVolume:
+    #   storage: 200Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+    # logs volume, mountPath is /opt/apache-doris/be/log
+    # logsPersistentVolume:
+    #   storage: 100Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+  systemInitialization: {}
+    # initImage: "selectdb/alpine:latest"
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  # specific cn auto scale policy
+  autoScalingPolicy:
+    enable: true
+    # version: v2
+    minReplicas: 1
+    maxReplicas: 4
+    # hpaPolicy response to horizontlaPodAutoscaler's HorizontalPodAutoscalerSpec
+    hpaPolicy: {}
+      # metrics:
+      # - type: Resource
+      #   resource:
+      #     name: cpu
+      #     target:
+      #       type: Utilization
+      #       averageUtilization: 30
 
+brokerSpec:
+  replicas: 3
+  # the pod labels for user select or classify pods.
+  labels: {}
+    # selectdb.app.classify: "classify-1"
+  image:
+    repository: selectdb/doris.broker-ubuntu
+    tag: 2.0.3
+    # imagePullSecrets:
+    # - name: imagePullSecret
+  # specify the configMap, as a dictionary.
+  # Its 'key' is the config file name in the doris 'doris_root_path/fe/conf/' file path,
+  # Its 'value' is the text content of the corresponding file (it should be relatively long, actually).
+  configMap: {}
+    # 'apache_hdfs_broker.conf' is the startup config file of broker, and the name must be 'apache_hdfs_broker.conf'.
+    # apache_hdfs_broker.conf: |
+    #   broker_ipc_port: 8000
+    #   client_expire_seconds: 3600
+    # Other config files can also be specified here
+    # hdfs-site.xml: |
+    #   <?xml version="1.0" encoding="UTF-8"?>
+    #
+    #   <configuration>
+    #     <property>
+    #       <name>dfs.nameservices</name>
+    #       <value>ns</value>
+    #     </property>
+    #
+    # mountConfigMaps supports configmap mounting in the form of specifying the mounting directory
+    # but please note that the mounting path cannot be repeated.
+    # if the elements within mountConfigMaps contain data, it means that the configmap does not need to be created manually by the user, and vice versa.
+    # in the following example, the user needs to manually create configmap 'cm-1'
+    # mountConfigMaps: {}
+    # - configMapName: cm-1
+    #   mountPath: /etc/cm1
+    # - configMapName: cm-2
+    #   mountPath: /etc/cm2
+    #   data:
+    #     copy_file1: |
+    #       text *** content
+    #     copy_file2: |
+    #       text *** content
+
+  # If configured separately here, it will overwrite the total resources configuration default.
+  # but the default configuration of other types will still take effect.
+  resource: {}
+    # requests:
+    #   cpu: 8
+    #   memory: 16Gi
+    # limits:
+    #   cpu: 16
+    #   memory: 32Gi
+  # If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
+  nodeSelector: {}
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+  # env represents an environment variable present in a Container.
+  # 'name' of the environment variable. Must be a C_IDENTIFIER.
+  # no more than one of the following may be specified: 'value' or 'valueFrom',
+  # 'value' is the value of environment.
+  # 'valueFrom' is source for the environment variable's value. Cannot be used if 'value' is not empty.
+  env: []
+  # - name: "HOME"
+  #   value: "/opt/selectdb"
+  # - name: HOST_IP
+  #   valueFrom:
+  #     fieldRef:
+  #       apiVersion: v1
+  #       fieldPath: status.hostIP
+
+  # affinity is the constraints of pod scheduling
+  # nodeAffinity: Describes node affinity scheduling rules for the pod.
+  # podAffinity: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+  # PodAntiAffinity: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+  # reference: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+  affinity: {}
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "k8s-node1"
+    #                 "k8s-node2"
+    # podAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "In"
+    #           values:
+    #             - "fe1"
+    #                 "fe2"
+    # podAntiAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #       - matchExpressions:
+    #           key: "app.kubernetes.node.name"
+    #           operator: "NotIn"
+    #           values:
+    #             - "fe1"
+    #                 "fe2"
+
+  # the pod this Toleration is attached to tolerates any taint that matches. Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # the triple <key,value,effect> using the matching operator <operator>.
+  # 'key' is the taint key that the toleration applies to. Empty means match all taint keys. if the 'key' is empty, 'operator' must be Exists; this combination means to match all values and all keys.
+  # 'operator' represents a key's relationship to the 'value'. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+  # 'value' is the taint value the toleration matches to. If the 'operator' is Exists, the 'value' should be empty, otherwise just a regular string.
+  # 'effect' indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+  tolerations: []
+  # - key: "toleration"
+  #   operator: "Equal"
+  #   value: "master"
+  # - key: "node-role.kubernetes.io/master"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"
+  # - operator: "Exists"
+
+  # hostAliases allows adding entries to /etc/hosts inside the containers
+  hostAliases: []
+  # If doris use hdfs or catalog, config the map of namenode host here is beneficial
+  # - ip: "127.0.0.1"
+  #   hostnames:
+  #   - "hostname1"
+  # - ip: "127.0.0.2"
+  #   hostnames:
+  #   - "hostname2"
+  persistentVolumeClaim: {}
+    # logs volume, mountPath is /opt/apache-doris/apache_hdfs_broker/log
+    # logsPersistentVolume:
+    #   storage: 100Gi
+    # when use specific storageclass, the storageClassName should reConfig, example as annotation.
+    #   storageClassName: ""
+  systemInitialization: {}
+    # initImage: "selectdb/alpine:latest"
+    # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
 

@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 /*
 Copyright 2023.
 
@@ -18,12 +35,12 @@ package controller
 
 import (
 	"context"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/be"
-	bk "github.com/selectdb/doris-operator/pkg/controller/sub_controller/broker"
-	cn "github.com/selectdb/doris-operator/pkg/controller/sub_controller/cn"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller/fe"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
+	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
+	cn "github.com/apache/doris-operator/pkg/controller/sub_controller/cn"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller/fe"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,7 +63,7 @@ import (
 )
 
 var (
-	name                 = "dorisscluster-controller"
+	name                 = "doris-cluster-controller"
 	feControllerName     = "fe-controller"
 	cnControllerName     = "cn-controller"
 	beControllerName     = "be-controller"
@@ -60,6 +77,12 @@ type DorisClusterReconciler struct {
 	Scheme   *runtime.Scheme
 	Scs      map[string]sub_controller.SubController
 }
+
+var (
+	_ reconcile.Reconciler = &DorisClusterReconciler{}
+
+	_ Controller = &DorisClusterReconciler{}
+)
 
 //+kubebuilder:rbac:groups=doris.selectdb.com,resources=dorisclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=doris.selectdb.com,resources=dorisclusters/status,verbs=get;update;patch
@@ -75,7 +98,8 @@ type DorisClusterReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="core",resources=endpoints,verbs=get;watch;list
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
-//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list,update,watch
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;update;watch
+//+kubebuilder:rbac:groups=admissionregistration,resources=validatingwebhookconfigurations,verbs=get;list;update;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -101,6 +125,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	dcr := edcr.DeepCopy()
+
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
@@ -109,7 +134,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	//subControllers reconcile for create or update sub resource.
 	for _, rc := range r.Scs {
 		if err := rc.Sync(ctx, dcr); err != nil {
-			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace ", dcr.Namespace, " name ", dcr.Name, " controller ", rc.GetControllerName(), " faield ", err)
+			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace: ", dcr.Namespace, " name: ", dcr.Name, " controller: ", rc.GetControllerName(), " error: ", err)
 			return requeueIfError(err)
 		}
 	}
@@ -118,6 +143,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	r.clearNoEffectResources(ctx, dcr)
 	for _, rc := range r.Scs {
 		//update component status.
+
 		if err := rc.UpdateComponentStatus(dcr); err != nil {
 			klog.Errorf("DorisClusterReconciler reconcile update component %s status failed.err=%s\n", rc.GetControllerName(), err.Error())
 			return requeueIfError(err)
@@ -199,19 +225,22 @@ func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Bu
 		Owns(&corev1.Service{})
 }
 
-func (r *DorisClusterReconciler) watchBuilder(builder *ctrl.Builder) *ctrl.Builder {
+func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
 
 	mapFn := handler.EnqueueRequestsFromMapFunc(
 		func(a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dorisv1.DorisClusterLabelKey]
-			klog.Infof("DorisClusterReconciler watch pod %s change related to doris cluster %s", a.GetName(), dorisName)
-			return []reconcile.Request{
-				{NamespacedName: types.NamespacedName{
-					Name:      dorisName,
-					Namespace: a.GetNamespace(),
-				}},
+			if dorisName != "" {
+				return []reconcile.Request{
+					{NamespacedName: types.NamespacedName{
+						Name:      dorisName,
+						Namespace: a.GetNamespace(),
+					}},
+				}
 			}
+
+			return nil
 		})
 
 	p := predicate.Funcs{
@@ -245,12 +274,12 @@ func (r *DorisClusterReconciler) watchBuilder(builder *ctrl.Builder) *ctrl.Build
 // SetupWithManager sets up the controller with the Manager.
 func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
-	builder = r.watchBuilder(builder)
+	builder = r.watchPodBuilder(builder)
 	return builder.Complete(r)
 }
 
 // Init initial the DorisClusterReconciler for reconcile.
-func (r *DorisClusterReconciler) Init(mgr ctrl.Manager) {
+func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	subcs := make(map[string]sub_controller.SubController)
 	fc := fe.New(mgr.GetClient(), mgr.GetEventRecorderFor(feControllerName))
 	subcs[feControllerName] = fc
@@ -268,5 +297,12 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager) {
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, " unable to create controller ", "controller ", "DorisCluster ")
 		os.Exit(1)
+	}
+	klog.Infof("dorisclusterreconcile %t", options.EnableWebHook)
+	if options.EnableWebHook {
+		if err := (&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr); err != nil {
+			klog.Error(err, " unable to create unnamedwatches ", " controller ", " DorisCluster ")
+			os.Exit(1)
+		}
 	}
 }

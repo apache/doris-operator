@@ -1,0 +1,62 @@
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: test-cluster
+spec:
+  databaseConfiguration:
+    redundancy_mode: "single"
+  automationOptions:
+    replacements:
+      enabled: true
+  imageType: split
+  minimumUptimeSecondsForBounce: 60
+  processCounts:
+    cluster_controller: 1
+    log: 2
+    storage: 2
+    stateless: -1
+  processes:
+    general:
+      podTemplate:
+        spec:
+          containers:
+            - name: foundationdb
+              resources:
+                requests:
+                  cpu: 1
+                  memory: 2Gi
+              securityContext:
+                runAsUser: 0
+            - name: foundationdb-kubernetes-sidecar
+              resources:
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                runAsUser: 0
+          initContainers:
+            - name: foundationdb-kubernetes-init
+              resources:
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                runAsUser: 0
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 50G
+  routing:
+    useDNSInClusterFile: true
+  sidecarContainer:
+    enableLivenessProbe: true
+    enableReadinessProbe: false
+  useExplicitListenAddress: true
+  version: 7.1.38

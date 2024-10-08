@@ -1,11 +1,29 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package cn
 
 import (
 	"context"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,10 +71,10 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 
 	config, err := cn.GetConfig(ctx, &cnSpec.ConfigMapInfo, dcr.Namespace)
 	if err != nil {
-		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s configmap %s", dcr.Namespace, dcr.Spec.CnSpec.ConfigMapInfo.ConfigMapName)
+		klog.Errorf("cn controller sync resolve cn configMap failed, namespace %s ，err : %s", dcr.Namespace, err.Error())
 		return err
 	}
-
+	cn.CheckConfigMountPath(dcr, dorisv1.Component_CN)
 	svc := resource.BuildExternalService(dcr, dorisv1.Component_CN, config)
 	internalSVC := resource.BuildInternalService(dcr, dorisv1.Component_CN, config)
 
@@ -78,8 +96,8 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 	}
 
 	if err = cn.applyStatefulSet(ctx, &cnStatefulSet, cnSpec.AutoScalingPolicy != nil); err != nil {
-		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
-			cnStatefulSet.Name, cnStatefulSet.Namespace)
+		klog.Errorf("cn controller sync statefulset name=%s, namespace=%s,failed. message=%s.",
+			cnStatefulSet.Name, cnStatefulSet.Namespace, err.Error())
 		return err
 	}
 
@@ -121,7 +139,7 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 	// start autoscaler, the replicas should get from statefulset, statefulset's replicas will update by autoscaler when not set.
 	var est appv1.StatefulSet
 	if err := cn.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN)}, &est); err != nil {
-		cn.K8srecorder.Eventf(cluster, sub_controller.EventWarning, sub_controller.StatefulSetNotExist, "the cn statefulset %s not exist.", dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN))
+		cn.K8srecorder.Eventf(cluster, string(sub_controller.EventWarning), sub_controller.StatefulSetNotExist, "the cn statefulset %s not exist.", dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_CN))
 		return nil
 	}
 
@@ -205,7 +223,7 @@ func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 	// clear autoscaler when autoscaler config deleted or the doriscluster deleted.
 	if dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
 		if err := cn.DeleteAutoscaler(ctx, dcr); err != nil {
-			cn.K8srecorder.Eventf(dcr, sub_controller.EventWarning, sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
+			cn.K8srecorder.Eventf(dcr, string(sub_controller.EventWarning), sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
 		}
 	}
 
@@ -233,13 +251,27 @@ func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCl
 }
 
 func (cn *Controller) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	configMap, err := k8s.GetConfigMap(ctx, cn.K8sclient, namespace, configMapInfo.ConfigMapName)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("cnController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
+	if len(cms) == 0 {
 		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
 	}
-	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
-	return res, err
+	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
+	if err != nil {
+		klog.Errorf("CnController GetConfig get configmap failed, namespace: %s, err: %s \n", namespace, err.Error())
+	}
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, dorisv1.Component_CN)
+	return res, utils.MergeError(err, resolveErr)
+}
+
+func (cn *Controller) getFeConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
+	if len(cms) == 0 {
+		return make(map[string]interface{}), nil
+	}
+	configMaps, err := k8s.GetConfigMaps(ctx, cn.K8sclient, namespace, cms)
+	if err != nil {
+		klog.Errorf("CnController GetFeConfig get configmap failed, namespace: %s, err: %s \n", namespace, err.Error())
+	}
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, dorisv1.Component_FE)
+	return res, utils.MergeError(err, resolveErr)
 }

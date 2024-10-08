@@ -1,20 +1,40 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package sub_controller
 
 import (
 	"context"
 	"fmt"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	utils "github.com/apache/doris-operator/pkg/common/utils"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type SubController interface {
@@ -61,7 +81,6 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 		}
 	}
 
-	status.ComponentCondition.Phase = dorisv1.Reconciling
 	if len(readys) == int(replicas) {
 		status.ComponentCondition.Phase = dorisv1.Available
 	} else if len(faileds) != 0 {
@@ -79,21 +98,39 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	return nil
 }
 
-func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string) (map[string]interface{}, error) {
-	if configMapInfo.ConfigMapName == "" {
-		return make(map[string]interface{}), nil
+func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	config, err := k8s.GetConfig(ctx, d.K8sclient, configMapInfo, namespace, componentType)
+	if err != nil {
+		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
+	return config, nil
+}
 
-	configMap, err := k8s.GetConfigMap(ctx, d.K8sclient, namespace, configMapInfo.ConfigMapName)
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("SubDefaultController GetCnConfig config is not exist namespace ", namespace, " configmapName ", configMapInfo.ConfigMapName)
-		return make(map[string]interface{}), nil
-	} else if err != nil {
-		return make(map[string]interface{}), err
+// generate map for mountpath:configmap
+func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	var configMapInfo dorisv1.ConfigMapInfo
+	switch componentType {
+	case dorisv1.Component_FE:
+		configMapInfo = dcr.Spec.FeSpec.ConfigMapInfo
+	case dorisv1.Component_BE:
+		configMapInfo = dcr.Spec.BeSpec.ConfigMapInfo
+	case dorisv1.Component_CN:
+		configMapInfo = dcr.Spec.CnSpec.ConfigMapInfo
+	case dorisv1.Component_Broker:
+		configMapInfo = dcr.Spec.BrokerSpec.ConfigMapInfo
+	default:
+		klog.Infof("the componentType %s is not supported.", componentType)
 	}
-
-	res, err := resource.ResolveConfigMap(configMap, configMapInfo.ResolveKey)
-	return res, err
+	cms := resource.GetMountConfigMapInfo(configMapInfo)
+	var mountsMap = make(map[string]dorisv1.MountConfigMapInfo)
+	for _, cm := range cms {
+		path := cm.MountPath
+		if m, exist := mountsMap[path]; exist {
+			klog.Errorf("CheckConfigMountPath error: the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName)
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapPathRepeated), fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.ConfigMapName, m.ConfigMapName))
+		}
+		mountsMap[path] = cm
+	}
 }
 
 // ClearCommonResources clear common resources all component have, as statefulset, service.
@@ -142,9 +179,14 @@ func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
 	return false
 }
 
+// RestrictConditionsEqual adds two StatefulSet,
+// It is used to control the conditions for comparing.
+// nst StatefulSet - a new StatefulSet
+// est StatefulSet - an old StatefulSet
 func (d *SubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, est *appv1.StatefulSet) {
 	//shield persistent volume update when the pvcProvider=Operator
 	//in webhook should intercept the volume spec updated when use statefulset pvc.
+	// TODO: updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden
 	nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
 }
 
@@ -159,7 +201,7 @@ func (d *SubDefaultController) PrepareReconcileResources(ctx context.Context, dc
 	case dorisv1.Component_CN:
 		return d.prepareCNReconcileResources(ctx, dcr)
 	default:
-		klog.Infof("prepareReconcileResource not support type=", componentType)
+		klog.Infof("prepareReconcileResource not support type= %s", componentType)
 		return true
 	}
 }
@@ -218,7 +260,7 @@ func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context,
 	selector := dorisv1.GenerateStatefulSetSelector(dcr, componentType)
 	stsName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
 	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dcr.Namespace), client.MatchingLabels(selector)); err != nil {
-		d.K8srecorder.Event(dcr, EventWarning, PVCListFailed, string("list component "+componentType+" failed!"))
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCListFailed, string("list component "+componentType+" failed!"))
 		return false
 	}
 	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
@@ -277,24 +319,168 @@ func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.Doris
 				message = pvc.Name + " update failed, " + err.Error()
 			}
 
-			d.K8srecorder.Event(dcr, eventType, reason, message)
+			d.K8srecorder.Event(dcr, string(eventType), reason, message)
 		}
 	}
 
 	// if need add new pvc, the resource prepared not finished, return false.
 	if len(pvcs) < int(replicas) {
 		prepared = false
-		d.K8srecorder.Event(dcr, EventNormal, PVCCreate, fmt.Sprintf("create PVC ordinal %d - %d", len(pvcs), replicas))
+		d.K8srecorder.Event(dcr, string(EventNormal), PVCCreate, fmt.Sprintf("create PVC ordinal %d - %d", len(pvcs), replicas))
 	}
 
 	baseOrdinal := len(pvcs)
 	for ; baseOrdinal < int(replicas); baseOrdinal++ {
 		pvc := resource.BuildPVC(volume, selector, dcr.Namespace, stsName, strconv.Itoa(baseOrdinal))
 		if err := d.K8sclient.Create(ctx, &pvc); err != nil && !apierrors.IsAlreadyExists(err) {
-			d.K8srecorder.Event(dcr, EventWarning, PVCCreateFailed, err.Error())
-			klog.Errorf("SubDefaultController namespace %s name %s create pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name)
+			d.K8srecorder.Event(dcr, string(EventWarning), PVCCreateFailed, err.Error())
+			klog.Errorf("SubDefaultController namespace %s name %s create pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvc.Name, err.Error())
 		}
 	}
 
 	return prepared
+}
+
+// RecycleResources pvc resource for recycle
+func (d *SubDefaultController) RecycleResources(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
+	switch componentType {
+	case dorisv1.Component_FE:
+		return d.recycleFEResources(ctx, dcr)
+	default:
+		klog.Infof("RecycleResources not support type=%s", componentType)
+		return nil
+	}
+}
+
+// recycleFEResources pvc resource for fe recycle
+func (d *SubDefaultController) recycleFEResources(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	if len(dcr.Spec.FeSpec.PersistentVolumes) != 0 {
+		return d.listAndDeletePersistentVolumeClaim(ctx, dcr, dorisv1.Component_FE)
+	}
+	return nil
+}
+
+// listAndDeletePersistentVolumeClaim:
+// 1. list pvcs by statefulset selector labels .
+// 2. get pvcs by dorisv1.PersistentVolume.name
+// 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
+// 3. delete pvc
+func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
+	var volumes []dorisv1.PersistentVolume
+	var replicas int32
+	switch componentType {
+	case dorisv1.Component_FE:
+		volumes = dcr.Spec.FeSpec.PersistentVolumes
+		replicas = *dcr.Spec.FeSpec.Replicas
+	case dorisv1.Component_BE:
+		volumes = dcr.Spec.BeSpec.PersistentVolumes
+		replicas = *dcr.Spec.BeSpec.Replicas
+	case dorisv1.Component_CN:
+		volumes = dcr.Spec.CnSpec.PersistentVolumes
+		replicas = *dcr.Spec.CnSpec.Replicas
+	default:
+	}
+
+	pvcList := corev1.PersistentVolumeClaimList{}
+	selector := dorisv1.GenerateStatefulSetSelector(dcr, componentType)
+	stsName := dorisv1.GenerateComponentStatefulSetName(dcr, componentType)
+	if err := d.K8sclient.List(ctx, &pvcList, client.InNamespace(dcr.Namespace), client.MatchingLabels(selector)); err != nil {
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCListFailed, string("list component "+componentType+" failed!"))
+		return err
+	}
+	//classify pvc by volume.Name, pvc.name generate by volume.Name + statefulset.Name + ordinal
+	pvcMap := make(map[string][]corev1.PersistentVolumeClaim)
+
+	for _, pvc := range pvcList.Items {
+		//start with unique string for classify pvc, avoid empty string match all pvc.Name
+		key := "-^"
+		for _, volume := range volumes {
+			if volume.Name != "" && strings.HasPrefix(pvc.Name, volume.Name) {
+				key = key + volume.Name
+				break
+			}
+		}
+
+		if _, ok := pvcMap[key]; !ok {
+			pvcMap[key] = []corev1.PersistentVolumeClaim{}
+		}
+		pvcMap[key] = append(pvcMap[key], pvc)
+	}
+
+	var mergeError error
+	for _, volume := range volumes {
+		// Clean up the existing PVC that is larger than expected
+		claims := pvcMap["-^"+volume.Name]
+		if len(claims) <= int(replicas) {
+			continue
+		}
+		if err := d.deletePVCs(ctx, dcr, selector, len(claims), stsName, volume.Name, replicas); err != nil {
+			mergeError = utils.MergeError(mergeError, err)
+		}
+	}
+	return mergeError
+}
+
+// deletePVCs will Loop to remove excess pvc
+func (d *SubDefaultController) deletePVCs(ctx context.Context, dcr *dorisv1.DorisCluster, selector map[string]string,
+	pvcSize int, stsName, volumeName string, replicas int32) error {
+	maxOrdinal := pvcSize
+
+	var mergeError error
+	for ; maxOrdinal > int(replicas); maxOrdinal-- {
+		pvcName := resource.BuildPVCName(stsName, strconv.Itoa(maxOrdinal-1), volumeName)
+		if err := k8s.DeletePVC(ctx, d.K8sclient, dcr.Namespace, pvcName, selector); err != nil {
+			d.K8srecorder.Event(dcr, string(EventWarning), PVCDeleteFailed, err.Error())
+			klog.Errorf("SubController namespace %s name %s delete pvc %s failed, %s.", dcr.Namespace, dcr.Name, pvcName, err.Error())
+			mergeError = utils.MergeError(mergeError, err)
+		}
+	}
+	return mergeError
+}
+
+func (d *SubDefaultController) InitStatus(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	switch componentType {
+	case dorisv1.Component_FE:
+		d.initFEStatus(dcr)
+	case dorisv1.Component_BE:
+		d.initBEStatus(dcr)
+	default:
+		klog.Infof("InitStatus not support type= %s", componentType)
+	}
+}
+
+func (d *SubDefaultController) initFEStatus(cluster *dorisv1.DorisCluster) {
+	initPhase := dorisv1.Initializing
+	// When in the Change phase, the state should inherit the last state instead of using the default state. Prevent incorrect Initializing of the change state
+	if cluster.Status.FEStatus != nil && dorisv1.IsReconcilingStatusPhase(cluster.Status.FEStatus) {
+		initPhase = cluster.Status.FEStatus.ComponentCondition.Phase
+	}
+
+	status := &dorisv1.ComponentStatus{
+		ComponentCondition: dorisv1.ComponentCondition{
+			SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_FE),
+			Phase:              initPhase,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		},
+	}
+	status.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_FE)
+	cluster.Status.FEStatus = status
+}
+
+func (d *SubDefaultController) initBEStatus(cluster *dorisv1.DorisCluster) {
+	initPhase := dorisv1.Initializing
+	// When in the Change phase, the state should inherit the last state instead of using the default state. Prevent incorrect Initializing of the change state
+	if cluster.Status.BEStatus != nil && dorisv1.IsReconcilingStatusPhase(cluster.Status.BEStatus) {
+		initPhase = cluster.Status.BEStatus.ComponentCondition.Phase
+	}
+
+	status := &dorisv1.ComponentStatus{
+		ComponentCondition: dorisv1.ComponentCondition{
+			SubResourceName:    dorisv1.GenerateComponentStatefulSetName(cluster, dorisv1.Component_BE),
+			Phase:              initPhase,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		},
+	}
+	status.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_BE)
+	cluster.Status.BEStatus = status
 }

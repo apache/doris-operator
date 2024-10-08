@@ -18,7 +18,7 @@ limitations under the License.
 package v1
 
 import (
-	internalinterfaces "github.com/selectdb/doris-operator/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/apache/doris-operator/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

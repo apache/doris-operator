@@ -1,17 +1,32 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package fe
 
 import (
 	"context"
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type Controller struct {
@@ -22,6 +37,10 @@ func (fc *Controller) ClearResources(ctx context.Context, cluster *v1.DorisClust
 	//if the doris is not have fe.
 	if cluster.Status.FEStatus == nil {
 		return true, nil
+	}
+	if err := fc.RecycleResources(ctx, cluster, v1.Component_FE); err != nil {
+		klog.Errorf("fe ClearResources recycle pvc resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
+		return false, err
 	}
 
 	if cluster.DeletionTimestamp.IsZero() {
@@ -38,22 +57,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	fs := &v1.ComponentStatus{
-		ComponentCondition: v1.ComponentCondition{
-			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE),
-			Phase:              v1.Reconciling,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		},
-	}
-
-	if cluster.Status.FEStatus != nil {
-		fs = cluster.Status.FEStatus.DeepCopy()
-	}
-
-	cluster.Status.FEStatus = fs
-	fs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_FE)
-
-	return fc.ClassifyPodsByStatus(cluster.Namespace, fs, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
+	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
 }
 
 // New construct a FeController.
@@ -76,14 +80,16 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		klog.Info("fe Controller Sync ", "the fe component is not needed ", "namespace ", cluster.Namespace, " doris cluster name ", cluster.Name)
 		return nil
 	}
+	fc.InitStatus(cluster, v1.Component_FE)
 
 	feSpec := cluster.Spec.FeSpec
 	//get the fe configMap for resolve ports.
-	config, err := fc.GetConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace)
+	config, err := fc.GetConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace, v1.Component_FE)
 	if err != nil {
-		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " configmapName ", feSpec.BaseSpec.ConfigMapInfo.ConfigMapName, " configMapKey ", feSpec.ConfigMapInfo.ResolveKey, " error ", err)
+		klog.Error("fe Controller Sync ", "resolve fe configmap failed, namespace ", cluster.Namespace, " error :", err)
 		return err
 	}
+	fc.CheckConfigMountPath(cluster, v1.Component_FE)
 
 	//generate new fe service.
 	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)
@@ -100,18 +106,22 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return err
 	}
 
-	st := fc.buildFEStatefulSet(cluster)
 	if !fc.PrepareReconcileResources(ctx, cluster, v1.Component_FE) {
 		klog.Infof("fe controller sync preparing resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
 		return nil
 	}
 
-	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
-		fc.RestrictConditionsEqual(new, est)
-		return resource.StatefulSetDeepEqual(new, est, false)
+	if err = fc.prepareStatefulsetApply(ctx, cluster); err != nil {
+		return err
+	}
+
+	st := fc.buildFEStatefulSet(cluster)
+	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
+		fc.RestrictConditionsEqual(new, old)
+		return resource.StatefulSetDeepEqual(new, old, false)
 	}); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
-			st.Name, st.Namespace)
+			st.Name, st.Namespace, cluster.Name, err.Error())
 		return err
 	}
 

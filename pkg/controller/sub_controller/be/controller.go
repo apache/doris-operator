@@ -1,17 +1,32 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package be
 
 import (
 	"context"
-	"github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/k8s"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
-	"github.com/selectdb/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type Controller struct {
@@ -37,27 +52,22 @@ func (be *Controller) GetControllerName() string {
 
 func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if dcr.Spec.BeSpec == nil {
-		//TODO: 测试
-		//if _, err := be.ClearResources(ctx, dcr); err != nil {
-		//	klog.Errorf("beController sync clearResource namespace=%s,srcName=%s, err=%s\n", dcr.Namespace, dcr.Name, err.Error())
-		//	return err
-		//}
-
 		return nil
 	}
-
+	be.InitStatus(dcr, v1.Component_BE)
 	if !be.FeAvailable(dcr) {
 		return nil
 	}
 	beSpec := dcr.Spec.BeSpec
 	//get the be configMap for resolve ports.
 	//2. get config for generate statefulset and service.
-	config, err := be.GetConfig(ctx, &beSpec.ConfigMapInfo, dcr.Namespace)
+	config, err := be.GetConfig(ctx, &beSpec.ConfigMapInfo, dcr.Namespace, v1.Component_BE)
 	if err != nil {
-		klog.Error("BeController Sync ", "resolve cn configmap failed, namespace ", dcr.Namespace, " configmapName ", beSpec.ConfigMapInfo.ConfigMapName, " configMapKey ", beSpec.ConfigMapInfo.ResolveKey, " error ", err)
+		klog.Error("BeController Sync ", "resolve be configmap failed, namespace ", dcr.Namespace, " error :", err)
 		return err
 	}
 
+	be.CheckConfigMountPath(dcr, v1.Component_BE)
 	//generate new be service.
 	svc := resource.BuildExternalService(dcr, v1.Component_BE, config)
 	//create or update be external and domain search service, update the status of fe on src.
@@ -85,7 +95,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return resource.StatefulSetDeepEqual(new, est, false)
 	}); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
-			st.Name, st.Namespace)
+			st.Name, st.Namespace, dcr.Name, err.Error())
 		return err
 	}
 
@@ -99,20 +109,7 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	bs := &v1.ComponentStatus{
-		ComponentCondition: v1.ComponentCondition{
-			SubResourceName:    v1.GenerateComponentStatefulSetName(cluster, v1.Component_BE),
-			Phase:              v1.Reconciling,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		},
-	}
-
-	if cluster.Status.BEStatus != nil {
-		bs = cluster.Status.BEStatus.DeepCopy()
-	}
-	cluster.Status.BEStatus = bs
-	bs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_BE)
-	return be.ClassifyPodsByStatus(cluster.Namespace, bs, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
+	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
 }
 
 func (be *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) (bool, error) {
