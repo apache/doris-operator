@@ -1360,6 +1360,11 @@ spec:
                       description: 'Limits describes the maximum amount of compute
                         resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                       type: object
+                    liveTimeout:
+                      description: Number of seconds after which the probe times out.
+                        Defaults to 180 second.
+                      format: int32
+                      type: integer
                     noStoreLog:
                       description: when set true, the log will store in disk that
                         created by volumeClaimTemplate
@@ -3220,6 +3225,11 @@ spec:
                     description: 'Limits describes the maximum amount of compute resources
                       allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  liveTimeout:
+                    description: Number of seconds after which the probe times out.
+                      Defaults to 180 second.
+                    format: int32
+                    type: integer
                   noStoreLog:
                     description: when set true, the log will store in disk that created
                       by volumeClaimTemplate
@@ -5070,6 +5080,11 @@ spec:
                     description: 'Limits describes the maximum amount of compute resources
                       allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                  liveTimeout:
+                    description: Number of seconds after which the probe times out.
+                      Defaults to 180 second.
+                    format: int32
+                    type: integer
                   noStoreLog:
                     description: when set true, the log will store in disk that created
                       by volumeClaimTemplate

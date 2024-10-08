@@ -173,6 +173,17 @@ int32
 </tr>
 <tr>
 <td>
+<code>liveTimeout</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>Number of seconds after which the probe times out. Defaults to 180 second.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>ResourceRequirements</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
@@ -1441,5 +1452,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>3445d67</code>.
+on git commit <code>d39af0d</code>.
 </em></p>
