@@ -18,9 +18,11 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/selectdb/doris-operator/client/clientset/versioned"
-	dorisv1 "github.com/selectdb/doris-operator/client/clientset/versioned/typed/doris/v1"
-	fakedorisv1 "github.com/selectdb/doris-operator/client/clientset/versioned/typed/doris/v1/fake"
+	clientset "github.com/apache/doris-operator/client/clientset/versioned"
+	disaggregatedv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/disaggregated/v1"
+	fakedisaggregatedv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/disaggregated/v1/fake"
+	dorisv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/doris/v1"
+	fakedorisv1 "github.com/apache/doris-operator/client/clientset/versioned/typed/doris/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -77,6 +79,11 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
+
+// DisaggregatedV1 retrieves the DisaggregatedV1Client
+func (c *Clientset) DisaggregatedV1() disaggregatedv1.DisaggregatedV1Interface {
+	return &fakedisaggregatedv1.FakeDisaggregatedV1{Fake: &c.Fake}
+}
 
 // DorisV1 retrieves the DorisV1Client
 func (c *Clientset) DorisV1() dorisv1.DorisV1Interface {

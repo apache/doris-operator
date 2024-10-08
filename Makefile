@@ -1,3 +1,19 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 
 # Image URL to use all building/pushing image targets
 IMG ?= doris-operator:latest
@@ -55,6 +71,15 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=helm-charts/doris-operator/crds
+	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/disaggregated/..." output:crd:artifacts:config=config/crd/bases
+	#cat config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml > config/crd/bases/crds.yaml
+	#cat config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml >> config/crd/bases/crds.yaml
+	#cat config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml >> config/crd/bases/crds.yaml
+	cat config/crd/bases/doris.selectdb.com_dorisclusters.yaml > config/crd/bases/crds.yaml
+	cat config/crd/bases/disaggregated.cluster.doris.com_dorisdisaggregatedclusters.yaml >> config/crd/bases/crds.yaml
+	#cat config/crd/bases/disaggregated.metaservice.doris.com_dorisdisaggregatedmetaservices.yaml >> config/crd/bases/crds.yaml
+
 
 .PHONY: manifests-v1beta1
 manifests-v1beta1: ##  generate v1beta1 CRD.
@@ -62,7 +87,8 @@ manifests-v1beta1: ##  generate v1beta1 CRD.
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/doris/..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/disaggregated/..."
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -176,7 +202,9 @@ gen-tool: ## Download gen-crd-api-reference-docs locally if necessary.
 
 .PHONY: gen-api
 gen-api: gen-tool
-	$(GEN_DOCS) -api-dir "./api/doris/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/api.md" 
+	$(GEN_DOCS) -api-dir "./api/doris/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/api.md"
+	$(GEN_DOCS) -api-dir "./api/disaggregated/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_api.md"
+	#$(GEN_DOCS) -api-dir "./api/disaggregated/metaservice/meta_v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_metaservice_api.md"
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.

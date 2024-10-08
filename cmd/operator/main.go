@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 /*
 Copyright 2023.
 
@@ -17,12 +34,22 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/controller"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+
+	//dmsv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/cmd/operator/conf"
+	"github.com/apache/doris-operator/pkg/common/utils/certificate"
+	"github.com/apache/doris-operator/pkg/controller"
+	"github.com/apache/doris-operator/pkg/controller/unnamedwatches"
 	"io"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
 	"os"
+	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -38,10 +65,9 @@ import (
 )
 
 var (
-	scheme        = runtime.NewScheme()
-	setupLog      = ctrl.Log.WithName("setup")
-	printVar      bool
-	enableWebHook = true
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
+	printVar bool
 )
 
 var (
@@ -58,43 +84,46 @@ func Print(out io.Writer) {
 	}
 }
 
+// initial all controllers for reconciling resource.
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(dorisv1.AddToScheme(scheme))
+	utilruntime.Must(dv1.AddToScheme(scheme))
+	//utilruntime.Must(dmsv1.AddToScheme(scheme))
+	//add foundationdb scheme
+	//utilruntime.Must(v1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+
+	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{})
+	start := os.Getenv("START_DISAGGREGATED_OPERATOR")
+	if start == "true" {
+		controller.Controllers = append(controller.Controllers, &controller.DisaggregatedClusterReconciler{})
+	}
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&printVar, "version", false, "Prints current version.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
+	//parse then parameters from console.
+	f := conf.ParseFlags()
+	//parse env
+	envs := conf.ParseEnvs()
+	//print version infos.
+	printVersionInfos(f.PrintVar)
 
-	if printVar {
-		Print(os.Stdout)
-		return
-	}
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&f.Opts)))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     f.MetricsAddr,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: f.ProbeAddr,
+		Namespace:              f.Namespace,
+		LeaderElection:         f.EnableLeaderElection,
 		LeaderElectionID:       "e1370669.selectdb.com",
+		//if one reconcile failed, others will not be affected.
+		Controller: v1alpha1.ControllerConfigurationSpec{
+			RecoverPanic: pointer.Bool(true),
+		},
+
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -112,16 +141,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	options := conf.NewControllerOptions(envs)
 	//initial all controllers
 	for _, c := range controller.Controllers {
-		c.Init(mgr)
+		c.Init(mgr, options)
 	}
-
-	////TODO: modify to config
-	//(&dorisv1.DorisCluster{}).SetupWebhookWithManager(mgr)
-
-	//+kubebuilder:scaffold:builder
-
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -131,9 +155,42 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	// enable webhook, check webhook certificate
+	if options.EnableWebHook {
+		//wait for the secret have
+		interval := time.Second * 1
+		timeout := time.Second * 30
+		keyPath := filepath.Join(mgr.GetWebhookServer().CertDir, certificate.TLsCertName)
+		err = wait.PollImmediate(interval, timeout, func() (bool, error) {
+			_, err := os.Stat(keyPath)
+			if os.IsNotExist(err) {
+				setupLog.Info("webhook certificate have not present waiting kubelet update", "file", keyPath)
+				return false, nil
+			} else if err != nil {
+				setupLog.Info("check webhook certificate ", "path", keyPath, "err=", err.Error())
+				return false, err
+			}
+
+			setupLog.Info("webhook certificate file exit.")
+			return true, nil
+		})
+
+		if err != nil {
+			setupLog.Error(err, "check webhook certificate failed")
+			os.Exit(1)
+		}
+	}
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+// print version information of now operator.
+func printVersionInfos(print bool) {
+	if print {
+		Print(os.Stdout)
+		os.Exit(0)
 	}
 }

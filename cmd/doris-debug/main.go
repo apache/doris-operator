@@ -1,13 +1,31 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package main
 
 import (
 	"flag"
 	"fmt"
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/resource"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/spf13/viper"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 var (
@@ -24,7 +42,7 @@ func main() {
 
 	fmt.Println("start component " + componentType + "for debugging.....")
 	listenPort := readConfigListenPort()
-	registerMockApiHealth()
+	//registerMockApiHealth()
 	if err := http.ListenAndServe(":"+listenPort, nil); err != nil {
 		fmt.Println("listenAndServe failed," + err.Error())
 		os.Exit(1)
@@ -57,10 +75,18 @@ func readConfigListenPort() string {
 
 	var listenPort string
 	if componentType == "fe" {
-		listenPort = viper.GetString(resource.HTTP_PORT)
+		configQueryPort := viper.GetString(resource.QUERY_PORT)
+		if configQueryPort == "" {
+			listenPort = strconv.Itoa(int(resource.GetDefaultPort(resource.QUERY_PORT)))
+		}
 	} else if componentType == "be" {
-		listenPort = viper.GetString(resource.WEBSERVER_PORT)
+		configHeartbeatPort := viper.GetString(resource.HEARTBEAT_SERVICE_PORT)
+		fmt.Println("component be" + configHeartbeatPort)
+		if configHeartbeatPort == "" {
+			listenPort = strconv.Itoa(int(resource.GetDefaultPort(resource.HEARTBEAT_SERVICE_PORT)))
+		}
 	}
+	fmt.Println("component listen port " + listenPort)
 
 	return listenPort
 }

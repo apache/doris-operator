@@ -134,6 +134,18 @@ AdminUser
 <p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>authSecret</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
+the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -299,6 +311,28 @@ int32
 <tbody>
 <tr>
 <td>
+<code>startTimeout</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>pod start timeout, unit is second</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>liveTimeout</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>Number of seconds after which the probe times out. Defaults to 180 second.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>annotations</code><br/>
 <em>
 map[string]string
@@ -329,20 +363,8 @@ ExportService
 </em>
 </td>
 <td>
-<p>expose the be listen ports</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>fsGroup</code><br/>
-<em>
-int64
-</em>
-</td>
-<td>
-<p>A special supplemental group that applies to all containers in a pod.
-Some volume types allow the Kubelet to change the ownership of that volume
-to be owned by the pod:</p>
+<p>expose doris components for accessing.
+example: if you want to use <code>stream load</code> to load data into doris out k8s, you can use be service and config different service type for loading data.</p>
 </td>
 </tr>
 <tr>
@@ -424,7 +446,7 @@ Kubernetes core/v1.ResourceRequirements
 <p>
 (Members of <code>ResourceRequirements</code> are embedded into this type.)
 </p>
-<p>defines the specification of resource cpu and mem.</p>
+<p>defines the specification of resource cpu and mem. ep: {&ldquo;requests&rdquo;:{&ldquo;cpu&rdquo;: 4, &ldquo;memory&rdquo;: &ldquo;16Gi&rdquo;},&ldquo;limits&rdquo;:{&ldquo;cpu&rdquo;:4,&ldquo;memory&rdquo;:&ldquo;16Gi&rdquo;}}</p>
 </td>
 </tr>
 <tr>
@@ -531,6 +553,34 @@ SystemInitialization
 </td>
 <td>
 <p>SystemInitialization for fe, be and cn setting system parameters.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>securityContext</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podsecuritycontext-v1-core">
+Kubernetes core/v1.PodSecurityContext
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Security context for pod.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>containerSecurityContext</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#securitycontext-v1-core">
+Kubernetes core/v1.SecurityContext
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Security context for all containers running in the pod (unless they override it).</p>
 </td>
 </tr>
 </tbody>
@@ -802,7 +852,15 @@ string
 <td></td>
 </tr><tr><td><p>&#34;haveMemberFailed&#34;</p></td>
 <td></td>
+</tr><tr><td><p>&#34;initializing&#34;</p></td>
+<td></td>
 </tr><tr><td><p>&#34;reconciling&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;restarting&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;scaling&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;upgrading&#34;</p></td>
 <td></td>
 </tr><tr><td><p>&#34;waitScheduling&#34;</p></td>
 <td></td>
@@ -927,7 +985,10 @@ string
 </em>
 </td>
 <td>
-<p>the config info for start progress.</p>
+<p>ConfigMapName mapped the configuration files in the doris &lsquo;conf/&rsquo; directory.
+such as &lsquo;fe.conf&rsquo;, &lsquo;be.conf&rsquo;. If HDFS access is involved, there may also be &lsquo;core-site.xml&rsquo; and other files.
+doris-operator mounts these configuration files in the &lsquo;/etc/doris&rsquo; directory by default.
+links them to the &lsquo;conf/&rsquo; directory of the doris component through soft links.</p>
 </td>
 </tr>
 <tr>
@@ -938,7 +999,25 @@ string
 </em>
 </td>
 <td>
-<p>the config response key in configmap.</p>
+<em>(Optional)</em>
+<p>Deprecated: This configuration has been abandoned and will be cleared in version 1.7.0.
+It is currently forced to be &lsquo;fe.conf&rsquo;, &lsquo;be.conf&rsquo;, &lsquo;apache_hdfs_broker.conf&rsquo;
+It is no longer effective. the configuration content will not take effect.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>configMaps</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.MountConfigMapInfo">
+[]MountConfigMapInfo
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ConfigMaps can mount multiple configmaps to the specified path.
+The mounting path of configmap cannot be repeated.</p>
 </td>
 </tr>
 </tbody>
@@ -1135,6 +1214,18 @@ AdminUser
 </td>
 <td>
 <p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authSecret</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
+the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
 </td>
 </tr>
 </tbody>
@@ -1349,6 +1440,17 @@ More info: <a href="https://kubernetes.io/docs/concepts/services-networking/serv
 </td>
 <td>
 <p>ServicePort config service for NodePort access mode.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations for using function on different cloud platform.</p>
 </td>
 </tr>
 <tr>
@@ -2111,6 +2213,46 @@ Currently only valid for Resource metric source type</p>
 </td>
 </tr></tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.MountConfigMapInfo">MountConfigMapInfo
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.ConfigMapInfo">ConfigMapInfo</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>configMapName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>name of configmap that needs to mount.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mountPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Current ConfigMap Mount Path.
+If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.ObjectMetricSource">ObjectMetricSource
 </h3>
 <p>
@@ -2240,6 +2382,18 @@ string
 </td>
 <td>
 <p>the volume name associate with</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
+It only takes effect in the first configuration and cannot be added or modified later.</p>
 </td>
 </tr>
 <tr>
@@ -2450,5 +2604,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>002533a</code>.
+on git commit <code>d39af0d</code>.
 </em></p>

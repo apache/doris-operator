@@ -18,7 +18,8 @@ limitations under the License.
 package scheme
 
 import (
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	disaggregatedv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,6 +31,7 @@ var Scheme = runtime.NewScheme()
 var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
+	disaggregatedv1.AddToScheme,
 	dorisv1.AddToScheme,
 }
 

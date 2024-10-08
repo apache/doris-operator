@@ -1,8 +1,27 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package resource
 
 import (
-	"github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/pkg/common/utils/hash"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/hash"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -17,8 +36,9 @@ type hashService struct {
 	ports     []corev1.ServicePort
 	selector  map[string]string
 	//deal with external access load balancer.
-	//serviceType corev1.ServiceType
-	labels map[string]string
+	serviceType corev1.ServiceType
+	labels      map[string]string
+	annotations map[string]string
 }
 
 func BuildInternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, config map[string]interface{}) corev1.Service {
@@ -30,7 +50,7 @@ func BuildInternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 			Name:            v1.GenerateInternalCommunicateServiceName(dcr, componentType),
 			Namespace:       dcr.Namespace,
 			Labels:          labels,
-			OwnerReferences: []metav1.OwnerReference{getOwnerReference(dcr)},
+			OwnerReferences: []metav1.OwnerReference{GetOwnerReference(dcr)},
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
@@ -79,13 +99,6 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 	//the k8s service type.
 	var ports []corev1.ServicePort
 	var exportService *v1.ExportService
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1.GenerateExternalServiceName(dcr, componentType),
-			Namespace: dcr.Namespace,
-			Labels:    labels,
-		},
-	}
 
 	switch componentType {
 	case v1.Component_FE:
@@ -99,15 +112,28 @@ func BuildExternalService(dcr *v1.DorisCluster, componentType v1.ComponentType, 
 		exportService = dcr.Spec.CnSpec.Service
 		ports = getBeServicePorts(config)
 	default:
-		klog.Infof("BuildExternalService componentType %s not supported.")
+		klog.Infof("BuildExternalService componentType %s not supported.", componentType)
+	}
+
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1.GenerateExternalServiceName(dcr, componentType),
+			Namespace: dcr.Namespace,
+			Labels:    labels,
+		},
 	}
 
 	constructServiceSpec(exportService, &svc, selector, ports)
-	svc.OwnerReferences = []metav1.OwnerReference{getOwnerReference(dcr)}
-	hso := serviceHashObject(&svc)
-	anno := map[string]string{}
-	anno[v1.ComponentResourceHash] = hash.HashObject(hso)
-	svc.Annotations = anno
+	if exportService != nil {
+		svc.Annotations = exportService.Annotations
+	}
+
+	svc.OwnerReferences = []metav1.OwnerReference{GetOwnerReference(dcr)}
+	// the code is invalid, duplicate with ServiceDeepEqual
+	//hso := serviceHashObject(&svc)
+	//anno := map[string]string{}
+	//anno[v1.ComponentResourceHash] = hash.HashObject(hso)
+	//svc.Annotations = anno
 	return svc
 }
 
@@ -126,19 +152,17 @@ func constructServiceSpec(exportService *v1.ExportService, svc *corev1.Service, 
 	}
 
 	svc.Spec = corev1.ServiceSpec{
-		Selector: selector,
-		Ports:    ports,
+		Selector:        selector,
+		Ports:           ports,
+		SessionAffinity: corev1.ServiceAffinityClientIP,
 	}
-	setServiceType(exportService, svc)
-}
 
-func getOwnerReference(dcr *v1.DorisCluster) metav1.OwnerReference {
-	return metav1.OwnerReference{
-		APIVersion: dcr.APIVersion,
-		Kind:       dcr.Kind,
-		Name:       dcr.Name,
-		UID:        dcr.UID,
+	// The external load balancer provided by the cloud provider may cause the client IP received by the service to change.
+	if exportService != nil && exportService.Type == corev1.ServiceTypeLoadBalancer {
+		svc.Spec.SessionAffinity = corev1.ServiceAffinityNone
 	}
+
+	setServiceType(exportService, svc)
 }
 
 func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePort) {
@@ -188,6 +212,29 @@ func GetContainerPorts(config map[string]interface{}, componentType v1.Component
 	default:
 		klog.Infof("GetContainerPorts the componentType %s not supported.", componentType)
 		return []corev1.ContainerPort{}
+	}
+}
+
+func GetDisaggregatedContainerPorts(config map[string]interface{}, componentType dv1.DisaggregatedComponentType) []corev1.ContainerPort {
+	switch componentType {
+	case dv1.DisaggregatedFE:
+		return getFeContainerPorts(config)
+	case dv1.DisaggregatedBE:
+		return getBeContainerPorts(config)
+	case dv1.DisaggregatedMS:
+		return getMetaServiceContainerPorts(config)
+
+	default:
+		return nil
+	}
+}
+
+func getMetaServiceContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			Name:          GetPortKey(BROKER_IPC_PORT),
+			ContainerPort: GetPort(config, BROKER_IPC_PORT),
+		},
 	}
 }
 
@@ -261,7 +308,8 @@ func GetPortKey(configKey string) string {
 		return strings.ReplaceAll(EDIT_LOG_PORT, "_", "-")
 	case BROKER_IPC_PORT:
 		return strings.ReplaceAll(BROKER_IPC_PORT, "_", "-")
-
+	case BRPC_LISTEN_PORT:
+		return "brpc-port"
 	default:
 		return ""
 	}
@@ -277,33 +325,55 @@ func setServiceType(svc *v1.ExportService, service *corev1.Service) {
 		service.Spec.LoadBalancerIP = svc.LoadBalancerIP
 	}
 }
-
-func ServiceDeepEqual(nsvc, oldsvc *corev1.Service) bool {
-	var nhsvcValue, ohsvcValue string
-	if _, ok := nsvc.Annotations[v1.ComponentResourceHash]; ok {
-		nhsvcValue = nsvc.Annotations[v1.ComponentResourceHash]
-	} else {
-		nhsvc := serviceHashObject(nsvc)
-		nhsvcValue = hash.HashObject(nhsvc)
-	}
-
-	if _, ok := oldsvc.Annotations[v1.ComponentResourceHash]; ok {
-		ohsvcValue = oldsvc.Annotations[v1.ComponentResourceHash]
-	} else {
-		ohsvc := serviceHashObject(oldsvc)
-		ohsvcValue = hash.HashObject(ohsvc)
-	}
-
-	return nhsvcValue == ohsvcValue &&
-		nsvc.Namespace == oldsvc.Namespace /*&& oldGeneration == oldsvc.Generation*/
+func ServiceDeepEqual(newSvc, oldSvc *corev1.Service) bool {
+	return ServiceDeepEqualWithAnnoKey(newSvc, oldSvc, v1.ComponentResourceHash)
 }
 
-func serviceHashObject(svc *corev1.Service) hashService {
+func ServiceDeepEqualWithAnnoKey(nsvc, osvc *corev1.Service, annoKey string) bool {
+	if annoKey == "" {
+		annoKey = v1.ComponentResourceHash
+	}
+
+	var newHashValue, oldHashValue string
+	if _, ok := nsvc.Annotations[annoKey]; ok {
+		newHashValue = nsvc.Annotations[annoKey]
+	} else {
+		newHashService := serviceHashObject(nsvc, set.NewSetString(annoKey))
+		newHashValue = hash.HashObject(newHashService)
+	}
+
+	if _, ok := nsvc.Annotations[annoKey]; ok {
+		oldHashValue = osvc.Annotations[annoKey]
+	} else {
+		oldHashService := serviceHashObject(osvc, set.NewSetString(annoKey))
+		oldHashValue = hash.HashObject(oldHashService)
+	}
+
+	// set hash value in annotation for avoiding deep equal.
+	nsvc.Annotations = mergeMaps(nsvc.Annotations, map[string]string{annoKey: newHashValue})
+	return newHashValue == oldHashValue &&
+		nsvc.Namespace == osvc.Namespace
+}
+
+// hash service for diff new generate service and old service in kubernetes.
+func serviceHashObject(svc *corev1.Service, avoidAnnoKeys *set.SetString) hashService {
+	annos := make(map[string]string, len(svc.Annotations))
+	//for support service annotations, avoid hash value in annotations interfere equal comparison.
+	for key, value := range svc.Annotations {
+		if ok := avoidAnnoKeys.Find(key); ok {
+			continue
+		}
+
+		annos[key] = value
+	}
+
 	return hashService{
-		name:      svc.Name,
-		namespace: svc.Namespace,
-		ports:     svc.Spec.Ports,
-		selector:  svc.Spec.Selector,
-		labels:    svc.Labels,
+		name:        svc.Name,
+		namespace:   svc.Namespace,
+		ports:       svc.Spec.Ports,
+		selector:    svc.Spec.Selector,
+		serviceType: svc.Spec.Type,
+		labels:      svc.Labels,
+		annotations: annos,
 	}
 }

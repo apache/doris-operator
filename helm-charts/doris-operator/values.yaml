@@ -1,31 +1,46 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 # Default values for operator.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-global:
-  rbac:
-    # if set true, the clusterrole, clusterrolebinding, role, rolebinding, serviceaccount resources will be created for
-    # operator.
-    create: true
-
-nameOverride: "doris"
-
 dorisOperator:
-  enabled: true
-  # annotations for doris operator.
-  annotations: {}
-  namespaceOverride: "doris"
+  # the namespace of dorisoperator, if not set, the release namespace will be used.
   image:
     repository: selectdb/doris.k8s-operator
-    tag: latest
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: "2"
-      memory: 4Gi
-    requests:
-      cpu: "1"
-      memory: 2Gi
-  # If specified, the pod's nodeSelector，displayName="Map of nodeSelectors to match when scheduling pods on nodes"
-  # Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+    tag: 1.6.1
+    imagePullPolicy: ""
+  # ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this deployment.
+  # If specified, these secrets will be passed to individual puller implementations for them to use.
+  #  imagePullSecret: "my-registry-key"
+  # Map of nodeSelectors to match when scheduling pods on nodes
   nodeSelector: {}
+    # kubernetes.io/arch: amd64
+    # kubernetes.io/os: linux
+    # app.kubernetes.node.name: "k8s-node1"
+
+  # node affinity for operator pod scheduling.
+  nodeAffinity: {}
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #       - matchFields:
+  #           - key: metadata.name
+  #             operator: In
+  #             values:
+  #               - target-host-name
+  enableWebhook: false

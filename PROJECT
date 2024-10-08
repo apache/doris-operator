@@ -2,20 +2,20 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: selectdb.com
+domain: doris.com
 layout:
 - go.kubebuilder.io/v4
 projectName: doris-operator
-repo: github.com/selectdb/doris-operator
+repo: github.com/apache/doris-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: selectdb.com
+  domain: apache.com
   group: doris
   kind: DorisCluster
-  path: github.com/selectdb/doris-operator/api/v1
+  path: github.com/apache/doris-operator/api/v1
   version: v1
   webhooks:
     defaulting: true

@@ -21,8 +21,8 @@ import (
 	"context"
 	"time"
 
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	scheme "github.com/selectdb/doris-operator/client/clientset/versioned/scheme"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	scheme "github.com/apache/doris-operator/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

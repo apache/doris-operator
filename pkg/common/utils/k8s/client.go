@@ -1,15 +1,37 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package k8s
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	dorisv1 "github.com/selectdb/doris-operator/api/doris/v1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/autoscaling/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +58,8 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 		return nil
 	}
 
+	//resolve the bug: metadata.resourceversion invalid value '' must be specified for an update
+	svc.ResourceVersion = esvc.ResourceVersion
 	return PatchClientObject(ctx, k8sclient, svc)
 }
 
@@ -175,6 +199,26 @@ func PodIsReady(status *corev1.PodStatus) bool {
 	return true
 }
 
+// get the secret by namespace and name.
+func GetSecret(ctx context.Context, k8sclient client.Client, namespace, name string) (*corev1.Secret, error) {
+	var secret corev1.Secret
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &secret); err != nil {
+		return nil, err
+	}
+	return &secret, nil
+}
+
+func CreateSecret(ctx context.Context, k8sclient client.Client, secret *corev1.Secret) error {
+	return k8sclient.Create(ctx, secret)
+}
+
+func UpdateSecret(ctx context.Context, k8sclient client.Client, secret *corev1.Secret) error {
+	if err := k8sclient.Update(ctx, secret); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetConfigMap get the configmap name=name, namespace=namespace.
 func GetConfigMap(ctx context.Context, k8scient client.Client, namespace, name string) (*corev1.ConfigMap, error) {
 	var configMap corev1.ConfigMap
@@ -183,4 +227,126 @@ func GetConfigMap(ctx context.Context, k8scient client.Client, namespace, name s
 	}
 
 	return &configMap, nil
+}
+
+// GetConfigMaps get the configmap by the array of MountConfigMapInfo and namespace.
+func GetConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []dorisv1.MountConfigMapInfo) ([]*corev1.ConfigMap, error) {
+	var configMaps []*corev1.ConfigMap
+	errMessage := ""
+	for _, cm := range cms {
+		var configMap corev1.ConfigMap
+		if getErr := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cm.ConfigMapName}, &configMap); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", cm.ConfigMapName, namespace, getErr.Error())
+		}
+		configMaps = append(configMaps, &configMap)
+	}
+	if errMessage != "" {
+		return configMaps, errors.New("Failed to get configmap: " + errMessage)
+	}
+	return configMaps, nil
+}
+
+// get the Service by namespace and name.
+func GetService(ctx context.Context, k8sclient client.Client, namespace, name string) (*corev1.Service, error) {
+	var svc corev1.Service
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &svc); err != nil {
+		return nil, err
+	}
+	return &svc, nil
+}
+
+func GetPods(ctx context.Context, k8sclient client.Client, namespace string, labels map[string]string) (corev1.PodList, error) {
+	pods := corev1.PodList{}
+
+	err := k8sclient.List(
+		ctx,
+		&pods,
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels),
+	)
+	if err != nil {
+		return pods, err
+	}
+
+	return pods, nil
+}
+
+// GetConfig get conf from configmap by componentType , if not use configmap get an empty map.
+func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dorisv1.ConfigMapInfo, namespace string, componentType dorisv1.ComponentType) (map[string]interface{}, error) {
+	cms := resource.GetMountConfigMapInfo(*configMapInfo)
+	if len(cms) == 0 {
+		return make(map[string]interface{}), nil
+	}
+
+	configMaps, err := GetConfigMaps(ctx, k8sclient, namespace, cms)
+	if err != nil {
+		klog.Errorf("GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
+	}
+	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
+	return res, utils.MergeError(err, resolveErr)
+}
+
+func GetDisaggregatedMetaServiceConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
+	var configMaps []*corev1.ConfigMap
+	errMessage := ""
+	for _, cm := range cms {
+		var configMap corev1.ConfigMap
+		if getErr := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cm.Name}, &configMap); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", cm.Name, namespace, getErr.Error())
+		}
+		configMaps = append(configMaps, &configMap)
+	}
+	if errMessage != "" {
+		return configMaps, errors.New("Failed to get configmap: " + errMessage)
+	}
+	return configMaps, nil
+}
+
+// ApplyFoundationDBCluster apply FoundationDBCluster to apiserver.
+func ApplyFoundationDBCluster(ctx context.Context, k8sclient client.Client, fdb *v1beta2.FoundationDBCluster) error {
+	var efdb v1beta2.FoundationDBCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{
+		Name:      fdb.Name,
+		Namespace: fdb.Namespace,
+	}, &efdb); apierrors.IsNotFound(err) {
+		return k8sclient.Create(ctx, fdb)
+	}
+
+	fdb.ResourceVersion = efdb.ResourceVersion
+	return k8sclient.Patch(ctx, fdb, client.Merge)
+}
+
+func DeleteFoundationDBCluster(ctx context.Context, k8sclient client.Client, namespace, name string) error {
+	fdb, err := GetFoundationDBCluster(ctx, k8sclient, namespace, name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return k8sclient.Delete(ctx, fdb)
+}
+
+func GetFoundationDBCluster(ctx context.Context, k8sclient client.Client, namespace, name string) (*v1beta2.FoundationDBCluster, error) {
+	var fdb v1beta2.FoundationDBCluster
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &fdb); err != nil {
+		return nil, err
+	}
+	return &fdb, nil
+}
+
+// DeletePVC clean up existing pvc by pvc name, namespace and labels
+func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string, labels map[string]string) error {
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+	}
+	err := k8sclient.Delete(ctx, &pvc)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }

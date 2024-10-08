@@ -20,8 +20,8 @@ package v1
 import (
 	"net/http"
 
-	v1 "github.com/selectdb/doris-operator/api/doris/v1"
-	"github.com/selectdb/doris-operator/client/clientset/versioned/scheme"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
