@@ -289,7 +289,7 @@ func dmsStartupProbe(port int32) *corev1.Probe {
 // dmsLivenessProbe returns a liveness.
 func dmsLivenessProbe(port int32) *corev1.Probe {
 	commands := []string{HEALTH_MS_PROBE_COMMAND, "alive"}
-	return livenessProbe(port, "", commands, Exec)
+	return livenessProbe(port, 180, "", commands, Exec)
 }
 
 // ReadinessProbe returns a readiness probe.

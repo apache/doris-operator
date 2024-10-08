@@ -147,7 +147,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 		})
 	}
 
-	resource.BuildDisaggregatedProbe(&c, ddc.Spec.FeSpec.StartTimeout, v1.DisaggregatedFE)
+	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
 	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
 	c.VolumeMounts = vms

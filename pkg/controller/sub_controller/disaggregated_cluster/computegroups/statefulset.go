@@ -124,7 +124,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg)...)
 
-	resource.BuildDisaggregatedProbe(&c, cg.StartTimeout, dv1.DisaggregatedBE)
+	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
 	_, vms, _ := dcgs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
 	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
 	c.VolumeMounts = vms

@@ -420,7 +420,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	}
 
 	// if tcpSocket the health_api_path will ignore.
-	c.LivenessProbe = livenessProbe(livenessPort, health_api_path, commands, liveProbeType)
+	c.LivenessProbe = livenessProbe(livenessPort, spec.LiveTimeout, health_api_path, commands, liveProbeType)
 	// use liveness as startup, when in debugging mode will not be killed
 	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, health_api_path, commands, liveProbeType)
 	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType)
@@ -678,8 +678,8 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 	return volumes, volumeMounts
 }
 
-func LivenessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
-	return livenessProbe(port, path, commands, pt)
+func LivenessProbe(port, timeout int32, path string, commands []string, pt ProbeType) *corev1.Probe {
+	return livenessProbe(port, timeout, path, commands, pt)
 }
 
 func ReadinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
@@ -702,13 +702,16 @@ func startupProbe(port, timeout int32, path string, commands []string, pt ProbeT
 }
 
 // livenessProbe returns a liveness.
-func livenessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
+func livenessProbe(port, timeout int32, path string, commands []string, pt ProbeType) *corev1.Probe {
+	if timeout < 1 {
+		timeout = 180
+	}
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		// for pulling image and start doris
 		InitialDelaySeconds: 80,
-		TimeoutSeconds:      180,
+		TimeoutSeconds:      timeout,
 		ProbeHandler:        getProbe(port, path, commands, pt),
 	}
 }
@@ -804,12 +807,18 @@ func getExecProbe(commands []string) corev1.ProbeHandler {
 	}
 }
 
-func BuildDisaggregatedProbe(container *corev1.Container, timeout int32, componentType dv1.DisaggregatedComponentType) {
+func BuildDisaggregatedProbe(container *corev1.Container, cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) {
 	var failurethreshold int32
-	if timeout < 300 {
-		timeout = 300
+	startTimeout := int32(300)
+	liveTimeout := cs.LiveTimeout
+	if cs.StartTimeout >= 300 {
+		startTimeout = cs.StartTimeout
 	}
-	failurethreshold = timeout / 5
+	failurethreshold = startTimeout / 5
+
+	if liveTimeout < 1 {
+		liveTimeout = 180
+	}
 
 	var commend string
 	switch componentType {
@@ -840,7 +849,7 @@ func BuildDisaggregatedProbe(container *corev1.Container, timeout int32, compone
 		PeriodSeconds:       5,
 		FailureThreshold:    3,
 		InitialDelaySeconds: 80,
-		TimeoutSeconds:      180,
+		TimeoutSeconds:      liveTimeout,
 		ProbeHandler:        alive,
 	}
 

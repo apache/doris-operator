@@ -92,6 +92,9 @@ type CommonSpec struct {
 	// pod start timeout, unit is second
 	StartTimeout int32 `json:"startTimeout,omitempty"`
 
+	//Number of seconds after which the probe times out. Defaults to 180 second.
+	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 
