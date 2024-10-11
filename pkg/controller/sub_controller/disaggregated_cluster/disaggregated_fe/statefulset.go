@@ -33,7 +33,6 @@ import (
 const (
 	MS_ENDPOINT      string = "MS_ENDPOINT"
 	STATEFULSET_NAME string = "STATEFULSET_NAME"
-	MS_TOKEN         string = "MS_TOKEN"
 	CLUSTER_ID       string = "CLUSTER_ID"
 )
 
@@ -294,10 +293,8 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 	msConfMap := dfc.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.MS_RESOLVEKEY, ddc.Spec.MetaService.ConfigMaps)
 	msPort := resource.GetPort(msConfMap, resource.BRPC_LISTEN_PORT)
 	msEndpoint := ddc.GetMSServiceName() + "." + ddc.Namespace + ":" + strconv.Itoa(int(msPort))
-	msToken := ddc.Status.MetaServiceStatus.MsToken
 	feEnvs = append(feEnvs,
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},
-		corev1.EnvVar{Name: MS_TOKEN, Value: msToken},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: fmt.Sprintf("%d", ddc.GetInstanceHashId())},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEServiceName()},
