@@ -64,13 +64,13 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	}
 
 	if ddc.Spec.FeSpec.Replicas == nil {
-		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is nil and has been corrected to the default value %d", ddc.Namespace, ddc.Name, DefaultFeReplicaNumber)
+		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is nil and has been corrected to the default value %d", ddc.Namespace, ddc.Name, v1.DefaultFeReplicaNumber)
 		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is nil and has been corrected to the default value 2")
-		ddc.Spec.FeSpec.Replicas = &DefaultFeReplicaNumber
+		ddc.Spec.FeSpec.Replicas = &v1.DefaultFeReplicaNumber
 	}
 
 	if ddc.Spec.FeSpec.ElectionNumber == nil {
-		ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(DefaultElectionNumber)
+		ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(v1.DefaultDisFeElectionNumber)
 	}
 
 	if *(ddc.Spec.FeSpec.Replicas) < *(ddc.Spec.FeSpec.ElectionNumber) {
@@ -226,7 +226,8 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	if masterAliveReplicas == *(feSpec.ElectionNumber) && availableReplicas == *(feSpec.Replicas) {
+	electionNumber := ddc.GetElectionNumber()
+	if masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = v1.Ready
 	}
 
@@ -259,7 +260,12 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		return nil, err
 	}
 
-	if *(cluster.Spec.FeSpec.Replicas) < *(cluster.Spec.FeSpec.ElectionNumber) {
+	var replicas int32
+	if cluster.Spec.FeSpec.Replicas != nil {
+		replicas = *cluster.Spec.FeSpec.Replicas
+	}
+	electionNumber := cluster.GetElectionNumber()
+	if replicas < electionNumber {
 		dfc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of disaggregated fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
 		klog.Errorf("disaggregatedFEController reconcileStatefulset disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, *(cluster.Spec.FeSpec.ElectionNumber), *(cluster.Spec.FeSpec.Replicas))
 		ele := *(cluster.Spec.FeSpec.ElectionNumber)
@@ -268,7 +274,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	// fe scale check and set FEStatus phase
-	willRemovedAmount := *(cluster.Spec.FeSpec.Replicas) - *(est.Spec.Replicas)
+	willRemovedAmount := replicas - *(est.Spec.Replicas)
 
 	//  if fe scale, drop fe node by http
 	if willRemovedAmount < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {

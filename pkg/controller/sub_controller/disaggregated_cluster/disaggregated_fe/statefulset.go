@@ -48,11 +48,6 @@ const (
 	auth_volume_name         = "basic-auth"
 )
 
-var (
-	DefaultElectionNumber  int32 = 1
-	DefaultFeReplicaNumber int32 = 2
-)
-
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
 	return map[string]string{
 		v1.DorisDisaggregatedClusterName:    ddcName,
