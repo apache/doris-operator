@@ -342,7 +342,7 @@ func ServiceDeepEqualWithAnnoKey(nsvc, osvc *corev1.Service, annoKey string) boo
 		newHashValue = hash.HashObject(newHashService)
 	}
 
-	if _, ok := nsvc.Annotations[annoKey]; ok {
+	if _, ok := osvc.Annotations[annoKey]; ok {
 		oldHashValue = osvc.Annotations[annoKey]
 	} else {
 		oldHashService := serviceHashObject(osvc, set.NewSetString(annoKey))
