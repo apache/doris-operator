@@ -69,15 +69,12 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		ddc.Spec.FeSpec.Replicas = &v1.DefaultFeReplicaNumber
 	}
 
-	if ddc.Spec.FeSpec.ElectionNumber == nil {
-		ddc.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(v1.DefaultDisFeElectionNumber)
-	}
+	electionNumber := ddc.GetElectionNumber()
 
-	if *(ddc.Spec.FeSpec.Replicas) < *(ddc.Spec.FeSpec.ElectionNumber) {
+	if *(ddc.Spec.FeSpec.Replicas) < electionNumber {
 		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.FESpecSetError), "The number of disaggregated fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
-		klog.Errorf("disaggregatedFEController Sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d), Replicas has been corrected to the correct minimum value", ddc.Namespace, ddc.Name, *(ddc.Spec.FeSpec.ElectionNumber), *(ddc.Spec.FeSpec.Replicas))
-		ele := *(ddc.Spec.FeSpec.ElectionNumber)
-		ddc.Spec.FeSpec.Replicas = &ele
+		klog.Errorf("disaggregatedFEController Sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d), Replicas has been corrected to the correct minimum value", ddc.Namespace, ddc.Name, electionNumber, *(ddc.Spec.FeSpec.Replicas))
+		ddc.Spec.FeSpec.Replicas = &electionNumber
 	}
 
 	confMap := dfc.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, ddc.Spec.FeSpec.ConfigMaps)
@@ -198,6 +195,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 
 	// FEStatus
 	feSpec := ddc.Spec.FeSpec
+	electionNumber := ddc.GetElectionNumber()
 	selector := dfc.newFEPodsSelector(ddc.Name)
 	var podList corev1.PodList
 	if err := dfc.K8sclient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
@@ -206,7 +204,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	for _, pod := range podList.Items {
 
 		if ready := k8s.PodIsReady(&pod.Status); ready {
-			if dfc.podIsFollower(pod.Name, stfName, int(*feSpec.ElectionNumber)) {
+			if dfc.podIsFollower(pod.Name, stfName, int(electionNumber)) {
 				masterAliveReplicas++
 			}
 			availableReplicas++
@@ -226,7 +224,6 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	electionNumber := ddc.GetElectionNumber()
 	if masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = v1.Ready
 	}
@@ -267,10 +264,9 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	electionNumber := cluster.GetElectionNumber()
 	if replicas < electionNumber {
 		dfc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of disaggregated fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
-		klog.Errorf("disaggregatedFEController reconcileStatefulset disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, *(cluster.Spec.FeSpec.ElectionNumber), *(cluster.Spec.FeSpec.Replicas))
-		ele := *(cluster.Spec.FeSpec.ElectionNumber)
-		cluster.Spec.FeSpec.Replicas = &ele
-		st.Spec.Replicas = &ele
+		klog.Errorf("disaggregatedFEController reconcileStatefulset disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, electionNumber, *(cluster.Spec.FeSpec.Replicas))
+		cluster.Spec.FeSpec.Replicas = &electionNumber
+		st.Spec.Replicas = &electionNumber
 	}
 
 	// fe scale check and set FEStatus phase
@@ -341,7 +337,7 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 	}
 
 	// means: needRemovedAmount = allobservers - (replicas - election)
-	electionNumber := *(cluster.Spec.FeSpec.ElectionNumber)
+	electionNumber := cluster.GetElectionNumber()
 	needRemovedAmount := int32(len(allObserves)) - *(cluster.Spec.FeSpec.Replicas) + electionNumber
 	if needRemovedAmount <= 0 {
 		klog.Errorf("dropFEFromSQLClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(cluster.Spec.FeSpec.Replicas)-electionNumber)
