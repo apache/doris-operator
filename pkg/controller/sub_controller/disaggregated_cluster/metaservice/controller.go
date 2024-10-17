@@ -149,7 +149,7 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	if err := k8s.ApplyStatefulSet(ctx, dms.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithOmitKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, true, false)
+		return resource.StatefulsetDeepEqualWithKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, false)
 	}); err != nil {
 		klog.Errorf("dms controller reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err

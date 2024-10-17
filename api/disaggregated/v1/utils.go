@@ -42,8 +42,20 @@ var (
 
 type ServiceRole string
 
-const (
-	DefaultMetaserviceNumber int32       = 2
-	Service_Role_Access      ServiceRole = "access"
-	Service_Role_Internal    ServiceRole = "internal"
+var (
+	DefaultMetaserviceNumber   int32 = 2
+	DefaultFeReplicaNumber     int32 = 2
+	DefaultDisFeElectionNumber int32 = 1
 )
+
+const (
+	Service_Role_Access   ServiceRole = "access"
+	Service_Role_Internal ServiceRole = "internal"
+)
+
+func (ddc *DorisDisaggregatedCluster) GetElectionNumber() int32 {
+	if ddc.Spec.FeSpec.ElectionNumber != nil {
+		return *ddc.Spec.FeSpec.ElectionNumber
+	}
+	return DefaultDisFeElectionNumber
+}

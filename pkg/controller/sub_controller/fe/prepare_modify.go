@@ -43,15 +43,11 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 	if cluster.Spec.FeSpec.Replicas == nil {
 		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
 	}
-	electionNumber := Default_Election_Number
-	if cluster.Spec.FeSpec.ElectionNumber != nil {
-		electionNumber = *cluster.Spec.FeSpec.ElectionNumber
-	}
 
-	if *(cluster.Spec.FeSpec.Replicas) < electionNumber {
+	if *(cluster.Spec.FeSpec.Replicas) < *(cluster.Spec.FeSpec.ElectionNumber) {
 		fc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
-		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, electionNumber, *(cluster.Spec.FeSpec.Replicas))
-		ele := electionNumber
+		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, *(cluster.Spec.FeSpec.ElectionNumber), *(cluster.Spec.FeSpec.Replicas))
+		ele := *(cluster.Spec.FeSpec.ElectionNumber)
 		cluster.Spec.FeSpec.Replicas = &ele
 	}
 

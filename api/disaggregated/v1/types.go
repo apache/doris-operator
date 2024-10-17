@@ -112,9 +112,6 @@ type CommonSpec struct {
 	// VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
 	PersistentVolume *PersistentVolume `json:"persistentVolume,omitempty"`
 
-	//when set true, the log will store in disk that created by volumeClaimTemplate
-	NoStoreLog bool `json:"noStoreLog,omitempty"`
-
 	// (Optional) Tolerations for scheduling pods onto some dedicated nodes
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
