@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	DefaultCacheRootPath = "/opt/apache-doris/file_cache"
+	DefaultCacheRootPath = "/opt/apache-doris/be/file_cache"
 	//default cache storage size: unit=B
 	DefaultCacheSize               int64 = 107374182400
 	FileCachePathKey                     = "file_cache_path"
@@ -266,7 +266,7 @@ func (dcgs *DisaggregatedComputeGroupsController) getCacheMaxSizeAndPaths(cvs ma
 	var pa []map[string]interface{}
 	err := json.Unmarshal([]byte(vbys), &pa)
 	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_paht failed, err=%s", err.Error())
+		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_path failed, err=%s", err.Error())
 		return []string{}, 0
 	}
 
