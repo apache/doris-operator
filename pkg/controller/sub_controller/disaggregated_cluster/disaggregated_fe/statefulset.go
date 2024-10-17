@@ -188,18 +188,23 @@ func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap ma
 		}
 	}()
 
-	vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: LogStoreName,
-		}}})
-	vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: dfc.getLogPath(confMap)})
-	pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        LogStoreName,
-			Annotations: fe.CommonSpec.PersistentVolume.Annotations,
-		},
-		Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
-	})
+	//generate log volume, volumeMount, pvc
+	func() {
+		if !fe.PersistentVolume.LogNotStore {
+			vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: LogStoreName,
+				}}})
+			vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: dfc.getLogPath(confMap)})
+			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        LogStoreName,
+					Annotations: fe.CommonSpec.PersistentVolume.Annotations,
+				},
+				Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
+			})
+		}
+	}()
 
 	vs = append(vs, corev1.Volume{Name: MetaStoreName, VolumeSource: corev1.VolumeSource{
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
