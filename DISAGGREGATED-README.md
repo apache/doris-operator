@@ -11,7 +11,48 @@ Separation of storage and compute is an architecture pattern provided by Doris f
 >1. The total resources of cpu and memory about K8s worker should greater than the required to deploy doris cluster.
 >2. The resources of a K8s worker node should be greater than the resources required by one fe or be. fe or be default resource requirement: 4c, 4Gi.
 
-## Install Operator
+## Install FoundationDB
+To deploy a storage-computing separation cluster on K8s, you need to deploy fdb in advance. For deployment on k8s, refer to the [Quick Deployment Document](https://github.com/FoundationDB/fdb-kubernetes-operator) in the operator provided by fdb officially.
+
+### install the fdb-kubernetes-operator and CRDs
+
+```
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/deployment.yaml
+```
+
+Expected result:
+
+```
+customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
+serviceaccount/fdb-kubernetes-operator-controller-manager created
+clusterrole.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-clusterrole created
+clusterrole.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-role created
+rolebinding.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-clusterrolebinding created
+deployment.apps/fdb-kubernetes-operator-controller-manager created
+```
+
+### set up a fdb sample cluster
+
+```
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/cluster.yaml
+```
+
+Use the `kubectl get fdb` command to check the cluster building status until the `AVAILABLE` is found to be true.
+
+Expected result:
+
+```
+NAME           GENERATION   RECONCILED   AVAILABLE   FULLREPLICATION   VERSION   AGE
+test-cluster   1            1            true        true              7.1.26    3m18s
+```
+
+## Install Doris Operator
 1. deploy CustomResourceDefinitions
 ```
 kubectl create -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/crds.yaml
@@ -38,5 +79,5 @@ Deploy `DorisDisaggregatedCluster` resource:
 kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/ddc-sample.yaml
 ```
 >[!NOTE]
-> 1. FDB's k8s deployment requires at least three hosts as worker nodes in k8s. If the number of worker nodes in k8s is less than 3, please use the [singleton mode deployment](https://doris.apache.org/docs/install/cluster-deployment/k8s-deploy/install-quickstart/) provided by Doris operator
-> 2. For detailed deployment, please refer to [official doc](https://doris.apache.org/docs/install/cluster-deployment/k8s-deploy/install-quickstart/).
+> 1. FDB's k8s deployment requires at least three hosts as worker nodes in k8s. If the number of worker nodes in k8s is less than 3, please use the [singleton mode deployment](./doc/examples/disaggregated/fdb/cluster-single.yaml) provided by Doris operator
+> 2. For detailed deployment, please refer to [official doc](https://doris.apache.org/docs/dev/install/cluster-deployment/k8s-deploy/compute-storage-decoupled/install-quickstart).

@@ -5,18 +5,26 @@ metadata:
 spec:
   metaService:
     image: selectdb/doris.ms-ubuntu:3.0.2
+    configMaps:
+      - name: ms-configmap
     fdb:
       # address: ${fdb_endpoint}
       configMapNamespaceName:
-        name: test-cluster-config
-        namespace: default
+        name: ${fdb-configmap}
+        namespace: ${fdb-namespace}
   feSpec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2
+    configMaps:
+      - name: fe-configmap
   computeGroups:
     - uniqueId: cg1
       replicas: 3
+      configMaps:
+        - name: be-configmap
       image: selectdb/doris.be-ubuntu:3.0.2
     - uniqueId: cg2
       replicas: 3
+      configMaps:
+        - name: be-configmap
       image: selectdb/doris.be-ubuntu:3.0.2
