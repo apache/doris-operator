@@ -8,8 +8,8 @@ spec:
     fdb:
       # address: ${fdb_endpoint}
       configMapNamespaceName:
-        name: ${fdb-configmap}
-        namespace: ${fdb-namespace}
+        name: test-cluster-config
+        namespace: default
   feSpec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2

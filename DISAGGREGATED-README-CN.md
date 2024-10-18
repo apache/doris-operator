@@ -14,6 +14,44 @@
 ## 部署 FoundationDB
 在 K8s 上部署存算分离集群需要提前部署好 fdb (foundationdb 简称)。在 k8s 上可参考 fdb 官方提供的 operator 中的[快速部署文档](https://github.com/FoundationDB/fdb-kubernetes-operator)进行部署。  
 
+### 安装 CRD 以及 FoundationDB-operator
+
+```
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/deployment.yaml
+```
+
+预期结果：
+
+```
+customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
+serviceaccount/fdb-kubernetes-operator-controller-manager created
+clusterrole.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-clusterrole created
+clusterrole.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-role created
+rolebinding.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-clusterrolebinding created
+deployment.apps/fdb-kubernetes-operator-controller-manager created
+```
+
+### 创建 fdb 集群
+
+```
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/cluster.yaml
+```
+
+通过`kubectl get fdb` 命令 来查看集群搭建状态，直到发现返回 `AVAILABLE` 为 true。
+
+预期结果：
+
+```
+NAME           GENERATION   RECONCILED   AVAILABLE   FULLREPLICATION   VERSION   AGE
+test-cluster   1            1            true        true              7.1.26    3m18s
+```
+
 ## 安装 Doris Operator
 1. 下发资源定义：
 ```
@@ -41,4 +79,4 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 
 >[!NOTE]
 >1. fdb 的 k8s 部署需要 k8s 至少有三台宿主机作为 worker 节点，如果 k8s 的 worker 节点数少于 3 ，请使用 doris-operator 提供的[单例模式部署](./doc/examples/disaggregated/fdb/cluster-single.yaml)。
->2. 详细部署请参考 doris-operator 官方[部署存算分离文档](https://doris.apache.org/zh-CN/docs/install/cluster-deployment/k8s-deploy/install-quickstart)。
+>2. 详细部署请参考 doris-operator 官方[部署存算分离文档](https://doris.apache.org/zh-CN/docs/dev/install/cluster-deployment/k8s-deploy/compute-storage-decoupled/install-quickstart)。
