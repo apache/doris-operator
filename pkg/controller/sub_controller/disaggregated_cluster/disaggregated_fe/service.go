@@ -117,9 +117,9 @@ func (dfc *DisaggregatedFEController) newInternalService(ddc *dv1.DorisDisaggreg
 }
 
 func getInternalServicePort(config map[string]interface{}) corev1.ServicePort {
-	httpPort := resource.GetPort(config, resource.HTTP_PORT)
+	httpPort := resource.GetPort(config, resource.QUERY_PORT)
 	return corev1.ServicePort{
-		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: resource.GetPortKey(resource.HTTP_PORT),
+		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: resource.GetPortKey(resource.QUERY_PORT),
 	}
 }
 

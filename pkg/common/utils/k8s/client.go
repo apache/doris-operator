@@ -46,13 +46,20 @@ type StatefulSetEqual func(st1 *appv1.StatefulSet, st2 *appv1.StatefulSet) bool
 func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Service, equal ServiceEqual) error {
 	// As stated in the RetryOnConflict's documentation, the returned error shouldn't be wrapped.
 	var esvc corev1.Service
+	//avoid clusterIps Invalid value failed.
+	svc.Spec.ClusterIPs = nil
 	err := k8sclient.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &esvc)
 	if err != nil && apierrors.IsNotFound(err) {
-		return CreateClientObject(ctx, k8sclient, svc)
-	} else if err != nil {
+		//avoid client version not match k8s version will result resourceVersion is not "" and response "resourceVersion should not set"  failed.
+		svc.ResourceVersion = ""
+		if err = CreateClientObject(ctx, k8sclient, svc); err == nil || apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+
+		return err
+	} else if err != nil && apierrors.IsNotFound(err) {
 		return err
 	}
-
 	if equal(svc, &esvc) {
 		klog.Info("CreateOrUpdateService service Name, Ports, Selector, ServiceType, Labels have not change ", "namespace ", svc.Namespace, " name ", svc.Name)
 		return nil
@@ -69,7 +76,7 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 	err := k8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est)
 	if err != nil && apierrors.IsNotFound(err) {
 		return CreateClientObject(ctx, k8sclient, st)
-	} else if err != nil {
+	} else if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
@@ -80,7 +87,11 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 	}
 
 	st.ResourceVersion = est.ResourceVersion
-	return PatchClientObject(ctx, k8sclient, st)
+	err = PatchClientObject(ctx, k8sclient, st)
+	if err == nil || apierrors.IsConflict(err) {
+		return nil
+	}
+	return err
 }
 
 func CreateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
@@ -100,7 +111,7 @@ func UpdateClientObject(ctx context.Context, k8sclient client.Client, object cli
 }
 
 func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
-	klog.V(4).Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
+	klog.Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
 	if err := k8sclient.Update(ctx, object); apierrors.IsNotFound(err) {
 		return k8sclient.Create(ctx, object)
 	} else if err != nil {
@@ -112,7 +123,7 @@ func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, ob
 
 // PatchClientObject patch object when the object exist. if not return error.
 func PatchClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
-	klog.V(4).Infof("patch resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
+	klog.Infof("patch resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
 	if err := k8sclient.Patch(ctx, object, client.Merge); err != nil {
 		return err
 	}

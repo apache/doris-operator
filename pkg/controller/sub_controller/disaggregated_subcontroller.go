@@ -32,7 +32,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -206,17 +205,6 @@ func (d *DisaggregatedSubDefaultController) newDefaultAffinity(matchKey, value s
 
 // the common logic to apply service, will used by fe,be,ms.
 func (d *DisaggregatedSubDefaultController) DefaultReconcileService(ctx context.Context, svc *corev1.Service) (*Event, error) {
-	var esvc corev1.Service
-	if err := d.K8sclient.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, &esvc); apierrors.IsNotFound(err) {
-		if err = k8s.CreateClientObject(ctx, d.K8sclient, svc); err != nil {
-			klog.Errorf("disaggregatedSubDefaultController reconcileService create service namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
-			return &Event{Type: EventWarning, Reason: ServiceApplyedFailed, Message: err.Error()}, err
-		}
-	} else if err != nil {
-		klog.Errorf("disaggregatedSubDefaultController reconcileService get service failed, namespace=%s name=%s failed, err=%s", svc.Namespace, svc.Name, err.Error())
-		return nil, err
-	}
-
 	if err := k8s.ApplyService(ctx, d.K8sclient, svc, func(nsvc, osvc *corev1.Service) bool {
 		return resource.ServiceDeepEqualWithAnnoKey(nsvc, osvc, v1.DisaggregatedSpecHashValueAnnotation)
 	}); err != nil {

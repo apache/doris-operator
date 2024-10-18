@@ -89,7 +89,7 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 
 // StatefulSetDeepEqual judge two statefulset equal or not.
 func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
-	equal := StatefulsetDeepEqualWithOmitKey(new, old, v1.ComponentResourceHash, false, excludeReplicas)
+	equal := StatefulsetDeepEqualWithKey(new, old, v1.ComponentResourceHash, excludeReplicas)
 	if !equal {
 		return clear_config_env_path_numbers_alwaysEquals(new, old, v1.ComponentResourceHash, excludeReplicas)
 
@@ -179,14 +179,14 @@ func clear_config_env_path_numbers_alwaysEquals(new *appv1.StatefulSet, old *app
 	}
 }
 
-func StatefulsetDeepEqualWithOmitKey(new, old *appv1.StatefulSet, annoKey string, omit bool, excludeReplicas bool) bool {
-	if omit {
+func StatefulsetDeepEqualWithKey(new, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
+	/*	if omit {
 		newHso := statefulSetHashObject(new, excludeReplicas)
 		newHashv := hash.HashObject(newHso)
 		oldHso := statefulSetHashObject(old, excludeReplicas)
 		oldHashv := hash.HashObject(oldHso)
 		return new.Namespace == old.Namespace && newHashv == oldHashv
-	}
+	}*/
 	var newHashv, oldHashv string
 	if annoKey == "" {
 		annoKey = v1.ComponentResourceHash
