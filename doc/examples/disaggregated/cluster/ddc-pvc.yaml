@@ -1,0 +1,51 @@
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: test-disaggregated-cluster
+spec:
+  metaService:
+    image: selectdb/doris.ms-ubuntu:3.0.2
+    configMaps:
+      - name: ms-configmap
+    fdb:
+      # address: ${fdb_endpoint}
+      configMapNamespaceName:
+        name: ${fdb-configmap}
+        namespace: ${fdb-namespace}
+  feSpec:
+    replicas: 2
+    image: selectdb/doris.fe-ubuntu:3.0.2
+    persistentVolume:
+      # logNotStore: true
+      persistentVolumeClaimSpec:
+      # storageClassName: ${storageclass_name}
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Gi
+  computeGroups:
+    - uniqueId: cg1
+      replicas: 3
+      image: selectdb/doris.be-ubuntu:3.0.2
+      persistentVolume:
+        # logNotStore: true
+        persistentVolumeClaimSpec:
+          # storageClassName: ${storageclass_name}
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 100Gi
+    - uniqueId: cg2
+      replicas: 3
+      image: selectdb/doris.be-ubuntu:3.0.2
+      persistentVolume:
+        # logNotStore: true
+        persistentVolumeClaimSpec:
+          # storageClassName: ${storageclass_name}
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 100Gi
