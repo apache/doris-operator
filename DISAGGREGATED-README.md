@@ -52,6 +52,27 @@ NAME           GENERATION   RECONCILED   AVAILABLE   FULLREPLICATION   VERSION  
 test-cluster   1            1            true        true              7.1.26    3m18s
 ```
 
+After the fdb cluster status is normal, use the `kubectl get configmap test-cluster-foundationdb-config -oyaml` command to view the configmap files related to the fdb cluster and find `data.cluster-file`, which is the `endpoint` of fdb.
+```
+apiVersion: v1
+data:
+  cluster-file: test_ms_foundationdb:FUfX4wi66PKwHaPpIKNV8gLbu6hX1PpL@test-cluster-foundationdb-log-10650.test-cluster-foundationdb.default.svc.cluster.local:4501,test-cluster-foundationdb-log-26811.test-cluster-foundationdb.default.svc.cluster.local:4501,test-cluster-foundationdb-storage-34332.test-cluster-foundationdb.default.svc.cluster.local:4501
+  fdbmonitor-conf-cluster_controller: |-
+    [general]
+    kill_on_configuration_change = false
+    restart_delay = 60
+    ...
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-10-22T08:14:37Z"
+  labels:
+    disaggregated.metaservice.doris.com/name: test-cluster
+    foundationdb.org/fdb-cluster-name: test-cluster-foundationdb
+  name: test-cluster-foundationdb-config
+  namespace: default
+```
+
+
 ## Install Doris Operator
 1. deploy CustomResourceDefinitions
 ```
@@ -79,5 +100,5 @@ Deploy `DorisDisaggregatedCluster` resource:
 kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/ddc-sample.yaml
 ```
 >[!NOTE]
-> 1. FDB's k8s deployment requires at least three hosts as worker nodes in k8s. If the number of worker nodes in k8s is less than 3, please use the [singleton mode deployment](./doc/examples/disaggregated/fdb/cluster-single.yaml) provided by Doris operator
+> 1. FDB's k8s deployment requires at least three hosts as worker nodes in k8s. If the number of worker nodes in k8s is less than 3, please use the [singleton mode deployment](./doc/examples/disaggregated/fdb/cluster-single.yaml) provided by Doris operator after deploying FoundationDB-operator.
 > 2. For detailed deployment, please refer to [official doc](https://doris.apache.org/docs/dev/install/cluster-deployment/k8s-deploy/compute-storage-decoupled/install-quickstart).

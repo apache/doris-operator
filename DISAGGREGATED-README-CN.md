@@ -52,6 +52,27 @@ NAME           GENERATION   RECONCILED   AVAILABLE   FULLREPLICATION   VERSION  
 test-cluster   1            1            true        true              7.1.26    3m18s
 ```
 
+待 fdb 集群状态正常后，通过 `kubectl get configmap test-cluster-foundationdb-config -oyaml` 命令查看 fdb 集群相关的 configmap 文件，找到 `data.cluster-file`,即为 fdb 的 endpoint。
+
+```
+apiVersion: v1
+data:
+  cluster-file: test_ms_foundationdb:FUfX4wi66PKwHaPpIKNV8gLbu6hX1PpL@test-cluster-foundationdb-log-10650.test-cluster-foundationdb.default.svc.cluster.local:4501,test-cluster-foundationdb-log-26811.test-cluster-foundationdb.default.svc.cluster.local:4501,test-cluster-foundationdb-storage-34332.test-cluster-foundationdb.default.svc.cluster.local:4501
+  fdbmonitor-conf-cluster_controller: |-
+    [general]
+    kill_on_configuration_change = false
+    restart_delay = 60
+    ...
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-10-22T08:14:37Z"
+  labels:
+    disaggregated.metaservice.doris.com/name: test-cluster
+    foundationdb.org/fdb-cluster-name: test-cluster-foundationdb
+  name: test-cluster-foundationdb-config
+  namespace: default
+```
+
 ## 安装 Doris Operator
 1. 下发资源定义：
 ```
@@ -78,5 +99,5 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ```
 
 >[!NOTE]
->1. fdb 的 k8s 部署需要 k8s 至少有三台宿主机作为 worker 节点，如果 k8s 的 worker 节点数少于 3 ，请使用 doris-operator 提供的[单例模式部署](./doc/examples/disaggregated/fdb/cluster-single.yaml)。
+>1. fdb 的 k8s 部署需要 k8s 至少有三台宿主机作为 worker 节点，如果 k8s 的 worker 节点数少于 3 ，请在部署完成 FoundationDB-operator 后使用 Doris operator 提供的[单例模式部署](./doc/examples/disaggregated/fdb/cluster-single.yaml)。
 >2. 详细部署请参考 doris-operator 官方[部署存算分离文档](https://doris.apache.org/zh-CN/docs/dev/install/cluster-deployment/k8s-deploy/compute-storage-decoupled/install-quickstart)。
