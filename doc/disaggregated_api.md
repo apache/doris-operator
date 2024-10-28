@@ -250,17 +250,6 @@ PersistentVolume
 </tr>
 <tr>
 <td>
-<code>noStoreLog</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>when set true, the log will store in disk that created by volumeClaimTemplate</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>tolerations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#toleration-v1-core">
@@ -1452,5 +1441,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>d39af0d</code>.
+on git commit <code>54d1acc</code>.
 </em></p>
