@@ -25,17 +25,17 @@ import (
 )
 
 func (dcgs *DisaggregatedComputeGroupsController) newService(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *corev1.Service {
-	cgClusterId := ddc.GetCGId(cg)
+	uniqueId := cg.UniqueId
 	svcConf := cg.CommonSpec.Service
 	sps := newComputeServicePorts(cvs, svcConf)
 	svc := dcgs.NewDefaultService(ddc)
 
 	ob := &svc.ObjectMeta
 	ob.Name = ddc.GetCGServiceName(cg)
-	ob.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Namespace, cgClusterId)
+	ob.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Namespace, uniqueId)
 
 	spec := &svc.Spec
-	spec.Selector = dcgs.newCGPodsSelector(ddc.Name, cgClusterId)
+	spec.Selector = dcgs.newCGPodsSelector(ddc.Name, uniqueId)
 	spec.Ports = sps
 
 	if svcConf != nil && svcConf.Type != "" {

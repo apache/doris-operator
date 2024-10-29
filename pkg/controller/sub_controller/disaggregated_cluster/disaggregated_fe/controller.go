@@ -19,13 +19,10 @@ package disaggregated_fe
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_http"
-	"github.com/apache/doris-operator/pkg/common/utils/disaggregated_ms/ms_meta"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
@@ -45,26 +42,16 @@ var (
 	disaggregatedFEController = "disaggregatedFEController"
 )
 
-const (
-	ms_http_token_key = "http_token"
-	instance_conf_key = "instance.conf"
-	ms_conf_name      = "doris_cloud.conf"
-)
-
 type DisaggregatedFEController struct {
 	sc.DisaggregatedSubDefaultController
-	//record instance metadata for checking instance need create or update.
-	instanceMeta map[string] /*instanceId*/ interface{}
 }
 
 func New(mgr ctrl.Manager) *DisaggregatedFEController {
-	im := make(map[string]interface{})
 	return &DisaggregatedFEController{
 		DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
 			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedFEController),
 			ControllerName: disaggregatedFEController},
-		instanceMeta: im,
 	}
 }
 
@@ -76,42 +63,37 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return nil
 	}
 
-	//get instance config, validating config, display some instance info in DorisDisaggregatedCluster, apply instance info into ms.
-	if _, err := func() (ctrl.Result, error) {
-		instanceConf, err := dfc.getInstanceConfig(ctx, ddc)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if err := dfc.validateInstanceInfo(instanceConf); err != nil {
-			return ctrl.Result{}, err
-		}
-		//display InstanceInfo in DorisDisaggregatedCluster
-		dfc.displayInstanceInfo(instanceConf, ddc)
-
-		//TODO: wait interface fixed. realize update ak,sk.
-		event, err := dfc.ApplyInstanceMeta(ddc.Status.MetaServiceStatus.MetaServiceEndpoint, ddc.Status.MetaServiceStatus.MsToken, instanceConf)
-		if event != nil {
-			dfc.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
-		}
-		return ctrl.Result{}, err
-	}(); err != nil {
-		return err
+	if ddc.Spec.FeSpec.Replicas == nil {
+		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is nil and has been corrected to the default value %d", ddc.Namespace, ddc.Name, v1.DefaultFeReplicaNumber)
+		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is nil and has been corrected to the default value 2")
+		ddc.Spec.FeSpec.Replicas = &v1.DefaultFeReplicaNumber
 	}
 
-	if ddc.Spec.FeSpec.Replicas == nil || *(ddc.Spec.FeSpec.Replicas) < DefaultFeReplicaNumber {
-		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is illegal and has been corrected to the default value %d", ddc.Namespace, ddc.Name, DefaultFeReplicaNumber)
-		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is illegal and has been corrected to the default value 2")
-		ddc.Spec.FeSpec.Replicas = &DefaultFeReplicaNumber
+	electionNumber := ddc.GetElectionNumber()
+
+	if *(ddc.Spec.FeSpec.Replicas) < electionNumber {
+		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.FESpecSetError), "The number of disaggregated fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
+		klog.Errorf("disaggregatedFEController Sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d), Replicas has been corrected to the correct minimum value", ddc.Namespace, ddc.Name, electionNumber, *(ddc.Spec.FeSpec.Replicas))
+		ddc.Spec.FeSpec.Replicas = &electionNumber
 	}
 
 	confMap := dfc.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, ddc.Spec.FeSpec.ConfigMaps)
+	svcInternal := dfc.newInternalService(ddc, confMap)
 	svc := dfc.newService(ddc, confMap)
 
 	st := dfc.NewStatefulset(ddc, confMap)
 	dfc.initialFEStatus(ddc)
 
-	event, err := dfc.DefaultReconcileService(ctx, svc)
+	event, err := dfc.DefaultReconcileService(ctx, svcInternal)
+	if err != nil {
+		if event != nil {
+			dfc.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
+		}
+		klog.Errorf("disaggregatedFEController reconcile internal service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
+		return err
+	}
+
+	event, err = dfc.DefaultReconcileService(ctx, svc)
 	if err != nil {
 		if event != nil {
 			dfc.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
@@ -135,7 +117,7 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 func (dfc *DisaggregatedFEController) msAvailable(ddc *v1.DorisDisaggregatedCluster) bool {
 	endpoints := corev1.Endpoints{}
 	if err := dfc.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.GetMSServiceName()}, &endpoints); err != nil {
-		klog.Infof("DisaggregatedFEController Sync wait fe service name %s available occur failed %s\n", ddc.GetMSServiceName(), err.Error())
+		klog.Infof("DisaggregatedFEController Sync wait meta service name %s available occur failed %s\n", ddc.GetMSServiceName(), err.Error())
 		return false
 	}
 
@@ -150,13 +132,14 @@ func (dfc *DisaggregatedFEController) msAvailable(ddc *v1.DorisDisaggregatedClus
 func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*v1.DorisDisaggregatedCluster)
 
-	statefulsetName := ddc.GetFEStatefulsetName()
-	serviceName := ddc.GetFEServiceName()
-
 	if err := dfc.recycleResources(ctx, ddc); err != nil {
 		klog.Errorf("DisaggregatedFE ClearResources RecycleResources failed, namespace %s name %s, err:%s.", ddc.Namespace, ddc.Name, err.Error())
 		return false, err
 	}
+
+	statefulsetName := ddc.GetFEStatefulsetName()
+	serviceName := ddc.GetFEServiceName()
+	serviceInternalName := ddc.GetFEInternalServiceName()
 
 	if ddc.DeletionTimestamp.IsZero() {
 		return true, nil
@@ -164,6 +147,12 @@ func (dfc *DisaggregatedFEController) ClearResources(ctx context.Context, obj cl
 
 	if err := k8s.DeleteService(ctx, dfc.K8sclient, ddc.Namespace, serviceName); err != nil {
 		klog.Errorf("disaggregatedFEController delete service namespace %s name %s failed, err=%s", ddc.Namespace, serviceName, err.Error())
+		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.FEServiceDeleteFailed), err.Error())
+		return false, err
+	}
+
+	if err := k8s.DeleteService(ctx, dfc.K8sclient, ddc.Namespace, serviceInternalName); err != nil {
+		klog.Errorf("disaggregatedFEController delete internal service namespace %s name %s failed, err=%s", ddc.Namespace, serviceInternalName, err.Error())
 		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.FEServiceDeleteFailed), err.Error())
 		return false, err
 	}
@@ -181,8 +170,8 @@ func (dfc *DisaggregatedFEController) GetControllerName() string {
 	return disaggregatedFEController
 }
 
-// podIsMaster if fe pod name has tail: '-0', is master
-func (dfc *DisaggregatedFEController) podIsMaster(podName, stfName string) bool {
+// podIsFollower if fe pod name has tail: '-n', n is less than electionNumber is follower
+func (dfc *DisaggregatedFEController) podIsFollower(podName, stfName string, electionNumber int) bool {
 	if !strings.HasPrefix(podName, stfName+"-") {
 		return false
 	}
@@ -191,7 +180,7 @@ func (dfc *DisaggregatedFEController) podIsMaster(podName, stfName string) bool 
 	if err != nil {
 		return false
 	}
-	return num == 0
+	return num < electionNumber
 }
 
 func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) error {
@@ -206,6 +195,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 
 	// FEStatus
 	feSpec := ddc.Spec.FeSpec
+	electionNumber := ddc.GetElectionNumber()
 	selector := dfc.newFEPodsSelector(ddc.Name)
 	var podList corev1.PodList
 	if err := dfc.K8sclient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
@@ -214,8 +204,8 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	for _, pod := range podList.Items {
 
 		if ready := k8s.PodIsReady(&pod.Status); ready {
-			if dfc.podIsMaster(pod.Name, stfName) {
-				masterAliveReplicas = 1
+			if dfc.podIsFollower(pod.Name, stfName, int(electionNumber)) {
+				masterAliveReplicas++
 			}
 			availableReplicas++
 		} else if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodPending {
@@ -234,7 +224,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	if masterAliveReplicas == DefaultElectionNumber && availableReplicas == *(feSpec.Replicas) {
+	if masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = v1.Ready
 	}
 
@@ -248,7 +238,7 @@ func (dfc *DisaggregatedFEController) initialFEStatus(ddc *v1.DorisDisaggregated
 	}
 	feStatus := v1.FEStatus{
 		Phase:     v1.Reconciling,
-		ClusterId: ms_http.FeClusterId,
+		ClusterId: fmt.Sprintf("%d", ddc.GetInstanceHashId()),
 	}
 	ddc.Status.FEStatus = feStatus
 }
@@ -267,20 +257,24 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		return nil, err
 	}
 
-	// fe scale check and set FEStatus phase
-	scaleNumber := *(cluster.Spec.FeSpec.Replicas) - *(est.Spec.Replicas)
-
-	// apply fe StatefulSet
-	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithOmitKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, true, false)
-	}); err != nil {
-		klog.Errorf("disaggregatedFEController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.FEApplyResourceFailed, Message: err.Error()}, err
+	var replicas int32
+	if cluster.Spec.FeSpec.Replicas != nil {
+		replicas = *cluster.Spec.FeSpec.Replicas
+	}
+	electionNumber := cluster.GetElectionNumber()
+	if replicas < electionNumber {
+		dfc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of disaggregated fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
+		klog.Errorf("disaggregatedFEController reconcileStatefulset disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, electionNumber, *(cluster.Spec.FeSpec.Replicas))
+		cluster.Spec.FeSpec.Replicas = &electionNumber
+		st.Spec.Replicas = &electionNumber
 	}
 
+	// fe scale check and set FEStatus phase
+	willRemovedAmount := replicas - *(est.Spec.Replicas)
+
 	//  if fe scale, drop fe node by http
-	if scaleNumber < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {
-		if err := dfc.dropFEFromHttpClient(cluster); err != nil {
+	if willRemovedAmount < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {
+		if err := dfc.dropFEBySQLClient(ctx, dfc.K8sclient, cluster); err != nil {
 			cluster.Status.FEStatus.Phase = v1.ScaleDownFailed
 			klog.Errorf("ScaleDownFE failed, err:%s ", err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.FEHTTPFailed, Message: err.Error()},
@@ -288,51 +282,15 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		}
 		cluster.Status.FEStatus.Phase = v1.Scaling
 	}
-	//dropped
 
+	// apply fe StatefulSet
+	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
+		return resource.StatefulsetDeepEqualWithKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, false)
+	}); err != nil {
+		klog.Errorf("disaggregatedFEController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.FEApplyResourceFailed, Message: err.Error()}, err
+	}
 	return nil, nil
-}
-
-// dropFEFromHttpClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
-func (dfc *DisaggregatedFEController) dropFEFromHttpClient(cluster *v1.DorisDisaggregatedCluster) error {
-	feReplica := cluster.Spec.FeSpec.Replicas
-
-	unionId := "1:" + cluster.GetInstanceId() + ":" + cluster.GetFEStatefulsetName() + "-0"
-	feCluster, err := ms_http.GetFECluster(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), unionId)
-	if err != nil {
-		klog.Errorf("dropFEFromHttpClient GetFECluster failed, err:%s ", err.Error())
-		return err
-	}
-
-	var dropNodes []*ms_http.NodeInfo
-	for _, node := range feCluster {
-		splitCloudUniqueIDArr := strings.Split(node.CloudUniqueID, "-")
-		podNum, err := strconv.Atoi(splitCloudUniqueIDArr[len(splitCloudUniqueIDArr)-1])
-		if err != nil {
-			klog.Errorf("splitCloudUniqueIDArr can not split CloudUniqueID : %s,err:%s", node.CloudUniqueID, err.Error())
-			return err
-		}
-		if podNum >= int(*feReplica) {
-			dropNodes = append(dropNodes, node)
-		}
-
-	}
-	if len(dropNodes) == 0 {
-		return nil
-	}
-	specifyCluster, err := ms_http.DropFENodes(cluster.Status.MetaServiceStatus.MetaServiceEndpoint, cluster.Status.MetaServiceStatus.MsToken, cluster.GetInstanceId(), dropNodes)
-	if err != nil {
-		klog.Errorf("dropFEFromHttpClient DropFENodes failed, err:%s ", err.Error())
-		return err
-	}
-
-	if specifyCluster.Code != ms_http.SuccessCode {
-		jsonData, _ := json.Marshal(specifyCluster)
-		klog.Errorf("dropFEFromHttpClient DropFENodes response failed , response: %s", jsonData)
-		return err
-	}
-
-	return nil
 }
 
 // RecycleResources pvc resource for fe recycle
@@ -343,182 +301,78 @@ func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc 
 	return nil
 }
 
-func (dfc *DisaggregatedFEController) createObjectInfo(endpoint, token string, instance map[string]interface{}) (*sc.Event, error) {
-	str, _ := json.Marshal(instance)
-	mr, err := ms_http.CreateInstance(endpoint, token, str)
+// dropFEBySQLClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
+func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8sclient client.Client, cluster *v1.DorisDisaggregatedCluster) error {
+	// get adminuserName and pwd
+	secret, _ := k8s.GetSecret(ctx, k8sclient, cluster.Namespace, cluster.Spec.AuthSecret)
+	adminUserName, password := resource.GetDorisLoginInformation(secret)
+
+	// get host and port
+	serviceName := cluster.GetFEServiceName()
+	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
+	host := serviceName + "." + cluster.Namespace
+	confMap := dfc.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
+	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
+
+	// connect to doris sql to get master node
+	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.
+	dbConf := mysql.DBConfig{
+		User:     adminUserName,
+		Password: password,
+		Host:     host,
+		Port:     strconv.FormatInt(int64(queryPort), 10),
+		Database: "mysql",
+	}
+	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf)
 	if err != nil {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.MSInteractError, Message: err.Error()}, errors.New("createObjectInfo failed, err " + err.Error())
+		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
+		return err
 	}
-	if mr.Code != ms_http.SuccessCode && mr.Code != ms_http.ALREADY_EXIST {
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.ObjectConfigError, Message: mr.Msg}, errors.New("createObjectInfo " + mr.Code + mr.Msg)
-	}
+	defer masterDBClient.Close()
 
-	return &sc.Event{Type: sc.EventNormal, Reason: sc.InstanceMetaCreated}, nil
-}
-
-func (dfc *DisaggregatedFEController) validateInstanceInfo(instanceConf map[string]interface{}) error {
-	idv := instanceConf[ms_meta.Instance_id]
-	if idv == nil {
-		return errors.New("not config instance id")
-	}
-	id, ok := idv.(string)
-	if !ok || id == "" {
-		return errors.New("not config instance id")
-	}
-	return dfc.validateVaultInfo(instanceConf)
-}
-
-func (dfc *DisaggregatedFEController) validateVaultInfo(instanceConf map[string]interface{}) error {
-	vi := instanceConf[ms_meta.Vault]
-	if vi == nil {
-		return errors.New("have not vault config")
-	}
-
-	vault, ok := vi.(map[string]interface{})
-	if !ok {
-		return errors.New("vault not json format")
-	}
-
-	if obj, ok := vault[ms_meta.Obj_info]; ok {
-		objMap, ok := obj.(map[string]interface{})
-		if !ok {
-			return errors.New("obj_info not json format")
-		}
-
-		return dfc.validateS3(objMap)
-	}
-
-	if i, ok := vault[ms_meta.Key_hdfs_info]; ok {
-		hdfsMap, ok := i.(map[string]interface{})
-		if !ok {
-			return errors.New("hdfs not json format")
-		}
-		return dfc.validateHDFS(hdfsMap)
-	}
-
-	return errors.New("s3 and hdfs all empty")
-}
-
-func (dfc *DisaggregatedFEController) validateHDFS(m map[string]interface{}) error {
-	if err := dfc.validateString(m, ms_meta.Key_hdfs_info_prefix); err != nil {
+	allObserves, err := masterDBClient.GetObservers()
+	if err != nil {
+		klog.Errorf("dropFEFromSQLClient failed, GetObservers err:%s", err.Error())
 		return err
 	}
 
-	if err := dfc.validateString(m, ms_meta.Key_hdfs_info_build_conf); err != nil {
-		return err
-	}
-	bv := m[ms_meta.Key_hdfs_info_build_conf]
-	bm, ok := bv.(map[string]interface{})
-	if !ok {
-		return errors.New("hdfs build_conf not json format")
-	}
-
-	if err := dfc.validateString(bm, ms_meta.Key_hdfs_info_build_conf_fs_name); err != nil {
-		return err
-	}
-	if err := dfc.validateString(bm, ms_meta.Key_hdfs_info_build_conf_user); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (dc *DisaggregatedFEController) validateS3(m map[string]interface{}) error {
-	cks := []string{ms_meta.Obj_info_ak, ms_meta.Obj_info_sk, ms_meta.Obj_info_bucket, ms_meta.Obj_info_prefix, ms_meta.Obj_info_prefix}
-	msg := ""
-	for _, ck := range cks {
-		if err := dc.validateString(m, ck); err != nil {
-			msg += err.Error() + ";"
-		}
-	}
-
-	if msg == "" {
+	// means: needRemovedAmount = allobservers - (replicas - election)
+	electionNumber := cluster.GetElectionNumber()
+	needRemovedAmount := int32(len(allObserves)) - *(cluster.Spec.FeSpec.Replicas) + electionNumber
+	if needRemovedAmount <= 0 {
+		klog.Errorf("dropFEFromSQLClient failed, Observers number(%d) is not larger than scale number(%d) ", len(allObserves), *(cluster.Spec.FeSpec.Replicas)-electionNumber)
 		return nil
 	}
 
-	return errors.New(msg)
-}
+	// get will delete Observes
+	var frontendMap map[int]*mysql.Frontend // frontendMap key is fe pod index ,value is frontend
+	stsName := cluster.GetFEStatefulsetName()
 
-func (dfc *DisaggregatedFEController) validateString(m map[string]interface{}, key string) error {
-	v := m[key]
-	if v == nil {
-		return errors.New("not config")
+	if resource.GetStartMode(confMap) == resource.START_MODEL_FQDN { // use host
+		frontendMap, err = mysql.BuildSeqNumberToFrontendMap(allObserves, nil, stsName)
+		if err != nil {
+			klog.Errorf("dropFEFromSQLClient failed, buildSeqNumberToFrontend err:%s", err.Error())
+			return nil
+		}
+	} else { // use ip
+		podMap := make(map[string]string) // key is pod ip, value is pod name
+		pods, err := k8s.GetPods(ctx, k8sclient, cluster.Namespace, dfc.getFEPodLabels(cluster))
+		if err != nil {
+			klog.Errorf("dropFEFromSQLClient failed, GetPods err:%s", err)
+			return nil
+		}
+		for _, item := range pods.Items {
+			if strings.HasPrefix(item.GetName(), stsName) {
+				podMap[item.Status.PodIP] = item.GetName()
+			}
+		}
+		frontendMap, err = mysql.BuildSeqNumberToFrontendMap(allObserves, podMap, stsName)
+		if err != nil {
+			klog.Errorf("dropFEFromSQLClient failed, buildSeqNumberToFrontend err:%s", err.Error())
+			return nil
+		}
 	}
-	str, ok := v.(string)
-	if !ok || str == "" {
-		return errors.New("not string or empty")
-	}
-	return nil
-}
-
-func (dfc *DisaggregatedFEController) CreateOrUpdateObjectMeta(endpoint, token string, instance map[string]interface{}) (*sc.Event, error) {
-	idv := instance[ms_meta.Instance_id]
-	instanceId := idv.(string)
-	if !dfc.haveCreated(instanceId) {
-		return dfc.createObjectInfo(endpoint, token, instance)
-	}
-
-	// if not match in memory, should compare with ms.
-	if !dfc.isModified(instance) {
-		return nil, nil
-	}
-
-	return nil, nil
-}
-
-func (dfc *DisaggregatedFEController) displayInstanceInfo(instanceConf map[string]interface{}, ddc *v1.DorisDisaggregatedCluster) {
-	instanceId := (instanceConf[ms_meta.Instance_id]).(string)
-	ddc.Status.InstanceId = instanceId
-}
-
-func (dfc *DisaggregatedFEController) getInstanceConfig(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (map[string]interface{}, error) {
-	if ddc.Spec.InstanceConfigMap == "" {
-		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), "vaultConfigmap should config a configMap that have object info.")
-		return nil, errors.New("vaultConfigmap for object info should be specified")
-	}
-
-	cmName := ddc.Spec.InstanceConfigMap
-	var cm corev1.ConfigMap
-	if err := dfc.K8sclient.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: cmName}, &cm); err != nil {
-		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), fmt.Sprintf("name %s configmap get failed, err=%s", cmName, err.Error()))
-		return nil, err
-	}
-
-	if _, ok := cm.Data[instance_conf_key]; !ok {
-		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), fmt.Sprintf("%s configmap data have not config key %s for object info.", cmName, instance_conf_key))
-		return nil, errors.New(fmt.Sprintf("%s configmap data have not config key %s for object info.", cmName, instance_conf_key))
-	}
-
-	v := cm.Data[instance_conf_key]
-	instance := map[string]interface{}{}
-	err := json.Unmarshal([]byte(v), &instance)
-	if err != nil {
-		dfc.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.ObjectInfoInvalid), fmt.Sprintf("json unmarshal error=%s", err.Error()))
-		return nil, err
-	}
-
-	return instance, nil
-}
-
-func (dfc *DisaggregatedFEController) ApplyInstanceMeta(endpoint, token string, instanceConf map[string]interface{}) (*sc.Event, error) {
-
-	instanceId := (instanceConf[ms_meta.Instance_id]).(string)
-	event, err := dfc.CreateOrUpdateObjectMeta(endpoint, token, instanceConf)
-	if err != nil {
-		return event, err
-	}
-
-	// store instance info for next update ak, sk etc...
-	dfc.instanceMeta[instanceId] = instanceConf
-	return nil, nil
-}
-
-func (dfc *DisaggregatedFEController) isModified(instance map[string]interface{}) bool {
-	//TODO: the kernel interface not fixed, now not provided update function.
-	return false
-}
-
-func (dfc *DisaggregatedFEController) haveCreated(instanceId string) bool {
-	_, ok := dfc.instanceMeta[instanceId]
-	//TODO: get from ms check
-	return ok
+	observes := mysql.FindNeedDeletedFrontends(frontendMap, needRemovedAmount)
+	// drop node and return
+	return masterDBClient.DropObserver(observes)
 }

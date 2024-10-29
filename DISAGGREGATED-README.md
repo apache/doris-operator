@@ -2,29 +2,86 @@ English | [中文](DISAGGREGATED-README-CN.md)
 
 # Deploy Separation of Storage and Compute Cluster
 Separation of storage and compute is an architecture pattern provided by Doris from 3.0.0 version. The separation of storage and compute can significantly reduce storage costs, allowing data to be stored in cheaper object storage without significantly compromising performance. This not only reduces costs but also better responds to scenarios with rapidly changing demands for computing resources.
-## Custom Resources
-In separation of storage and compute architecture, cluster contains the following components: fdb, ms, recycler, fe, be. Doris Operator deploys fdb, ms, and recycler using the 'DorisDisaggregatedMetaService' resource. The 'DorisDisaggregatedCluster' resource be used to deploy fe and compute cluster (the group of be).
 ## Requirements
 - Kubernetes 1.19+
 - the `open files` should greater than 65535 for host system config. (ulimit -n)
+- doris >= 3.0.2
 
 >[!NOTE]
 >1. The total resources of cpu and memory about K8s worker should greater than the required to deploy doris cluster.
 >2. The resources of a K8s worker node should be greater than the resources required by one fe or be. fe or be default resource requirement: 4c, 4Gi.
 
-## Install Operator
+## Install FoundationDB
+To deploy a storage-computing separation cluster on K8s, you need to deploy fdb in advance. For deployment on k8s, refer to the [Quick Deployment Document](https://github.com/FoundationDB/fdb-kubernetes-operator) in the operator provided by fdb officially.
+
+### install the fdb-kubernetes-operator and CRDs
+
+```
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/deployment.yaml
+```
+
+Expected result:
+
+```
+customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
+customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
+serviceaccount/fdb-kubernetes-operator-controller-manager created
+clusterrole.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-clusterrole created
+clusterrole.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-role created
+rolebinding.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/fdb-kubernetes-operator-manager-clusterrolebinding created
+deployment.apps/fdb-kubernetes-operator-controller-manager created
+```
+
+### set up a fdb sample cluster
+
+```
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/cluster.yaml
+```
+
+Use the `kubectl get fdb` command to check the cluster building status until the `AVAILABLE` is found to be true.
+
+Expected result:
+
+```
+NAME           GENERATION   RECONCILED   AVAILABLE   FULLREPLICATION   VERSION   AGE
+test-cluster   1            1            true        true              7.1.26    3m18s
+```
+
+After the fdb cluster status is normal, use the `kubectl get configmap test-cluster-foundationdb-config -oyaml` command to view the configmap files related to the fdb cluster and find `data.cluster-file`, which is the `endpoint` of fdb.
+```
+apiVersion: v1
+data:
+  cluster-file: test_ms_foundationdb:FUfX4wi66PKwHaPpIKNV8gLbu6hX1PpL@test-cluster-foundationdb-log-10650.test-cluster-foundationdb.default.svc.cluster.local:4501,test-cluster-foundationdb-log-26811.test-cluster-foundationdb.default.svc.cluster.local:4501,test-cluster-foundationdb-storage-34332.test-cluster-foundationdb.default.svc.cluster.local:4501
+  fdbmonitor-conf-cluster_controller: |-
+    [general]
+    kill_on_configuration_change = false
+    restart_delay = 60
+    ...
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-10-22T08:14:37Z"
+  labels:
+    disaggregated.metaservice.doris.com/name: test-cluster
+    foundationdb.org/fdb-cluster-name: test-cluster-foundationdb
+  name: test-cluster-foundationdb-config
+  namespace: default
+```
+
+
+## Install Doris Operator
 1. deploy CustomResourceDefinitions
 ```
 kubectl create -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/crds.yaml
 ```
 Expected result:
 ```
-customresourcedefinition.apiextensions.k8s.io/foundationdbclusters.apps.foundationdb.org created
-customresourcedefinition.apiextensions.k8s.io/foundationdbbackups.apps.foundationdb.org created
-customresourcedefinition.apiextensions.k8s.io/foundationdbrestores.apps.foundationdb.org created
 customresourcedefinition.apiextensions.k8s.io/dorisclusters.doris.selectdb.com created
 customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedclusters.disaggregated.cluster.doris.com created
-customresourcedefinition.apiextensions.k8s.io/dorisdisaggregatedmetaservices.disaggregated.metaservice.doris.com created
 ```
 2. Install the operator with its RBAC rules:
 ```
@@ -34,41 +91,14 @@ Expected result:
 ```
 kubectl -n doris get pods
 NAME                                         READY   STATUS    RESTARTS   AGE
-doris-operator-fdb-manager-d75574c47-b2sqx   1/1     Running   0          11s
 doris-operator-5b667b4954-d674k              1/1     Running   0          11s
 ```
 ## Deploy an Separation of Storage and Compute Cluster
 [examples](./doc/examples/disaggregated/cluster) contains deployment examples for common configurations. The simple example deployment as follows:
-1. Deploy `DorisDisaggregatedMetaService` resource:
-```
-kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/metaservice/ddm-sample.yaml
-```
-Expected result:
-```
-kubectl get ddm
-NAME                   FDBSTATUS   MSSTATUS   RECYCLERSTATUS
-meta-service-release   Available   Ready      Ready
-```
-2. Deploy `ConfigMap` that contains object information for cluster:
-Separation of storage and compute uses object storage as the backend storage, requiring prior planning of the object storage to be used. Configure object storage information in JSON format according to the [Storage and computation separation interface](https://doris.apache.org/docs/dev/compute-storage-decoupled/creating-cluster/#built-in-storage-vault) format.
-```
-kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/object-store-info.yaml
-```
-Expected result:
-```
-configmap/vault-test created
-```
->[!NOTE]
->1. Deploying a storage computing separation cluster requires pre-planning the object storage to be used, Configure the object storage information to the namespace that the Doris storage and computation separation cluster needs to deployed, through a `ConfigMap`.
->2. The configuration in the examples only displays the basic configuration required for object storage, all values are fictional and cannot be used in real-life scenarios. If you need to build a real and usable cluster, please use real data to fill in.
-
-3. Deploy `DorisDisaggregatedCluster` resource:
+Deploy `DorisDisaggregatedCluster` resource:
 ```
 kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/disaggregated/cluster/ddc-sample.yaml
 ```
-Expected result:
-```
-kubectl get ddc                                                                                                
-NAME                         CLUSTERHEALTH   FEPHASE   CCCOUNT   CCAVAILABLECOUNT   CCFULLAVAILABLECOUNT
-test-disaggregated-cluster   green           Ready     1         1                  1                          
-```
+>[!NOTE]
+> 1. FDB's k8s deployment requires at least three hosts as worker nodes in k8s. If the number of worker nodes in k8s is less than 3, please use the [singleton mode deployment](./doc/examples/disaggregated/fdb/cluster-single.yaml) provided by Doris operator after deploying FoundationDB-operator.
+> 2. For detailed deployment, please refer to [official doc](https://doris.apache.org/docs/dev/install/cluster-deployment/k8s-deploy/compute-storage-decoupled/install-quickstart).

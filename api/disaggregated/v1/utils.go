@@ -23,11 +23,13 @@ const (
 	//OwnerReference list ownerReferences this object
 	DorisDisaggregatedOwnerReference string = "app.doris.disaggregated.ownerreference/name"
 
-	DorisDisaggregatedComputeGroupClusterId string = "app.doris.disaggregated.cg-clusterid"
+	DorisDisaggregatedComputeGroupUniqueId string = "app.doris.disaggregated.cg-uniqueid"
 
 	DorisDisaggregatedPodType string = "app.doris.disaggregated.type"
 
 	DisaggregatedSpecHashValueAnnotation string = "doris.disaggregated.cluster/hash"
+
+	ServiceRoleForCluster string = "app.doris.service/role"
 )
 
 type DisaggregatedComponentType string
@@ -38,6 +40,22 @@ var (
 	DisaggregatedMS DisaggregatedComponentType = "MS"
 )
 
-const (
-	DefaultMetaserviceNumber int32 = 2
+type ServiceRole string
+
+var (
+	DefaultMetaserviceNumber   int32 = 2
+	DefaultFeReplicaNumber     int32 = 2
+	DefaultDisFeElectionNumber int32 = 1
 )
+
+const (
+	Service_Role_Access   ServiceRole = "access"
+	Service_Role_Internal ServiceRole = "internal"
+)
+
+func (ddc *DorisDisaggregatedCluster) GetElectionNumber() int32 {
+	if ddc.Spec.FeSpec.ElectionNumber != nil {
+		return *ddc.Spec.FeSpec.ElectionNumber
+	}
+	return DefaultDisFeElectionNumber
+}

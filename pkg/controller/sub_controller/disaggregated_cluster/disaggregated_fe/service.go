@@ -21,6 +21,7 @@ import (
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -81,4 +82,49 @@ func newFEServicePorts(config map[string]interface{}, svcConf *dv1.ExportService
 	}
 
 	return ports
+}
+
+func (dfc *DisaggregatedFEController) newInternalService(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}) *corev1.Service {
+	labels := dfc.generateInternalServiceLabels(ddc)
+	selector := dfc.newFEPodsSelector(ddc.Name)
+	//the k8s service type.
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ddc.GetFEInternalServiceName(),
+			Namespace: ddc.Namespace,
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				metav1.OwnerReference{
+					APIVersion: ddc.APIVersion,
+					Kind:       ddc.Kind,
+					Name:       ddc.Name,
+					UID:        ddc.UID,
+				},
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Ports: []corev1.ServicePort{
+				getInternalServicePort(cvs),
+			},
+
+			Selector: selector,
+			//value = true, Pod don't need to become ready that be search by domain.
+			PublishNotReadyAddresses: true,
+		},
+	}
+
+}
+
+func getInternalServicePort(config map[string]interface{}) corev1.ServicePort {
+	httpPort := resource.GetPort(config, resource.QUERY_PORT)
+	return corev1.ServicePort{
+		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: resource.GetPortKey(resource.QUERY_PORT),
+	}
+}
+
+func (dfc *DisaggregatedFEController) generateInternalServiceLabels(ddc *dv1.DorisDisaggregatedCluster) map[string]string {
+	label := dfc.newFESchedulerLabels(ddc.Name)
+	label[dv1.ServiceRoleForCluster] = string(dv1.Service_Role_Internal)
+	return label
 }

@@ -135,6 +135,9 @@ type BaseSpec struct {
 	// pod start timeout, unit is second
 	StartTimeout int32 `json:"startTimeout,omitempty"`
 
+	//Number of seconds after which the probe times out. Defaults to 180 second.
+	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
 	Annotations map[string]string `json:"annotations,omitempty"`
 

@@ -250,8 +250,9 @@ func SetClusterStatus(endpoint, token, instanceID, clusterID, status string) (*M
 func DropComputeGroup(endpoint, token, instanceID string, cgs *dv1.ComputeGroupStatus) (*MSResponse, error) {
 	param := map[string]interface{}{
 		"instance_id": instanceID,
-		"cluster": map[string]interface{}{
-			"cluster_id": cgs.ClusterId,
+		"cluster":     map[string]interface{}{
+			//TODO: cancel for sql interface debug
+			//"cluster_id": cgs.ClusterId,
 		},
 	}
 	str, _ := json.Marshal(param)

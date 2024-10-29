@@ -4,7 +4,7 @@ import "testing"
 
 func Test_GetPort(t *testing.T) {
 	config := map[string]interface{}{}
-	config["http_port"] = 80030
+	config["http_port"] = "80030"
 	config["rpc_port"] = "test"
 	tks := []string{"http_port", "rpc_port"}
 	rk := map[string]int32{

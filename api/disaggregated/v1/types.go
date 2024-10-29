@@ -25,7 +25,7 @@ import (
 type DorisDisaggregatedClusterSpec struct {
 	//VaultConfigmap specify the configmap that have configuration of file object information. example S3.
 	//configmap have to config, please reference the doc.
-	InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
+	//InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
 
 	//MetaService describe the metaservice that cluster want to storage metadata.
 	MetaService MetaService `json:"metaService,omitempty"`
@@ -35,6 +35,10 @@ type DorisDisaggregatedClusterSpec struct {
 
 	//ComputeGroups describe a list of ComputeGroup, ComputeGroup is a group of compute node to do same thing.
 	ComputeGroups []ComputeGroup `json:"computeGroups,omitempty"`
+
+	// the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
+	// the password key is `password`. the username defaults to `root` and is omitempty.
+	AuthSecret string `json:"authSecret,omitempty"`
 }
 
 type MetaService struct {
@@ -56,17 +60,14 @@ type NamespaceName struct {
 }
 
 type FeSpec struct {
+	//the number of fe in election. electionNumber <= replicas, left as observers. default value=3
+	ElectionNumber *int32 `json:"electionNumber,omitempty"`
+
 	CommonSpec `json:",inline"`
 }
 
 // ComputeGroup describe the specification that a group of compute node.
 type ComputeGroup struct {
-	////Name is the identifier of ComputeGroup, name can be used specify what computeGroup to run sql. if not set, will use `computeGroup` and the index in array to set.ep: computeGroup-1.
-	//Name string `json:"name,omitempty"`
-	//
-	////ClusterId is the identifier of computeGroup, this will distinguish all com computeGroup in meta.
-	//ClusterId string `json:"clusterId,omitempty"`
-
 	//the unique identifier of compute group, first register in fe will use UniqueId as cluster name.
 	UniqueId string `json:"uniqueId"`
 
@@ -91,6 +92,9 @@ type CommonSpec struct {
 	// pod start timeout, unit is second
 	StartTimeout int32 `json:"startTimeout,omitempty"`
 
+	//Number of seconds after which the probe times out. Defaults to 180 second.
+	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`
 
@@ -107,9 +111,6 @@ type CommonSpec struct {
 
 	// VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
 	PersistentVolume *PersistentVolume `json:"persistentVolume,omitempty"`
-
-	//when set true, the log will store in disk that created by volumeClaimTemplate
-	NoStoreLog bool `json:"noStoreLog,omitempty"`
 
 	// (Optional) Tolerations for scheduling pods onto some dedicated nodes
 	//+optional
@@ -238,9 +239,6 @@ type PortMap struct {
 }
 
 type DorisDisaggregatedClusterStatus struct {
-	//ClusterId display  the clusterId of DorisDisaggregatedCluster in meta.
-	InstanceId string `json:"instanceId,omitempty"`
-
 	//describe the metaservice status now.
 	MetaServiceStatus MetaServiceStatus `json:"metaServiceStatus,omitempty"`
 
@@ -332,8 +330,7 @@ type ComputeGroupStatus struct {
 
 	//AvailableStatus represents the compute group available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
-	//ClusterId display  the clusterId of compute group in meta.
-	ClusterId string `json:"clusterId,omitempty"`
+
 	//suspend replicas display the replicas of compute group before resume.
 	SuspendReplicas int32 `json:"suspendReplicas,omitempty"`
 
@@ -350,7 +347,8 @@ type FEStatus struct {
 	Phase Phase `json:"phase,omitempty"`
 	//AvailableStatus represents the fe available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`
-	//ClusterId display  the clusterId of fe in meta.
+	//ClusterId display  the clusterId of fe in fe.conf,
+	//It is the hash value of the concatenated string of namespace and ddcName
 	ClusterId string `json:"clusterId,omitempty"`
 }
 

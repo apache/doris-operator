@@ -25,7 +25,7 @@ import (
 )
 
 func disAggregatedInconsistentStatus(ests *dv1.DorisDisaggregatedClusterStatus, ddc *dv1.DorisDisaggregatedCluster) bool {
-	return reflect.DeepEqual(ests, ddc.Status)
+	return reflect.DeepEqual(ests, &ddc.Status)
 }
 
 func inconsistentStatus(status *v1.DorisClusterStatus, dcr *v1.DorisCluster) bool {

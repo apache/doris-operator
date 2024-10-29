@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -54,6 +55,39 @@ func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
 		return nil, err
 	}
 	return &DB{db}, nil
+}
+
+func NewDorisMasterSqlDB(dbConf DBConfig) (*DB, error) {
+	loadBalanceDBClient, err := NewDorisSqlDB(dbConf)
+	if err != nil {
+		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
+		return nil, err
+	}
+	master, _, err := loadBalanceDBClient.GetFollowers()
+	if err != nil {
+		klog.Errorf("NewDorisMasterSqlDB GetFollowers master failed, err:%s", err.Error())
+		return nil, err
+	}
+	var masterDBClient *DB
+	if master.CurrentConnected == "Yes" {
+		masterDBClient = loadBalanceDBClient
+	} else {
+		// loadBalanceDBClient should be closed
+		defer loadBalanceDBClient.Close()
+		// Get the connection to the master
+		masterDBClient, err = NewDorisSqlDB(DBConfig{
+			User:     dbConf.User,
+			Password: dbConf.Password,
+			Host:     master.Host,
+			Port:     dbConf.Port,
+			Database: "mysql",
+		})
+		if err != nil {
+			klog.Errorf("NewDorisMasterSqlDB failed, get fe master connection  err:%s", err.Error())
+			return nil, err
+		}
+	}
+	return masterDBClient, nil
 }
 
 func (db *DB) Close() error {
@@ -95,6 +129,21 @@ func (db *DB) DecommissionBE(nodes []*Backend) error {
 	return err
 }
 
+func (db *DB) DropBE(nodes []*Backend) error {
+	if len(nodes) == 0 {
+		klog.Infoln("mysql DropBE BE node is empty")
+		return nil
+	}
+	nodesString := fmt.Sprintf(`"%s:%d"`, nodes[0].Host, nodes[0].HeartbeatPort)
+	for _, node := range nodes[1:] {
+		nodesString = nodesString + fmt.Sprintf(`,"%s:%d"`, node.Host, node.HeartbeatPort)
+	}
+
+	alter := fmt.Sprintf("ALTER SYSTEM DROPP BACKEND %s;", nodesString)
+	_, err := db.Exec(alter)
+	return err
+}
+
 func (db *DB) DropObserver(nodes []*Frontend) error {
 	if len(nodes) == 0 {
 		klog.Infoln("DropObserver observer node is empty")
@@ -118,6 +167,33 @@ func (db *DB) GetObservers() ([]*Frontend, error) {
 	for _, fe := range frontends {
 		if fe.Role == FE_OBSERVE_ROLE {
 			res = append(res, fe)
+		}
+	}
+	return res, nil
+}
+
+func (db *DB) GetBackendsByCGName(cgName string) ([]*Backend, error) {
+	backends, err := db.ShowBackends()
+	if err != nil {
+		klog.Errorf("GetBackendsByCGName show backends failed, err: %s\n", err.Error())
+		return nil, err
+	}
+	var res []*Backend
+	for _, be := range backends {
+		var m map[string]interface{}
+		err := json.Unmarshal([]byte(be.Tag), &m)
+		if err != nil {
+			klog.Errorf("GetBackendsByCGName backends tag stirng to map failed, tag: %s, err: %s\n", be.Tag, err.Error())
+			return nil, err
+		}
+		if _, ok := m["compute_group_name"]; !ok {
+			klog.Errorf("GetBackendsByCGName backends tag get compute_group_name failed, tag: %s, err: %s\n", be.Tag, err.Error())
+			return nil, err
+		}
+
+		cgNameFromTag := fmt.Sprintf("%s", m["compute_group_name"])
+		if cgNameFromTag == cgName {
+			res = append(res, be)
 		}
 	}
 	return res, nil

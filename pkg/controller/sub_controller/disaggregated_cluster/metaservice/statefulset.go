@@ -183,7 +183,7 @@ func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedC
 	c.Env = ddc.Spec.MetaService.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dms.newSpecificEnvs(ddc)...)
-	resource.BuildDisaggregatedProbe(&c, ddc.Spec.MetaService.StartTimeout, v1.DisaggregatedMS)
+	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 	_, vms, _ := dms.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.MetaService)
 	_, cmvms := dms.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.MetaService.ConfigMaps)
 	c.VolumeMounts = vms
