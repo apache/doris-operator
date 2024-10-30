@@ -1,0 +1,22 @@
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: test-disaggregated-cluster
+spec:
+  metaService:
+    image: selectdb/doris.ms-ubuntu:3.0.2
+    fdb:
+      # address: ${fdb_endpoint}
+      configMapNamespaceName:
+        name: test-cluster-config
+        namespace: default
+  feSpec:
+    replicas: 2
+    image: selectdb/doris.fe-ubuntu:3.0.2
+  computeGroups:
+    - uniqueId: cg1
+      replicas: 3
+      image: selectdb/doris.be-ubuntu:3.0.2
+    - uniqueId: cg2
+      replicas: 3
+      image: selectdb/doris.be-ubuntu:3.0.2
