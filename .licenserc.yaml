@@ -4,7 +4,6 @@ header:
     copyright-owner: Apache Software Foundation
 
   paths-ignore:
-    - '.git'
     - '.licenserc.yaml'
     - '.gitignore'
     - 'dist'
