@@ -1,12 +1,16 @@
 # Configuring the Username and Password for the Management Cluster
 The management of Doris nodes requires connecting to the live FE nodes via the MySQL protocol using a username and password for operations. Doris implements [a permission management mechanism similar to RBAC](https://doris.apache.org/zh-CN/docs/admin-manual/auth/authentication-and-authorization?_highlight=rbac#doris-%E5%86%85%E7%BD%AE%E7%9A%84%E9%89%B4%E6%9D%83%E6%96%B9%E6%A1%88), and the management of nodes requires the user to have the [Node_priv](https://doris.apache.org/zh-CN/docs/admin-manual/auth/authentication-and-authorization#%E6%9D%83%E9%99%90%E7%B1%BB%E5%9E%8B) permission. By default, Doris Operator deploys and manages the cluster configured with DorisCluster resources using the root user with all permissions in passwordless mode. After adding a password to the root user, it is necessary to explicitly configure the username and password with Node_Priv permission in the DorisCluster resource, so that Doris Operator can perform automated management operations on the cluster.  
-DorisCluster resources provide two ways to configure the username and password required for managing cluster nodes, including: the way of environment variable configuration and the way of using Secret. Configuring the username and password for cluster management can be divided into three cases: initializing the root user password during cluster deployment; automatically setting a non-root user with management permissions in the root passwordless deployment; setting the root user password after deploying the cluster in root passwordless mode.  
+DorisCluster resources provide two ways to configure the username and password required for managing cluster nodes, including:   
+- the way of environment variable configuration and the way of using Secret.   
+- Configuring the username and password for cluster management can be divided into three cases: initializing the root user password during cluster deployment;   
+- automatically setting a non-root user with management permissions in the root passwordless deployment; setting the root user password after deploying the cluster in root passwordless mode.    
 ## Configuring the Root User Password during Cluster Deployment
 Doris supports configuring the root user's password in encrypted form in fe.conf. To configure the root user's password during the first deployment of Doris, follow these steps so that Doris Operator can automatically manage the cluster nodes:  
 **1. Generate the Root Encrypted Password**  
 Doris supports [setting the root user's password in the fe.conf](https://doris.apache.org/zh-CN/docs/admin-manual/config/fe-config?_highlight=initial_#initial_root_password) in encrypted form. The password encryption is implemented using two-stage SHA-1 encryption. The code implementation is as follows:  
 Java Code for Two-Stage SHA-2 Encryption:  
 ```java
+import org.apache.commons.codec.digest.DigestUtils;
 public static void main( String[] args ) {
       //the original password
       String a = "123456";
@@ -17,6 +21,13 @@ public static void main( String[] args ) {
 ```
 Golang Code for Two-Stage SHA-1 Encryption:  
 ```go
+import (
+"crypto/sha1"
+"encoding/hex"
+"fmt"
+"strings"
+)
+
 func main() {
     //original password
     plan := "123456"
