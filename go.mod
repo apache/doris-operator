@@ -13,7 +13,7 @@ require (
 	github.com/onsi/gomega v1.31.0
 	github.com/spf13/viper v1.16.0
 	k8s.io/api v0.26.15
-	k8s.io/apimachinery v0.30.5
+	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.26.15
 	k8s.io/code-generator v0.30.5
 	k8s.io/klog/v2 v2.120.1
