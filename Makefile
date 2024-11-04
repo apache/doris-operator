@@ -83,7 +83,8 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 
 .PHONY: manifests-v1beta1
 manifests-v1beta1: ##  generate v1beta1 CRD.
-	$(LOCALBIN)/controller-gen:0.6.0 rbac:roleName=manager-doris crd:preserveUnknownFields=false,allowDangerousTypes=true,maxDescLen=0,crdVersions=v1beta1 paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
+	$(LOCALBIN)/controller-gen rbac:roleName=manager-doris crd:preserveUnknownFields=false,allowDangerousTypes=true,maxDescLen=0,crdVersions=v1beta1 paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
+	$(LOCALBIN)/controller-gen rbac:roleName=manager-doris crd:preserveUnknownFields=false,allowDangerousTypes=true,maxDescLen=0,crdVersions=v1beta1 paths="./api/disaggregated/..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -177,7 +178,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.0.0
-CONTROLLER_TOOLS_VERSION ?= v0.11.3
+CONTROLLER_TOOLS_VERSION ?= v0.6.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
