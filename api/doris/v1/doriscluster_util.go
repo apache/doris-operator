@@ -370,8 +370,17 @@ func IsReconcilingStatusPhase(c *ComponentStatus) bool {
 }
 
 func (dcr *DorisCluster) GetElectionNumber() int32 {
+	replicas := int32(1)
+	if dcr.Spec.FeSpec.Replicas != nil {
+		replicas = *dcr.Spec.FeSpec.Replicas
+	}
+
 	if dcr.Spec.FeSpec.ElectionNumber != nil {
 		return *dcr.Spec.FeSpec.ElectionNumber
+	}
+
+	if DefaultFeElectionNumber > replicas {
+		return replicas
 	}
 	return DefaultFeElectionNumber
 }
