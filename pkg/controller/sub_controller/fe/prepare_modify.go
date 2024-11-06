@@ -44,10 +44,11 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
 	}
 
-	if *(cluster.Spec.FeSpec.Replicas) < *(cluster.Spec.FeSpec.ElectionNumber) {
+	ele := cluster.GetElectionNumber()
+
+	if *(cluster.Spec.FeSpec.Replicas) < ele {
 		fc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
-		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, *(cluster.Spec.FeSpec.ElectionNumber), *(cluster.Spec.FeSpec.Replicas))
-		ele := *(cluster.Spec.FeSpec.ElectionNumber)
+		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, ele, *(cluster.Spec.FeSpec.Replicas))
 		cluster.Spec.FeSpec.Replicas = &ele
 	}
 
@@ -104,10 +105,8 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 	}
 
 	// make sure needRemovedAmount, this may involve retrying tasks and scaling down followers.
-	electionNumber := Default_Election_Number
-	if targetDCR.Spec.FeSpec.ElectionNumber != nil {
-		electionNumber = *(targetDCR.Spec.FeSpec.ElectionNumber)
-	}
+	electionNumber := targetDCR.GetElectionNumber()
+
 	// means: needRemovedAmount = allobservers - (replicas - election)
 	needRemovedAmount := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + electionNumber
 	if needRemovedAmount <= 0 {
