@@ -15,15 +15,15 @@
 # limitations under the License.
 #
 
-name: Doris enhancement
-description: Add an enhanment for Apache Doris
+name: Doris Operator enhancement
+description: Add an enhanment for Apache Doris Operator
 title: "[Enhancement] "
 labels: ["kind/enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you very much for your good enhancement for Doris.
+        Thank you very much for your good enhancement for Doris Operator.
 
         Please help sync to the [Dev Mail List](mailto:dev@doris.apache.org). You will get FASTER help！[How to subscribe](mailto:dev-subscribe@doris.apache.org)
 

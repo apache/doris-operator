@@ -15,15 +15,15 @@
 # limitations under the License.
 #
 
-name: Doris Bug report
+name: Doris Operator Bug report
 title: "[Bug] "
-description: Problems and issues with code of Apache Doris
+description: Problems and issues with code of Apache Doris Operator
 labels: ["kind/bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you very much for submitting feedback to Doris to help Doris develop better.
+        Thank you very much for submitting feedback to Doris Operator to help Doris Operator develop better.
 
         If it is an idea or help wanted, please go to:
 
@@ -88,7 +88,7 @@ body:
     attributes:
       label: Are you willing to submit PR?
       description: >
-        We very much look forward to developers or users to help solve the Doris problem together.
+        We very much look forward to developers or users to help solve the Doris Operator problem together.
         If you are willing to submit a PR to fix this problem, please tick it.
       options:
         - label: Yes I am willing to submit a PR!
