@@ -61,6 +61,8 @@ const (
 	Component_Broker ComponentType = "broker"
 )
 
+var DefaultFeElectionNumber int32 = 3
+
 func GenerateExternalServiceName(dcr *DorisCluster, componentType ComponentType) string {
 	switch componentType {
 	case Component_FE:
@@ -365,4 +367,11 @@ func IsReconcilingStatusPhase(c *ComponentStatus) bool {
 		c.ComponentCondition.Phase == Scaling ||
 		c.ComponentCondition.Phase == Restarting ||
 		c.ComponentCondition.Phase == Reconciling
+}
+
+func (dcr *DorisCluster) GetElectionNumber() int32 {
+	if dcr.Spec.FeSpec.ElectionNumber != nil {
+		return *dcr.Spec.FeSpec.ElectionNumber
+	}
+	return DefaultFeElectionNumber
 }
