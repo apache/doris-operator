@@ -19,6 +19,7 @@ package be
 
 import (
 	"context"
+	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 
@@ -36,7 +37,16 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
+
+	if dcr.Spec.BeSpec.EnableWorkloadGroup {
+		privileged := true
+		if dcr.Spec.BeSpec.ContainerSecurityContext == nil {
+			dcr.Spec.BeSpec.ContainerSecurityContext = &corev1.SecurityContext{}
+		}
+		dcr.Spec.BeSpec.ContainerSecurityContext.Privileged = &privileged
+	}
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.BeSpec.ContainerSecurityContext)
+
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }
@@ -95,6 +105,13 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 		Name:  resource.ENV_FE_PORT,
 		Value: feQueryPort,
 	})
+
+	if dcr.Spec.BeSpec.EnableWorkloadGroup {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  resource.ENABLE_WORKLOAD_GROUP,
+			Value: fmt.Sprintf("%t", dcr.Spec.BeSpec.EnableWorkloadGroup),
+		})
+	}
 
 	return c
 }
