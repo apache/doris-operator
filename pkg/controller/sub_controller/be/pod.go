@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"strconv"
 
 	v1 "github.com/apache/doris-operator/api/doris/v1"
@@ -39,11 +40,10 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	containers = append(containers, beContainer)
 
 	if dcr.Spec.BeSpec.EnableWorkloadGroup {
-		privileged := true
 		if dcr.Spec.BeSpec.ContainerSecurityContext == nil {
 			dcr.Spec.BeSpec.ContainerSecurityContext = &corev1.SecurityContext{}
 		}
-		dcr.Spec.BeSpec.ContainerSecurityContext.Privileged = &privileged
+		dcr.Spec.BeSpec.ContainerSecurityContext.Privileged = pointer.Bool(true)
 	}
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.BeSpec.ContainerSecurityContext)
 
