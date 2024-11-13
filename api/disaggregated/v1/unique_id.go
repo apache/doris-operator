@@ -68,6 +68,10 @@ func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {
 	return ddc.Name + "-" + "fe"
 }
 
+func (ddc *DorisDisaggregatedCluster) GetFEServiceNameForAccess() string {
+	return ddc.GetFEServiceName() + "." + ddc.Namespace
+}
+
 func (ddc *DorisDisaggregatedCluster) GetFEInternalServiceName() string {
 	return ddc.Name + "-" + "fe-internal"
 }

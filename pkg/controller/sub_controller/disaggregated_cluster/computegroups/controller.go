@@ -496,9 +496,8 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesBySQL(
 	adminUserName, password := resource.GetDorisLoginInformation(secret)
 
 	// get host and port
-	serviceName := cluster.GetFEServiceName()
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
-	host := serviceName + "." + cluster.Namespace
+	host := cluster.GetFEServiceNameForAccess()
 	confMap := dcgs.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
 	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
 
