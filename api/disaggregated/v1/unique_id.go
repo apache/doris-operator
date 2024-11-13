@@ -68,7 +68,7 @@ func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {
 	return ddc.Name + "-" + "fe"
 }
 
-func (ddc *DorisDisaggregatedCluster) GetFEServiceNameForAccess() string {
+func (ddc *DorisDisaggregatedCluster) GetFEVIPAddresss() string {
 	return ddc.GetFEServiceName() + "." + ddc.Namespace
 }
 
