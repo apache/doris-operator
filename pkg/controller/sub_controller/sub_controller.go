@@ -121,16 +121,16 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	}
 
 	var creatings, readys, faileds []string
-	var firstStartAnnotation string
+	var firstRestartAnnotation string
 	podmap := make(map[string]corev1.Pod)
 	if len(podList.Items) > 0 {
-		firstStartAnnotation = podList.Items[0].Annotations[dorisv1.DorisRollingRestartAt]
+		firstRestartAnnotation = podList.Items[0].Annotations[dorisv1.DorisRollingRestartAt]
 	}
 
 	//get all pod status that controlled by st.
 	stsRollingRestartAnnotationsSameCheck := true
 	for _, pod := range podList.Items {
-		stsRollingRestartAnnotationsSameCheck = stsRollingRestartAnnotationsSameCheck && pod.Annotations[dorisv1.DorisRollingRestartAt] == firstStartAnnotation
+		stsRollingRestartAnnotationsSameCheck = stsRollingRestartAnnotationsSameCheck && pod.Annotations[dorisv1.DorisRollingRestartAt] == firstRestartAnnotation
 		podmap[pod.Name] = pod
 		if ready := k8s.PodIsReady(&pod.Status); ready {
 			readys = append(readys, pod.Name)

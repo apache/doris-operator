@@ -46,8 +46,6 @@ const (
 
 	FERestartAt           string = "apache.doris.fe/restartedAt"
 	BERestartAt           string = "apache.doris.be/restartedAt"
-	CNRestartAt           string = "apache.doris.cn/restartedAt"
-	BrokerRestartAt       string = "apache.doris.broker/restartedAt"
 	DorisRollingRestartAt string = "apache.doris.org/restartedAt"
 )
 
