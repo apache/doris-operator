@@ -1094,6 +1094,14 @@ spec:
                             type: string
                         type: object
                     type: object
+                  enableWorkloadGroup:
+                    description: |-
+                      EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
+                      Default value is 'false'.
+                      Enabling it means that the container must be started in privileged mode.
+                      Please confirm whether the host machine and k8s cluster allow it.
+                      Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
+                    type: boolean
                   envVars:
                     description: cnEnvVars is a slice of environment variables that
                       are added to the pods, the default is empty.

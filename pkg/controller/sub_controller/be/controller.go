@@ -54,6 +54,11 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if dcr.Spec.BeSpec == nil {
 		return nil
 	}
+
+	var oldStatus v1.ComponentStatus
+	if dcr.Status.BEStatus != nil {
+		oldStatus = *(dcr.Status.BEStatus.DeepCopy())
+	}
 	be.InitStatus(dcr, v1.Component_BE)
 	if !be.FeAvailable(dcr) {
 		return nil
@@ -80,6 +85,10 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if err := k8s.ApplyService(ctx, be.K8sclient, &svc, resource.ServiceDeepEqual); err != nil {
 		klog.Errorf("be controller sync apply external service name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			svc.Name, svc.Namespace, dcr.Name, err.Error())
+		return err
+	}
+
+	if err = be.prepareStatefulsetApply(ctx, dcr, oldStatus); err != nil {
 		return err
 	}
 
