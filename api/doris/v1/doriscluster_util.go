@@ -28,6 +28,9 @@ import (
 const (
 	//ComponentsResourceHash the component hash
 	ComponentResourceHash string = "app.doris.components/hash"
+
+	FERestartAt string = "apache.doris.fe/restartedAt"
+	BERestartAt string = "apache.doris.be/restartedAt"
 )
 
 // the labels key
@@ -43,10 +46,6 @@ const (
 	OwnerReference string = "app.doris.ownerreference/name"
 
 	ServiceRoleForCluster string = "app.doris.service/role"
-
-	FERestartAt           string = "apache.doris.fe/restartedAt"
-	BERestartAt           string = "apache.doris.be/restartedAt"
-	DorisRollingRestartAt string = "apache.doris.org/restartedAt"
 )
 
 type ServiceRole string

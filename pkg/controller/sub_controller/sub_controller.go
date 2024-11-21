@@ -59,13 +59,16 @@ type SubDefaultController struct {
 func (d *SubDefaultController) CheckRestartTimeAndInject(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) bool {
 	var baseSpec *dorisv1.BaseSpec
 	var restartedAt string
+	var restartAnnotationsKey string
 	switch componentType {
 	case dorisv1.Component_FE:
 		baseSpec = &dcr.Spec.FeSpec.BaseSpec
 		restartedAt = dcr.Annotations[dorisv1.FERestartAt]
+		restartAnnotationsKey = dorisv1.FERestartAt
 	case dorisv1.Component_BE:
 		baseSpec = &dcr.Spec.BeSpec.BaseSpec
 		restartedAt = dcr.Annotations[dorisv1.BERestartAt]
+		restartAnnotationsKey = dorisv1.BERestartAt
 	default:
 		klog.Errorf("CheckRestartTimeAndInject dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -80,7 +83,7 @@ func (d *SubDefaultController) CheckRestartTimeAndInject(dcr *dorisv1.DorisClust
 	if err != nil {
 		checkErr := fmt.Errorf("CheckRestartTimeAndInject error: time format is incorrect. dorisClusterName: %s, namespace: %s, componentType %s, wrong parse 'restartedAt': %s , error: %s", dcr.Name, dcr.Namespace, componentType, restartedAt, err.Error())
 		klog.Error(checkErr.Error())
-		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartParamIllegal), checkErr.Error())
+		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartParameterIllegal), checkErr.Error())
 		return false
 	}
 
@@ -89,48 +92,54 @@ func (d *SubDefaultController) CheckRestartTimeAndInject(dcr *dorisv1.DorisClust
 	if restartAt.After(parseTime) {
 		checkErr := fmt.Errorf("CheckRestartTimeAndInject The time has expired, dorisClusterName: %s, namespace: %s, componentType %s, wrong parse 'restartedAt': %s : The time has expired, if you want to restart doris, please set a future time", dcr.Name, dcr.Namespace, componentType, restartedAt)
 		klog.Error(checkErr.Error())
-		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartParamIllegal), checkErr.Error())
+		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartParameterIllegal), checkErr.Error())
 		return false
 	}
-
-	klog.Infof("CheckRestartTime successed, DCR %s in namespace %s, will restart %s ", dcr.Name, dcr.Namespace, componentType)
-	d.K8srecorder.Event(
-		dcr,
-		string(EventNormal),
-		string(RollingRestart),
-		fmt.Sprintf("CheckRestartTime successed, DCR %s in namespace %s, restart %s ", dcr.Name, dcr.Namespace, componentType),
-	)
 
 	// check passed, set annotations to doriscluster baseSpec
 	if baseSpec.Annotations == nil {
 		baseSpec.Annotations = make(map[string]string)
 	}
-	baseSpec.Annotations[dorisv1.DorisRollingRestartAt] = restartedAt
+	baseSpec.Annotations[restartAnnotationsKey] = restartedAt
 	return true
 }
 
 // UpdateStatus update the component status on src.
-func (d *SubDefaultController) UpdateStatus(namespace string, status *dorisv1.ComponentStatus, labels map[string]string, replicas int32) error {
-	return d.ClassifyPodsByStatus(namespace, status, labels, replicas)
+func (d *SubDefaultController) UpdateStatus(namespace string, status *dorisv1.ComponentStatus, labels map[string]string, replicas int32, componentType dorisv1.ComponentType) error {
+	return d.ClassifyPodsByStatus(namespace, status, labels, replicas, componentType)
 }
 
-func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *dorisv1.ComponentStatus, labels map[string]string, replicas int32) error {
+func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *dorisv1.ComponentStatus, labels map[string]string, replicas int32, componentType dorisv1.ComponentType) error {
 	var podList corev1.PodList
 	if err := d.K8sclient.List(context.Background(), &podList, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
 		return err
 	}
 
 	var creatings, readys, faileds []string
-	var firstRestartAnnotation string
+	var firstRestartAnnotation, restartAnnotationsKey string
 	podmap := make(map[string]corev1.Pod)
-	if len(podList.Items) > 0 {
-		firstRestartAnnotation = podList.Items[0].Annotations[dorisv1.DorisRollingRestartAt]
+
+	if len(podList.Items) == 0 {
+		status.RunningMembers = readys
+		status.FailedMembers = faileds
+		status.CreatingMembers = creatings
+		return nil
 	}
+
+	switch componentType {
+	case dorisv1.Component_FE:
+		restartAnnotationsKey = dorisv1.FERestartAt
+	case dorisv1.Component_BE:
+		restartAnnotationsKey = dorisv1.BERestartAt
+	}
+	firstRestartAnnotation = podList.Items[0].Annotations[restartAnnotationsKey]
 
 	//get all pod status that controlled by st.
 	stsRollingRestartAnnotationsSameCheck := true
 	for _, pod := range podList.Items {
-		stsRollingRestartAnnotationsSameCheck = stsRollingRestartAnnotationsSameCheck && pod.Annotations[dorisv1.DorisRollingRestartAt] == firstRestartAnnotation
+		if pod.Annotations[restartAnnotationsKey] != firstRestartAnnotation {
+			stsRollingRestartAnnotationsSameCheck = false
+		}
 		podmap[pod.Name] = pod
 		if ready := k8s.PodIsReady(&pod.Status); ready {
 			readys = append(readys, pod.Name)
