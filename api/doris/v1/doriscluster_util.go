@@ -28,6 +28,9 @@ import (
 const (
 	//ComponentsResourceHash the component hash
 	ComponentResourceHash string = "app.doris.components/hash"
+
+	FERestartAt string = "apache.doris.fe/restartedAt"
+	BERestartAt string = "apache.doris.be/restartedAt"
 )
 
 // the labels key

@@ -33,7 +33,7 @@ import (
 )
 
 // prepareStatefulsetApply means Pre-operation and status control on the client side
-func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.DorisCluster) error {
+func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.DorisCluster, oldStatus v1.ComponentStatus) error {
 	var oldSt appv1.StatefulSet
 	err := fc.K8sclient.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &oldSt)
 	if err != nil {
@@ -63,7 +63,15 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		return nil
 	}
 
-	//TODO check upgrade ,restart
+	// fe rolling restart
+	// check 1: fe Phase is Available
+	// check 2: fe RestartTime is not empty and useful
+	// check 3: fe RestartTime different from old(This condition does not need to be checked here. If it is allowed to pass, it will be processed idempotent when applying sts.)
+	if oldStatus.ComponentCondition.Phase == v1.Available && fc.CheckRestartTimeAndInject(cluster, v1.Component_FE) {
+		cluster.Status.FEStatus.ComponentCondition.Phase = v1.Restarting
+	}
+
+	//TODO check upgrade
 
 	return nil
 }
