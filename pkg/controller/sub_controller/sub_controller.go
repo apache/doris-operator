@@ -83,16 +83,15 @@ func (d *SubDefaultController) CheckRestartTimeAndInject(dcr *dorisv1.DorisClust
 	if err != nil {
 		checkErr := fmt.Errorf("CheckRestartTimeAndInject error: time format is incorrect. dorisClusterName: %s, namespace: %s, componentType %s, wrong parse 'restartedAt': %s , error: %s", dcr.Name, dcr.Namespace, componentType, restartedAt, err.Error())
 		klog.Error(checkErr.Error())
-		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartParameterIllegal), checkErr.Error())
+		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartTimeInvalid), checkErr.Error())
 		return false
 	}
 
-	restartAt := time.Now().Add(-10 * time.Minute)
+	effectiveStartTime := time.Now().Add(-10 * time.Minute)
 
-	if restartAt.After(parseTime) {
-		checkErr := fmt.Errorf("CheckRestartTimeAndInject The time has expired, dorisClusterName: %s, namespace: %s, componentType %s, wrong parse 'restartedAt': %s : The time has expired, if you want to restart doris, please set a future time", dcr.Name, dcr.Namespace, componentType, restartedAt)
-		klog.Error(checkErr.Error())
-		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartParameterIllegal), checkErr.Error())
+	if effectiveStartTime.After(parseTime) {
+		klog.Errorf("CheckRestartTimeAndInject The time has expired, dorisClusterName: %s, namespace: %s, componentType %s, wrong parse 'restartedAt': %s : The time has expired, if you want to restart doris, please set a future time", dcr.Name, dcr.Namespace, componentType, restartedAt)
+		d.K8srecorder.Event(dcr, string(EventWarning), string(RestartTimeInvalid), fmt.Sprintf("the %s restart time is not effective. the 'restartedAt' %s can't be earlier than 10 minutes before the current time", componentType, restartedAt))
 		return false
 	}
 
@@ -120,9 +119,6 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	podmap := make(map[string]corev1.Pod)
 
 	if len(podList.Items) == 0 {
-		status.RunningMembers = readys
-		status.FailedMembers = faileds
-		status.CreatingMembers = creatings
 		return nil
 	}
 
