@@ -18,15 +18,16 @@
 package resource
 
 import (
+	"strings"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/api/doris/v1"
+	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
-	"strings"
 )
 
 // HashService service hash components
@@ -254,27 +255,39 @@ func getMetaServiceContainerPorts(config map[string]interface{}) []corev1.Contai
 }
 
 func getFeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
-	return []corev1.ContainerPort{{
-		Name:          GetPortKey(HTTP_PORT),
-		ContainerPort: GetPort(config, HTTP_PORT),
-		Protocol:      corev1.ProtocolTCP,
-	}, {
-		Name:          GetPortKey(RPC_PORT),
-		ContainerPort: GetPort(config, RPC_PORT),
-		Protocol:      corev1.ProtocolTCP,
-	}, {
-		Name:          GetPortKey(QUERY_PORT),
-		ContainerPort: GetPort(config, QUERY_PORT),
-		Protocol:      corev1.ProtocolTCP,
-	}, {
-		Name:          GetPortKey(EDIT_LOG_PORT),
-		ContainerPort: GetPort(config, EDIT_LOG_PORT),
-		Protocol:      corev1.ProtocolTCP,
-	}}
-}
+	ports := []corev1.ContainerPort{
+		{
+			Name:          GetPortKey(HTTP_PORT),
+			ContainerPort: GetPort(config, HTTP_PORT),
+			Protocol:      corev1.ProtocolTCP,
+		}, {
+			Name:          GetPortKey(RPC_PORT),
+			ContainerPort: GetPort(config, RPC_PORT),
+			Protocol:      corev1.ProtocolTCP,
+		}, {
+			Name:          GetPortKey(QUERY_PORT),
+			ContainerPort: GetPort(config, QUERY_PORT),
+			Protocol:      corev1.ProtocolTCP,
+		}, {
+			Name:          GetPortKey(EDIT_LOG_PORT),
+			ContainerPort: GetPort(config, EDIT_LOG_PORT),
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
 
+	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
+	if arrowFlightPort != -1 {
+		ports = append(ports, corev1.ContainerPort{
+			Name:          GetPortKey(ARROW_FLIGHT_SQL_PORT),
+			ContainerPort: arrowFlightPort,
+			Protocol:      corev1.ProtocolTCP,
+		})
+	}
+
+	return ports
+}
 func getBeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
-	return []corev1.ContainerPort{
+	ports := []corev1.ContainerPort{
 		{
 			Name:          GetPortKey(BE_PORT),
 			ContainerPort: GetPort(config, BE_PORT),
@@ -292,6 +305,17 @@ func getBeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
+
+	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
+	if arrowFlightPort != -1 {
+		ports = append(ports, corev1.ContainerPort{
+			Name:          GetPortKey(ARROW_FLIGHT_SQL_PORT),
+			ContainerPort: arrowFlightPort,
+			Protocol:      corev1.ProtocolTCP,
+		})
+	}
+
+	return ports
 }
 
 func getBrokerContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
