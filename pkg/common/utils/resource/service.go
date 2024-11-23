@@ -278,7 +278,8 @@ func getFeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
 	if arrowFlightPort != -1 {
 		ports = append(ports, corev1.ContainerPort{
-			Name:          GetPortKey(ARROW_FLIGHT_SQL_PORT),
+			// GetPortKey(ARROW_FLIGHT_SQL_PORT) Hardcoding for now. In Kubernetes, container port names must be no more than 15 characters.
+			Name:          "arrow-flight",
 			ContainerPort: arrowFlightPort,
 			Protocol:      corev1.ProtocolTCP,
 		})
@@ -309,7 +310,8 @@ func getBeContainerPorts(config map[string]interface{}) []corev1.ContainerPort {
 	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
 	if arrowFlightPort != -1 {
 		ports = append(ports, corev1.ContainerPort{
-			Name:          GetPortKey(ARROW_FLIGHT_SQL_PORT),
+			// GetPortKey(ARROW_FLIGHT_SQL_PORT) Hardcoding for now. In Kubernetes, container port names must be no more than 15 characters.
+			Name:          "arrow-flight",
 			ContainerPort: arrowFlightPort,
 			Protocol:      corev1.ProtocolTCP,
 		})
