@@ -15,7 +15,7 @@ Doris-Operator 用于在 Kubernetes 上创建、配置和管理 Doris 集群，�
 ## 安装  
 1. 安装 DorisCluster 资源定义：  
 ```  
-kubectl create -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/doris.selectdb.com_dorisclusters.yaml
+kubectl create -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/config/crd/bases/doris.apache.com_dorisclusters.yaml
 ```
 2. 安装 Doris-Operator 服务以及所依赖的 RBAC 权限等相关资源  
 ```

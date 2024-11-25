@@ -76,6 +76,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	#cat config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml > config/crd/bases/crds.yaml
 	#cat config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml >> config/crd/bases/crds.yaml
 	#cat config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml >> config/crd/bases/crds.yaml
+	cp config/crd/bases/doris.selectdb.com_dorisclusters.yaml  config/crd/bases/doris.apache.com_dorisclusters.yaml
 	cat config/crd/bases/doris.selectdb.com_dorisclusters.yaml > config/crd/bases/crds.yaml
 	cat config/crd/bases/disaggregated.cluster.doris.com_dorisdisaggregatedclusters.yaml >> config/crd/bases/crds.yaml
 	#cat config/crd/bases/disaggregated.metaservice.doris.com_dorisdisaggregatedmetaservices.yaml >> config/crd/bases/crds.yaml
