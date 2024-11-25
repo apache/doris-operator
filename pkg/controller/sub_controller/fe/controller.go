@@ -57,7 +57,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas)
+	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas, v1.Component_FE)
 }
 
 // New construct a FeController.
@@ -79,6 +79,10 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	if cluster.Spec.FeSpec == nil {
 		klog.Info("fe Controller Sync ", "the fe component is not needed ", "namespace ", cluster.Namespace, " doris cluster name ", cluster.Name)
 		return nil
+	}
+	var oldStatus v1.ComponentStatus
+	if cluster.Status.FEStatus != nil {
+		oldStatus = *(cluster.Status.FEStatus.DeepCopy())
 	}
 	fc.InitStatus(cluster, v1.Component_FE)
 
@@ -113,7 +117,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return nil
 	}
 
-	if err = fc.prepareStatefulsetApply(ctx, cluster); err != nil {
+	if err = fc.prepareStatefulsetApply(ctx, cluster, oldStatus); err != nil {
 		return err
 	}
 

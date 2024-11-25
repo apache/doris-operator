@@ -14,34 +14,25 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
+---
+name: License Check
+on: [push, pull_request_target]
 
-apiVersion: disaggregated.cluster.doris.com/v1
-kind: DorisDisaggregatedCluster
-metadata:
-  name: test-disaggregated-cluster
-spec:
-  metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
-    configMaps:
-      - name: ms-configmap
-    fdb:
-      # address: ${fdb_endpoint}
-      configMapNamespaceName:
-        name: ${fdb-configmap}
-        namespace: ${fdb-namespace}
-  feSpec:
-    replicas: 2
-    image: selectdb/doris.fe-ubuntu:3.0.2
-    configMaps:
-      - name: fe-configmap
-  computeGroups:
-    - uniqueId: cg1
-      replicas: 3
-      configMaps:
-        - name: be-configmap
-      image: selectdb/doris.be-ubuntu:3.0.2
-    - uniqueId: cg2
-      replicas: 3
-      configMaps:
-        - name: be-configmap
-      image: selectdb/doris.be-ubuntu:3.0.2
+jobs:
+  license-check:
+    name: "License Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout ${{ github.ref }} ( ${{ github.sha }} )"
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: actions/checkout@v3
+      - name: Checkout ${{ github.ref }} ( ${{ github.event.pull_request.head.sha }} )
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check License
+        uses: apache/skywalking-eyes@v0.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

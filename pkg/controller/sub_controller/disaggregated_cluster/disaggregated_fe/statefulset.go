@@ -297,7 +297,7 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: fmt.Sprintf("%d", ddc.GetInstanceHashId())},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
-		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEServiceName()},
+		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEVIPAddresss()},
 		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(ddc.GetElectionNumber()), 10)},
 	)
 	return feEnvs

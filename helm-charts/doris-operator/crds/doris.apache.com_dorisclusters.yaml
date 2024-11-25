@@ -1557,20 +1557,6 @@ spec:
                       otherwise to an implementation-defined value.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
-                  secrets:
-                    description: Multi Secret for pod.
-                    items:
-                      properties:
-                        mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
-                          type: string
-                        secretName:
-                          description: name of secret that needs to mount.
-                          type: string
-                      type: object
-                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -3358,20 +3344,6 @@ spec:
                       otherwise to an implementation-defined value.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
-                  secrets:
-                    description: Multi Secret for pod.
-                    items:
-                      properties:
-                        mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
-                          type: string
-                        secretName:
-                          description: name of secret that needs to mount.
-                          type: string
-                      type: object
-                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -5776,20 +5748,6 @@ spec:
                       otherwise to an implementation-defined value.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
-                  secrets:
-                    description: Multi Secret for pod.
-                    items:
-                      properties:
-                        mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
-                          type: string
-                        secretName:
-                          description: name of secret that needs to mount.
-                          type: string
-                      type: object
-                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -7577,20 +7535,6 @@ spec:
                       otherwise to an implementation-defined value.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
-                  secrets:
-                    description: Multi Secret for pod.
-                    items:
-                      properties:
-                        mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
-                          type: string
-                        secretName:
-                          description: name of secret that needs to mount.
-                          type: string
-                      type: object
-                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:

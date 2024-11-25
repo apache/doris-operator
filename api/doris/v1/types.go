@@ -88,6 +88,13 @@ type FeSpec struct {
 type BeSpec struct {
 	//the foundation spec for creating be software services.
 	BaseSpec `json:",inline"`
+
+	// EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
+	// Default value is 'false'.
+	// Enabling it means that the container must be started in privileged mode.
+	// Please confirm whether the host machine and k8s cluster allow it.
+	// Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
+	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
 }
 
 // FeAddress specify the fe address, please set it when you deploy fe outside k8s or deploy components use crd except fe, if not set .
