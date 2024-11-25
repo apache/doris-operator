@@ -16,7 +16,7 @@ header:
     - "**/*.json"
     - "**/*.txt"
     - '**/.helmignore'
-    - 'helm-charts/doris-operator/crds/doris.selectdb.com_dorisclusters.yaml'
+    - 'helm-charts/doris-operator/crds/doris.apache.com_dorisclusters.yaml'
     - 'LICENSE'
     - 'NOTICE'
     - 'PROJECT'
