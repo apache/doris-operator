@@ -113,7 +113,7 @@ func (bk *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 
 	cluster.Status.BrokerStatus = bs
 	bs.AccessService = v1.GenerateExternalServiceName(cluster, v1.Component_Broker)
-	return bk.ClassifyPodsByStatus(cluster.Namespace, bs, v1.GenerateStatefulSetSelector(cluster, v1.Component_Broker), *cluster.Spec.BrokerSpec.Replicas)
+	return bk.ClassifyPodsByStatus(cluster.Namespace, bs, v1.GenerateStatefulSetSelector(cluster, v1.Component_Broker), *cluster.Spec.BrokerSpec.Replicas, v1.Component_Broker)
 
 }
 

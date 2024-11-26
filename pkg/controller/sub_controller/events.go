@@ -70,6 +70,7 @@ var (
 	MSServiceDeletedFailed          EventReason = "MSServiceDeletedFailed"
 	MSStatefulsetDeleteFailed       EventReason = "MSStatefulsetDeleteFailed"
 	FDBAddressNotConfiged           EventReason = "FDBAddressNotConfiged"
+	RestartTimeInvalid              EventReason = "RestartTimeInvalid"
 )
 
 type Event struct {

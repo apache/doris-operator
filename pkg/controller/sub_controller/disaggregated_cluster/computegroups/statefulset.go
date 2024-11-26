@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	DefaultCacheRootPath = "/opt/apache-doris/be/cache"
+	DefaultCacheRootPath = "/opt/apache-doris/be/file_cache"
 	//default cache storage size: unit=B
 	DefaultCacheSize               int64 = 107374182400
 	FileCachePathKey                     = "file_cache_path"
@@ -266,7 +266,7 @@ func (dcgs *DisaggregatedComputeGroupsController) getCacheMaxSizeAndPaths(cvs ma
 	var pa []map[string]interface{}
 	err := json.Unmarshal([]byte(vbys), &pa)
 	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_paht failed, err=%s", err.Error())
+		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_path failed, err=%s", err.Error())
 		return []string{}, 0
 	}
 
@@ -319,7 +319,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	fqp := resource.GetPort(confMap, resource.QUERY_PORT)
 	fqpStr := strconv.FormatInt(int64(fqp), 10)
 	//use fe service name as access address.
-	feAddr := ddc.GetFEServiceName()
+	feAddr := ddc.GetFEVIPAddresss()
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},

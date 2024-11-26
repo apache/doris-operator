@@ -48,11 +48,6 @@ const (
 	auth_volume_name         = "basic-auth"
 )
 
-var (
-	DefaultElectionNumber  int32 = 1
-	DefaultFeReplicaNumber int32 = 2
-)
-
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
 	return map[string]string{
 		v1.DorisDisaggregatedClusterName:    ddcName,
@@ -193,18 +188,23 @@ func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap ma
 		}
 	}()
 
-	vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: LogStoreName,
-		}}})
-	vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: dfc.getLogPath(confMap)})
-	pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        LogStoreName,
-			Annotations: fe.CommonSpec.PersistentVolume.Annotations,
-		},
-		Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
-	})
+	//generate log volume, volumeMount, pvc
+	func() {
+		if !fe.PersistentVolume.LogNotStore {
+			vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: LogStoreName,
+				}}})
+			vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: dfc.getLogPath(confMap)})
+			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        LogStoreName,
+					Annotations: fe.CommonSpec.PersistentVolume.Annotations,
+				},
+				Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
+			})
+		}
+	}()
 
 	vs = append(vs, corev1.Volume{Name: MetaStoreName, VolumeSource: corev1.VolumeSource{
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -297,8 +297,8 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: fmt.Sprintf("%d", ddc.GetInstanceHashId())},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
-		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEServiceName()},
-		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(*ddc.Spec.FeSpec.ElectionNumber), 10)},
+		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEVIPAddresss()},
+		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(ddc.GetElectionNumber()), 10)},
 	)
 	return feEnvs
 }

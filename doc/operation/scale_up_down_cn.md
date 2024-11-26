@@ -1,5 +1,5 @@
 # Doris扩缩容
-Doris在K8S之上的扩缩容可通过修改 DorisCluster 资源对应组件的 replicas 字段来实现。修改可直接编辑对应的资源，也可通过命令的方式。
+Doris在 K8S 之上的扩缩容可通过修改 DorisCluster 资源对应组件的 replicas 字段来实现。修改可直接编辑对应的资源，也可通过重新下发资源。
 
 ## 获取 DorisCluster 资源
 使用命令 `kubectl -n {namespace} get doriscluster` 获取已部署 DorisCluster 资源的名称.

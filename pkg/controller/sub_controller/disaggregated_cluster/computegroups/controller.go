@@ -176,7 +176,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	scaleType := getScaleType(st, &est, cgStatus.Phase)
 
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithOmitKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, true, false)
+		return resource.StatefulsetDeepEqualWithKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
 	}); err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
@@ -496,9 +496,8 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesBySQL(
 	adminUserName, password := resource.GetDorisLoginInformation(secret)
 
 	// get host and port
-	serviceName := cluster.GetFEServiceName()
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
-	host := serviceName + "." + cluster.Namespace
+	host := cluster.GetFEVIPAddresss()
 	confMap := dcgs.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
 	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
 
