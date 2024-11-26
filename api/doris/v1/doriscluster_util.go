@@ -28,6 +28,9 @@ import (
 const (
 	//ComponentsResourceHash the component hash
 	ComponentResourceHash string = "app.doris.components/hash"
+
+	FERestartAt string = "apache.doris.fe/restartedAt"
+	BERestartAt string = "apache.doris.be/restartedAt"
 )
 
 // the labels key
@@ -60,6 +63,8 @@ const (
 	Component_CN     ComponentType = "cn"
 	Component_Broker ComponentType = "broker"
 )
+
+var DefaultFeElectionNumber int32 = 3
 
 func GenerateExternalServiceName(dcr *DorisCluster, componentType ComponentType) string {
 	switch componentType {
@@ -365,4 +370,11 @@ func IsReconcilingStatusPhase(c *ComponentStatus) bool {
 		c.ComponentCondition.Phase == Scaling ||
 		c.ComponentCondition.Phase == Restarting ||
 		c.ComponentCondition.Phase == Reconciling
+}
+
+func (dcr *DorisCluster) GetElectionNumber() int32 {
+	if dcr.Spec.FeSpec.ElectionNumber != nil {
+		return *dcr.Spec.FeSpec.ElectionNumber
+	}
+	return DefaultFeElectionNumber
 }

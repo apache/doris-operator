@@ -26,10 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var (
-	Default_Election_Number int32 = 3
-)
-
 func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
 	var containers []corev1.Container
@@ -54,9 +50,7 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 		queryPort = strconv.FormatInt(int64(port), 10)
 	}
 
-	if dcr.Spec.FeSpec.ElectionNumber == nil {
-		dcr.Spec.FeSpec.ElectionNumber = resource.GetInt32Pointer(Default_Election_Number)
-	}
+	ele := dcr.GetElectionNumber()
 
 	ports := resource.GetContainerPorts(config, v1.Component_FE)
 	c.Name = "fe"
@@ -67,14 +61,10 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 	}, corev1.EnvVar{
 		Name:  resource.ENV_FE_PORT,
 		Value: queryPort,
+	}, corev1.EnvVar{
+		Name:  resource.ENV_FE_ELECT_NUMBER,
+		Value: strconv.FormatInt(int64(ele), 10),
 	})
-
-	if dcr.Spec.FeSpec.ElectionNumber != nil {
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  resource.ENV_FE_ELECT_NUMBER,
-			Value: strconv.FormatInt(int64(*dcr.Spec.FeSpec.ElectionNumber), 10),
-		})
-	}
 
 	return c
 }
