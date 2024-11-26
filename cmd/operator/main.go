@@ -90,6 +90,7 @@ func init() {
 
 	utilruntime.Must(dorisv1.AddToScheme(scheme))
 	utilruntime.Must(dv1.AddToScheme(scheme))
+	//deprecated:
 	//utilruntime.Must(dmsv1.AddToScheme(scheme))
 	//add foundationdb scheme
 	//utilruntime.Must(v1beta2.AddToScheme(scheme))
