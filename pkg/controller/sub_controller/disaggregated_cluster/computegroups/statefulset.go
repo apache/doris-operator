@@ -319,7 +319,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	fqp := resource.GetPort(confMap, resource.QUERY_PORT)
 	fqpStr := strconv.FormatInt(int64(fqp), 10)
 	//use fe service name as access address.
-	feAddr := ddc.GetFEVIPAddresss()
+	feAddr := ddc.GetFEServiceName()
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},

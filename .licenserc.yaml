@@ -4,6 +4,7 @@ header:
     copyright-owner: Apache Software Foundation
 
   paths-ignore:
+    - '.git'
     - '.licenserc.yaml'
     - '.gitignore'
     - 'dist'
@@ -16,7 +17,6 @@ header:
     - "**/*.json"
     - "**/*.txt"
     - '**/.helmignore'
-    - 'helm-charts/doris-operator/crds/doris.apache.com_dorisclusters.yaml'
     - 'LICENSE'
     - 'NOTICE'
     - 'PROJECT'
