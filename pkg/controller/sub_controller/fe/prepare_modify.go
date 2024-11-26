@@ -33,7 +33,7 @@ import (
 )
 
 // prepareStatefulsetApply means Pre-operation and status control on the client side
-func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.DorisCluster, oldStatus v1.ComponentStatus) error {
+func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.DorisCluster) error {
 	var oldSt appv1.StatefulSet
 	err := fc.K8sclient.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: v1.GenerateComponentStatefulSetName(cluster, v1.Component_FE)}, &oldSt)
 	if err != nil {
@@ -44,11 +44,10 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
 	}
 
-	ele := cluster.GetElectionNumber()
-
-	if *(cluster.Spec.FeSpec.Replicas) < ele {
+	if *(cluster.Spec.FeSpec.Replicas) < *(cluster.Spec.FeSpec.ElectionNumber) {
 		fc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
-		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, ele, *(cluster.Spec.FeSpec.Replicas))
+		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, *(cluster.Spec.FeSpec.ElectionNumber), *(cluster.Spec.FeSpec.Replicas))
+		ele := *(cluster.Spec.FeSpec.ElectionNumber)
 		cluster.Spec.FeSpec.Replicas = &ele
 	}
 
@@ -63,15 +62,7 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		return nil
 	}
 
-	// fe rolling restart
-	// check 1: fe Phase is Available
-	// check 2: fe RestartTime is not empty and useful
-	// check 3: fe RestartTime different from old(This condition does not need to be checked here. If it is allowed to pass, it will be processed idempotent when applying sts.)
-	if oldStatus.ComponentCondition.Phase == v1.Available && fc.CheckRestartTimeAndInject(cluster, v1.Component_FE) {
-		cluster.Status.FEStatus.ComponentCondition.Phase = v1.Restarting
-	}
-
-	//TODO check upgrade
+	//TODO check upgrade ,restart
 
 	return nil
 }
@@ -113,8 +104,10 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 	}
 
 	// make sure needRemovedAmount, this may involve retrying tasks and scaling down followers.
-	electionNumber := targetDCR.GetElectionNumber()
-
+	electionNumber := Default_Election_Number
+	if targetDCR.Spec.FeSpec.ElectionNumber != nil {
+		electionNumber = *(targetDCR.Spec.FeSpec.ElectionNumber)
+	}
 	// means: needRemovedAmount = allobservers - (replicas - election)
 	needRemovedAmount := int32(len(allObserves)) - *(targetDCR.Spec.FeSpec.Replicas) + electionNumber
 	if needRemovedAmount <= 0 {

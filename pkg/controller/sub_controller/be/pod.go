@@ -19,9 +19,7 @@ package be
 
 import (
 	"context"
-	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"strconv"
 
 	v1 "github.com/apache/doris-operator/api/doris/v1"
@@ -38,15 +36,7 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	beContainer := be.beContainer(dcr)
 	containers = append(containers, beContainer)
-
-	if dcr.Spec.BeSpec.EnableWorkloadGroup {
-		if dcr.Spec.BeSpec.ContainerSecurityContext == nil {
-			dcr.Spec.BeSpec.ContainerSecurityContext = &corev1.SecurityContext{}
-		}
-		dcr.Spec.BeSpec.ContainerSecurityContext.Privileged = pointer.Bool(true)
-	}
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.BeSpec.ContainerSecurityContext)
-
 	podTemplateSpec.Spec.Containers = containers
 	return podTemplateSpec
 }
@@ -84,7 +74,7 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	//if fe addr not config, we should use external service as addr and port get from fe config.
 	if addr == "" {
 		if dcr.Spec.FeSpec != nil {
-			feConfig, _ = be.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_BE)
+			feConfig, _ = be.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_FE)
 		}
 
 		addr = v1.GenerateExternalServiceName(dcr, v1.Component_FE)
@@ -105,13 +95,6 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 		Name:  resource.ENV_FE_PORT,
 		Value: feQueryPort,
 	})
-
-	if dcr.Spec.BeSpec.EnableWorkloadGroup {
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  resource.ENABLE_WORKLOAD_GROUP,
-			Value: fmt.Sprintf("%t", dcr.Spec.BeSpec.EnableWorkloadGroup),
-		})
-	}
 
 	return c
 }

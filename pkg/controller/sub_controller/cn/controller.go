@@ -145,7 +145,7 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 
 	replicas := *est.Spec.Replicas
 	cs.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_CN)
-	return cn.ClassifyPodsByStatus(cluster.Namespace, &cs.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas, dorisv1.Component_CN)
+	return cn.ClassifyPodsByStatus(cluster.Namespace, &cs.ComponentStatus, dorisv1.GenerateStatefulSetSelector(cluster, dorisv1.Component_CN), replicas)
 }
 
 // autoscaler represents start autoscaler or not.
