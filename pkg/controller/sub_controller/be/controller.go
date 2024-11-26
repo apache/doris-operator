@@ -54,11 +54,6 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if dcr.Spec.BeSpec == nil {
 		return nil
 	}
-
-	var oldStatus v1.ComponentStatus
-	if dcr.Status.BEStatus != nil {
-		oldStatus = *(dcr.Status.BEStatus.DeepCopy())
-	}
 	be.InitStatus(dcr, v1.Component_BE)
 	if !be.FeAvailable(dcr) {
 		return nil
@@ -88,10 +83,6 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
-	if err = be.prepareStatefulsetApply(ctx, dcr, oldStatus); err != nil {
-		return err
-	}
-
 	st := be.buildBEStatefulSet(dcr)
 	if !be.PrepareReconcileResources(ctx, dcr, v1.Component_BE) {
 		klog.Infof("be controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
@@ -118,7 +109,7 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas, v1.Component_BE)
+	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas)
 }
 
 func (be *Controller) ClearResources(ctx context.Context, dcr *v1.DorisCluster) (bool, error) {

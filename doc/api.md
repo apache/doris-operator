@@ -617,21 +617,6 @@ BaseSpec
 <p>the foundation spec for creating be software services.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>enableWorkloadGroup</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
-Default value is &lsquo;false&rsquo;.
-Enabling it means that the container must be started in privileged mode.
-Please confirm whether the host machine and k8s cluster allow it.
-Doris workloadgroup reference document: <a href="https://doris.apache.org/docs/admin-manual/resource-admin/workload-group">https://doris.apache.org/docs/admin-manual/resource-admin/workload-group</a></p>
-</td>
-</tr>
 </tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.BrokerSpec">BrokerSpec
@@ -2619,5 +2604,5 @@ string
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>1a70fe9</code>.
+on git commit <code>d39af0d</code>.
 </em></p>
