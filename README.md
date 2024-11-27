@@ -29,4 +29,4 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ```
 
 >[!WARNING]
->1. When custom the startup configuration, pelease set  `enable_fqdn_mode=true`. Pelease reference [the offical doc](https://doris.apache.org/docs/3.0/install/cluster-deployment/k8s-deploy/compute-storage-coupled/install-config-cluster) for how to use.
+>1. When custom the FE startup configuration, please set  `enable_fqdn_mode=true`. Please reference [the official doc](https://doris.apache.org/docs/3.0/install/cluster-deployment/k8s-deploy/compute-storage-coupled/install-config-cluster) for how to use.

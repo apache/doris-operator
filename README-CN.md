@@ -26,4 +26,4 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ```  
 
 >[!WARNING]
->1. 当定制化启动配置时，请设置 `enable_fqdn_mode=true`。请参考[官方文档](https://doris.apache.org/zh-CN/docs/3.0/install/cluster-deployment/k8s-deploy/compute-storage-coupled/install-quickstart)了解更详细的使用介绍。
+>1. 当定制化 FE 启动配置时，请设置 `enable_fqdn_mode=true`。请参考[官方文档](https://doris.apache.org/zh-CN/docs/3.0/install/cluster-deployment/k8s-deploy/compute-storage-coupled/install-quickstart)了解更详细的使用介绍。
