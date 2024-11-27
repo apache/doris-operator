@@ -64,6 +64,8 @@ var (
 	CGStatefulsetDeleteFailed       EventReason = "CGStatefulsetDeleteFailed"
 	CGServiceDeleteFailed           EventReason = "CGServiceDeleteFailed"
 	ConfigMapPathRepeated           EventReason = "ConfigMapPathRepeated"
+	SecretPathRepeated              EventReason = "SecretPathRepeated"
+	SecretNotExist                  EventReason = "SecretNotExist"
 	WaitMetaServiceAvailable        EventReason = "WaitMetaServiceAvailable"
 	WaitFEAvailable                 EventReason = "WaitFEAvailable"
 	ServiceApplyedFailed            EventReason = "ServiceApplyedFailed"

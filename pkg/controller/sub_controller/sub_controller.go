@@ -198,6 +198,60 @@ func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, c
 	}
 }
 
+// generate map for mountpath:secret
+func (d *SubDefaultController) CheckSecretMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	var secrets []dorisv1.Secret
+	switch componentType {
+	case dorisv1.Component_FE:
+		secrets = dcr.Spec.FeSpec.Secrets
+	case dorisv1.Component_BE:
+		secrets = dcr.Spec.BeSpec.Secrets
+	case dorisv1.Component_CN:
+		secrets = dcr.Spec.CnSpec.Secrets
+	case dorisv1.Component_Broker:
+		secrets = dcr.Spec.BrokerSpec.Secrets
+	default:
+		klog.Infof("the componentType %s is not supported.", componentType)
+	}
+	var mountsMap = make(map[string]dorisv1.Secret)
+	for _, secret := range secrets {
+		path := secret.MountPath
+		if s, exist := mountsMap[path]; exist {
+			klog.Errorf("CheckSecretMountPath error: the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName)
+			d.K8srecorder.Event(dcr, string(EventWarning), string(SecretPathRepeated), fmt.Sprintf("the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName))
+		}
+		mountsMap[path] = secret
+	}
+}
+
+// CheckSecretExist, check the secret exist or not in specify namespace.
+func (d *SubDefaultController) CheckSecretExist(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
+	var secrets []dorisv1.Secret
+	switch componentType {
+	case dorisv1.Component_FE:
+		secrets = dcr.Spec.FeSpec.Secrets
+	case dorisv1.Component_BE:
+		secrets = dcr.Spec.BeSpec.Secrets
+	case dorisv1.Component_CN:
+		secrets = dcr.Spec.CnSpec.Secrets
+	case dorisv1.Component_Broker:
+		secrets = dcr.Spec.BrokerSpec.Secrets
+	default:
+		klog.Infof("the componentType %s is not supported.", componentType)
+	}
+	errMessage := ""
+	for _, secret := range secrets {
+		var s corev1.Secret
+		if getErr := d.K8sclient.Get(ctx, types.NamespacedName{Namespace: dcr.Namespace, Name: secret.SecretName}, &s); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", secret.SecretName, dcr.Namespace, getErr.Error())
+		}
+	}
+	if errMessage != "" {
+		klog.Errorf("CheckSecretExist error: %s.", errMessage)
+		d.K8srecorder.Event(dcr, string(EventWarning), string(SecretNotExist), fmt.Sprintf("CheckSecretExist error: %s.", errMessage))
+	}
+}
+
 // ClearCommonResources clear common resources all component have, as statefulset, service.
 // response `bool` represents all resource have deleted, if not and delete resource failed return false for next reconcile retry.
 func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) (bool, error) {

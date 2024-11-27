@@ -75,6 +75,8 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return err
 	}
 	cn.CheckConfigMountPath(dcr, dorisv1.Component_CN)
+	cn.CheckSecretMountPath(dcr, dorisv1.Component_CN)
+	cn.CheckSecretExist(ctx, dcr, dorisv1.Component_CN)
 	svc := resource.BuildExternalService(dcr, dorisv1.Component_CN, config)
 	internalSVC := resource.BuildInternalService(dcr, dorisv1.Component_CN, config)
 

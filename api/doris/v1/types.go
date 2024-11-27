@@ -218,6 +218,10 @@ type BaseSpec struct {
 	//Security context for all containers running in the pod (unless they override it).
 	//+optional
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+
+	// Multi Secret for pod.
+	// +optional
+	Secrets []Secret `json:"secrets,omitempty"`
 }
 
 type SystemInitialization struct {
@@ -288,6 +292,16 @@ type MountConfigMapInfo struct {
 
 	// Current ConfigMap Mount Path.
 	// If MountConfigMapInfo belongs to the same ConfigMapInfo, their MountPath cannot be repeated.
+	MountPath string `json:"mountPath,omitempty"`
+}
+
+type Secret struct {
+	// name of secret that needs to mount.
+	SecretName string `json:"secretName,omitempty"`
+
+	// Current Secret Mount Path, default is "/etc/doris"
+	// If Secret belongs to the same Secrets, their mountPath can't be repeated.
+	// +optional
 	MountPath string `json:"mountPath,omitempty"`
 }
 

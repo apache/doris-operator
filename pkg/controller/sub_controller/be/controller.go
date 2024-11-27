@@ -73,6 +73,8 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	be.CheckConfigMountPath(dcr, v1.Component_BE)
+	be.CheckSecretMountPath(dcr, v1.Component_BE)
+	be.CheckSecretExist(ctx, dcr, v1.Component_BE)
 	//generate new be service.
 	svc := resource.BuildExternalService(dcr, v1.Component_BE, config)
 	//create or update be external and domain search service, update the status of fe on src.

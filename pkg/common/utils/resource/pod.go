@@ -29,15 +29,16 @@ import (
 )
 
 const (
-	config_env_path  = "/etc/doris"
-	ConfigEnvPath    = config_env_path
-	config_env_name  = "CONFIGMAP_MOUNT_PATH"
-	basic_auth_path  = "/etc/basic_auth"
-	auth_volume_name = "basic-auth"
-	be_storage_name  = "be-storage"
-	be_storage_path  = "/opt/apache-doris/be/storage"
-	fe_meta_path     = "/opt/apache-doris/fe/doris-meta"
-	fe_meta_name     = "fe-meta"
+	config_env_path    = "/etc/doris"
+	ConfigEnvPath      = config_env_path
+	secret_config_path = config_env_path
+	config_env_name    = "CONFIGMAP_MOUNT_PATH"
+	basic_auth_path    = "/etc/basic_auth"
+	auth_volume_name   = "basic-auth"
+	be_storage_name    = "be-storage"
+	be_storage_path    = "/opt/apache-doris/be/storage"
+	fe_meta_path       = "/opt/apache-doris/fe/doris-meta"
+	fe_meta_name       = "fe-meta"
 
 	HEALTH_API_PATH            = "/api/health"
 	HEALTH_BROKER_LIVE_COMMAND = "/opt/apache-doris/broker_is_alive.sh"
@@ -127,6 +128,11 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		configVolumes, _ := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
 		volumes = append(volumes, configVolumes...)
+	}
+
+	if len(spec.Secrets) != 0 {
+		secretVolumes, _ := getMultiSecretVolumeAndVolumeMount(spec, componentType)
+		volumes = append(volumes, secretVolumes...)
 	}
 
 	pts := corev1.PodTemplateSpec{
@@ -362,6 +368,11 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		_, configVolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
 		volumeMounts = append(volumeMounts, configVolumeMounts...)
+	}
+
+	if len(spec.Secrets) != 0 {
+		_, secretVolumeMounts := getMultiSecretVolumeAndVolumeMount(&spec, componentType)
+		volumeMounts = append(volumeMounts, secretVolumeMounts...)
 	}
 
 	// add basic auth secret volumeMount
@@ -674,6 +685,46 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 				},
 			)
 		}
+	}
+	return volumes, volumeMounts
+}
+
+func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
+
+	defaultMountPath := ""
+	switch componentType {
+	case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
+		defaultMountPath = secret_config_path
+	default:
+		klog.Infof("getMultiSecretVolumeAndVolumeMount componentType %s not supported.", componentType)
+	}
+
+	for _, secret := range bSpec.Secrets {
+		path := secret.MountPath
+		if secret.MountPath == "" {
+			path = defaultMountPath
+		}
+		volumes = append(
+			volumes,
+			corev1.Volume{
+				Name: secret.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret.SecretName,
+					},
+				},
+			},
+		)
+
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      secret.SecretName,
+				MountPath: path,
+			},
+		)
 	}
 	return volumes, volumeMounts
 }
