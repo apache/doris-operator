@@ -230,13 +230,13 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	//display new status.
 	disRes, disErr := func() (ctrl.Result, error) {
 		//reorganize status.
-		if res, err = dc.reorganizeStatus(&ddc); err != nil {
-			return res, err
+		if rsRes, rsErr := dc.reorganizeStatus(&ddc); rsErr != nil {
+			return rsRes, rsErr
 		}
 
 		//update cr or status
-		if res, err = dc.updateObjectORStatus(ctx, &ddc, hv); err != nil {
-			return res, err
+		if updRes, updErr := dc.updateObjectORStatus(ctx, &ddc, hv); updErr != nil {
+			return updRes, updErr
 		}
 
 		return ctrl.Result{}, nil
@@ -247,7 +247,10 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 		res = disRes
 	}
 
-	return res, err
+	if msg != "" {
+		return res, errors.New(msg)
+	}
+	return res, nil
 }
 
 func (dc *DisaggregatedClusterReconciler) clearUnusedResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
