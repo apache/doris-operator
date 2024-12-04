@@ -191,7 +191,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 			break
 		}
 	}
-	scaleType := getScaleType(st, &est, cgStatus.Phase)
+	scaleType := getOperationType(st, &est, cgStatus.Phase)
 
 	switch scaleType {
 	//case "resume":
@@ -208,30 +208,31 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		cgKeepAmount := *cg.Replicas
 		cgName := cluster.GetCGName(cg)
 
-		decommissionPhase, err := dcgs.decommissionProgressCheck(cluster, sqlClient, cgName, cgKeepAmount)
-		if err != nil {
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
-		}
-
-		switch decommissionPhase {
-		case resource.DecommissionPhaseSteady:
-			err = dcgs.decommissionBENodesBySQL(sqlClient, cgName, cgKeepAmount)
+		if cluster.Spec.EnableDecommission {
+			decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgName, cgKeepAmount)
 			if err != nil {
-				cgStatus.Phase = dv1.ScaleDownFailed
-				klog.Errorf("ScaleDownBE decommissionBENodesBySQL failed, err:%s ", err.Error())
-				return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
-					err
+				return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
 			}
-			cgStatus.Phase = dv1.Scaling
-			return nil, errors.New("")
-		case resource.Decommissioning:
-			cgStatus.Phase = dv1.Scaling
-			klog.Infof("ScaleDownBE decommissionBENodesBySQL in progress")
-			return nil, errors.New("")
-		case resource.Decommissioned:
-			dcgs.scaledOutBENodesBySQL(sqlClient, cgName, cgKeepAmount)
-		default:
-			// default is DecommissionPhaseUnknown, drop be , not decommission
+
+			switch decommissionPhase {
+			case resource.DecommissionBefore:
+				err = dcgs.decommissionBENodesBySQL(sqlClient, cgName, cgKeepAmount)
+				if err != nil {
+					cgStatus.Phase = dv1.ScaleDownFailed
+					klog.Errorf("ScaleDownBE decommissionBENodesBySQL failed, err:%s ", err.Error())
+					return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
+						err
+				}
+				cgStatus.Phase = dv1.Decommissioning
+				return nil, errors.New("")
+			case resource.Decommissioning, resource.DecommissionPhaseUnknown:
+				cgStatus.Phase = dv1.Decommissioning
+				klog.Infof("ScaleDownBE decommissionBENodesBySQL in progress")
+				return nil, errors.New("")
+			case resource.Decommissioned:
+				dcgs.scaledOutBENodesBySQL(sqlClient, cgName, cgKeepAmount)
+			}
+		} else { // not decommission , drop node
 			if err := dcgs.scaledOutBENodesBySQL(sqlClient, cgName, cgKeepAmount); err != nil {
 				cgStatus.Phase = dv1.ScaleDownFailed
 				klog.Errorf("ScaleDownBE scaledOutBENodesBySQL failed, err:%s ", err.Error())
@@ -252,8 +253,9 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	return nil, nil
 }
 
-func getScaleType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
-	if *(st.Spec.Replicas) < *(est.Spec.Replicas) || phase == dv1.ScaleDownFailed {
+func getOperationType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
+	//Should not check 'phase == dv1.Ready', because the default value of the state initialization is Reconciling in the new Reconcile
+	if *(st.Spec.Replicas) < *(est.Spec.Replicas) || phase == dv1.Decommissioning || phase == dv1.ScaleDownFailed {
 		return "scaleDown"
 	}
 	return ""
@@ -277,7 +279,7 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 		if cgss[i].UniqueId == uniqueId {
 			if cgss[i].Phase == dv1.ScaleDownFailed || cgss[i].Phase == dv1.Suspended ||
 				cgss[i].Phase == dv1.SuspendFailed || cgss[i].Phase == dv1.ResumeFailed ||
-				cgss[i].Phase == dv1.Scaling {
+				cgss[i].Phase == dv1.Scaling || cgss[i].Phase == dv1.Decommissioning {
 				defaultStatus.Phase = cgss[i].Phase
 			}
 			defaultStatus.SuspendReplicas = cgss[i].SuspendReplicas
@@ -644,16 +646,13 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 }
 
 // isDecommissionProgressFinished check decommission status
-// if not start decomission or decommission succeed return true
-func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(cluster *dv1.DorisDisaggregatedCluster, masterDBClient *mysql.DB, cgName string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
-	if !cluster.Spec.EnableDecommission {
-		return resource.DecommissionPhaseUnknown, nil
-	}
+// if not start decommission or decommission succeed return true
+func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(masterDBClient *mysql.DB, cgName string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
 	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
 	if err != nil {
 		klog.Errorf("decommissionProgressCheck failed, ShowBackends err:%s", err.Error())
 		return resource.DecommissionPhaseUnknown, err
 	}
-	decommissionDetail := resource.ConstructDecommissionDetail(allBackends, cgKeepAmount)
-	return decommissionDetail.GetDecommissionDetailStatus(), nil
+	decommissionDetail := resource.ConstructComputeNodeStatusCounts(allBackends, cgKeepAmount)
+	return decommissionDetail.GetDecommissionStatus(), nil
 }

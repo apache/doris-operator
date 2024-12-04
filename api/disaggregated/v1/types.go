@@ -304,6 +304,7 @@ const (
 
 	//Scaling represents service in Scaling.
 	Scaling         Phase = "Scaling"
+	Decommissioning Phase = "Decommissioning"
 	ScaleDownFailed Phase = "ScaleDownFailed"
 	ResumeFailed    Phase = "ResumeFailed"
 	SuspendFailed   Phase = "SuspendFailed"
