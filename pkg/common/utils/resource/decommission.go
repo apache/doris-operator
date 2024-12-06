@@ -26,11 +26,11 @@ type DecommissionPhase string
 const (
 	Decommissioned           DecommissionPhase = "Decommissioned"
 	Decommissioning          DecommissionPhase = "Decommissioning"
-	DecommissionBefore       DecommissionPhase = "DecommissionBefore"
+	DecommissionAcceptable   DecommissionPhase = "DecommissionAcceptable"
 	DecommissionPhaseUnknown DecommissionPhase = "Unknown"
 )
 
-type ComputeNodeStatusCounts struct {
+type DecommissionTaskStatus struct {
 	AllBackendsSize       int
 	UnDecommissionedCount int
 	DecommissioningCount  int
@@ -38,7 +38,7 @@ type ComputeNodeStatusCounts struct {
 	BeKeepAmount          int
 }
 
-func ConstructComputeNodeStatusCounts(allBackends []*mysql.Backend, cgKeepAmount int32) ComputeNodeStatusCounts {
+func ConstructDecommissionTaskStatus(allBackends []*mysql.Backend, cgKeepAmount int32) DecommissionTaskStatus {
 	var unDecommissionedCount, decommissioningCount, decommissionedCount int
 
 	for i := range allBackends {
@@ -54,7 +54,7 @@ func ConstructComputeNodeStatusCounts(allBackends []*mysql.Backend, cgKeepAmount
 		}
 	}
 
-	return ComputeNodeStatusCounts{
+	return DecommissionTaskStatus{
 		AllBackendsSize:       len(allBackends),
 		UnDecommissionedCount: unDecommissionedCount,
 		DecommissioningCount:  decommissioningCount,
@@ -63,9 +63,9 @@ func ConstructComputeNodeStatusCounts(allBackends []*mysql.Backend, cgKeepAmount
 	}
 }
 
-func (d *ComputeNodeStatusCounts) GetDecommissionStatus() DecommissionPhase {
+func (d *DecommissionTaskStatus) GetDecommissionPhase() DecommissionPhase {
 	if d.DecommissioningCount == 0 && d.DecommissionedCount == 0 && d.UnDecommissionedCount > d.BeKeepAmount {
-		return DecommissionBefore
+		return DecommissionAcceptable
 	}
 	if d.UnDecommissionedCount == d.BeKeepAmount && d.DecommissioningCount > 0 {
 		return Decommissioning

@@ -24,7 +24,6 @@ import (
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
-	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -90,23 +89,16 @@ func (dcgs *DisaggregatedComputeGroupsController) Sync(ctx context.Context, obj 
 				dcgs.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
 			}
 			errs = append(errs, err)
-			if err.Error() != "" {
-				klog.Errorf("disaggregatedComputeGroupsController computeGroups sync failed, compute group Uniqueid %s  sync failed, err=%s", cgs[i].UniqueId, sc.EventString(event))
-			}
+			klog.Errorf("disaggregatedComputeGroupsController computeGroups sync failed, compute group Uniqueid %s  sync failed, err=%s", cgs[i].UniqueId, sc.EventString(event))
 		}
 	}
 
 	if len(errs) != 0 {
-		msgHead := fmt.Sprintf("disaggregatedComputeGroupsController sync namespace: %s ,ddc name: %s, compute group has the following error: ", ddc.Namespace, ddc.Name)
-		msg := ""
+		msg := fmt.Sprintf("disaggregatedComputeGroupsController sync namespace: %s ,ddc name: %s, compute group has the following error: ", ddc.Namespace, ddc.Name)
 		for _, err := range errs {
 			msg += err.Error()
 		}
-		if msg != "" {
-			return errors.New(msgHead + msg)
-		}
-		// msg is "" , means Decommissioning
-		return errors.New("scaleDown Decommissioning, will Reconcile again, may not be an error, if you meet this error, please ignore it")
+		return errors.New(msg)
 	}
 
 	return nil
@@ -160,7 +152,7 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 		return event, err
 	}
 	event, err = dcgs.reconcileStatefulset(ctx, st, ddc, cg)
-	if err != nil && err.Error() != "" {
+	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcile statefulset namespace %s name %s failed, err=%s", st.Namespace, st.Name, err.Error())
 	}
 
@@ -182,65 +174,13 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, err
 	}
 
-	var cgStatus *dv1.ComputeGroupStatus
-
-	uniqueId := cg.UniqueId
-	for i := range cluster.Status.ComputeGroupStatuses {
-		if cluster.Status.ComputeGroupStatuses[i].UniqueId == uniqueId {
-			cgStatus = &cluster.Status.ComputeGroupStatuses[i]
-			break
+	err := dcgs.preApplyStatefulSet(ctx, st, &est, cluster, cg)
+	if err != nil {
+		if skipApplyStatefulset(err) {
+			return nil, nil
 		}
-	}
-	scaleType := getOperationType(st, &est, cgStatus.Phase)
-
-	switch scaleType {
-	//case "resume":
-	//case "suspend":
-	case "scaleDown":
-		sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, cluster)
-		if err != nil {
-			klog.Errorf("scaleDown getMasterSqlClient failed, get fe master node connection err:%s", err.Error())
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
-				err
-		}
-		defer sqlClient.Close()
-
-		cgKeepAmount := *cg.Replicas
-		cgName := cluster.GetCGName(cg)
-
-		if cluster.Spec.EnableDecommission {
-			decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgName, cgKeepAmount)
-			if err != nil {
-				return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
-			}
-
-			switch decommissionPhase {
-			case resource.DecommissionBefore:
-				err = dcgs.decommissionBENodesBySQL(sqlClient, cgName, cgKeepAmount)
-				if err != nil {
-					cgStatus.Phase = dv1.ScaleDownFailed
-					klog.Errorf("ScaleDownBE decommissionBENodesBySQL failed, err:%s ", err.Error())
-					return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
-						err
-				}
-				cgStatus.Phase = dv1.Decommissioning
-				return nil, errors.New("")
-			case resource.Decommissioning, resource.DecommissionPhaseUnknown:
-				cgStatus.Phase = dv1.Decommissioning
-				klog.Infof("ScaleDownBE decommissionBENodesBySQL in progress")
-				return nil, errors.New("")
-			case resource.Decommissioned:
-				dcgs.scaledOutBENodesBySQL(sqlClient, cgName, cgKeepAmount)
-			}
-		} else { // not decommission , drop node
-			if err := dcgs.scaledOutBENodesBySQL(sqlClient, cgName, cgKeepAmount); err != nil {
-				cgStatus.Phase = dv1.ScaleDownFailed
-				klog.Errorf("ScaleDownBE scaledOutBENodesBySQL failed, err:%s ", err.Error())
-				return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()},
-					err
-			}
-		}
-		cgStatus.Phase = dv1.Scaling
+		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset preApplyStatefulSet namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
 	}
 
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
@@ -251,14 +191,6 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 
 	return nil, nil
-}
-
-func getOperationType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
-	//Should not check 'phase == dv1.Ready', because the default value of the state initialization is Reconciling in the new Reconcile
-	if *(st.Spec.Replicas) < *(est.Spec.Replicas) || phase == dv1.Decommissioning || phase == dv1.ScaleDownFailed {
-		return "scaleDown"
-	}
-	return ""
 }
 
 // initial compute group status before sync resources. status changing with sync steps, and generate the last status by classify pods.
@@ -370,7 +302,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
 			}
 			defer sqlClient.Close()
-			err = dcgs.scaledOutBENodesBySQL(sqlClient, cgName, cgKeepAmount)
+			err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
 			if err != nil {
 				klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
 				dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
@@ -512,7 +444,6 @@ func (dcgs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 	if errMs == "" {
 		return nil
 	}
-
 	return errors.New(errMs)
 }
 
@@ -542,117 +473,4 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 		cgs.Phase = dv1.Ready
 	}
 	return nil
-}
-
-func getScaledOutBENode(
-	masterDBClient *mysql.DB,
-	cgName string,
-	cgKeepAmount int32) ([]*mysql.Backend, error) {
-
-	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
-	if err != nil {
-		klog.Errorf("scaledOutBEPreprocessing failed, ShowBackends err:%s", err.Error())
-		return nil, err
-	}
-
-	var dropNodes []*mysql.Backend
-	for i := range allBackends {
-		node := allBackends[i]
-		split := strings.Split(node.Host, ".")
-		splitCGIDArr := strings.Split(split[0], "-")
-		podNum, err := strconv.Atoi(splitCGIDArr[len(splitCGIDArr)-1])
-		if err != nil {
-			klog.Errorf("scaledOutBEPreprocessing splitCGIDArr can not split host : %s,err:%s", node.Host, err.Error())
-			return nil, err
-		}
-		if podNum >= int(cgKeepAmount) {
-			dropNodes = append(dropNodes, node)
-		}
-	}
-	return dropNodes, nil
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesBySQL(
-	masterDBClient *mysql.DB,
-	cgName string,
-	cgKeepAmount int32) error {
-
-	dropNodes, err := getScaledOutBENode(masterDBClient, cgName, cgKeepAmount)
-	if err != nil {
-		klog.Errorf("scaledOutBENodesBySQL getScaledOutBENode failed, err:%s ", err.Error())
-		return err
-	}
-
-	if len(dropNodes) == 0 {
-		return nil
-	}
-	err = masterDBClient.DropBE(dropNodes)
-	if err != nil {
-		klog.Errorf("scaledOutBENodesBySQL DropBENodes failed, err:%s ", err.Error())
-		return err
-	}
-	return nil
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) decommissionBENodesBySQL(
-	masterDBClient *mysql.DB,
-	cgName string,
-	cgKeepAmount int32) error {
-
-	dropNodes, err := getScaledOutBENode(masterDBClient, cgName, cgKeepAmount)
-	if err != nil {
-		klog.Errorf("decommissionBENodesBySQL getScaledOutBENode failed, err:%s ", err.Error())
-		return err
-	}
-
-	if len(dropNodes) == 0 {
-		return nil
-	}
-	err = masterDBClient.DecommissionBE(dropNodes)
-	if err != nil {
-		klog.Errorf("decommissionBENodesBySQL DropBENodes failed, err:%s ", err.Error())
-		return err
-	}
-	return nil
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context.Context, k8sclient client.Client, cluster *dv1.DorisDisaggregatedCluster) (*mysql.DB, error) {
-	// get user and password
-	secret, _ := k8s.GetSecret(ctx, k8sclient, cluster.Namespace, cluster.Spec.AuthSecret)
-	adminUserName, password := resource.GetDorisLoginInformation(secret)
-
-	// get host and port
-	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
-	host := cluster.GetFEVIPAddresss()
-	confMap := dcgs.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
-	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
-
-	// connect to doris sql to get master node
-	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.
-	dbConf := mysql.DBConfig{
-		User:     adminUserName,
-		Password: password,
-		Host:     host,
-		Port:     strconv.FormatInt(int64(queryPort), 10),
-		Database: "mysql",
-	}
-	// Connect to the master and run the SQL statement of system admin, because it is not excluded that the user can shrink be and fe at the same time
-	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf)
-	if err != nil {
-		klog.Errorf("getMasterSqlClient NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
-		return nil, err
-	}
-	return masterDBClient, nil
-}
-
-// isDecommissionProgressFinished check decommission status
-// if not start decommission or decommission succeed return true
-func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(masterDBClient *mysql.DB, cgName string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
-	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
-	if err != nil {
-		klog.Errorf("decommissionProgressCheck failed, ShowBackends err:%s", err.Error())
-		return resource.DecommissionPhaseUnknown, err
-	}
-	decommissionDetail := resource.ConstructComputeNodeStatusCounts(allBackends, cgKeepAmount)
-	return decommissionDetail.GetDecommissionStatus(), nil
 }
