@@ -73,19 +73,19 @@ func getInternalServicePort(config map[string]interface{}, componentType v1.Comp
 		return corev1.ServicePort{
 			Name:       GetPortKey(QUERY_PORT),
 			Port:       GetPort(config, QUERY_PORT),
-			TargetPort: intstr.FromInt(int(GetPort(config, QUERY_PORT))),
+			TargetPort: intstr.FromInt32(GetPort(config, QUERY_PORT)),
 		}
 	case v1.Component_BE, v1.Component_CN:
 		return corev1.ServicePort{
 			Name:       GetPortKey(HEARTBEAT_SERVICE_PORT),
 			Port:       GetPort(config, HEARTBEAT_SERVICE_PORT),
-			TargetPort: intstr.FromInt(int(GetPort(config, HEARTBEAT_SERVICE_PORT))),
+			TargetPort: intstr.FromInt32(GetPort(config, HEARTBEAT_SERVICE_PORT)),
 		}
 	case v1.Component_Broker:
 		return corev1.ServicePort{
 			Name:       GetPortKey(BROKER_IPC_PORT),
 			Port:       GetPort(config, BROKER_IPC_PORT),
-			TargetPort: intstr.FromInt(int(GetPort(config, BROKER_IPC_PORT))),
+			TargetPort: intstr.FromInt32(GetPort(config, BROKER_IPC_PORT)),
 		}
 	default:
 		klog.Infof("getInternalServicePort not supported the type %s", componentType)
@@ -173,18 +173,18 @@ func getFeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	editPort := GetPort(config, EDIT_LOG_PORT)
 	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
 	ports = append(ports, corev1.ServicePort{
-		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: GetPortKey(HTTP_PORT),
+		Port: httpPort, TargetPort: intstr.FromInt32(httpPort), Name: GetPortKey(HTTP_PORT),
 	}, corev1.ServicePort{
-		Port: rpcPort, TargetPort: intstr.FromInt(int(rpcPort)), Name: GetPortKey(RPC_PORT),
+		Port: rpcPort, TargetPort: intstr.FromInt32(rpcPort), Name: GetPortKey(RPC_PORT),
 	}, corev1.ServicePort{
-		Port: queryPort, TargetPort: intstr.FromInt(int(queryPort)), Name: GetPortKey(QUERY_PORT),
+		Port: queryPort, TargetPort: intstr.FromInt32(queryPort), Name: GetPortKey(QUERY_PORT),
 	}, corev1.ServicePort{
-		Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: GetPortKey(EDIT_LOG_PORT),
+		Port: editPort, TargetPort: intstr.FromInt32(editPort), Name: GetPortKey(EDIT_LOG_PORT),
 	})
 
 	if arrowFlightPort != -1 {
 		ports = append(ports, corev1.ServicePort{
-			Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
+			Port: arrowFlightPort, TargetPort: intstr.FromInt32(arrowFlightPort), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
 		})
 	}
 
@@ -199,18 +199,18 @@ func getBeServicePorts(config map[string]interface{}) (ports []corev1.ServicePor
 	arrowFlightPort := GetPort(config, ARROW_FLIGHT_SQL_PORT)
 
 	ports = append(ports, corev1.ServicePort{
-		Port: bePort, TargetPort: intstr.FromInt(int(bePort)), Name: GetPortKey(BE_PORT),
+		Port: bePort, TargetPort: intstr.FromInt32(bePort), Name: GetPortKey(BE_PORT),
 	}, corev1.ServicePort{
-		Port: webseverPort, TargetPort: intstr.FromInt(int(webseverPort)), Name: GetPortKey(WEBSERVER_PORT),
+		Port: webseverPort, TargetPort: intstr.FromInt32(webseverPort), Name: GetPortKey(WEBSERVER_PORT),
 	}, corev1.ServicePort{
-		Port: heartPort, TargetPort: intstr.FromInt(int(heartPort)), Name: GetPortKey(HEARTBEAT_SERVICE_PORT),
+		Port: heartPort, TargetPort: intstr.FromInt32(heartPort), Name: GetPortKey(HEARTBEAT_SERVICE_PORT),
 	}, corev1.ServicePort{
-		Port: brpcPort, TargetPort: intstr.FromInt(int(brpcPort)), Name: GetPortKey(BRPC_PORT),
+		Port: brpcPort, TargetPort: intstr.FromInt32(brpcPort), Name: GetPortKey(BRPC_PORT),
 	})
 
 	if arrowFlightPort != -1 {
 		ports = append(ports, corev1.ServicePort{
-			Port: arrowFlightPort, TargetPort: intstr.FromInt(int(arrowFlightPort)), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
+			Port: arrowFlightPort, TargetPort: intstr.FromInt32(arrowFlightPort), Name: GetPortKey(ARROW_FLIGHT_SQL_PORT),
 		})
 	}
 

@@ -59,23 +59,32 @@ func newComputeServicePorts(cvs map[string]interface{}, svcConf *dv1.ExportServi
 	webserverPort := resource.GetPort(cvs, resource.WEBSERVER_PORT)
 	heartbeatPort := resource.GetPort(cvs, resource.HEARTBEAT_SERVICE_PORT)
 	brpcPort := resource.GetPort(cvs, resource.BRPC_PORT)
+	arrowFlightPort := resource.GetPort(cvs, resource.ARROW_FLIGHT_SQL_PORT)
 	sps := []corev1.ServicePort{{
 		Name:       resource.GetPortKey(resource.BE_PORT),
-		TargetPort: intstr.FromInt(int(bePort)),
+		TargetPort: intstr.FromInt32(bePort),
 		Port:       bePort,
 	}, {
 		Name:       resource.GetPortKey(resource.WEBSERVER_PORT),
-		TargetPort: intstr.FromInt(int(webserverPort)),
+		TargetPort: intstr.FromInt32(webserverPort),
 		Port:       webserverPort,
 	}, {
 		Name:       resource.GetPortKey(resource.HEARTBEAT_SERVICE_PORT),
-		TargetPort: intstr.FromInt(int(heartbeatPort)),
+		TargetPort: intstr.FromInt32(heartbeatPort),
 		Port:       heartbeatPort,
 	}, {
 		Name:       resource.GetPortKey(resource.BRPC_PORT),
-		TargetPort: intstr.FromInt(int(brpcPort)),
+		TargetPort: intstr.FromInt32(brpcPort),
 		Port:       brpcPort,
 	}}
+
+	if arrowFlightPort != -1 {
+		sps = append(sps, corev1.ServicePort{
+			Name:       resource.GetPortKey(resource.ARROW_FLIGHT_SQL_PORT),
+			TargetPort: intstr.FromInt32(arrowFlightPort),
+			Port:       arrowFlightPort,
+		})
+	}
 
 	if svcConf == nil || svcConf.Type != corev1.ServiceTypeNodePort {
 		return sps

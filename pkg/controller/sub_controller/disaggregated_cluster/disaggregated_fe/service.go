@@ -58,16 +58,23 @@ func newFEServicePorts(config map[string]interface{}, svcConf *dv1.ExportService
 	rpcPort := resource.GetPort(config, resource.RPC_PORT)
 	queryPort := resource.GetPort(config, resource.QUERY_PORT)
 	editPort := resource.GetPort(config, resource.EDIT_LOG_PORT)
+	arrowFlightPort := resource.GetPort(config, resource.ARROW_FLIGHT_SQL_PORT)
 	ports := []corev1.ServicePort{
 		{
-			Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: resource.GetPortKey(resource.HTTP_PORT),
+			Port: httpPort, TargetPort: intstr.FromInt32(httpPort), Name: resource.GetPortKey(resource.HTTP_PORT),
 		}, {
-			Port: rpcPort, TargetPort: intstr.FromInt(int(rpcPort)), Name: resource.GetPortKey(resource.RPC_PORT),
+			Port: rpcPort, TargetPort: intstr.FromInt32(rpcPort), Name: resource.GetPortKey(resource.RPC_PORT),
 		}, {
-			Port: queryPort, TargetPort: intstr.FromInt(int(queryPort)), Name: resource.GetPortKey(resource.QUERY_PORT),
+			Port: queryPort, TargetPort: intstr.FromInt32(queryPort), Name: resource.GetPortKey(resource.QUERY_PORT),
 		}, {
-			Port: editPort, TargetPort: intstr.FromInt(int(editPort)), Name: resource.GetPortKey(resource.EDIT_LOG_PORT),
+			Port: editPort, TargetPort: intstr.FromInt32(editPort), Name: resource.GetPortKey(resource.EDIT_LOG_PORT),
 		}}
+
+	if arrowFlightPort != -1 {
+		ports = append(ports, corev1.ServicePort{
+			Port: arrowFlightPort, TargetPort: intstr.FromInt32(arrowFlightPort), Name: resource.GetPortKey(resource.ARROW_FLIGHT_SQL_PORT),
+		})
+	}
 
 	if svcConf == nil || svcConf.Type != corev1.ServiceTypeNodePort {
 		return ports
@@ -119,7 +126,7 @@ func (dfc *DisaggregatedFEController) newInternalService(ddc *dv1.DorisDisaggreg
 func getInternalServicePort(config map[string]interface{}) corev1.ServicePort {
 	httpPort := resource.GetPort(config, resource.QUERY_PORT)
 	return corev1.ServicePort{
-		Port: httpPort, TargetPort: intstr.FromInt(int(httpPort)), Name: resource.GetPortKey(resource.QUERY_PORT),
+		Port: httpPort, TargetPort: intstr.FromInt32(httpPort), Name: resource.GetPortKey(resource.QUERY_PORT),
 	}
 }
 
