@@ -92,7 +92,7 @@ func (dcgs *DisaggregatedComputeGroupsController) PreScaleOut(ctx context.Contex
 	return nil
 }
 
-func (dcgs DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgName string, cgKeepAmount int32) error {
+func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgName string, cgKeepAmount int32) error {
 	decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgName, cgKeepAmount)
 	if err != nil {
 		return err
