@@ -202,21 +202,12 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	hv := hash.HashObject(ddc.Spec)
 
 	var res ctrl.Result
-	////TODO: deprecated.
-	//cmnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Spec.InstanceConfigMap}
-	//ddcnn := types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.Name}
-	//cmnnStr := cmnn.String()
-	//ddcnnStr := ddcnn.String()
-	//if _, ok := dc.wcms[cmnnStr]; !ok {
-	//	dc.wcms[cmnnStr] = ddcnnStr
-	//}
-
-	//sync resource.
-	//recall all errors
 	var msg string
 	reconRes, reconErr := dc.reconcileSub(ctx, &ddc)
 	if reconErr != nil {
 		msg = msg + reconErr.Error()
+	}
+	if !reconRes.IsZero() {
 		res = reconRes
 	}
 
@@ -224,30 +215,39 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	clearRes, clearErr := dc.clearUnusedResources(ctx, &ddc)
 	if clearErr != nil {
 		msg = msg + reconErr.Error()
+	}
+
+	if !clearRes.IsZero() {
 		res = clearRes
 	}
 
 	//display new status.
 	disRes, disErr := func() (ctrl.Result, error) {
 		//reorganize status.
-		if res, err = dc.reorganizeStatus(&ddc); err != nil {
-			return res, err
+		var stsRes ctrl.Result
+		var stsErr error
+		if stsRes, stsErr = dc.reorganizeStatus(&ddc); stsErr != nil {
+			return stsRes, stsErr
 		}
 
 		//update cr or status
-		if res, err = dc.updateObjectORStatus(ctx, &ddc, hv); err != nil {
-			return res, err
+		if stsRes, stsErr = dc.updateObjectORStatus(ctx, &ddc, hv); stsErr != nil {
+			return stsRes, stsErr
 		}
 
-		return ctrl.Result{}, nil
+		return stsRes, stsErr
 	}()
-
 	if disErr != nil {
 		msg = msg + disErr.Error()
+	}
+	if !disRes.IsZero() {
 		res = disRes
 	}
 
-	return res, err
+	if msg != "" {
+		return res, errors.New(msg)
+	}
+	return res, nil
 }
 
 func (dc *DisaggregatedClusterReconciler) clearUnusedResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
@@ -312,7 +312,19 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 			//return ctrl.Result{}, err
 		}
 	}
-	return dc.updateDorisDisaggregatedClusterStatus(ctx, deepCopyDDC)
+	res, err := dc.updateDorisDisaggregatedClusterStatus(ctx, deepCopyDDC)
+
+	if err != nil {
+		return res, err
+	}
+
+	for _, cgs := range ddc.Status.ComputeGroupStatuses {
+		if cgs.Phase == dv1.Decommissioning {
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+	}
+	return res, nil
+
 }
 
 func (dc *DisaggregatedClusterReconciler) updateDorisDisaggregatedClusterStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
