@@ -295,10 +295,6 @@ type Phase string
 
 const (
 	Ready Phase = "Ready"
-	//Upgrading represents the spec of the service changed, service in smoothing upgrade.
-	Upgrading Phase = "Upgrading"
-	//Failed represents service failed to start, can't be accessed.
-	Failed Phase = "Failed"
 	//Creating represents service in creating stage.
 	Reconciling Phase = "Reconciling"
 

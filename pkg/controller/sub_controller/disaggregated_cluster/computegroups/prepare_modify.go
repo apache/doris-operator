@@ -19,7 +19,6 @@ package computegroups
 
 import (
 	"context"
-	"errors"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
@@ -30,8 +29,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-const decommissioningMessage = "decommissionBENodes in progress"
 
 func (dcgs *DisaggregatedComputeGroupsController) preApplyStatefulSet(ctx context.Context, st, est *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) error {
 	var cgStatus *dv1.ComputeGroupStatus
@@ -50,6 +47,8 @@ func (dcgs *DisaggregatedComputeGroupsController) preApplyStatefulSet(ctx contex
 		if err != nil {
 			return err
 		}
+	default:
+		// default do nothing, not need pre ApplyStatefulSet
 	}
 
 	return nil
@@ -68,22 +67,22 @@ func (dcgs *DisaggregatedComputeGroupsController) scaleOut(ctx context.Context, 
 	cgName := cluster.GetCGName(cg)
 
 	if cluster.Spec.EnableDecommission {
-		if err := dcgs.scaledOutBENodesByDecommission(cgStatus, sqlClient, cgName, cgKeepAmount); err != nil {
+		if err := dcgs.scaledOutBENodesByDecommission(cluster, cgStatus, sqlClient, cgName, cgKeepAmount); err != nil {
 			return err
 		}
 	} else { // not decommission , drop node
 		if err := dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount); err != nil {
 			cgStatus.Phase = dv1.ScaleDownFailed
-			klog.Errorf("ScaleOut scaledOutBENodesByDrop failed, err:%s ", err.Error())
+			klog.Errorf("ScaleOut scaledOutBENodesByDrop ddcName:%s, namespace:%s, computeGroupName:%s, drop nodes failed:%s ", cluster.Name, cluster.Namespace, cgName, err.Error())
 			return err
 		}
+		cgStatus.Phase = dv1.Scaling
 	}
-	cgStatus.Phase = dv1.Scaling
 	// return nil will apply sts
 	return nil
 }
 
-func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgName string, cgKeepAmount int32) error {
+func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cluster *dv1.DorisDisaggregatedCluster, cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgName string, cgKeepAmount int32) error {
 	decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgName, cgKeepAmount)
 	if err != nil {
 		return err
@@ -93,18 +92,19 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission
 		err = dcgs.decommissionBENodes(sqlClient, cgName, cgKeepAmount)
 		if err != nil {
 			cgStatus.Phase = dv1.ScaleDownFailed
-			klog.Errorf("scaledOutBENodesByDecommission failed, err:%s ", err.Error())
+			klog.Errorf("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupName:%s , Decommission failed, err:%s ", cluster.Name, cluster.Namespace, cgName, err.Error())
 			return err
 		}
 		cgStatus.Phase = dv1.Decommissioning
-		return errors.New(decommissioningMessage)
+		return nil
 	case resource.Decommissioning, resource.DecommissionPhaseUnknown:
 		cgStatus.Phase = dv1.Decommissioning
-		klog.Infof("scaledOutBENodesByDecommission in progress")
-		return errors.New(decommissioningMessage)
+		klog.Infof("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupName:%s, Decommission in progress", cluster.Name, cluster.Namespace, cgName)
+		return nil
 	case resource.Decommissioned:
 		dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
 	}
+	cgStatus.Phase = dv1.Scaling
 	return nil
 }
 
@@ -229,8 +229,17 @@ func getScaledOutBENode(
 	return dropNodes, nil
 }
 
-func skipApplyStatefulset(err error) bool {
-	if err == nil || err.Error() == decommissioningMessage {
+func skipApplyStatefulset(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) bool {
+	var cgStatus *dv1.ComputeGroupStatus
+	uniqueId := cg.UniqueId
+	for i := range ddc.Status.ComputeGroupStatuses {
+		if ddc.Status.ComputeGroupStatuses[i].UniqueId == uniqueId {
+			cgStatus = &ddc.Status.ComputeGroupStatuses[i]
+			break
+		}
+	}
+
+	if cgStatus.Phase == dv1.Decommissioning {
 		return true
 	}
 	return false
