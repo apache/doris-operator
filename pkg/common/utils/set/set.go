@@ -18,12 +18,12 @@
 package set
 
 type SetString struct {
-	m map[string]bool
+	m map[string]struct{}
 }
 
 func NewSetString(strs ...string) *SetString {
 	ss := &SetString{
-		m: make(map[string]bool),
+		m: make(map[string]struct{}),
 	}
 
 	for _, str := range strs {
@@ -33,7 +33,7 @@ func NewSetString(strs ...string) *SetString {
 	return ss
 }
 func (ss *SetString) Add(str string) {
-	ss.m[str] = true
+	ss.m[str] = struct{}{}
 }
 
 func (ss *SetString) Del(str string) {
@@ -46,5 +46,8 @@ func (ss *SetString) Find(str string) bool {
 }
 
 func (ss *SetString) Get(str string) bool {
-	return ss.m[str]
+	if _, ok := ss.m[str]; ok {
+		return true
+	}
+	return false
 }

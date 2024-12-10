@@ -81,7 +81,7 @@ func MergeMetadata(new *metav1.ObjectMeta, old metav1.ObjectMeta) {
 	new.SetFinalizers(MergeSlices(new.Finalizers, old.Finalizers))
 	new.SetLabels(mergeMaps(new.Labels, old.Labels))
 	new.SetAnnotations(mergeMaps(new.Annotations, old.Annotations))
-	mergeOwnerReferences(new.OwnerReferences, old.OwnerReferences)
+	new.OwnerReferences = mergeOwnerReferences(new.OwnerReferences, old.OwnerReferences)
 }
 
 func MergeSlices(new []string, old []string) []string {
@@ -135,14 +135,6 @@ func mergeOwnerReferences(old []metav1.OwnerReference, new []metav1.OwnerReferen
 
 func GetInt32Pointer(v int32) *int32 {
 	return &v
-}
-
-func GetStringPointer(s string) *string {
-	return &s
-}
-
-func GetInt64ptr(n int64) *int64 {
-	return &n
 }
 
 func GetOwnerReference(o client.Object) metav1.OwnerReference {
