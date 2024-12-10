@@ -274,6 +274,13 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 	NoNeedAppend:
 	}
 
+	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
+	if err != nil {
+		klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
+		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+	}
+	defer sqlClient.Close()
+
 	for i := range clearCGs {
 		cgs := clearCGs[i]
 		cleared := true
@@ -295,12 +302,6 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 		// drop compute group
 		cgName := strings.ReplaceAll(cgs.UniqueId, "_", "-")
 		cgKeepAmount := int32(0)
-		sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
-		if err != nil {
-			klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
-			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
-		}
-		defer sqlClient.Close()
 		err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
 		if err != nil {
 			klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
