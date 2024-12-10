@@ -39,6 +39,11 @@ type DorisDisaggregatedClusterSpec struct {
 	// the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
 	// the password key is `password`. the username defaults to `root` and is omitempty.
 	AuthSecret string `json:"authSecret,omitempty"`
+
+	// decommission be or not. default value is false.
+	// if true, will decommission be node when scale down compute group.
+	// if false, will drop be node when scale down compute group.
+	EnableDecommission bool `json:"enableDecommission,omitempty"`
 }
 
 type MetaService struct {
@@ -290,15 +295,12 @@ type Phase string
 
 const (
 	Ready Phase = "Ready"
-	//Upgrading represents the spec of the service changed, service in smoothing upgrade.
-	Upgrading Phase = "Upgrading"
-	//Failed represents service failed to start, can't be accessed.
-	Failed Phase = "Failed"
 	//Creating represents service in creating stage.
 	Reconciling Phase = "Reconciling"
 
 	//Scaling represents service in Scaling.
 	Scaling         Phase = "Scaling"
+	Decommissioning Phase = "Decommissioning"
 	ScaleDownFailed Phase = "ScaleDownFailed"
 	ResumeFailed    Phase = "ResumeFailed"
 	SuspendFailed   Phase = "SuspendFailed"
