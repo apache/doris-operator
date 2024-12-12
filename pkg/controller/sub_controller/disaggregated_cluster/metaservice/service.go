@@ -63,7 +63,7 @@ func (dms *DisaggregatedMSController) newMSServicePorts(config map[string]interf
 		{
 			Name:       resource.GetPortKey(resource.BRPC_LISTEN_PORT),
 			Port:       brpcPort,
-			TargetPort: intstr.FromInt(int(brpcPort)),
+			TargetPort: intstr.FromInt32(brpcPort),
 		},
 	}
 

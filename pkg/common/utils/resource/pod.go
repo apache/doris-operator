@@ -824,7 +824,7 @@ func getProbe(port int32, path string, commands []string, pt ProbeType) corev1.P
 func getTcpSocket(port int32) corev1.ProbeHandler {
 	return corev1.ProbeHandler{
 		TCPSocket: &corev1.TCPSocketAction{
-			Port: intstr.FromInt(int(port)),
+			Port: intstr.FromInt32(port),
 		},
 	}
 }
