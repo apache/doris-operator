@@ -130,6 +130,9 @@ func (dms *DisaggregatedMSController) Sync(ctx context.Context, obj client.Objec
 	st := dms.newStatefulset(ddc, confMap)
 	dms.initMSStatus(ddc)
 
+	dms.CheckSecretMountPath(ddc, ddc.Spec.MetaService.Secrets)
+	dms.CheckSecretExist(ctx, ddc, ddc.Spec.MetaService.Secrets)
+
 	event, err := dms.DefaultReconcileService(ctx, svc)
 	if err != nil {
 		if event != nil {

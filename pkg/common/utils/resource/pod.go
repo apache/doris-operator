@@ -131,7 +131,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	}
 
 	if len(spec.Secrets) != 0 {
-		secretVolumes, _ := getMultiSecretVolumeAndVolumeMount(spec, componentType)
+		secretVolumes, _ := getMultiSecretVolumeAndVolumeMountWithBaseSpec(spec, string(componentType))
 		volumes = append(volumes, secretVolumes...)
 	}
 
@@ -371,7 +371,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	}
 
 	if len(spec.Secrets) != 0 {
-		_, secretVolumeMounts := getMultiSecretVolumeAndVolumeMount(&spec, componentType)
+		_, secretVolumeMounts := getMultiSecretVolumeAndVolumeMountWithBaseSpec(&spec, string(componentType))
 		volumeMounts = append(volumeMounts, secretVolumeMounts...)
 	}
 
@@ -500,8 +500,31 @@ func buildEnvFromPod() []corev1.EnvVar {
 	}
 }
 
-func GetPodDefaultEnv() []corev1.EnvVar {
-	return buildEnvFromPod()
+func GetPodDefaultEnv(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
+	defaultEnvs := buildEnvFromPod()
+
+	if ddc.Spec.AdminUser != nil {
+		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+			Name:  ADMIN_USER,
+			Value: ddc.Spec.AdminUser.Name,
+		})
+		if ddc.Spec.AdminUser.Password != "" {
+			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+				Name:  ADMIN_PASSWD,
+				Value: ddc.Spec.AdminUser.Password,
+			})
+		}
+	} else {
+		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
+			Name:  ADMIN_USER,
+			Value: DEFAULT_ADMIN_USER,
+		}, {
+			Name:  DORIS_ROOT,
+			Value: DEFAULT_ROOT_PATH,
+		}}...)
+	}
+
+	return defaultEnvs
 }
 
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
@@ -689,30 +712,52 @@ func getMultiConfigVolumeAndVolumeMount(cmInfo *v1.ConfigMapInfo, componentType 
 	return volumes, volumeMounts
 }
 
-func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+func getMultiSecretVolumeAndVolumeMountWithBaseSpec(bSpec *v1.BaseSpec, componentType string) ([]corev1.Volume, []corev1.VolumeMount) {
+	return getMultiSecretVolumeAndVolumeMount(bSpec, nil, componentType)
+}
+
+func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec, componentType string) ([]corev1.Volume, []corev1.VolumeMount) {
+	return getMultiSecretVolumeAndVolumeMount(nil, cSpec, componentType)
+}
+
+func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, cSpec *dv1.CommonSpec, componentType string) ([]corev1.Volume, []corev1.VolumeMount) {
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
+	var mountPaths []string
+	var secretNames []string
+
+	if bSpec != nil && cSpec == nil {
+		for _, secret := range bSpec.Secrets {
+			mountPaths = append(mountPaths, secret.MountPath)
+			secretNames = append(secretNames, secret.SecretName)
+		}
+	} else if bSpec == nil && cSpec != nil {
+		for _, secret := range cSpec.Secrets {
+			mountPaths = append(mountPaths, secret.MountPath)
+			secretNames = append(secretNames, secret.SecretName)
+		}
+	}
 
 	defaultMountPath := ""
 	switch componentType {
-	case v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker:
+	case string(v1.Component_FE), string(v1.Component_BE), string(v1.Component_CN), string(v1.Component_Broker), string(dv1.DisaggregatedFE), string(dv1.DisaggregatedBE), string(dv1.DisaggregatedMS):
 		defaultMountPath = secret_config_path
 	default:
 		klog.Infof("getMultiSecretVolumeAndVolumeMount componentType %s not supported.", componentType)
 	}
 
-	for _, secret := range bSpec.Secrets {
-		path := secret.MountPath
-		if secret.MountPath == "" {
+	for i, mountPath := range mountPaths {
+		path := mountPath
+		if mountPath == "" {
 			path = defaultMountPath
 		}
 		volumes = append(
 			volumes,
 			corev1.Volume{
-				Name: secret.SecretName,
+				Name: secretNames[i],
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: secret.SecretName,
+						SecretName: secretNames[i],
 					},
 				},
 			},
@@ -721,7 +766,7 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 		volumeMounts = append(
 			volumeMounts,
 			corev1.VolumeMount{
-				Name:      secret.SecretName,
+				Name:      secretNames[i],
 				MountPath: path,
 			},
 		)

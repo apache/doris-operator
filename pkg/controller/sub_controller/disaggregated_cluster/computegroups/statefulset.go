@@ -42,6 +42,8 @@ const (
 	LogPathKey                           = "LOG_DIR"
 	LogStoreName                         = "be-log"
 	StorageStorePreName                  = "be-storage"
+	basic_auth_path                      = "/etc/basic_auth"
+	auth_volume_name                     = "basic-auth"
 )
 
 // generate statefulset or service labels
@@ -105,6 +107,22 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 
+	if ddc.Spec.AuthSecret != "" {
+		pts.Spec.Volumes = append(pts.Spec.Volumes, corev1.Volume{
+			Name: auth_volume_name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: ddc.Spec.AuthSecret,
+				},
+			},
+		})
+	}
+
+	if len(cg.Secrets) != 0 {
+		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec, string(dv1.DisaggregatedBE))
+		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
+	}
+
 	cgUniqueId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
 	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgUniqueId, pts.Spec.Affinity)
 
@@ -121,7 +139,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedBE)
 	c.Env = cg.CommonSpec.EnvVars
-	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
+	c.Env = append(c.Env, resource.GetPodDefaultEnv(ddc)...)
 	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg)...)
 
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
@@ -133,6 +151,20 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	} else {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
+
+	if len(cg.Secrets) != 0 {
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec, string(dv1.DisaggregatedBE))
+		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
+	}
+
+	// add basic auth secret volumeMount
+	if ddc.Spec.AuthSecret != "" {
+		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+			Name:      auth_volume_name,
+			MountPath: basic_auth_path,
+		})
+	}
+
 	return c
 }
 

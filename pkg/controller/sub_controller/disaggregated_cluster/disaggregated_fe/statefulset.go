@@ -116,6 +116,11 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 		})
 	}
 
+	if len(ddc.Spec.FeSpec.Secrets) != 0 {
+		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, string(v1.DisaggregatedFE))
+		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
+	}
+
 	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, labels[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
 
 	return pts
@@ -131,7 +136,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedFE)
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
-	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
+	c.Env = append(c.Env, resource.GetPodDefaultEnv(ddc)...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
 
 	if ddc.Spec.FeSpec.ElectionNumber != nil {
@@ -149,6 +154,11 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 		c.VolumeMounts = cmvms
 	} else {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
+	}
+
+	if len(ddc.Spec.FeSpec.Secrets) != 0 {
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, string(v1.DisaggregatedFE))
+		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
 	// add basic auth secret volumeMount

@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -229,6 +230,34 @@ func (d *DisaggregatedSubDefaultController) CheckMSConfigMountPath(dms *mv1.Dori
 			d.K8srecorder.Event(dms, string(EventWarning), string(ConfigMapPathRepeated), fmt.Sprintf("the mountPath %s is repeated between configmap: %s and configmap: %s.", path, cm.Name, m.Name))
 		}
 		mountsMap[path] = cm
+	}
+}
+
+// generate map for mountpath:secret
+func (d *DisaggregatedSubDefaultController) CheckSecretMountPath(ddc *v1.DorisDisaggregatedCluster, secrets []v1.Secret) {
+	var mountsMap = make(map[string]v1.Secret)
+	for _, secret := range secrets {
+		path := secret.MountPath
+		if s, exist := mountsMap[path]; exist {
+			klog.Errorf("CheckSecretMountPathWithDisaggregated error: the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName)
+			d.K8srecorder.Event(ddc, string(EventWarning), string(SecretPathRepeated), fmt.Sprintf("the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName))
+		}
+		mountsMap[path] = secret
+	}
+}
+
+// CheckSecretExist, check the secret exist or not in specify namespace.
+func (d *DisaggregatedSubDefaultController) CheckSecretExist(ctx context.Context, ddc *v1.DorisDisaggregatedCluster, secrets []v1.Secret) {
+	errMessage := ""
+	for _, secret := range secrets {
+		var s corev1.Secret
+		if getErr := d.K8sclient.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: secret.SecretName}, &s); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", secret.SecretName, ddc.Namespace, getErr.Error())
+		}
+	}
+	if errMessage != "" {
+		klog.Errorf("CheckSecretExistWithDisaggregated error: %s.", errMessage)
+		d.K8srecorder.Event(ddc, string(EventWarning), string(SecretNotExist), fmt.Sprintf("CheckSecretExistWithDisaggregated error: %s.", errMessage))
 	}
 }
 
