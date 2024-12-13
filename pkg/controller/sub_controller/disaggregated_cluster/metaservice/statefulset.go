@@ -109,7 +109,7 @@ func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 	pts.Spec.Affinity = dms.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, selector[v1.DorisDisaggregatedClusterName], ddc.Spec.MetaService.Affinity)
 
 	if len(ddc.Spec.MetaService.Secrets) != 0 {
-		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, string(v1.DisaggregatedMS))
+		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
 	}
 
@@ -216,7 +216,7 @@ func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedC
 	}
 
 	if len(ddc.Spec.MetaService.Secrets) != 0 {
-		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, string(v1.DisaggregatedMS))
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
