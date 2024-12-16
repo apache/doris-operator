@@ -20,6 +20,9 @@ package controller
 import (
 	"context"
 	"errors"
+	"os"
+	"time"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -34,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	controller_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 var (
