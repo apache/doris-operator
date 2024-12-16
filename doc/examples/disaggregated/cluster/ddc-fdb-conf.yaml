@@ -22,25 +22,15 @@ metadata:
 spec:
   metaService:
     image: selectdb/doris.ms-ubuntu:3.0.2
-    configMaps:
-      - name: ms-configmap
     fdb:
+      # fdb endpoint from fdb configmap by fdb-kubernetes-operator deployment
       configMapNamespaceName:
         name: ${fdb-configmap}
         namespace: ${fdb-namespace}
   feSpec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2
-    configMaps:
-      - name: fe-configmap
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      configMaps:
-        - name: be-configmap
-      image: selectdb/doris.be-ubuntu:3.0.2
-    - uniqueId: cg2
-      replicas: 3
-      configMaps:
-        - name: be-configmap
       image: selectdb/doris.be-ubuntu:3.0.2

@@ -20,27 +20,20 @@ kind: DorisDisaggregatedCluster
 metadata:
   name: test-disaggregated-cluster
 spec:
+  # enableDecommission default is false, when set true, the cluster will be decommissioned.
+  # Otherwise be will drop in cg
+  enableDecommission: true
   metaService:
     image: selectdb/doris.ms-ubuntu:3.0.2
-    configMaps:
-      - name: ms-configmap
     fdb:
       configMapNamespaceName:
-        name: ${fdb-configmap}
-        namespace: ${fdb-namespace}
+        name: test-cluster-config
+        namespace: default
   feSpec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2
-    configMaps:
-      - name: fe-configmap
   computeGroups:
     - uniqueId: cg1
-      replicas: 3
-      configMaps:
-        - name: be-configmap
-      image: selectdb/doris.be-ubuntu:3.0.2
-    - uniqueId: cg2
-      replicas: 3
-      configMaps:
-        - name: be-configmap
+#      replicas: 3  (replicas before is 3)
+      replicas: 1
       image: selectdb/doris.be-ubuntu:3.0.2

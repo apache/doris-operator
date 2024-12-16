@@ -22,25 +22,36 @@ metadata:
 spec:
   metaService:
     image: selectdb/doris.ms-ubuntu:3.0.2
-    configMaps:
-      - name: ms-configmap
     fdb:
       configMapNamespaceName:
-        name: ${fdb-configmap}
-        namespace: ${fdb-namespace}
+        name: test-cluster-config
+        namespace: default
   feSpec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2
-    configMaps:
-      - name: fe-configmap
+    service:
+      type: NodePort
+      portMaps:
+        - nodePort: 31001
+          targetPort: 8030
+        - nodePort: 31002
+          targetPort: 9020
+        - nodePort: 31003
+          targetPort: 9030
+        - nodePort: 31004
+          targetPort: 9010
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      configMaps:
-        - name: be-configmap
       image: selectdb/doris.be-ubuntu:3.0.2
-    - uniqueId: cg2
-      replicas: 3
-      configMaps:
-        - name: be-configmap
-      image: selectdb/doris.be-ubuntu:3.0.2
+      service:
+        type: NodePort
+        portMaps:
+          - nodePort: 31011
+            targetPort: 9060
+          - nodePort: 31012
+            targetPort: 8040
+          - nodePort: 31013
+            targetPort: 9050
+          - nodePort: 31014
+            targetPort: 8060

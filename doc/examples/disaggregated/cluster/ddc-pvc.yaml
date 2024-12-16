@@ -33,14 +33,15 @@ spec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2
     persistentVolume:
-      # logNotStore: true
+      # logNotStore is true, will not create pv for fe log
+      logNotStore: true
       persistentVolumeClaimSpec:
       # storageClassName: ${storageclass_name}
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 100Gi
+            storage: 120Gi
   computeGroups:
     - uniqueId: cg1
       replicas: 3
@@ -53,7 +54,7 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: 100Gi
+              storage: 120Gi
     - uniqueId: cg2
       replicas: 3
       image: selectdb/doris.be-ubuntu:3.0.2
@@ -65,4 +66,4 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: 100Gi
+              storage: 120Gi

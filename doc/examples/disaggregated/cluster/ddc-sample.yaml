@@ -23,7 +23,6 @@ spec:
   metaService:
     image: selectdb/doris.ms-ubuntu:3.0.2
     fdb:
-      # address: ${fdb_endpoint}
       configMapNamespaceName:
         name: test-cluster-config
         namespace: default
