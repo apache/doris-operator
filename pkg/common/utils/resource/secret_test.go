@@ -14,23 +14,30 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package mysql
+package resource
 
 import (
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/jmoiron/sqlx"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
-var (
-	fakeDB    *sqlx.DB
-	mysqlMock sqlmock.Sqlmock
-)
-
-func newFakeDB() (*DB, error) {
-	mysqlDb, m, _ := sqlmock.New()
-	fakeDB = &sqlx.DB{
-		DB: mysqlDb,
+func Test_GetDorisLoginInformation(t *testing.T) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		Data: map[string][]byte{
+			"username": []byte("admin"),
+			"password": []byte("123456"),
+		},
 	}
-	mysqlMock = m
-	return &DB{DB: fakeDB}, nil
+	un, pd := GetDorisLoginInformation(secret)
+	if un != "admin" || pd != "123456" {
+		t.Errorf("getDorisLoginInformation failed.")
+	}
+}
+
+func Test_BuildDMSService(t *testing.T) {
+
 }

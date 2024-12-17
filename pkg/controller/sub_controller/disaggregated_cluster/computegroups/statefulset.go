@@ -113,7 +113,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 
 func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.Container {
 	c := resource.NewContainerWithCommonSpec(&cg.CommonSpec)
-	resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedBE))
+	c.Lifecycle = resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedBE))
 	cmd, args := sub.GetDisaggregatedCommand(dv1.DisaggregatedBE)
 	c.Command = cmd
 	c.Args = args

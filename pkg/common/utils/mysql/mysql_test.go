@@ -79,6 +79,28 @@ func Test_ShowBackends(t *testing.T) {
 	}
 }
 
+func TestDB_GetBackendsByCGName(t *testing.T) {
+	columns := []string{"BackendId", "Host", "HeartbeatPort", "BePort", "HttpPort", "BrpcPort", "ArrowFlightSqlPort", "LastStartTime",
+		"LastHeartbeat", "Alive", "SystemDecommissioned", "TabletNum", "DataUsedCapacity", "TrashUsedCapacity", "AvailCapacity", "TotalCapacity", "UsedPct", "MaxDiskUsedPct",
+		"RemoteUsedCapacity", "Tag", "ErrMsg", "Version", "Status", "HeartbeatFailureCounter", "NodeRole"}
+	values := []driver.Value{"10009", "doriscluster-sample-be-0.doriscluster-sample-be-internal.default.svc.cluster.local", 9050, 9060, 8040, 8060, -1, "2024-08-21 10:05:37",
+		"2024-08-22 08:29:46", true, false, 24, "0.000", "0.000", "74.619 GB", "439.037 GB", "83.00 %", "83.00 %", "0.000",
+		"{\"location\" : \"default\",\"compute_group_name\":\"test\"}", "", "doris-2.1.5-rc02-d5a02e095d", "{\"lastSuccessReportTabletsTime\":\"2024-08-22 08:29:09\",\"lastStreamLoadTime\":-1,\"isQueryDisabled\":false,\"isLoadDisabled\":false}",
+		0, "mix"}
+	mysql_db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Errorf("sqlmock new failed %s", err.Error())
+	}
+	mock.ExpectQuery("show backends").WillReturnRows(sqlmock.NewRows(columns).AddRows(values))
+	dorisdb := sqlx.NewDb(mysql_db, "mysql")
+	db := &DB{
+		DB: dorisdb,
+	}
+	defer db.Close()
+
+	db.GetBackendsByCGName("test")
+}
+
 func Test_DecommissionBE(t *testing.T) {
 	version := "doris-2.1.5-rc02-d5a02e095d"
 	startTime := "2024-08-21 10:05:37"
@@ -201,5 +223,40 @@ func Test_GetFollowers(t *testing.T) {
 	}
 	if len(fts) != 1 {
 		t.Errorf("get observers failed, not observer")
+	}
+}
+
+func Test_DropBE(t *testing.T) {
+	tests := [][]*Backend{
+		{
+			{
+				Host:          "test",
+				HeartbeatPort: 9050,
+			}, {
+				Host:          "test1",
+				HeartbeatPort: 9050,
+			},
+		},
+		{},
+	}
+
+	mysql_db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Errorf("sqlmock new failed %s", err.Error())
+	}
+	mock.ExpectExec("ALTER SYSTEM DROPP BACKEND").WillReturnResult(sqlmock.NewResult(1, 1))
+	dorisdb := sqlx.NewDb(mysql_db, "mysql")
+	db := &DB{
+		DB: dorisdb,
+	}
+	defer db.Close()
+
+	for i, test := range tests {
+		t.Run("test"+strconv.Itoa(i), func(t *testing.T) {
+			err = db.DropBE(test)
+			if err != nil {
+				t.Errorf("test decommission failed, err=%s", err.Error())
+			}
+		})
 	}
 }

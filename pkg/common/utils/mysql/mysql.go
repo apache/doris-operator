@@ -39,10 +39,6 @@ type DB struct {
 }
 
 func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
-	if cfg.Host == "mock" {
-		return newFakeDB()
-	}
-
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
