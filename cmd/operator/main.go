@@ -36,8 +36,6 @@ package main
 import (
 	"fmt"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-
-	//dmsv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/cmd/operator/conf"
 	"github.com/apache/doris-operator/pkg/common/utils/certificate"

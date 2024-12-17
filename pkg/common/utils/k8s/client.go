@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	mv1 "github.com/apache/doris-operator/api/disaggregated/meta_v1"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
@@ -295,22 +294,6 @@ func GetConfig(ctx context.Context, k8sclient client.Client, configMapInfo *dori
 	}
 	res, resolveErr := resource.ResolveConfigMaps(configMaps, componentType)
 	return res, utils.MergeError(err, resolveErr)
-}
-
-func GetDisaggregatedMetaServiceConfigMaps(ctx context.Context, k8scient client.Client, namespace string, cms []mv1.ConfigMap) ([]*corev1.ConfigMap, error) {
-	var configMaps []*corev1.ConfigMap
-	errMessage := ""
-	for _, cm := range cms {
-		var configMap corev1.ConfigMap
-		if getErr := k8scient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cm.Name}, &configMap); getErr != nil {
-			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", cm.Name, namespace, getErr.Error())
-		}
-		configMaps = append(configMaps, &configMap)
-	}
-	if errMessage != "" {
-		return configMaps, errors.New("Failed to get configmap: " + errMessage)
-	}
-	return configMaps, nil
 }
 
 // ApplyFoundationDBCluster apply FoundationDBCluster to apiserver.
