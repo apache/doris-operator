@@ -60,6 +60,18 @@ spec:
             type: object
           spec:
             properties:
+              adminUser:
+                description: administrator for register or drop component from fe
+                  cluster. adminUser for all component register and operator drop
+                  component.
+                properties:
+                  name:
+                    description: the user name for admin service's node.
+                    type: string
+                  password:
+                    description: password, login to doris db.
+                    type: string
+                type: object
               authSecret:
                 description: |-
                   the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
@@ -1512,6 +1524,20 @@ spec:
                         otherwise to an implementation-defined value.
                         More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                       type: object
+                    secrets:
+                      description: Multi Secret for pod.
+                      items:
+                        properties:
+                          mountPath:
+                            description: display the path of secret be mounted in
+                              pod.
+                            type: string
+                          secretName:
+                            description: specify the secret need to be mounted in
+                              deployed namespace.
+                            type: string
+                        type: object
+                      type: array
                     securityContext:
                       description: Security context for pod.
                       properties:
@@ -3259,6 +3285,19 @@ spec:
                       otherwise to an implementation-defined value.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
+                  secrets:
+                    description: Multi Secret for pod.
+                    items:
+                      properties:
+                        mountPath:
+                          description: display the path of secret be mounted in pod.
+                          type: string
+                        secretName:
+                          description: specify the secret need to be mounted in deployed
+                            namespace.
+                          type: string
+                      type: object
+                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
@@ -5006,6 +5045,19 @@ spec:
                       otherwise to an implementation-defined value.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
+                  secrets:
+                    description: Multi Secret for pod.
+                    items:
+                      properties:
+                        mountPath:
+                          description: display the path of secret be mounted in pod.
+                          type: string
+                        secretName:
+                          description: specify the secret need to be mounted in deployed
+                            namespace.
+                          type: string
+                      type: object
+                    type: array
                   securityContext:
                     description: Security context for pod.
                     properties:
