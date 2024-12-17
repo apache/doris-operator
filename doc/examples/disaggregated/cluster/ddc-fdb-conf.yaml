@@ -15,17 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM selectdb/base:latest
-
-RUN ln -s /usr/lib/jvm/jdk-17 /usr/lib/jvm/java
-
-ENV JAVA_HOME=/usr/lib/jvm/java
-
-ENV PATH=$PATH:$JAVA_HOME/bin:/opt/apache-doris/fe/bin
-
-COPY resource/selectdb-cloud-4.0-ubuntu/fe /opt/apache-doris/fe
-
-COPY resource/fe_disaggregated_* /opt/apache-doris/
-
-WORKDIR /opt/apache-doris
-
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: test-disaggregated-cluster
+spec:
+  metaService:
+    image: selectdb/doris.ms-ubuntu:3.0.2
+    fdb:
+      # fdb endpoint from fdb configmap by fdb-kubernetes-operator deployment
+      configMapNamespaceName:
+        name: ${fdb-configmap}
+        namespace: ${fdb-namespace}
+  feSpec:
+    replicas: 2
+    image: selectdb/doris.fe-ubuntu:3.0.2
+  computeGroups:
+    - uniqueId: cg1
+      replicas: 3
+      image: selectdb/doris.be-ubuntu:3.0.2

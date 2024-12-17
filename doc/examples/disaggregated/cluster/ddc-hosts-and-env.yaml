@@ -22,25 +22,33 @@ metadata:
 spec:
   metaService:
     image: selectdb/doris.ms-ubuntu:3.0.2
-    configMaps:
-      - name: ms-configmap
     fdb:
       configMapNamespaceName:
-        name: ${fdb-configmap}
-        namespace: ${fdb-namespace}
+        name: test-cluster-config
+        namespace: default
+    envVars:
+      - name: TZ
+        value: Asia/Shanghai
   feSpec:
     replicas: 2
     image: selectdb/doris.fe-ubuntu:3.0.2
-    configMaps:
-      - name: fe-configmap
+    envVars:
+      - name: TZ
+        value: Asia/Shanghai
+    hostAliases:
+    - ip: 127.0.134.10
+      hostnames:
+      - 'host001'
+      - 'host002'
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      configMaps:
-        - name: be-configmap
       image: selectdb/doris.be-ubuntu:3.0.2
-    - uniqueId: cg2
-      replicas: 3
-      configMaps:
-        - name: be-configmap
-      image: selectdb/doris.be-ubuntu:3.0.2
+      envVars:
+      - name: TZ
+        value: Asia/Shanghai
+      hostAliases:
+      - ip: 127.0.134.10
+        hostnames:
+        - 'host001'
+        - 'host002'

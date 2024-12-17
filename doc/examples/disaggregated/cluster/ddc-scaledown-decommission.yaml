@@ -1,4 +1,3 @@
-#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,8 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#
-
-DORIS_HOME=${DORIS_HOME:="/opt/apache-doris"}
-
-$DORIS_HOME/fe/bin/stop_fe.sh --grace
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: test-disaggregated-cluster
+spec:
+  # enableDecommission default is false, when set true, the cluster will be decommissioned.
+  # Otherwise be will drop in cg
+  enableDecommission: true
+  metaService:
+    image: selectdb/doris.ms-ubuntu:3.0.2
+    fdb:
+      configMapNamespaceName:
+        name: test-cluster-config
+        namespace: default
+  feSpec:
+    replicas: 2
+    image: selectdb/doris.fe-ubuntu:3.0.2
+  computeGroups:
+    - uniqueId: cg1
+#      replicas: 3  (replicas before is 3)
+      replicas: 1
+      image: selectdb/doris.be-ubuntu:3.0.2

@@ -1,4 +1,3 @@
-#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,9 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
-#get from env
-DORIS_HOME=${DORIS_HOME:="/opt/apache-doris"}
-
-$DORIS_HOME/ms/bin/stop.sh --$1
-
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: test-disaggregated-cluster
+spec:
+  metaService:
+    image: selectdb/doris.ms-ubuntu:3.0.2
+    fdb:
+      configMapNamespaceName:
+        name: test-cluster-config
+        namespace: default
+  feSpec:
+    replicas: 2
+    image: selectdb/doris.fe-ubuntu:3.0.2
+  computeGroups:
+    - uniqueId: cg1
+      replicas: 3
+      image: selectdb/doris.be-ubuntu:3.0.2
+# In the existing cg configuration, delete the corresponding configuration and apply it, doris-operator will automatically offline the cg
+#    - uniqueId: cg2
+#      replicas: 3
+#      image: selectdb/doris.be-ubuntu:3.0.2

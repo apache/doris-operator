@@ -1562,9 +1562,9 @@ spec:
                     items:
                       properties:
                         mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
+                          description: |-
+                            Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their mountPath can't be repeated.
                           type: string
                         secretName:
                           description: name of secret that needs to mount.
@@ -3363,9 +3363,9 @@ spec:
                     items:
                       properties:
                         mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
+                          description: |-
+                            Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their mountPath can't be repeated.
                           type: string
                         secretName:
                           description: name of secret that needs to mount.
@@ -5781,9 +5781,9 @@ spec:
                     items:
                       properties:
                         mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
+                          description: |-
+                            Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their mountPath can't be repeated.
                           type: string
                         secretName:
                           description: name of secret that needs to mount.
@@ -7582,9 +7582,9 @@ spec:
                     items:
                       properties:
                         mountPath:
-                          description: Current Secret Mount Path, default is "/etc/doris"
-                            If Secret belongs to the same Secrets, their MountPath
-                            can't be repeated.
+                          description: |-
+                            Current Secret Mount Path, default is "/etc/doris"
+                            If Secret belongs to the same Secrets, their mountPath can't be repeated.
                           type: string
                         secretName:
                           description: name of secret that needs to mount.
@@ -9930,6 +9930,12 @@ spec:
                   - uniqueId
                   type: object
                 type: array
+              enableDecommission:
+                description: |-
+                  decommission be or not. default value is false.
+                  if true, will decommission be node when scale down compute group.
+                  if false, will drop be node when scale down compute group.
+                type: boolean
               feSpec:
                 description: FeSpec describe the fe specification of doris disaggregated
                   cluster.
