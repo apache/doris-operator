@@ -258,6 +258,11 @@ func (dcgs *DisaggregatedComputeGroupsController) validateRegex(cgs []dv1.Comput
 // clear not configed cg resources, delete not configed cg status from ddc.status .
 func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
+
+	if !dcgs.feAvailable(ddc) {
+		return false, nil
+	}
+
 	var clearCGs []dv1.ComputeGroupStatus
 	var eCGs []dv1.ComputeGroupStatus
 
@@ -278,6 +283,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 	if err != nil {
 		klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
 		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+		return false, err
 	}
 	defer sqlClient.Close()
 

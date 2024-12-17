@@ -80,7 +80,6 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	mv helm-charts/doris-operator/crds/doris.selectdb.com_dorisclusters.yaml helm-charts/doris-operator/crds/doris.apache.com_dorisclusters.yaml
 	cat config/crd/bases/doris.selectdb.com_dorisclusters.yaml > config/crd/bases/crds.yaml
 	cat config/crd/bases/disaggregated.cluster.doris.com_dorisdisaggregatedclusters.yaml >> config/crd/bases/crds.yaml
-	#cat config/crd/bases/disaggregated.metaservice.doris.com_dorisdisaggregatedmetaservices.yaml >> config/crd/bases/crds.yaml
 
 
 .PHONY: generate
@@ -202,7 +201,6 @@ gen-tool: ## Download gen-crd-api-reference-docs locally if necessary.
 gen-api: gen-tool
 	$(GEN_DOCS) -api-dir "./api/doris/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/api.md"
 	$(GEN_DOCS) -api-dir "./api/disaggregated/v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_api.md"
-	#$(GEN_DOCS) -api-dir "./api/disaggregated/metaservice/meta_v1" -config "./hack/gen-api/config.json" -template-dir "./hack/gen-api/template" -out-file "doc/disaggregated_metaservice_api.md"
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.

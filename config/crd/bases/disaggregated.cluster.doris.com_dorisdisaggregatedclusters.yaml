@@ -1809,6 +1809,12 @@ spec:
                   - uniqueId
                   type: object
                 type: array
+              enableDecommission:
+                description: |-
+                  decommission be or not. default value is false.
+                  if true, will decommission be node when scale down compute group.
+                  if false, will drop be node when scale down compute group.
+                type: boolean
               feSpec:
                 description: FeSpec describe the fe specification of doris disaggregated
                   cluster.
