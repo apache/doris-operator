@@ -264,6 +264,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 		for _, cg := range ddc.Spec.ComputeGroups {
 			if cgs.UniqueId == cg.UniqueId {
 				eCGs = append(eCGs, ddc.Status.ComputeGroupStatuses[i])
+				break
 			}
 		}
 	}
