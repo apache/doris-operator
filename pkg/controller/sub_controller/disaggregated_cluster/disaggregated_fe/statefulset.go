@@ -123,7 +123,7 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 
 func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
-	resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(v1.DisaggregatedFE))
+	c.Lifecycle = resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(v1.DisaggregatedFE))
 	cmd, args := sub.GetDisaggregatedCommand(v1.DisaggregatedFE)
 	c.Command = cmd
 	c.Args = args

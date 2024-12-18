@@ -110,6 +110,7 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission
 
 func getOperationType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
 	//Should not check 'phase == dv1.Ready', because the default value of the state initialization is Reconciling in the new Reconcile
+	// *st.Spec.Replicas < *est.Spec.Replicas represents need initial scaleDown, it belongs to the start phase.
 	if *(st.Spec.Replicas) < *(est.Spec.Replicas) || phase == dv1.Decommissioning || phase == dv1.ScaleDownFailed {
 		return "scaleDown"
 	}
@@ -190,7 +191,6 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 }
 
 // isDecommissionProgressFinished check decommission status
-// if not start decommission or decommission succeed return true
 func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(masterDBClient *mysql.DB, cgName string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
 	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
 	if err != nil {

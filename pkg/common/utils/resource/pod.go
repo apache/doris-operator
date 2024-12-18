@@ -161,6 +161,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	return pts
 }
 
+// for disaggregated cluster.
 func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
 	var vs []corev1.Volume
 	si := cs.SystemInitialization
@@ -787,7 +788,7 @@ func lifeCycle(preStopScriptPath string) *corev1.Lifecycle {
 	}
 }
 
-func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) {
+func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) *corev1.Lifecycle {
 	if lc == nil {
 		lc = &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
@@ -797,7 +798,7 @@ func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) {
 			},
 		}
 
-		return
+		return lc
 	}
 
 	lc.PreStop = &corev1.LifecycleHandler{
@@ -805,6 +806,7 @@ func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) {
 			Command: []string{preStopScript},
 		},
 	}
+	return lc
 }
 
 // getProbe describe a health check.

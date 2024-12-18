@@ -18,7 +18,9 @@
 package resource
 
 import (
+	"fmt"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 )
 
@@ -35,5 +37,12 @@ func Test_BuildPVCAnnotations(t *testing.T) {
 	anno := buildPVCAnnotations(test)
 	if _, ok := anno[pvc_manager_annotation]; !ok {
 		t.Errorf("buildPVCAnnotations failed, not \"pvc_manager_annotation\" annotation.")
+	}
+}
+
+func Test_Result(t *testing.T) {
+	res := ctrl.Result{}
+	if res.IsZero() {
+		fmt.Println("test true")
 	}
 }

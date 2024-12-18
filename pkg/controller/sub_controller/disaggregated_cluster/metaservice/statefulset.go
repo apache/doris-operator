@@ -190,7 +190,7 @@ func (dms *DisaggregatedMSController) getLogPath(confMap map[string]interface{})
 func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedCluster, cvs map[string]interface{}) corev1.Container {
 	c := resource.NewContainerWithCommonSpec(&ddc.Spec.MetaService.CommonSpec)
 
-	resource.LifeCycleWithPreStopScript(c.Lifecycle, sc.GetDisaggregatedPreStopScript(v1.DisaggregatedMS))
+	c.Lifecycle = resource.LifeCycleWithPreStopScript(c.Lifecycle, sc.GetDisaggregatedPreStopScript(v1.DisaggregatedMS))
 	cmd, args := sc.GetDisaggregatedCommand(v1.DisaggregatedMS)
 	c.Command = cmd
 	c.Args = args
