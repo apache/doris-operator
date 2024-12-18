@@ -300,7 +300,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 	for i := range eCGs {
 		err = dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCGs[i])
 		if err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear whole ComputeGroup PVC failed, err=%s", err.Error())
+			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear ComputeGroup reduced replicas PVC failed, namespace=%s, ddc name=%s, uniqueId=%s err=%s", ddc.Namespace, ddc.Name, eCGs[i].UniqueId, err.Error())
 		}
 	}
 
@@ -311,7 +311,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 		}
 		err = dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, fakeCgs)
 		if err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController")
+			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear deleted compute group failed, namespace=%s, ddc name=%s, uniqueId=%s err=%s", ddc.Namespace, ddc.Name, uniqueId, err.Error())
 		}
 	}
 
@@ -401,7 +401,7 @@ func (dcgs *DisaggregatedComputeGroupsController) clearCGInDorisMeta(ctx context
 
 	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
 	if err != nil {
-		klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
+		klog.Errorf("DisaggregatedComputeGroupsController clearCGInDorisMeta dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
 		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
 		return err
 	}
@@ -413,7 +413,7 @@ func (dcgs *DisaggregatedComputeGroupsController) clearCGInDorisMeta(ctx context
 		cgName := strings.ReplaceAll(name, "-", "_")
 		err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, 0)
 		if err != nil {
-			klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
+			klog.Errorf("DisaggregatedComputeGroupsController clearCGInDorisMeta dropCGBySQLClient failed: %s", err.Error())
 			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
 			return err
 		}
