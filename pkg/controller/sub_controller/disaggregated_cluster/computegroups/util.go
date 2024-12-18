@@ -17,8 +17,36 @@
 
 package computegroups
 
+import (
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
 // regex
 var (
 	compute_group_name_regex = "[a-zA-Z](_?[0-9a-zA-Z])*"
 	compute_group_id_regex   = "[a-zA-Z](_?[0-9a-zA-Z])*"
 )
+
+func ownerReference2ddc(obj client.Object, cluster *dv1.DorisDisaggregatedCluster) bool {
+	if obj == nil {
+		return false
+	}
+
+	ors := obj.GetOwnerReferences()
+	for _, or := range ors {
+		if or.Name == cluster.Name && or.UID == cluster.UID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getUniqueIdFromClientObject(obj client.Object) string {
+	if obj == nil {
+		return ""
+	}
+	labels := obj.GetLabels()
+	return labels[dv1.DorisDisaggregatedComputeGroupUniqueId]
+}

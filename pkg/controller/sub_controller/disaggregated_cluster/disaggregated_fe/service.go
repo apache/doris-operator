@@ -31,7 +31,7 @@ func (dfc *DisaggregatedFEController) newService(ddc *dv1.DorisDisaggregatedClus
 	svc := dfc.NewDefaultService(ddc)
 	om := &svc.ObjectMeta
 	om.Name = ddc.GetFEServiceName()
-	om.Labels = dfc.newFESchedulerLabels(ddc.Namespace)
+	om.Labels = dfc.newFESchedulerLabels(ddc.Name)
 
 	spec := &svc.Spec
 	spec.Selector = dfc.newFEPodsSelector(ddc.Name)
