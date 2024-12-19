@@ -46,13 +46,17 @@ const (
 
 // generate statefulset or service labels
 func (dcgs *DisaggregatedComputeGroupsController) newCG2LayerSchedulerLabels(ddcName /*DisaggregatedClusterName*/, uniqueId string) map[string]string {
-	return map[string]string{
-		dv1.DorisDisaggregatedClusterName:          ddcName,
-		dv1.DorisDisaggregatedComputeGroupUniqueId: uniqueId,
-		dv1.DorisDisaggregatedOwnerReference:       ddcName,
-	}
+	labels := dcgs.GetCG2LayerCommonSchedulerLabels(ddcName)
+	labels[dv1.DorisDisaggregatedComputeGroupUniqueId] = uniqueId
+	return labels
 }
 
+func (dcgs *DisaggregatedComputeGroupsController) GetCG2LayerCommonSchedulerLabels(ddcName string) map[string]string {
+	return map[string]string{
+		dv1.DorisDisaggregatedClusterName:    ddcName,
+		dv1.DorisDisaggregatedOwnerReference: ddcName,
+	}
+}
 func (dcgs *DisaggregatedComputeGroupsController) newCGPodsSelector(ddcName /*DisaggregatedClusterName*/, uniqueId string) map[string]string {
 	return map[string]string{
 		dv1.DorisDisaggregatedClusterName:          ddcName,

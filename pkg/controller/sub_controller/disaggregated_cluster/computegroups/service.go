@@ -32,7 +32,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newService(ddc *dv1.DorisDisag
 
 	ob := &svc.ObjectMeta
 	ob.Name = ddc.GetCGServiceName(cg)
-	ob.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Namespace, uniqueId)
+	ob.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Name, uniqueId)
 
 	spec := &svc.Spec
 	spec.Selector = dcgs.newCGPodsSelector(ddc.Name, uniqueId)

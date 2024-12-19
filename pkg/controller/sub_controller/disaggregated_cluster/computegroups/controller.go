@@ -259,79 +259,220 @@ func (dcgs *DisaggregatedComputeGroupsController) validateRegex(cgs []dv1.Comput
 func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
 	ddc := obj.(*dv1.DorisDisaggregatedCluster)
 
-	if !dcgs.feAvailable(ddc) {
-		return false, nil
-	}
-
-	var clearCGs []dv1.ComputeGroupStatus
 	var eCGs []dv1.ComputeGroupStatus
-
 	for i, cgs := range ddc.Status.ComputeGroupStatuses {
 		for _, cg := range ddc.Spec.ComputeGroups {
 			if cgs.UniqueId == cg.UniqueId {
 				eCGs = append(eCGs, ddc.Status.ComputeGroupStatuses[i])
-				goto NoNeedAppend
+				break
 			}
 		}
-
-		clearCGs = append(clearCGs, ddc.Status.ComputeGroupStatuses[i])
-		// no need clear should not append.
-	NoNeedAppend:
 	}
 
-	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
+	//list the svcs and stss owner reference to dorisDisaggregatedCluster.
+	cls := dcgs.GetCG2LayerCommonSchedulerLabels(ddc.Name)
+	svcs, err := k8s.ListServicesInNamespace(ctx, dcgs.K8sclient, ddc.Namespace, cls)
 	if err != nil {
-		klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
-		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+		klog.Errorf("DisaggregatedComputeGroupsController ListServicesInNamespace failed, dorisdisaggregatedcluster name=%s", ddc.Name)
 		return false, err
 	}
-	defer sqlClient.Close()
-
-	for i := range clearCGs {
-		cgs := clearCGs[i]
-		cleared := true
-		if err := k8s.DeleteStatefulset(ctx, dcgs.K8sclient, ddc.Namespace, cgs.StatefulsetName); err != nil {
-			cleared = false
-			klog.Errorf("disaggregatedComputeGroupsController delete statefulset namespace %s name %s failed, err=%s", ddc.Namespace, cgs.StatefulsetName, err.Error())
-			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGStatefulsetDeleteFailed), err.Error())
-		}
-
-		if err := k8s.DeleteService(ctx, dcgs.K8sclient, ddc.Namespace, cgs.ServiceName); err != nil {
-			cleared = false
-			klog.Errorf("disaggregatedComputeGroupsController delete service namespace %s name %s failed, err=%s", ddc.Namespace, cgs.ServiceName, err.Error())
-			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGServiceDeleteFailed), err.Error())
-		}
-		if !cleared {
-			eCGs = append(eCGs, clearCGs[i])
-			continue
-		}
-		// drop compute group
-		cgName := strings.ReplaceAll(cgs.UniqueId, "_", "-")
-		cgKeepAmount := int32(0)
-		err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
-		if err != nil {
-			klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
-			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
-		}
-
+	stss, err := k8s.ListStatefulsetInNamespace(ctx, dcgs.K8sclient, ddc.Namespace, cls)
+	if err != nil {
+		klog.Errorf("DisaggregatedComputeGroupsController ListStatefulsetInNamespace failed, dorisdisaggregatedcluster name=%s", ddc.Name)
+		return false, err
 	}
 
+	//clear unused service and statefulset.
+	delSvcNames := dcgs.findUnusedSvcs(svcs, ddc)
+	delStsNames, delUniqueIds := dcgs.findUnusedStssAndUniqueIds(stss, ddc)
+
+	if err = dcgs.clearCGInDorisMeta(ctx, delUniqueIds, ddc); err != nil {
+		return false, err
+	}
+	if err = dcgs.clearSvcs(ctx, delSvcNames, ddc); err != nil {
+		return false, err
+	}
+	if err = dcgs.clearStatefulsets(ctx, delStsNames, ddc); err != nil {
+		return false, err
+	}
+
+	//clear unused pvc
 	for i := range eCGs {
-		err := dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCGs[i])
+		err = dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCGs[i])
 		if err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear whole ComputeGroup PVC failed, err=%s", err.Error())
+			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear ComputeGroup reduced replicas PVC failed, namespace=%s, ddc name=%s, uniqueId=%s err=%s", ddc.Namespace, ddc.Name, eCGs[i].UniqueId, err.Error())
 		}
 	}
-	for i := range clearCGs {
-		err := dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, clearCGs[i])
+
+	for _, uniqueId := range delUniqueIds {
+		//new fake computeGroup status for clear all pvcs owner reference to deleted compute group.
+		fakeCgs := dv1.ComputeGroupStatus{
+			UniqueId: uniqueId,
+		}
+		err = dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, fakeCgs)
 		if err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear part ComputeGroup PVC failed, err=%s", err.Error())
+			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear deleted compute group failed, namespace=%s, ddc name=%s, uniqueId=%s err=%s", ddc.Namespace, ddc.Name, uniqueId, err.Error())
 		}
 	}
 
 	ddc.Status.ComputeGroupStatuses = eCGs
-
 	return true, nil
+
+	//TODO: next pr remove the code
+	//sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
+	//if err != nil {
+	//	klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
+	//	dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+	//	return false, err
+	//}
+	//defer sqlClient.Close()
+	//
+	//for i := range clearCGs {
+	//	cgs := clearCGs[i]
+	//	cleared := true
+	//	if err := k8s.DeleteStatefulset(ctx, dcgs.K8sclient, ddc.Namespace, cgs.StatefulsetName); err != nil {
+	//		cleared = false
+	//		klog.Errorf("disaggregatedComputeGroupsController delete statefulset namespace %s name %s failed, err=%s", ddc.Namespace, cgs.StatefulsetName, err.Error())
+	//		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGStatefulsetDeleteFailed), err.Error())
+	//	}
+	//
+	//	if err := k8s.DeleteService(ctx, dcgs.K8sclient, ddc.Namespace, cgs.ServiceName); err != nil {
+	//		cleared = false
+	//		klog.Errorf("disaggregatedComputeGroupsController delete service namespace %s name %s failed, err=%s", ddc.Namespace, cgs.ServiceName, err.Error())
+	//		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGServiceDeleteFailed), err.Error())
+	//	}
+	//	if !cleared {
+	//		eCGs = append(eCGs, clearCGs[i])
+	//		continue
+	//	}
+	//	// drop compute group
+	//	cgName := strings.ReplaceAll(cgs.UniqueId, "_", "-")
+	//	cgKeepAmount := int32(0)
+	//	err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
+	//	if err != nil {
+	//		klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
+	//		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+	//	}
+	//
+	//}
+	//
+	//for i := range eCGs {
+	//	err := dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCGs[i])
+	//	if err != nil {
+	//		klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear whole ComputeGroup PVC failed, err=%s", err.Error())
+	//	}
+	//}
+	//for i := range clearCGs {
+	//	err := dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, clearCGs[i])
+	//	if err != nil {
+	//		klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear part ComputeGroup PVC failed, err=%s", err.Error())
+	//	}
+	//}
+	//
+	//ddc.Status.ComputeGroupStatuses = eCGs
+	//
+	//return true, nil
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) clearStatefulsets(ctx context.Context, stsNames []string, ddc *dv1.DorisDisaggregatedCluster) error {
+	for _, name := range stsNames {
+		if err := k8s.DeleteStatefulset(ctx, dcgs.K8sclient, ddc.Namespace, name); err != nil {
+			klog.Errorf("DisaggregatedComputeGroupsController clear statefulset failed, namespace=%s, name =%s, err=%s", ddc.Namespace, name, err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) clearSvcs(ctx context.Context, svcNames []string, ddc *dv1.DorisDisaggregatedCluster) error {
+	for _, name := range svcNames {
+		if err := k8s.DeleteService(ctx, dcgs.K8sclient, ddc.Namespace, name); err != nil {
+			klog.Errorf("DisaggregatedComputeGroupsController clear service failed, namespace=%s, name =%s, err=%s", ddc.Namespace, name, err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) clearCGInDorisMeta(ctx context.Context, cgNames []string, ddc *dv1.DorisDisaggregatedCluster) error {
+    if len(cgNames) == 0 {
+        return nil
+    }
+
+	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
+	if err != nil {
+		klog.Errorf("DisaggregatedComputeGroupsController clearCGInDorisMeta dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
+		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+		return err
+	}
+	defer sqlClient.Close()
+
+	for _, name := range cgNames {
+		//clear cg, the keepAmount = 0
+		//confirm used the right cgName, as the cgName get from the uniqueid that '-' replaced by '_'.
+		cgName := strings.ReplaceAll(name, "-", "_")
+		err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, 0)
+		if err != nil {
+			klog.Errorf("DisaggregatedComputeGroupsController clearCGInDorisMeta dropCGBySQLClient failed: %s", err.Error())
+			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) findUnusedSvcs(svcs []corev1.Service, ddc *dv1.DorisDisaggregatedCluster) []string {
+	var unusedSvcNames []string
+	for i, _ := range svcs {
+		own := ownerReference2ddc(&svcs[i], ddc)
+		if !own {
+			//not owner reference to ddc, should skip the service.
+			continue
+		}
+
+		svcUniqueId := getUniqueIdFromClientObject(&svcs[i])
+		exist := false
+		for j := 0; j < len(ddc.Spec.ComputeGroups); j++ {
+			if ddc.Spec.ComputeGroups[j].UniqueId == svcUniqueId {
+				exist = true
+				break
+			}
+		}
+
+		if !exist {
+			unusedSvcNames = append(unusedSvcNames, svcs[i].Name)
+		}
+	}
+
+	return unusedSvcNames
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) findUnusedStssAndUniqueIds(stss []appv1.StatefulSet, ddc *dv1.DorisDisaggregatedCluster) ([]string /*sts*/, []string /*cgNames*/) {
+	var unusedStsNames []string
+	var unusedUniqueIds []string
+	for i, _ := range stss {
+		own := ownerReference2ddc(&stss[i], ddc)
+		if !own {
+			//not owner reference tto ddc should skip the statefulset.
+			continue
+		}
+
+		stsUniqueId := getUniqueIdFromClientObject(&stss[i])
+		exist := false
+		for j := 0; j < len(ddc.Spec.ComputeGroups); j++ {
+			if ddc.Spec.ComputeGroups[j].UniqueId == stsUniqueId {
+				exist = true
+				break
+			}
+		}
+		if !exist {
+			unusedStsNames = append(unusedStsNames, stss[i].Name)
+			unusedUniqueIds = append(unusedUniqueIds, stsUniqueId)
+		}
+	}
+
+	return unusedStsNames, unusedUniqueIds
 }
 
 // ClearStatefulsetUnusedPVCs
@@ -365,8 +506,17 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 	}
 
 	if cg != nil {
-		replicas := int(*cg.Replicas)
+        //we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
+		replicas := 0
 		stsName := ddc.GetCGStatefulsetName(cg)
+        sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
+		if err != nil {
+			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs get statefulset namespace=%s, name=%s, failed, err=%s", ddc.Namespace, stsName, err.Error())
+			//waiting next reconciling.
+			return nil
+		}
+		replicas = int(*sts.Spec.Replicas)
+
 		cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 		paths, _ := dcgs.getCacheMaxSizeAndPaths(cvs)
 
