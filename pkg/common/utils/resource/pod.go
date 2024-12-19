@@ -501,8 +501,31 @@ func buildEnvFromPod() []corev1.EnvVar {
 	}
 }
 
-func GetPodDefaultEnv() []corev1.EnvVar {
-	return buildEnvFromPod()
+func GetPodDefaultEnv(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
+	defaultEnvs := buildEnvFromPod()
+
+	if ddc.Spec.AdminUser != nil {
+		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+			Name:  ADMIN_USER,
+			Value: ddc.Spec.AdminUser.Name,
+		})
+		if ddc.Spec.AdminUser.Password != "" {
+			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
+				Name:  ADMIN_PASSWD,
+				Value: ddc.Spec.AdminUser.Password,
+			})
+		}
+	} else {
+		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
+			Name:  ADMIN_USER,
+			Value: DEFAULT_ADMIN_USER,
+		}, {
+			Name:  DORIS_ROOT,
+			Value: DEFAULT_ROOT_PATH,
+		}}...)
+	}
+
+	return defaultEnvs
 }
 
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
@@ -703,6 +726,46 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 	}
 
 	for _, secret := range bSpec.Secrets {
+		path := secret.MountPath
+		if secret.MountPath == "" {
+			path = defaultMountPath
+		}
+		volumes = append(
+			volumes,
+			corev1.Volume{
+				Name: secret.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret.SecretName,
+					},
+				},
+			},
+		)
+
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      secret.SecretName,
+				MountPath: path,
+			},
+		)
+	}
+	return volumes, volumeMounts
+}
+
+func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
+
+	defaultMountPath := ""
+	switch componentType {
+	case dv1.DisaggregatedFE, dv1.DisaggregatedBE, dv1.DisaggregatedMS:
+		defaultMountPath = secret_config_path
+	default:
+		klog.Infof("GetMultiSecretVolumeAndVolumeMountWithCommonSpec componentType %s not supported.", componentType)
+	}
+
+	for _, secret := range cSpec.Secrets {
 		path := secret.MountPath
 		if secret.MountPath == "" {
 			path = defaultMountPath

@@ -63,6 +63,9 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return nil
 	}
 
+	dfc.CheckSecretMountPath(ddc, ddc.Spec.FeSpec.Secrets)
+	dfc.CheckSecretExist(ctx, ddc, ddc.Spec.FeSpec.Secrets)
+
 	if ddc.Spec.FeSpec.Replicas == nil {
 		klog.Errorf("disaggregatedFEController sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe replicas is nil and has been corrected to the default value %d", ddc.Namespace, ddc.Name, v1.DefaultFeReplicaNumber)
 		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.FESpecSetError), "The number of disaggregated fe replicas is nil and has been corrected to the default value 2")
