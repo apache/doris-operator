@@ -744,11 +744,17 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 	return volumes, volumeMounts
 }
 
-func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount) {
+func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 
-	defaultMountPath := secret_config_path
+	defaultMountPath := ""
+	switch componentType {
+	case dv1.DisaggregatedFE, dv1.DisaggregatedBE, dv1.DisaggregatedMS:
+		defaultMountPath = secret_config_path
+	default:
+		klog.Infof("GetMultiSecretVolumeAndVolumeMountWithCommonSpec componentType %s not supported.", componentType)
+	}
 
 	for _, secret := range cSpec.Secrets {
 		path := secret.MountPath
