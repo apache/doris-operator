@@ -117,7 +117,7 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 	}
 
 	if len(ddc.Spec.FeSpec.Secrets) != 0 {
-		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
+		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
 		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
 	}
 
@@ -157,7 +157,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	}
 
 	if len(ddc.Spec.FeSpec.Secrets) != 0 {
-		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
 		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
