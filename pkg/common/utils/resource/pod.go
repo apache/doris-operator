@@ -514,14 +514,6 @@ func GetPodDefaultEnv(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
 				Value: ddc.Spec.AdminUser.Password,
 			})
 		}
-	} else {
-		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{{
-			Name:  ADMIN_USER,
-			Value: DEFAULT_ADMIN_USER,
-		}, {
-			Name:  DORIS_ROOT,
-			Value: DEFAULT_ROOT_PATH,
-		}}...)
 	}
 
 	return defaultEnvs
@@ -752,17 +744,11 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 	return volumes, volumeMounts
 }
 
-func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount) {
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 
-	defaultMountPath := ""
-	switch componentType {
-	case dv1.DisaggregatedFE, dv1.DisaggregatedBE, dv1.DisaggregatedMS:
-		defaultMountPath = secret_config_path
-	default:
-		klog.Infof("GetMultiSecretVolumeAndVolumeMountWithCommonSpec componentType %s not supported.", componentType)
-	}
+	defaultMountPath := secret_config_path
 
 	for _, secret := range cSpec.Secrets {
 		path := secret.MountPath

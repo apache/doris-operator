@@ -20,6 +20,7 @@ package sub_controller
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/metadata"

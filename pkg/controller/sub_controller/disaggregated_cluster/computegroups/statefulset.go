@@ -119,7 +119,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	}
 
 	if len(cg.Secrets) != 0 {
-		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec, dv1.DisaggregatedBE)
+		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec)
 		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
 	}
 
@@ -153,7 +153,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	}
 
 	if len(cg.Secrets) != 0 {
-		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec, dv1.DisaggregatedBE)
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec)
 		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
