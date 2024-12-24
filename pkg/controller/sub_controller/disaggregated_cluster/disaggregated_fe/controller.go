@@ -374,7 +374,7 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 			return nil
 		}
 	}
-	observes := mysql.FindNeedDeletedFrontends(frontendMap, needRemovedAmount)
+	observes := mysql.FindNeedDeletedObservers(frontendMap, needRemovedAmount)
 	// drop node and return
 	return masterDBClient.DropObserver(observes)
 }

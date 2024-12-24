@@ -36,6 +36,7 @@ package controller
 import (
 	"context"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
 	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
@@ -150,7 +151,27 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	//if dcr has updated by doris operator, should update it in apiserver. if not ignore it.
+	if err = r.revertDorisClusterSomeFields(ctx, &edcr, dcr); err != nil {
+		klog.Errorf("DorisClusterReconciler updateDorisClusterToOld update dorisCluster namespace=%s, name=%s failed, err=%s", dcr.Namespace, dcr.Name, err.Error())
+		return requeueIfError(err)
+	}
+
 	return r.updateDorisClusterStatus(ctx, dcr)
+}
+
+//if cluster spec be reverted, doris operator should revert to old.
+//this action is not good, but this will be a good shield for scale down of fe.
+func(r *DorisClusterReconciler) revertDorisClusterSomeFields(ctx context.Context, getDcr, updatedDcr *dorisv1.DorisCluster) error {
+	if *getDcr.Spec.FeSpec.Replicas != *updatedDcr.Spec.FeSpec.Replicas {
+		return k8s.ApplyDorisCluster(ctx, r.Client, updatedDcr)
+	}
+
+	return nil
+}
+
+func(r *DorisClusterReconciler) updateDorisCluster(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	return k8s.ApplyDorisCluster(ctx, r.Client, dcr)
 }
 
 func (r *DorisClusterReconciler) clearNoEffectResources(context context.Context, cluster *dorisv1.DorisCluster) {
