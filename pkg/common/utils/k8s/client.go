@@ -110,6 +110,15 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 	return err
 }
 
+func ApplyDorisCluster(ctx context.Context, k8sclient client.Client, dcr *dorisv1.DorisCluster) error {
+	err := PatchClientObject(ctx, k8sclient, dcr)
+	if err == nil || apierrors.IsConflict(err) {
+		return nil
+	}
+
+	return err
+}
+
 func GetStatefulSet(ctx context.Context, k8sclient client.Client, namespace, name string) (*appv1.StatefulSet, error) {
 	var est appv1.StatefulSet
 	err := k8sclient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &est)

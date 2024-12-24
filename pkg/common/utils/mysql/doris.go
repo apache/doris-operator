@@ -111,7 +111,7 @@ func BuildSeqNumberToFrontendMap(frontends []*Frontend, ipMap map[string]string,
 }
 
 // FindNeedDeletedFrontends means descending sort fe by index and return top needRemovedAmount
-func FindNeedDeletedFrontends(frontendMap map[int]*Frontend, needRemovedAmount int32) []*Frontend {
+func FindNeedDeletedObservers(frontendMap map[int]*Frontend, needRemovedAmount int32) []*Frontend {
 	var topFrontends []*Frontend
 	if int(needRemovedAmount) <= len(frontendMap) {
 		keys := make([]int, 0, len(frontendMap))

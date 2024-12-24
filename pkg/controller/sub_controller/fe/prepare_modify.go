@@ -44,13 +44,7 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
 	}
 
-	ele := cluster.GetElectionNumber()
-
-	if *(cluster.Spec.FeSpec.Replicas) < ele {
-		fc.K8srecorder.Event(cluster, string(sc.EventWarning), string(sc.FESpecSetError), "The number of fe ElectionNumber is large than Replicas, Replicas has been corrected to the correct minimum value")
-		klog.Errorf("prepareStatefulsetApply namespace=%s,name=%s ,The number of fe ElectionNumber(%d) is large than Replicas(%d)", cluster.Namespace, cluster.Name, ele, *(cluster.Spec.FeSpec.Replicas))
-		cluster.Spec.FeSpec.Replicas = &ele
-	}
+	fc.safeScaleDown(cluster, &oldSt)
 
 	// wroa means: oldReplicas - newReplicas, the opposite of removedAmount, willRemovedOppositeAmount shortly as wroa
 	wroa := *(cluster.Spec.FeSpec.Replicas) - *(oldSt.Spec.Replicas)
@@ -76,6 +70,32 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 	return nil
 }
 
+func (fc *Controller) safeScaleDown(cluster *v1.DorisCluster, ost *appv1.StatefulSet) {
+	ele := cluster.GetElectionNumber()
+	nr := *cluster.Spec.FeSpec.Replicas
+	or := *ost.Spec.Replicas
+	//if not scale down do nothing.
+	if nr >= or {
+		return
+	}
+
+	//if scale down observers,(replicas > election number), be allowed.
+	if nr >= ele {
+		return
+	}
+
+	if or >= ele {
+		// if the scale down nodes have observer and follower roles, scale down observers.
+		*cluster.Spec.FeSpec.Replicas = ele
+		fc.K8srecorder.Event(cluster,string(sc.EventWarning), sc.FollowerScaleDownFailed,"Replicas is not allowed less than ElectionNumber, because of the bdbje (like raft) consistency protocol, if want do that please set ElectionNumber less than replicas. like that \"spec:{feSpec:{electionNumber}}\"")
+	} else {
+		//if the scale down nodes only have followers, not be allowed.
+		*cluster.Spec.FeSpec.Replicas =or
+		fc.K8srecorder.Event(cluster,string(sc.EventWarning), sc.FollowerScaleDownFailed,"Replicas less than electionNumber, so not allowed scale down. This is because the bdbje(like raft) consistency protocol, if want do that please set ElectionNumber less than replicas. like that \"spec:{feSpec:{electionNumber}}\"")
+	}
+
+	return
+}
 // dropObserverBySqlClient handles doris'SQL(drop frontend) through the MySQL client when dealing with scale in observer
 // targetDCR is new dcr
 func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient client.Client, targetDCR *v1.DorisCluster) error {
@@ -150,7 +170,7 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 			return nil
 		}
 	}
-	observes := mysql.FindNeedDeletedFrontends(frontendMap, needRemovedAmount)
+	observes := mysql.FindNeedDeletedObservers(frontendMap, needRemovedAmount)
 	// drop node and return
 	return masterDBClient.DropObserver(observes)
 
