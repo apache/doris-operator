@@ -360,16 +360,10 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 
 	// add user and password envs
 	if ddc.Spec.AdminUser != nil {
-		cgEnvs = append(cgEnvs, corev1.EnvVar{
-			Name:  resource.ADMIN_USER,
-			Value: ddc.Spec.AdminUser.Name,
-		})
-		if ddc.Spec.AdminUser.Password != "" {
-			cgEnvs = append(cgEnvs, corev1.EnvVar{
-				Name:  resource.ADMIN_PASSWD,
-				Value: ddc.Spec.AdminUser.Password,
-			})
-		}
+		cgEnvs = append(cgEnvs,
+			corev1.EnvVar{Name: resource.ADMIN_USER, Value: ddc.Spec.AdminUser.Name},
+			corev1.EnvVar{Name: resource.ADMIN_PASSWD, Value: ddc.Spec.AdminUser.Password},
+		)
 	}
 
 	return cgEnvs

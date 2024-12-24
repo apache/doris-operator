@@ -313,16 +313,10 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 
 	// add user and password envs
 	if ddc.Spec.AdminUser != nil {
-		feEnvs = append(feEnvs, corev1.EnvVar{
-			Name:  resource.ADMIN_USER,
-			Value: ddc.Spec.AdminUser.Name,
-		})
-		if ddc.Spec.AdminUser.Password != "" {
-			feEnvs = append(feEnvs, corev1.EnvVar{
-				Name:  resource.ADMIN_PASSWD,
-				Value: ddc.Spec.AdminUser.Password,
-			})
-		}
+		feEnvs = append(feEnvs,
+			corev1.EnvVar{Name: resource.ADMIN_USER, Value: ddc.Spec.AdminUser.Name},
+			corev1.EnvVar{Name: resource.ADMIN_PASSWD, Value: ddc.Spec.AdminUser.Password},
+		)
 	}
 
 	return feEnvs
