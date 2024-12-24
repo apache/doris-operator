@@ -730,6 +730,40 @@ func getMultiSecretVolumeAndVolumeMount(bSpec *v1.BaseSpec, componentType v1.Com
 	return volumes, volumeMounts
 }
 
+func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var volumeMounts []corev1.VolumeMount
+
+	defaultMountPath := secret_config_path
+
+	for _, secret := range cSpec.Secrets {
+		path := secret.MountPath
+		if secret.MountPath == "" {
+			path = defaultMountPath
+		}
+		volumes = append(
+			volumes,
+			corev1.Volume{
+				Name: secret.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret.SecretName,
+					},
+				},
+			},
+		)
+
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      secret.SecretName,
+				MountPath: path,
+			},
+		)
+	}
+	return volumes, volumeMounts
+}
+
 func LivenessProbe(port, timeout int32, path string, commands []string, pt ProbeType) *corev1.Probe {
 	return livenessProbe(port, timeout, path, commands, pt)
 }

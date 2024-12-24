@@ -20,6 +20,7 @@ package sub_controller
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/metadata"
@@ -28,6 +29,7 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -196,6 +198,34 @@ func (d *DisaggregatedSubDefaultController) DefaultReconcileService(ctx context.
 	}
 
 	return nil, nil
+}
+
+// generate map for mountpath:secret
+func (d *DisaggregatedSubDefaultController) CheckSecretMountPath(ddc *v1.DorisDisaggregatedCluster, secrets []v1.Secret) {
+	var mountsMap = make(map[string]v1.Secret)
+	for _, secret := range secrets {
+		path := secret.MountPath
+		if s, exist := mountsMap[path]; exist {
+			klog.Errorf("CheckSecretMountPath error: the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName)
+			d.K8srecorder.Event(ddc, string(EventWarning), string(SecretPathRepeated), fmt.Sprintf("the mountPath %s is repeated between secret: %s and secret: %s.", path, secret.SecretName, s.SecretName))
+		}
+		mountsMap[path] = secret
+	}
+}
+
+// CheckSecretExist, check the secret exist or not in specify namespace.
+func (d *DisaggregatedSubDefaultController) CheckSecretExist(ctx context.Context, ddc *v1.DorisDisaggregatedCluster, secrets []v1.Secret) {
+	errMessage := ""
+	for _, secret := range secrets {
+		var s corev1.Secret
+		if getErr := d.K8sclient.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: secret.SecretName}, &s); getErr != nil {
+			errMessage = errMessage + fmt.Sprintf("(name: %s, namespace: %s, err: %s), ", secret.SecretName, ddc.Namespace, getErr.Error())
+		}
+	}
+	if errMessage != "" {
+		klog.Errorf("CheckSecretExist error: %s.", errMessage)
+		d.K8srecorder.Event(ddc, string(EventWarning), string(SecretNotExist), fmt.Sprintf("CheckSecretExist error: %s.", errMessage))
+	}
 }
 
 // RestrictConditionsEqual adds two StatefulSet,

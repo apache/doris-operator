@@ -116,6 +116,11 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 		})
 	}
 
+	if len(ddc.Spec.FeSpec.Secrets) != 0 {
+		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
+		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
+	}
+
 	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, labels[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
 
 	return pts
@@ -157,6 +162,11 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 			Name:      auth_volume_name,
 			MountPath: basic_auth_path,
 		})
+	}
+
+	if len(ddc.Spec.FeSpec.Secrets) != 0 {
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
+		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
 	return c
@@ -300,5 +310,14 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEVIPAddresss()},
 		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(ddc.GetElectionNumber()), 10)},
 	)
+
+	// add user and password envs
+	if ddc.Spec.AdminUser != nil {
+		feEnvs = append(feEnvs,
+			corev1.EnvVar{Name: resource.ADMIN_USER, Value: ddc.Spec.AdminUser.Name},
+			corev1.EnvVar{Name: resource.ADMIN_PASSWD, Value: ddc.Spec.AdminUser.Password},
+		)
+	}
+
 	return feEnvs
 }

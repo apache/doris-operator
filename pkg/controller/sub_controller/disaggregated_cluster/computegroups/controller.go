@@ -146,6 +146,9 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	svc := dcgs.newService(ddc, cg, cvs)
 	dcgs.initialCGStatus(ddc, cg)
 
+	dcgs.CheckSecretMountPath(ddc, cg.Secrets)
+	dcgs.CheckSecretExist(ctx, ddc, cg.Secrets)
+
 	event, err := dcgs.DefaultReconcileService(ctx, svc)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
