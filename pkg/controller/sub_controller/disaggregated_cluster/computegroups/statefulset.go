@@ -139,7 +139,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedBE)
 	c.Env = cg.CommonSpec.EnvVars
-	c.Env = append(c.Env, resource.GetPodDefaultEnv(ddc)...)
+	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg)...)
 
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
@@ -152,17 +152,17 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
 
-	if len(cg.Secrets) != 0 {
-		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec)
-		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
-	}
-
 	// add basic auth secret volumeMount
 	if ddc.Spec.AuthSecret != "" {
 		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
 			Name:      auth_volume_name,
 			MountPath: basic_auth_path,
 		})
+	}
+
+	if len(cg.Secrets) != 0 {
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&cg.CommonSpec)
+		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
 	return c
@@ -357,5 +357,20 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
 		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
+
+	// add user and password envs
+	if ddc.Spec.AdminUser != nil {
+		cgEnvs = append(cgEnvs, corev1.EnvVar{
+			Name:  resource.ADMIN_USER,
+			Value: ddc.Spec.AdminUser.Name,
+		})
+		if ddc.Spec.AdminUser.Password != "" {
+			cgEnvs = append(cgEnvs, corev1.EnvVar{
+				Name:  resource.ADMIN_PASSWD,
+				Value: ddc.Spec.AdminUser.Password,
+			})
+		}
+	}
+
 	return cgEnvs
 }

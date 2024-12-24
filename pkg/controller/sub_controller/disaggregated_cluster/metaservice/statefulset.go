@@ -203,7 +203,7 @@ func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedC
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedMS)
 	c.Env = ddc.Spec.MetaService.CommonSpec.EnvVars
-	c.Env = append(c.Env, resource.GetPodDefaultEnv(ddc)...)
+	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dms.newSpecificEnvs(ddc)...)
 	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 	_, vms, _ := dms.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.MetaService)

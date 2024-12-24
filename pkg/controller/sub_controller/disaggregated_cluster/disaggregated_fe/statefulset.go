@@ -136,7 +136,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedFE)
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
-	c.Env = append(c.Env, resource.GetPodDefaultEnv(ddc)...)
+	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
 
 	if ddc.Spec.FeSpec.ElectionNumber != nil {
@@ -156,17 +156,17 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
 
-	if len(ddc.Spec.FeSpec.Secrets) != 0 {
-		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
-		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
-	}
-
 	// add basic auth secret volumeMount
 	if ddc.Spec.AuthSecret != "" {
 		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
 			Name:      auth_volume_name,
 			MountPath: basic_auth_path,
 		})
+	}
+
+	if len(ddc.Spec.FeSpec.Secrets) != 0 {
+		_, secretVolumeMounts := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec)
+		c.VolumeMounts = append(c.VolumeMounts, secretVolumeMounts...)
 	}
 
 	return c
@@ -310,5 +310,20 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEVIPAddresss()},
 		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(ddc.GetElectionNumber()), 10)},
 	)
+
+	// add user and password envs
+	if ddc.Spec.AdminUser != nil {
+		feEnvs = append(feEnvs, corev1.EnvVar{
+			Name:  resource.ADMIN_USER,
+			Value: ddc.Spec.AdminUser.Name,
+		})
+		if ddc.Spec.AdminUser.Password != "" {
+			feEnvs = append(feEnvs, corev1.EnvVar{
+				Name:  resource.ADMIN_PASSWD,
+				Value: ddc.Spec.AdminUser.Password,
+			})
+		}
+	}
+
 	return feEnvs
 }

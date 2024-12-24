@@ -500,23 +500,8 @@ func buildEnvFromPod() []corev1.EnvVar {
 	}
 }
 
-func GetPodDefaultEnv(ddc *dv1.DorisDisaggregatedCluster) []corev1.EnvVar {
-	defaultEnvs := buildEnvFromPod()
-
-	if ddc.Spec.AdminUser != nil {
-		defaultEnvs = append(defaultEnvs, corev1.EnvVar{
-			Name:  ADMIN_USER,
-			Value: ddc.Spec.AdminUser.Name,
-		})
-		if ddc.Spec.AdminUser.Password != "" {
-			defaultEnvs = append(defaultEnvs, corev1.EnvVar{
-				Name:  ADMIN_PASSWD,
-				Value: ddc.Spec.AdminUser.Password,
-			})
-		}
-	}
-
-	return defaultEnvs
+func GetPodDefaultEnv() []corev1.EnvVar {
+	return buildEnvFromPod()
 }
 
 func getCommand(componentType v1.ComponentType) (commands []string, args []string) {
