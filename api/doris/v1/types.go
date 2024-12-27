@@ -95,6 +95,8 @@ type BeSpec struct {
 	// Please confirm whether the host machine and k8s cluster allow it.
 	// Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
 	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
+
+	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 }
 
 // FeAddress specify the fe address, please set it when you deploy fe outside k8s or deploy components use crd except fe, if not set .
@@ -119,6 +121,8 @@ type Endpoints struct {
 type CnSpec struct {
 	//the foundation spec for creating cn software services.
 	BaseSpec `json:",inline"`
+
+	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 
 	//AutoScalingPolicy auto scaling strategy
 	AutoScalingPolicy *AutoScalingPolicy `json:"autoScalingPolicy,omitempty"`
