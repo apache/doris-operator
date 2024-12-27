@@ -155,7 +155,6 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		},
 	}
 
-	klog.Errorf("111111-----------------")
 	constructInitContainers(dcr, componentType, &pts.Spec, si)
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
@@ -232,7 +231,6 @@ func constructInitContainers(dcr *v1.DorisCluster, componentType v1.ComponentTyp
 
 	// the init containers have sequence，should confirm use initial is always in the first priority.
 	if (componentType == v1.Component_BE && !dcr.Spec.BeSpec.SkipDefaultSystemInit) || (componentType == v1.Component_CN && !dcr.Spec.CnSpec.SkipDefaultSystemInit) {
-		klog.Errorf("111111-----------------")
 		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(defaultImage))
 	}
 	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
