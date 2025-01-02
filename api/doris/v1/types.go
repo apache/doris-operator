@@ -95,6 +95,12 @@ type BeSpec struct {
 	// Please confirm whether the host machine and k8s cluster allow it.
 	// Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
 	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
+
+	// SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
+	// Default value is 'false'.
+	// Default System Init means that the container must be started in privileged mode.
+	// Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
+	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 }
 
 // FeAddress specify the fe address, please set it when you deploy fe outside k8s or deploy components use crd except fe, if not set .
@@ -119,6 +125,8 @@ type Endpoints struct {
 type CnSpec struct {
 	//the foundation spec for creating cn software services.
 	BaseSpec `json:",inline"`
+
+	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 
 	//AutoScalingPolicy auto scaling strategy
 	AutoScalingPolicy *AutoScalingPolicy `json:"autoScalingPolicy,omitempty"`
