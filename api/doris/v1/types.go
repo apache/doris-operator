@@ -96,7 +96,7 @@ type BeSpec struct {
 	// Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
 	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
 
-	// SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris be node.
+	// SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
 	// Default value is 'false'.
 	// Default System Init means that the container must be started in privileged mode.
 	// Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
