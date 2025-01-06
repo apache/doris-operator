@@ -320,61 +320,6 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 
 	ddc.Status.ComputeGroupStatuses = eCGs
 	return true, nil
-
-	//TODO: next pr remove the code
-	//sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
-	//if err != nil {
-	//	klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
-	//	dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
-	//	return false, err
-	//}
-	//defer sqlClient.Close()
-	//
-	//for i := range clearCGs {
-	//	cgs := clearCGs[i]
-	//	cleared := true
-	//	if err := k8s.DeleteStatefulset(ctx, dcgs.K8sclient, ddc.Namespace, cgs.StatefulsetName); err != nil {
-	//		cleared = false
-	//		klog.Errorf("disaggregatedComputeGroupsController delete statefulset namespace %s name %s failed, err=%s", ddc.Namespace, cgs.StatefulsetName, err.Error())
-	//		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGStatefulsetDeleteFailed), err.Error())
-	//	}
-	//
-	//	if err := k8s.DeleteService(ctx, dcgs.K8sclient, ddc.Namespace, cgs.ServiceName); err != nil {
-	//		cleared = false
-	//		klog.Errorf("disaggregatedComputeGroupsController delete service namespace %s name %s failed, err=%s", ddc.Namespace, cgs.ServiceName, err.Error())
-	//		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGServiceDeleteFailed), err.Error())
-	//	}
-	//	if !cleared {
-	//		eCGs = append(eCGs, clearCGs[i])
-	//		continue
-	//	}
-	//	// drop compute group
-	//	cgName := strings.ReplaceAll(cgs.UniqueId, "_", "-")
-	//	cgKeepAmount := int32(0)
-	//	err = dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
-	//	if err != nil {
-	//		klog.Errorf("computeGroupSync ClearResources dropCGBySQLClient failed: %s", err.Error())
-	//		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())
-	//	}
-	//
-	//}
-	//
-	//for i := range eCGs {
-	//	err := dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCGs[i])
-	//	if err != nil {
-	//		klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear whole ComputeGroup PVC failed, err=%s", err.Error())
-	//	}
-	//}
-	//for i := range clearCGs {
-	//	err := dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, clearCGs[i])
-	//	if err != nil {
-	//		klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear part ComputeGroup PVC failed, err=%s", err.Error())
-	//	}
-	//}
-	//
-	//ddc.Status.ComputeGroupStatuses = eCGs
-	//
-	//return true, nil
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) clearStatefulsets(ctx context.Context, stsNames []string, ddc *dv1.DorisDisaggregatedCluster) error {
@@ -398,9 +343,9 @@ func (dcgs *DisaggregatedComputeGroupsController) clearSvcs(ctx context.Context,
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) clearCGInDorisMeta(ctx context.Context, cgNames []string, ddc *dv1.DorisDisaggregatedCluster) error {
-    if len(cgNames) == 0 {
-        return nil
-    }
+	if len(cgNames) == 0 {
+		return nil
+	}
 
 	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
 	if err != nil {
@@ -509,10 +454,10 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 	}
 
 	if cg != nil {
-        //we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
+		//we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
 		replicas := 0
 		stsName := ddc.GetCGStatefulsetName(cg)
-        sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
+		sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
 		if err != nil {
 			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs get statefulset namespace=%s, name=%s, failed, err=%s", ddc.Namespace, stsName, err.Error())
 			//waiting next reconciling.
