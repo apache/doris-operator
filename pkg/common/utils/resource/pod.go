@@ -86,6 +86,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	var dcrAffinity *corev1.Affinity
 	var defaultInitContainers []corev1.Container
 	var SecurityContext *corev1.PodSecurityContext
+	var skipInit bool
 	switch componentType {
 	case v1.Component_FE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
@@ -97,10 +98,12 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.BeSpec.BaseSpec.SecurityContext
+		skipInit = dcr.Spec.BeSpec.SkipDefaultSystemInit
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.CnSpec.BaseSpec.SecurityContext
+		skipInit = dcr.Spec.CnSpec.SkipDefaultSystemInit
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
@@ -155,7 +158,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 		},
 	}
 
-	constructInitContainers(componentType, &pts.Spec, si)
+	constructInitContainers(skipInit, componentType, &pts.Spec, si)
 	pts.Spec.Affinity = constructAffinity(dcrAffinity, componentType)
 
 	return pts
@@ -220,7 +223,7 @@ func ApplySecurityContext(containers []corev1.Container, securityContext *corev1
 	return containers
 }
 
-func constructInitContainers(componentType v1.ComponentType, podSpec *corev1.PodSpec, si *v1.SystemInitialization) {
+func constructInitContainers(skipInit bool, componentType v1.ComponentType, podSpec *corev1.PodSpec, si *v1.SystemInitialization) {
 	defaultImage := ""
 	var defaultInitContains []corev1.Container
 	if si != nil {
@@ -230,7 +233,7 @@ func constructInitContainers(componentType v1.ComponentType, podSpec *corev1.Pod
 	}
 
 	// the init containers have sequence，should confirm use initial is always in the first priority.
-	if componentType == v1.Component_BE || componentType == v1.Component_CN {
+	if !skipInit && (componentType == v1.Component_BE || componentType == v1.Component_CN) {
 		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(defaultImage))
 	}
 	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
