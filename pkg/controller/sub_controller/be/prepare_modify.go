@@ -18,11 +18,13 @@
 package be
 
 import (
+	"context"
+
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 )
 
 // prepareStatefulsetApply means Pre-operation and status control on the client side
-func (be *Controller) prepareStatefulsetApply(dcr *v1.DorisCluster, oldStatus v1.ComponentStatus) error {
+func (be *Controller) prepareStatefulsetApply(ctx context.Context, dcr *v1.DorisCluster, oldStatus v1.ComponentStatus) error {
 
 	// be rolling restart
 	// check 1: be Phase is Available
