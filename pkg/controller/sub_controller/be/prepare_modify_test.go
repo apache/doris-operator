@@ -17,7 +17,6 @@
 package be
 
 import (
-	"context"
 	"encoding/json"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"testing"
@@ -75,5 +74,5 @@ func Test_prepareStatefulsetApply(t *testing.T) {
 			Phase: v1.Available,
 		},
 	}
-	bc.prepareStatefulsetApply(context.Background(), dcr, oldStatus)
+	bc.prepareStatefulsetApply(dcr, oldStatus)
 }

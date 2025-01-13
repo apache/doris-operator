@@ -90,7 +90,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
-	if err = be.prepareStatefulsetApply(ctx, dcr, oldStatus); err != nil {
+	if err = be.prepareStatefulsetApply(dcr, oldStatus); err != nil {
 		return err
 	}
 
