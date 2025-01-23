@@ -38,6 +38,10 @@ spec:
   authSecret: {{ template "doriscluster.secret.name" . }}
   {{- end }}
   feSpec:
+    {{- if .Values.feSpec.annotations }}
+    annotations:
+    {{- toYaml .Values.feSpec.annotations | nindent 6 }}
+    {{- end }}
     replicas: {{ .Values.feSpec.replicas }}
     {{- if .Values.feSpec.electionNumber }}
     electionNumber: {{ .Values.feSpec.electionNumber }}
@@ -123,6 +127,10 @@ spec:
     {{- end }}
     {{- end }}
   beSpec:
+    {{- if .Values.beSpec.annotations }}
+    annotations:
+    {{- toYaml .Values.beSpec.annotations | nindent 6 }}
+    {{- end }}
     replicas: {{ .Values.beSpec.replicas }}
     {{- if .Values.beSpec.labels }}
     podLabels:
@@ -206,6 +214,10 @@ spec:
     {{- end }}
   {{- if .Values.dorisCluster.enabledCn }}
   cnSpec:
+    {{- if .Values.cnSpec.annotations }}
+    annotations:
+    {{- toYaml .Values.cnSpec.annotations | nindent 6 }}
+    {{- end }}
     replicas: {{ .Values.cnSpec.replicas }}
 
     {{- if .Values.cnSpec.labels }}
@@ -300,6 +312,10 @@ spec:
 
   {{- if .Values.dorisCluster.enabledBroker }}
   brokerSpec:
+    {{- if .Values.brokerSpec.annotations }}
+    annotations:
+    {{- toYaml .Values.brokerSpec.annotations | nindent 6 }}
+    {{- end }}
     replicas: {{ .Values.brokerSpec.replicas }}
 
     {{- if .Values.brokerSpec.labels }}

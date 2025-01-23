@@ -44,6 +44,8 @@ dorisCluster:
   # password: dDBwLVNlY3JldA==
 
 feSpec:
+  # annotations for fe pods and service
+  # annotations: {}
   replicas: 3
   # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
   # electionNumber: 3
@@ -210,6 +212,8 @@ feSpec:
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
 beSpec:
+  # annotations for be pods and service
+  # annotations: {}
   replicas: 3
   # the pod labels for user select or classify pods.
   labels: {}
@@ -375,6 +379,8 @@ beSpec:
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
 
 cnSpec:
+  # annotations for cn pods and service
+  # annotations: {}
   replicas: 3
   # the pod labels for user select or classify pods.
   labels: {}
@@ -556,6 +562,8 @@ cnSpec:
       #       averageUtilization: 30
 
 brokerSpec:
+  # annotations for broker pods and service
+  # annotations: {}
   replicas: 3
   # the pod labels for user select or classify pods.
   labels: {}
