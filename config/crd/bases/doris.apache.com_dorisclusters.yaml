@@ -1097,7 +1097,7 @@ spec:
                   enableFeAffinity:
                     description: |-
                       EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.
-                      the weight of antiAffinity in same node greater than the affinity.
+                      the weight of antiAffinity in same node is greater than this affinity.
                     type: boolean
                   enableWorkloadGroup:
                     description: |-

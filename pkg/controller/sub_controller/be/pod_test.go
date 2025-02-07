@@ -59,3 +59,43 @@ func Test_buildBEPodTemplateSpec(t *testing.T) {
 	be := &Controller{}
 	be.buildBEPodTemplateSpec(dcr)
 }
+
+
+func Test_buildBEPodTemplateSpecWithFEAffinity(t *testing.T) {
+	dcrJsonStr := `{
+    "apiVersion": "doris.selectdb.com/v1",
+        "kind": "DorisCluster",
+        "metadata": {
+        "annotations": {
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"doris.selectdb.com/v1\",\"kind\":\"DorisCluster\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/instance\":\"doriscluster-sample\",\"app.kubernetes.io/name\":\"doriscluster\"},\"name\":\"doriscluster-sample\",\"namespace\":\"default\"},\"spec\":{\"beSpec\":{\"image\":\"selectdb/doris.be-ubuntu:2.1.6\",\"replicas\":3},\"feSpec\":{\"image\":\"selectdb/doris.fe-ubuntu:2.1.6\",\"replicas\":3,\"service\":{\"type\":\"NodePort\"}}}}\n"
+        },
+        "name": "doriscluster-sample",
+        "namespace": "default"
+    },
+    "spec": {
+        "beSpec": {
+			"enableFeAffinity": true,
+			"baseSpec": {
+            	"image": "selectdb/doris.be-ubuntu:2.1.6",
+				"replicas": 3
+			},
+			"enableWorkloadGroup": true
+        },
+        "feSpec": {
+            "image": "selectdb/doris.fe-ubuntu:2.1.6",
+                "replicas": 3,
+                "service": {
+                "type": "NodePort"
+            }
+        }
+    }
+}`
+
+	dcr := &v1.DorisCluster{}
+	if err := json.Unmarshal([]byte(dcrJsonStr), dcr); err != nil {
+		t.Errorf("the buildBEPodTemplateSpec unmarshal failed, err=%s", err.Error())
+	}
+
+	be := &Controller{}
+	be.buildBEPodTemplateSpec(dcr)
+}
