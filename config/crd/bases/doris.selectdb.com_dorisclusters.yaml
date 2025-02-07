@@ -1094,6 +1094,11 @@ spec:
                             type: string
                         type: object
                     type: object
+                  enableFeAffinity:
+                    description: |-
+                      EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.
+                      the weight of antiAffinity in same node greater than the affinity.
+                    type: boolean
                   enableWorkloadGroup:
                     description: |-
                       EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
@@ -1810,6 +1815,13 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  skipDefaultSystemInit:
+                    description: |-
+                      SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
+                      Default value is 'false'.
+                      Default System Init means that the container must be started in privileged mode.
+                      Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
+                    type: boolean
                   startTimeout:
                     description: pod start timeout, unit is second
                     format: int32
@@ -6029,6 +6041,8 @@ spec:
                   serviceAccount:
                     description: serviceAccount for cn access cloud service.
                     type: string
+                  skipDefaultSystemInit:
+                    type: boolean
                   startTimeout:
                     description: pod start timeout, unit is second
                     format: int32
