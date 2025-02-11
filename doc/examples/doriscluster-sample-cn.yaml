@@ -28,7 +28,7 @@ metadata:
 spec:
   feSpec:
     replicas: 3
-    image: selectdb/doris.fe-ubuntu:2.1.1
+    image: apache/doris:fe-2.1.8
     limits:
       cpu: 8
       memory: 16Gi
@@ -43,7 +43,7 @@ spec:
       # use kubectl create configmap cn-configmap --from-file=be.conf
       configMapName: cn-configmap
       resolveKey: be.conf
-    image: selectdb/doris.be-ubuntu:2.1.1
+    image: apache/doris:be-2.1.8
     limits:
       cpu: 8
       memory: 16Gi

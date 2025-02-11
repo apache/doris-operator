@@ -35,7 +35,7 @@ spec:
     requests:
       cpu: 6
       memory: 12Gi
-    image: selectdb/doris.fe-ubuntu:2.1.1
+    image: apache/doris:fe-2.1.8
   beSpec:
     replicas: 3
     limits:
@@ -44,4 +44,4 @@ spec:
     requests:
       cpu: 8
       memory: 16Gi
-    image: selectdb/doris.be-ubuntu:2.1.1
+    image: apache/doris:be-2.1.8

@@ -28,7 +28,7 @@ metadata:
 spec:
   feSpec:
     replicas: 3
-    image: selectdb/doris.fe-ubuntu:2.1.1
+    image: apache/doris:fe-2.1.8
     limits:
       cpu: 8
       memory: 16Gi
@@ -41,7 +41,7 @@ spec:
       resolveKey: fe.conf
   beSpec:
     replicas: 3
-    image: selectdb/doris.be-ubuntu:2.1.1
+    image: apache/doris:be-2.1.8
     limits:
       cpu: 8
       memory: 16Gi

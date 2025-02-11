@@ -21,14 +21,14 @@ metadata:
   name: test-disaggregated-cluster
 spec:
   metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
+    image: apache/doris:ms-3.0.3
     fdb:
       configMapNamespaceName:
         name: test-cluster-config
         namespace: default
   feSpec:
     replicas: 2
-    image: selectdb/doris.fe-ubuntu:3.0.2
+    image: apache/doris:fe-3.0.3
     service:
       type: LoadBalancer
       # The configuration of annotations from the cloud platform provider
@@ -37,7 +37,7 @@ spec:
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
       service:
         type: LoadBalancer
         # The configuration of annotations from the cloud platform provider

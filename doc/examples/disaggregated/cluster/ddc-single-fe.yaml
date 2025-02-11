@@ -21,7 +21,7 @@ metadata:
   name: test-disaggregated-cluster
 spec:
   metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
+    image: apache/doris:ms-3.0.3
     configMaps:
       - name: ms-configmap
     fdb:
@@ -31,8 +31,8 @@ spec:
   feSpec:
     replicas: 1
     electionNumber: 1
-    image: selectdb/doris.fe-ubuntu:3.0.2
+    image: apache/doris:fe-3.0.3
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
