@@ -31,7 +31,13 @@ import (
 
 func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_BE)
-	be.addFeAntiAffinity(&podTemplateSpec)
+	//if enable fe affinity, should not add fe antiAffinity and set the weight of affinity less than be antiAffinity.
+	if dcr.Spec.BeSpec.EnableFeAffinity == true {
+		be.addFeAffinity(&podTemplateSpec)
+	} else {
+		be.addFeAntiAffinity(&podTemplateSpec)
+	}
+
 	be.addTerminationGracePeriodSeconds(dcr, &podTemplateSpec)
 
 	var containers []corev1.Container
@@ -51,6 +57,8 @@ func (be *Controller) buildBEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTem
 	return podTemplateSpec
 }
 
+// @Notice, the logic is error, should use MatchExpressions not matchLabels, the label used for select nodes, and the key:value "kubernetes.io/hostname=fe" is not exist in default k8s without assign to node by manual.
+// although, the code is not harmless, so for stable the codes not need deleted.
 // be pods add fe anti affinity for prefer deploy fe and be on different nodes.
 func (be *Controller) addFeAntiAffinity(tplSpec *corev1.PodTemplateSpec) {
 	preferedScheduleTerm := corev1.WeightedPodAffinityTerm{
@@ -74,6 +82,35 @@ func (be *Controller) addFeAntiAffinity(tplSpec *corev1.PodTemplateSpec) {
 
 	tplSpec.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(tplSpec.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 		preferedScheduleTerm)
+}
+
+//aff fe affinity for be, wish the fe and be will 1:1 deployed in same node.
+func (be *Controller) addFeAffinity(tplSpec *corev1.PodTemplateSpec) {
+	pst := corev1.WeightedPodAffinityTerm{
+		// the weight of be antiAffinity with be is 20.
+		Weight: 15,
+		PodAffinityTerm: corev1.PodAffinityTerm{
+			LabelSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key: v1.ComponentLabelKey,
+						Operator: metav1.LabelSelectorOpIn,
+						Values: []string{string(v1.Component_FE)},
+					},
+				},
+			},
+			TopologyKey: resource.NODE_TOPOLOGYKEY,
+		},
+	}
+
+	if tplSpec.Spec.Affinity == nil {
+		tplSpec.Spec.Affinity = &corev1.Affinity{}
+	}
+	if tplSpec.Spec.Affinity.PodAffinity == nil {
+		tplSpec.Spec.Affinity.PodAffinity = &corev1.PodAffinity{}
+	}
+	tplSpec.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(tplSpec.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		pst)
 }
 
 func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
