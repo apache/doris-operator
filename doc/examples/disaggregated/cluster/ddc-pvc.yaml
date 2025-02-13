@@ -21,7 +21,7 @@ metadata:
   name: test-disaggregated-cluster
 spec:
   metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
+    image: apache/doris:ms-3.0.3
     configMaps:
       - name: ms-configmap
     fdb:
@@ -31,7 +31,7 @@ spec:
         namespace: ${fdb-namespace}
   feSpec:
     replicas: 2
-    image: selectdb/doris.fe-ubuntu:3.0.2
+    image: apache/doris:fe-3.0.3
     persistentVolume:
       # logNotStore is true, will not create pv for fe log
       logNotStore: true
@@ -45,7 +45,7 @@ spec:
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
       persistentVolume:
         # logNotStore: true
         persistentVolumeClaimSpec:
@@ -57,7 +57,7 @@ spec:
               storage: 120Gi
     - uniqueId: cg2
       replicas: 3
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
       persistentVolume:
         # logNotStore: true
         persistentVolumeClaimSpec:

@@ -21,7 +21,7 @@ metadata:
   name: test-disaggregated-cluster
 spec:
   metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
+    image: apache/doris:ms-3.0.3
     fdb:
       configMapNamespaceName:
         name: test-cluster-config
@@ -31,7 +31,7 @@ spec:
         value: Asia/Shanghai
   feSpec:
     replicas: 2
-    image: selectdb/doris.fe-ubuntu:3.0.2
+    image: apache/doris:fe-3.0.3
     envVars:
       - name: TZ
         value: Asia/Shanghai
@@ -43,7 +43,7 @@ spec:
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
       envVars:
       - name: TZ
         value: Asia/Shanghai

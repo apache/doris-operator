@@ -30,7 +30,7 @@ spec:
     # the replicas must greater than replicas.
     electionNumber: 3
     replicas: 5
-    image: selectdb/doris.fe-ubuntu:2.1.1
+    image: apache/doris:fe-2.1.8
     limits:
       cpu: 8
       memory: 16Gi
@@ -39,7 +39,7 @@ spec:
       memory: 16Gi
   beSpec:
     replicas: 3
-    image: selectdb/doris.be-ubuntu:2.1.1
+    image: apache/doris:be-2.1.8
     limits:
       cpu: 8
       memory: 16Gi

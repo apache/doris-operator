@@ -21,18 +21,18 @@ metadata:
   name: test-disaggregated-cluster
 spec:
   metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
+    image: apache/doris:ms-3.0.3
     fdb:
       configMapNamespaceName:
         name: test-cluster-config
         namespace: default
   feSpec:
     replicas: 2
-    image: selectdb/doris.fe-ubuntu:3.0.2
+    image: apache/doris:fe-3.0.3
   computeGroups:
     - uniqueId: cg1
       replicas: 3
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
       systemInitialization:
         # 'initImage' is used to initialize the system parameter configuration that be depends on.
         # 'selectdb/alpine:latest' is used by default. If you need to customize or modify the image name, you must modify the 'initImage' configuration

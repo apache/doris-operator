@@ -24,16 +24,16 @@ spec:
   # Otherwise be will drop in cg
   enableDecommission: true
   metaService:
-    image: selectdb/doris.ms-ubuntu:3.0.2
+    image: apache/doris:ms-3.0.3
     fdb:
       configMapNamespaceName:
         name: test-cluster-config
         namespace: default
   feSpec:
     replicas: 2
-    image: selectdb/doris.fe-ubuntu:3.0.2
+    image: apache/doris:fe-3.0.3
   computeGroups:
     - uniqueId: cg1
 #      replicas: 3  (replicas before is 3)
       replicas: 1
-      image: selectdb/doris.be-ubuntu:3.0.2
+      image: apache/doris:be-3.0.3
