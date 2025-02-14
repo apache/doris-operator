@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package v1
 
 import (
@@ -49,6 +48,10 @@ type DorisClusterSpec struct {
 	// the name of secret that type is `kubernetes.io/basic-auth` and contains keys username, password for management doris node in cluster as fe, be register.
 	// the password key is `password`. the username defaults to `root` and is omitempty.
 	AuthSecret string `json:"authSecret,omitempty"`
+
+	// Enable configmap monitoring, default is false.
+	// When EnableWatchConfigmap is true, changing the doris core configmap will cause a rolling restart of the corresponding node
+	EnableWatchConfigmap bool `json:"enableWatchConfigmap,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
@@ -86,8 +89,8 @@ type BeSpec struct {
 	// Default System Init means that the container must be started in privileged mode.
 	// Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
 	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
-	
-    //EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.
+
+	//EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.
 	//the weight of antiAffinity in same node is greater than this affinity.
 	EnableFeAffinity bool `json:"enableFeAffinity,omitempty"`
 }
@@ -387,6 +390,8 @@ type ComponentStatus struct {
 	// DorisComponentStatus represents the status of a doris component.
 	//the name of fe service exposed for user.
 	AccessService string `json:"accessService,omitempty"`
+
+	CoreConfigMapID string `json:"coreConfigMapID,omitempty"`
 
 	//FailedInstances failed pod names.
 	FailedMembers []string `json:"failedInstances,omitempty"`

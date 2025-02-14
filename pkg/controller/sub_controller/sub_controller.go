@@ -24,6 +24,7 @@ import (
 	utils "github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -115,20 +116,14 @@ func (d *SubDefaultController) ClassifyPodsByStatus(namespace string, status *do
 	}
 
 	var creatings, readys, faileds []string
-	var firstRestartAnnotation, restartAnnotationsKey string
 	podmap := make(map[string]corev1.Pod)
 
 	if len(podList.Items) == 0 {
 		return nil
 	}
 
-	switch componentType {
-	case dorisv1.Component_FE:
-		restartAnnotationsKey = dorisv1.FERestartAt
-	case dorisv1.Component_BE:
-		restartAnnotationsKey = dorisv1.BERestartAt
-	}
-	firstRestartAnnotation = podList.Items[0].Annotations[restartAnnotationsKey]
+	restartAnnotationsKey := dorisv1.GetRestartAnnotationKey(componentType)
+	firstRestartAnnotation := podList.Items[0].Annotations[restartAnnotationsKey]
 
 	//get all pod status that controlled by st.
 	stsRollingRestartAnnotationsSameCheck := true
@@ -602,4 +597,60 @@ func (d *SubDefaultController) initBEStatus(cluster *dorisv1.DorisCluster) {
 	}
 	status.AccessService = dorisv1.GenerateExternalServiceName(cluster, dorisv1.Component_BE)
 	cluster.Status.BEStatus = status
+}
+
+func (d *SubDefaultController) BuildConfigmapStatus(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) string {
+	maps := resource.GetDorisCoreConfigMaps(dcr)
+	cmName := maps[componentType]
+	if cmName != "" {
+		cm, err := k8s.GetConfigMap(ctx, d.K8sclient, dcr.Namespace, cmName)
+		if err != nil {
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapGetFailed), "BuildConfigmapStatus configmap "+"namespace "+dcr.Namespace+" name "+cmName+" find failed "+err.Error())
+			return ""
+		}
+
+		confMap, err := resource.ResolveConfigMaps([]*corev1.ConfigMap{cm}, componentType)
+
+		if err != nil {
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapGetFailed), "BuildConfigmapStatus configmap "+"namespace "+dcr.Namespace+" name "+cmName+" find failed "+err.Error())
+			return ""
+		}
+
+		return set.Map2Hash(confMap)
+	}
+
+	return ""
+}
+
+// CompareConfigmapByStatusAndTriggerRestart
+// 1. Compared by configmap Resolve file to map`s hash
+// 2. Add restart trigger DCR
+func (d *SubDefaultController) CompareConfigmapByStatusAndTriggerRestart(dcr *dorisv1.DorisCluster, oldStatus dorisv1.ComponentStatus, componentType dorisv1.ComponentType) {
+	oldCmHash := oldStatus.CoreConfigMapID
+	if oldCmHash == "" {
+		// oldCmHash is "" means the following situations:
+		// * First deployment: no restart is required, just skip it.
+		// * Not the first deployment, configmap was not configured: add configmap for doris, then statusfulset schedules automatic rolling restart, and this method does not need to be triggered
+		// * Not the first deployment, configmap is also configured: the operator upgrade operation is done, and 'CoreConfigMapID' was not available before. It also needs to be skipped, no restart is required, CoreConfigMapID will be modified in the subsequent 'UpdateComponentStatus' method.
+		return
+	}
+
+	newCmHash := d.BuildConfigmapStatus(context.Background(), dcr, componentType)
+	if newCmHash == "" {
+		// dcr has no configmap for doris core config
+		return
+	}
+
+	if oldCmHash == newCmHash {
+		// not change configmap
+		return
+	}
+
+	// configmap changed , restart sts
+	if oldStatus.ComponentCondition.Phase == dorisv1.Available {
+		klog.Infof("CompareConfigmapByStatusAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Namespace, dcr.Namespace)
+		dcr.Annotations[dorisv1.GetRestartAnnotationKey(componentType)] = time.Now().Format(time.RFC3339)
+		status := dcr.GetComponentStatus(componentType)
+		status.ComponentCondition.Phase = dorisv1.Restarting
+	}
 }

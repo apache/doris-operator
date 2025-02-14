@@ -37,6 +37,8 @@ import (
 	"context"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
 	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
@@ -55,6 +57,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -77,6 +80,8 @@ type DorisClusterReconciler struct {
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
 	Scs      map[string]sub_controller.SubController
+	//record configmap response instance. key: configMap namespacedName, value: DorisCluster namespacedName
+	WatchConfigMaps map[string]string
 }
 
 var (
@@ -132,6 +137,15 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
+	if dcr.Spec.EnableWatchConfigmap {
+		coreConfigMaps := resource.GetDorisCoreConfigMaps(dcr)
+		for componentType := range coreConfigMaps {
+			cmnn := types.NamespacedName{Namespace: dcr.Namespace, Name: coreConfigMaps[componentType]}
+			dcrnn := types.NamespacedName{Namespace: dcr.Namespace, Name: dcr.Name}
+			r.WatchConfigMaps[cmnn.String()] = dcrnn.String()
+		}
+	}
+
 	//subControllers reconcile for create or update sub resource.
 	for _, rc := range r.Scs {
 		if err := rc.Sync(ctx, dcr); err != nil {
@@ -160,9 +174,9 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.updateDorisClusterStatus(ctx, dcr)
 }
 
-//if cluster spec be reverted, doris operator should revert to old.
-//this action is not good, but this will be a good shield for scale down of fe.
-func(r *DorisClusterReconciler) revertDorisClusterSomeFields(ctx context.Context, getDcr, updatedDcr *dorisv1.DorisCluster) error {
+// if cluster spec be reverted, doris operator should revert to old.
+// this action is not good, but this will be a good shield for scale down of fe.
+func (r *DorisClusterReconciler) revertDorisClusterSomeFields(ctx context.Context, getDcr, updatedDcr *dorisv1.DorisCluster) error {
 	if *getDcr.Spec.FeSpec.Replicas != *updatedDcr.Spec.FeSpec.Replicas {
 		return k8s.ApplyDorisCluster(ctx, r.Client, updatedDcr)
 	}
@@ -170,7 +184,7 @@ func(r *DorisClusterReconciler) revertDorisClusterSomeFields(ctx context.Context
 	return nil
 }
 
-func(r *DorisClusterReconciler) updateDorisCluster(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+func (r *DorisClusterReconciler) updateDorisCluster(ctx context.Context, dcr *dorisv1.DorisCluster) error {
 	return k8s.ApplyDorisCluster(ctx, r.Client, dcr)
 }
 
@@ -292,10 +306,79 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 		mapFn, controller_builder.WithPredicates(p))
 }
 
+func (r *DorisClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
+	mapFn := handler.EnqueueRequestsFromMapFunc(
+		func(a client.Object) []reconcile.Request {
+			cmnn := types.NamespacedName{Namespace: a.GetNamespace(), Name: a.GetName()}
+			if dcrNamespacedNameStr, ok := r.WatchConfigMaps[cmnn.String()]; ok {
+				// nna[0] is namespace, nna[1] is dcrName,
+				nna := strings.Split(dcrNamespacedNameStr, "/")
+				// not run only for code standard
+				if len(nna) != 2 {
+					return nil
+				}
+
+				return []reconcile.Request{{NamespacedName: types.NamespacedName{
+					Namespace: nna[0],
+					Name:      nna[1],
+				}}}
+			}
+			return nil
+		})
+
+	p := predicate.Funcs{
+		CreateFunc: func(u event.CreateEvent) bool {
+
+			cmnn := types.NamespacedName{Namespace: u.Object.GetNamespace(), Name: u.Object.GetName()}
+			_, ok := r.WatchConfigMaps[cmnn.String()]
+			return ok
+		},
+
+		UpdateFunc: func(u event.UpdateEvent) bool {
+
+			cmnn := types.NamespacedName{Namespace: u.ObjectNew.GetNamespace(), Name: u.ObjectNew.GetName()}
+
+			if _, ok := r.WatchConfigMaps[cmnn.String()]; !ok {
+				return false
+			}
+
+			oldConfigMap, ok := u.ObjectOld.(*corev1.ConfigMap)
+			if !ok {
+				klog.Errorf(
+					"watchConfigMapBuilder UpdateFunc Failed to cast ObjectOld to ConfigMap %s: objectKind=%v, objectName=%s, objectNamespace=%s",
+					"ObjectOld",
+					u.ObjectOld.GetObjectKind().GroupVersionKind(),
+					u.ObjectOld.GetName(),
+					u.ObjectOld.GetNamespace(),
+				)
+				return false
+			}
+
+			newConfigMap, ok := u.ObjectNew.(*corev1.ConfigMap)
+			if !ok {
+				klog.Errorf(
+					"watchConfigMapBuilder UpdateFunc Failed to cast ObjectNew to ConfigMap %s: objectKind=%v, objectName=%s, objectNamespace=%s",
+					"ObjectNew",
+					u.ObjectNew.GetObjectKind().GroupVersionKind(),
+					u.ObjectNew.GetName(),
+					u.ObjectNew.GetNamespace(),
+				)
+				return false
+			}
+			isCmEqual := set.CompareMaps(oldConfigMap.Data, newConfigMap.Data)
+			return !isCmEqual
+		},
+	}
+
+	return builder.Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+		mapFn, controller_builder.WithPredicates(p))
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = r.watchPodBuilder(builder)
+	builder = r.watchConfigMapBuilder(builder)
 	return builder.Complete(r)
 }
 
@@ -312,9 +395,10 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	subcs[brokerControllerName] = brk
 
 	if err := (&DorisClusterReconciler{
-		Client:   mgr.GetClient(),
-		Recorder: mgr.GetEventRecorderFor(name),
-		Scs:      subcs,
+		Client:          mgr.GetClient(),
+		Recorder:        mgr.GetEventRecorderFor(name),
+		Scs:             subcs,
+		WatchConfigMaps: make(map[string]string),
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, " unable to create controller ", "controller ", "DorisCluster ")
 		os.Exit(1)

@@ -378,3 +378,33 @@ func (dcr *DorisCluster) GetElectionNumber() int32 {
 	}
 	return DefaultFeElectionNumber
 }
+
+func GetRestartAnnotationKey(componentType ComponentType) string {
+	var restartAnnotationsKey string
+	switch componentType {
+	case Component_FE:
+		restartAnnotationsKey = FERestartAt
+	case Component_BE:
+		restartAnnotationsKey = BERestartAt
+	default:
+		klog.Infof("GetRestartAnnotationKey the componentType %s is not supported.", componentType)
+	}
+	return restartAnnotationsKey
+
+}
+
+func (dcr *DorisCluster) GetComponentStatus(componentType ComponentType) *ComponentStatus {
+	switch componentType {
+	case Component_FE:
+		return dcr.Status.FEStatus
+	case Component_BE:
+		return dcr.Status.BEStatus
+	case Component_CN:
+		return &dcr.Status.CnStatus.ComponentStatus
+	case Component_Broker:
+		return dcr.Status.BrokerStatus
+	default:
+		klog.Infof("GetComponentStatus the componentType %s is not supported.", componentType)
+	}
+	return nil
+}
