@@ -138,7 +138,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if dcr.Spec.EnableWatchConfigmap {
-		coreConfigMaps := resource.GetDorisCoreConfigMaps(dcr)
+		coreConfigMaps := resource.GetDorisCoreConfigMapNames(dcr)
 		for componentType := range coreConfigMaps {
 			cmnn := types.NamespacedName{Namespace: dcr.Namespace, Name: coreConfigMaps[componentType]}
 			dcrnn := types.NamespacedName{Namespace: dcr.Namespace, Name: dcr.Name}

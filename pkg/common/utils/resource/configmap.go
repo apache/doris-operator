@@ -174,7 +174,7 @@ func getDorisConfigInfo(dcr *dorisv1.DorisCluster, componentType dorisv1.Compone
 	return ""
 }
 
-func GetDorisCoreConfigMaps(dcr *dorisv1.DorisCluster) map[dorisv1.ComponentType]string {
+func GetDorisCoreConfigMapNames(dcr *dorisv1.DorisCluster) map[dorisv1.ComponentType]string {
 	dorisCoreConfigMaps := map[dorisv1.ComponentType]string{}
 	if dcr.Spec.FeSpec != nil {
 		if cm := getDorisConfigInfo(dcr, dorisv1.Component_FE); cm != "" {

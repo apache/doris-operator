@@ -57,7 +57,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
-	newCmHash := fc.BuildConfigmapStatus(context.Background(), cluster, v1.Component_FE)
+	newCmHash := fc.BuildCoreConfigmapStatusHash(context.Background(), cluster, v1.Component_FE)
 	cluster.Status.FEStatus.CoreConfigMapID = newCmHash
 
 	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas, v1.Component_FE)

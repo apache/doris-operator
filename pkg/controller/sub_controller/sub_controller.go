@@ -599,20 +599,24 @@ func (d *SubDefaultController) initBEStatus(cluster *dorisv1.DorisCluster) {
 	cluster.Status.BEStatus = status
 }
 
-func (d *SubDefaultController) BuildConfigmapStatus(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) string {
-	maps := resource.GetDorisCoreConfigMaps(dcr)
+// BuildCoreConfigmapStatusHash :
+// resolve configmap for doris core configuration file (fe.conf/be.conf),
+// After parsing the configuration file, it is converted into a configured map,
+// And return the map's hash
+func (d *SubDefaultController) BuildCoreConfigmapStatusHash(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) string {
+	maps := resource.GetDorisCoreConfigMapNames(dcr)
 	cmName := maps[componentType]
 	if cmName != "" {
 		cm, err := k8s.GetConfigMap(ctx, d.K8sclient, dcr.Namespace, cmName)
 		if err != nil {
-			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapGetFailed), "BuildConfigmapStatus configmap "+"namespace "+dcr.Namespace+" name "+cmName+" find failed "+err.Error())
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapGetFailed), "BuildCoreConfigmapStatusHash configmap "+"namespace "+dcr.Namespace+" name "+cmName+" find failed "+err.Error())
 			return ""
 		}
 
 		confMap, err := resource.ResolveConfigMaps([]*corev1.ConfigMap{cm}, componentType)
 
 		if err != nil {
-			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapGetFailed), "BuildConfigmapStatus configmap "+"namespace "+dcr.Namespace+" name "+cmName+" find failed "+err.Error())
+			d.K8srecorder.Event(dcr, string(EventWarning), string(ConfigMapGetFailed), "BuildCoreConfigmapStatusHash configmap "+"namespace "+dcr.Namespace+" name "+cmName+" find failed "+err.Error())
 			return ""
 		}
 
@@ -635,7 +639,7 @@ func (d *SubDefaultController) CompareConfigmapByStatusAndTriggerRestart(dcr *do
 		return
 	}
 
-	newCmHash := d.BuildConfigmapStatus(context.Background(), dcr, componentType)
+	newCmHash := d.BuildCoreConfigmapStatusHash(context.Background(), dcr, componentType)
 	if newCmHash == "" {
 		// dcr has no configmap for doris core config
 		return
