@@ -90,7 +90,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	fc.InitStatus(cluster, v1.Component_FE)
 
 	if cluster.Spec.EnableRestartWhenConfigChange {
-		fc.CompareConfigmapByStatusAndTriggerRestart(cluster, oldStatus, v1.Component_FE)
+		fc.CompareConfigmapAndTriggerRestart(cluster, oldStatus, v1.Component_FE)
 	}
 
 	feSpec := cluster.Spec.FeSpec

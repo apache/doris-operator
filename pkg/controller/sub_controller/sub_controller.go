@@ -599,13 +599,13 @@ func (d *SubDefaultController) initBEStatus(cluster *dorisv1.DorisCluster) {
 	cluster.Status.BEStatus = status
 }
 
-// BuildCoreConfigmapStatusHash :
+// BuildCoreConfigmapStatusHash
 // resolve configmap for doris core configuration file (fe.conf/be.conf),
 // After parsing the configuration file, it is converted into a configured map,
 // And return the map's hash
 func (d *SubDefaultController) BuildCoreConfigmapStatusHash(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) string {
-	maps := resource.GetDorisCoreConfigMapNames(dcr)
-	cmName := maps[componentType]
+	names := resource.GetDorisCoreConfigMapNames(dcr)
+	cmName := names[componentType]
 	if cmName != "" {
 		cm, err := k8s.GetConfigMap(ctx, d.K8sclient, dcr.Namespace, cmName)
 		if err != nil {
@@ -626,10 +626,10 @@ func (d *SubDefaultController) BuildCoreConfigmapStatusHash(ctx context.Context,
 	return ""
 }
 
-// CompareConfigmapByStatusAndTriggerRestart
+// CompareConfigmapAndTriggerRestart
 // 1. Compared by configmap Resolve file to map`s hash
 // 2. Add restart trigger DCR
-func (d *SubDefaultController) CompareConfigmapByStatusAndTriggerRestart(dcr *dorisv1.DorisCluster, oldStatus dorisv1.ComponentStatus, componentType dorisv1.ComponentType) {
+func (d *SubDefaultController) CompareConfigmapAndTriggerRestart(dcr *dorisv1.DorisCluster, oldStatus dorisv1.ComponentStatus, componentType dorisv1.ComponentType) {
 	oldCmHash := oldStatus.CoreConfigMapHashValue
 	if oldCmHash == "" {
 		// oldCmHash is "" means the following situations:
@@ -652,7 +652,7 @@ func (d *SubDefaultController) CompareConfigmapByStatusAndTriggerRestart(dcr *do
 
 	// configmap changed , restart sts
 	if oldStatus.ComponentCondition.Phase == dorisv1.Available {
-		klog.Infof("CompareConfigmapByStatusAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Namespace, dcr.Namespace)
+		klog.Infof("CompareConfigmapAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Namespace, dcr.Namespace)
 		dcr.Annotations[dorisv1.GetRestartAnnotationKey(componentType)] = time.Now().Format(time.RFC3339)
 		status := dcr.GetComponentStatus(componentType)
 		status.ComponentCondition.Phase = dorisv1.Restarting

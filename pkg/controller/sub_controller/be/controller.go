@@ -65,7 +65,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	if dcr.Spec.EnableRestartWhenConfigChange {
-		be.CompareConfigmapByStatusAndTriggerRestart(dcr, oldStatus, v1.Component_BE)
+		be.CompareConfigmapAndTriggerRestart(dcr, oldStatus, v1.Component_BE)
 	}
 
 	beSpec := dcr.Spec.BeSpec

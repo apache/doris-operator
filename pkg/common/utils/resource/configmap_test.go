@@ -181,8 +181,8 @@ func Test_getCoreCmName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getCoreCmName(tt.args.dcr, tt.args.componentType); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getCoreCmName() = %v, want %v", got, tt.want)
+			if got := getDorisCoreConfigMapName(tt.args.dcr, tt.args.componentType); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getDorisCoreConfigMapName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
