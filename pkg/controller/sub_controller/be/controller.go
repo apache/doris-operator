@@ -63,6 +63,11 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	if !be.FeAvailable(dcr) {
 		return nil
 	}
+
+	if dcr.Spec.EnableRestartWhenConfigChange {
+		be.CompareConfigmapAndTriggerRestart(dcr, oldStatus, v1.Component_BE)
+	}
+
 	beSpec := dcr.Spec.BeSpec
 	//get the be configMap for resolve ports.
 	//2. get config for generate statefulset and service.
@@ -119,6 +124,9 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		cluster.Status.BEStatus = nil
 		return nil
 	}
+
+	newCmHash := be.BuildCoreConfigmapStatusHash(context.Background(), cluster, v1.Component_BE)
+	cluster.Status.BEStatus.CoreConfigMapHashValue = newCmHash
 
 	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas, v1.Component_BE)
 }

@@ -57,6 +57,9 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 		return nil
 	}
 
+	newCmHash := fc.BuildCoreConfigmapStatusHash(context.Background(), cluster, v1.Component_FE)
+	cluster.Status.FEStatus.CoreConfigMapHashValue = newCmHash
+
 	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas, v1.Component_FE)
 }
 
@@ -85,6 +88,10 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		oldStatus = *(cluster.Status.FEStatus.DeepCopy())
 	}
 	fc.InitStatus(cluster, v1.Component_FE)
+
+	if cluster.Spec.EnableRestartWhenConfigChange {
+		fc.CompareConfigmapAndTriggerRestart(cluster, oldStatus, v1.Component_FE)
+	}
 
 	feSpec := cluster.Spec.FeSpec
 	//get the fe configMap for resolve ports.

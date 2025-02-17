@@ -20,6 +20,7 @@ package resource
 import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	corev1 "k8s.io/api/core/v1"
+	"reflect"
 	"strconv"
 	"testing"
 )
@@ -122,5 +123,67 @@ func Test_GetMountConfigMapInfo(t *testing.T) {
 	fc := GetMountConfigMapInfo(c)
 	if len(fc) != 1 {
 		t.Errorf("get mountConfigMapInfo failed, len not equal 1")
+	}
+}
+
+func Test_getCoreCmName(t *testing.T) {
+	type args struct {
+		dcr           *dorisv1.DorisCluster
+		componentType dorisv1.ComponentType
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "test1",
+			args: args{
+				dcr: &dorisv1.DorisCluster{
+					Spec: dorisv1.DorisClusterSpec{
+						FeSpec: &dorisv1.FeSpec{
+							BaseSpec: dorisv1.BaseSpec{
+								ConfigMapInfo: dorisv1.ConfigMapInfo{
+									ConfigMapName: "fe-config",
+								},
+							},
+						},
+					},
+				},
+				componentType: dorisv1.Component_FE,
+			},
+			want: "fe-config",
+		},
+		{
+			name: "test2",
+			args: args{dcr: &dorisv1.DorisCluster{
+				Spec: dorisv1.DorisClusterSpec{
+					FeSpec: &dorisv1.FeSpec{
+						BaseSpec: dorisv1.BaseSpec{
+							ConfigMapInfo: dorisv1.ConfigMapInfo{
+								ConfigMapName: "fe-config",
+								ConfigMaps: []dorisv1.MountConfigMapInfo{
+									{
+										ConfigMapName: "fe-config-1",
+										MountPath:     "config",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+				componentType: dorisv1.Component_FE,
+			},
+			want: "fe-config",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getDorisCoreConfigMapName(tt.args.dcr, tt.args.componentType); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getDorisCoreConfigMapName() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
