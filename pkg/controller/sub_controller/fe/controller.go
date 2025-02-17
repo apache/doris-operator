@@ -58,7 +58,7 @@ func (fc *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 	}
 
 	newCmHash := fc.BuildCoreConfigmapStatusHash(context.Background(), cluster, v1.Component_FE)
-	cluster.Status.FEStatus.CoreConfigMapID = newCmHash
+	cluster.Status.FEStatus.CoreConfigMapHashValue = newCmHash
 
 	return fc.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.FEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_FE), *cluster.Spec.FeSpec.Replicas, v1.Component_FE)
 }
@@ -89,7 +89,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 	fc.InitStatus(cluster, v1.Component_FE)
 
-	if cluster.Spec.EnableWatchConfigmap {
+	if cluster.Spec.EnableRestartWhenConfigChange {
 		fc.CompareConfigmapByStatusAndTriggerRestart(cluster, oldStatus, v1.Component_FE)
 	}
 

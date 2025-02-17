@@ -630,12 +630,12 @@ func (d *SubDefaultController) BuildCoreConfigmapStatusHash(ctx context.Context,
 // 1. Compared by configmap Resolve file to map`s hash
 // 2. Add restart trigger DCR
 func (d *SubDefaultController) CompareConfigmapByStatusAndTriggerRestart(dcr *dorisv1.DorisCluster, oldStatus dorisv1.ComponentStatus, componentType dorisv1.ComponentType) {
-	oldCmHash := oldStatus.CoreConfigMapID
+	oldCmHash := oldStatus.CoreConfigMapHashValue
 	if oldCmHash == "" {
 		// oldCmHash is "" means the following situations:
 		// * First deployment: no restart is required, just skip it.
 		// * Not the first deployment, configmap was not configured: add configmap for doris, then statusfulset schedules automatic rolling restart, and this method does not need to be triggered
-		// * Not the first deployment, configmap is also configured: the operator upgrade operation is done, and 'CoreConfigMapID' was not available before. It also needs to be skipped, no restart is required, CoreConfigMapID will be modified in the subsequent 'UpdateComponentStatus' method.
+		// * Not the first deployment, configmap is also configured: the operator upgrade operation is done, and 'CoreConfigMapHashValue' was not available before. It also needs to be skipped, no restart is required, CoreConfigMapHashValue will be modified in the subsequent 'UpdateComponentStatus' method.
 		return
 	}
 

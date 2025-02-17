@@ -64,7 +64,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return nil
 	}
 
-	if dcr.Spec.EnableWatchConfigmap {
+	if dcr.Spec.EnableRestartWhenConfigChange {
 		be.CompareConfigmapByStatusAndTriggerRestart(dcr, oldStatus, v1.Component_BE)
 	}
 
@@ -126,7 +126,7 @@ func (be *Controller) UpdateComponentStatus(cluster *v1.DorisCluster) error {
 	}
 
 	newCmHash := be.BuildCoreConfigmapStatusHash(context.Background(), cluster, v1.Component_BE)
-	cluster.Status.BEStatus.CoreConfigMapID = newCmHash
+	cluster.Status.BEStatus.CoreConfigMapHashValue = newCmHash
 
 	return be.ClassifyPodsByStatus(cluster.Namespace, cluster.Status.BEStatus, v1.GenerateStatefulSetSelector(cluster, v1.Component_BE), *cluster.Spec.BeSpec.Replicas, v1.Component_BE)
 }

@@ -21,61 +21,6 @@ import (
 	"testing"
 )
 
-func Test_CompareMaps(t *testing.T) {
-	tests := []struct {
-		name     string
-		map1     map[string]string
-		map2     map[string]string
-		expected bool
-	}{
-		{
-			name:     "equal maps",
-			map1:     map[string]string{"key1": "value1", "key2": "value2"},
-			map2:     map[string]string{"key1": "value1", "key2": "value2"},
-			expected: true,
-		},
-		{
-			name:     "different lengths",
-			map1:     map[string]string{"key1": "value1"},
-			map2:     map[string]string{"key1": "value1", "key2": "value2"},
-			expected: false,
-		},
-		{
-			name:     "different keys",
-			map1:     map[string]string{"key1": "value1"},
-			map2:     map[string]string{"key2": "value1"},
-			expected: false,
-		},
-		{
-			name:     "different values",
-			map1:     map[string]string{"key1": "value1"},
-			map2:     map[string]string{"key1": "value2"},
-			expected: false,
-		},
-		{
-			name:     "one empty map",
-			map1:     map[string]string{},
-			map2:     map[string]string{"key1": "value1"},
-			expected: false,
-		},
-		{
-			name:     "both empty maps",
-			map1:     map[string]string{},
-			map2:     map[string]string{},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := CompareMaps(tt.map1, tt.map2)
-			if got != tt.expected {
-				t.Errorf("CompareMaps() = %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
 func Test_Map2Hash(t *testing.T) {
 	tests := []struct {
 		name     string

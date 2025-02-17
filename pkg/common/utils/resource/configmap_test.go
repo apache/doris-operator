@@ -126,7 +126,7 @@ func Test_GetMountConfigMapInfo(t *testing.T) {
 	}
 }
 
-func Test_getDorisConfigInfo(t *testing.T) {
+func Test_getCoreCmName(t *testing.T) {
 	type args struct {
 		dcr           *dorisv1.DorisCluster
 		componentType dorisv1.ComponentType
@@ -181,8 +181,8 @@ func Test_getDorisConfigInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getDorisConfigInfo(tt.args.dcr, tt.args.componentType); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getDorisConfigInfo() = %v, want %v", got, tt.want)
+			if got := getCoreCmName(tt.args.dcr, tt.args.componentType); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getCoreCmName() = %v, want %v", got, tt.want)
 			}
 		})
 	}

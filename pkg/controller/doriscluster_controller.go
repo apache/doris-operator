@@ -38,7 +38,6 @@ import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
-	"github.com/apache/doris-operator/pkg/common/utils/set"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
 	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
@@ -137,7 +136,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if dcr.Spec.EnableWatchConfigmap {
+	if dcr.Spec.EnableRestartWhenConfigChange {
 		coreConfigMaps := resource.GetDorisCoreConfigMapNames(dcr)
 		for componentType := range coreConfigMaps {
 			cmnn := types.NamespacedName{Namespace: dcr.Namespace, Name: coreConfigMaps[componentType]}
@@ -342,31 +341,7 @@ func (r *DorisClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *c
 				return false
 			}
 
-			oldConfigMap, ok := u.ObjectOld.(*corev1.ConfigMap)
-			if !ok {
-				klog.Errorf(
-					"watchConfigMapBuilder UpdateFunc Failed to cast ObjectOld to ConfigMap %s: objectKind=%v, objectName=%s, objectNamespace=%s",
-					"ObjectOld",
-					u.ObjectOld.GetObjectKind().GroupVersionKind(),
-					u.ObjectOld.GetName(),
-					u.ObjectOld.GetNamespace(),
-				)
-				return false
-			}
-
-			newConfigMap, ok := u.ObjectNew.(*corev1.ConfigMap)
-			if !ok {
-				klog.Errorf(
-					"watchConfigMapBuilder UpdateFunc Failed to cast ObjectNew to ConfigMap %s: objectKind=%v, objectName=%s, objectNamespace=%s",
-					"ObjectNew",
-					u.ObjectNew.GetObjectKind().GroupVersionKind(),
-					u.ObjectNew.GetName(),
-					u.ObjectNew.GetNamespace(),
-				)
-				return false
-			}
-			isCmEqual := set.CompareMaps(oldConfigMap.Data, newConfigMap.Data)
-			return !isCmEqual
+			return true
 		},
 	}
 

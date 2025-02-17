@@ -49,9 +49,9 @@ type DorisClusterSpec struct {
 	// the password key is `password`. the username defaults to `root` and is omitempty.
 	AuthSecret string `json:"authSecret,omitempty"`
 
-	// Enable configmap monitoring, default is false.
-	// When EnableWatchConfigmap is true, changing the doris core configmap will cause a rolling restart of the corresponding node
-	EnableWatchConfigmap bool `json:"enableWatchConfigmap,omitempty"`
+	// EnableRestartWhenConfigChange configmap monitoring, default is false.
+	// When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node
+	EnableRestartWhenConfigChange bool `json:"enableRestartWhenConfigChange,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
@@ -391,7 +391,7 @@ type ComponentStatus struct {
 	//the name of fe service exposed for user.
 	AccessService string `json:"accessService,omitempty"`
 
-	CoreConfigMapID string `json:"coreConfigMapID,omitempty"`
+	CoreConfigMapHashValue string `json:"coreConfigMapHashValue,omitempty"`
 
 	//FailedInstances failed pod names.
 	FailedMembers []string `json:"failedInstances,omitempty"`

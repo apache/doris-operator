@@ -149,7 +149,7 @@ func GetMountConfigMapInfo(c dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.M
 	return finalConfigMaps
 }
 
-func getDorisConfigInfo(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) string {
+func getCoreCmName(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) string {
 
 	var cmInfo dorisv1.ConfigMapInfo
 	switch componentType {
@@ -162,7 +162,7 @@ func getDorisConfigInfo(dcr *dorisv1.DorisCluster, componentType dorisv1.Compone
 	case dorisv1.Component_Broker:
 		cmInfo = dcr.Spec.BrokerSpec.ConfigMapInfo
 	default:
-		klog.Infof("getDorisConfigInfo: the componentType: %s have not default ResolveKey", componentType)
+		klog.Infof("getCoreCmName: the componentType: %s have not default ResolveKey", componentType)
 	}
 
 	maps := GetMountConfigMapInfo(cmInfo)
@@ -177,25 +177,25 @@ func getDorisConfigInfo(dcr *dorisv1.DorisCluster, componentType dorisv1.Compone
 func GetDorisCoreConfigMapNames(dcr *dorisv1.DorisCluster) map[dorisv1.ComponentType]string {
 	dorisCoreConfigMaps := map[dorisv1.ComponentType]string{}
 	if dcr.Spec.FeSpec != nil {
-		if cm := getDorisConfigInfo(dcr, dorisv1.Component_FE); cm != "" {
+		if cm := getCoreCmName(dcr, dorisv1.Component_FE); cm != "" {
 			dorisCoreConfigMaps[dorisv1.Component_FE] = cm
 		}
 	}
 
 	if dcr.Spec.BeSpec != nil {
-		if cm := getDorisConfigInfo(dcr, dorisv1.Component_BE); cm != "" {
+		if cm := getCoreCmName(dcr, dorisv1.Component_BE); cm != "" {
 			dorisCoreConfigMaps[dorisv1.Component_BE] = cm
 		}
 	}
 
 	if dcr.Spec.CnSpec != nil {
-		if cm := getDorisConfigInfo(dcr, dorisv1.Component_CN); cm != "" {
+		if cm := getCoreCmName(dcr, dorisv1.Component_CN); cm != "" {
 			dorisCoreConfigMaps[dorisv1.Component_CN] = cm
 		}
 	}
 
 	if dcr.Spec.BrokerSpec != nil {
-		if cm := getDorisConfigInfo(dcr, dorisv1.Component_Broker); cm != "" {
+		if cm := getCoreCmName(dcr, dorisv1.Component_Broker); cm != "" {
 			dorisCoreConfigMaps[dorisv1.Component_Broker] = cm
 		}
 	}

@@ -6108,10 +6108,10 @@ spec:
                 required:
                 - image
                 type: object
-              enableWatchConfigmap:
+              enableRestartWhenConfigChange:
                 description: |-
-                  Enable configmap monitoring, default is false.
-                  When EnableWatchConfigmap is true, changing the doris core configmap will cause a rolling restart of the corresponding node
+                  EnableRestartWhenConfigChange configmap monitoring, default is false.
+                  When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node
                 type: boolean
               feSpec:
                 description: defines the fe cluster state that will be created by
@@ -7951,7 +7951,7 @@ spec:
                     - phase
                     - reason
                     type: object
-                  coreConfigMapID:
+                  coreConfigMapHashValue:
                     type: string
                   creatingInstances:
                     description: CreatingInstances in creating pod names.
@@ -8004,7 +8004,7 @@ spec:
                     - phase
                     - reason
                     type: object
-                  coreConfigMapID:
+                  coreConfigMapHashValue:
                     type: string
                   creatingInstances:
                     description: CreatingInstances in creating pod names.
@@ -8057,7 +8057,7 @@ spec:
                     - phase
                     - reason
                     type: object
-                  coreConfigMapID:
+                  coreConfigMapHashValue:
                     type: string
                   creatingInstances:
                     description: CreatingInstances in creating pod names.
@@ -8120,7 +8120,7 @@ spec:
                     - phase
                     - reason
                     type: object
-                  coreConfigMapID:
+                  coreConfigMapHashValue:
                     type: string
                   creatingInstances:
                     description: CreatingInstances in creating pod names.
