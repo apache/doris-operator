@@ -7914,6 +7914,25 @@ spec:
                 required:
                 - image
                 type: object
+              kerberosInfo:
+                description: KerberosInfo contains a series of access key files, Provides
+                  access to kerberos.
+                properties:
+                  keytab:
+                    properties:
+                      kerberosInfo:
+                        type: string
+                      secretName:
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                  krb5ConfigMap:
+                    type: string
+                required:
+                - keytab
+                - krb5ConfigMap
+                type: object
             type: object
           status:
             description: DorisClusterStatus defines the observed state of DorisCluster

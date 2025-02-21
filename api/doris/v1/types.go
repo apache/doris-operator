@@ -52,6 +52,19 @@ type DorisClusterSpec struct {
 	// EnableRestartWhenConfigChange configmap monitoring, default is false.
 	// When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node
 	EnableRestartWhenConfigChange bool `json:"enableRestartWhenConfigChange,omitempty"`
+
+	// KerberosInfo contains a series of access key files, Provides access to kerberos.
+	KerberosInfo *KerberosInfo `json:"kerberosInfo,omitempty"`
+}
+
+type KerberosInfo struct {
+	Krb5ConfigMap string  `json:"krb5ConfigMap"`
+	Keytab        *Keytab `json:"keytab"`
+}
+
+type Keytab struct {
+	SecretName string `json:"secretName"`
+	MountPath  string `json:"kerberosInfo,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
