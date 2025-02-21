@@ -7919,15 +7919,25 @@ spec:
                   access to kerberos.
                 properties:
                   keytab:
+                    description: Keytab is a struct including sercet details within
+                      '*.keytab' files
                     properties:
                       kerberosInfo:
+                        description: |-
+                          MountPath is the path where the Secret is mounted inside the pod. default '/etc/keytab/'.
+                          It is not recommended to modify it unless necessary.
                         type: string
                       secretName:
+                        description: "SecretName is the name of sercet within '*.keytab'
+                          files,\nrefer to the following command to create a Secret
+                          :\n\t'kubectl create secret generic {secret-name} --from-file=.
+                          '"
                         type: string
                     required:
                     - secretName
                     type: object
                   krb5ConfigMap:
+                    description: Krb5ConfigMap is the name of configmap within 'krb5.conf'
                     type: string
                 required:
                 - keytab
