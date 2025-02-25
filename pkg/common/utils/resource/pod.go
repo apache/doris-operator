@@ -514,8 +514,8 @@ func buildKerberosEnv(info *v1.KerberosInfo, config map[string]interface{}, comp
 	}
 
 	keytabFinalUsedPath := keytab_default_mount_path
-	if info.KeytabFinalUsedPath != "" {
-		keytabFinalUsedPath = info.KeytabFinalUsedPath
+	if info.KeytabPath != "" {
+		keytabFinalUsedPath = info.KeytabPath
 	}
 
 	return []corev1.EnvVar{

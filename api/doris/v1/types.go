@@ -66,10 +66,10 @@ type KerberosInfo struct {
 	// 	'kubectl create secret generic {secret-name} --from-file=. '
 	KeytabSecretName string `json:"keytabSecretName"`
 
-	// KeytabFinalUsedPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+	// KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
 	// It is not recommended to modify it unless necessary.
 	// This path is the path filled in when configuring "hadoop.kerberos.keytab".
-	KeytabFinalUsedPath string `json:"keytabFinalUsedPath,omitempty"`
+	KeytabPath string `json:"keytabPath,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.

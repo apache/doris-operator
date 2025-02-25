@@ -7918,9 +7918,9 @@ spec:
                 description: KerberosInfo contains a series of access key files, Provides
                   access to kerberos.
                 properties:
-                  keytabFinalUsedPath:
+                  keytabPath:
                     description: |-
-                      KeytabFinalUsedPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+                      KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
                       It is not recommended to modify it unless necessary.
                       This path is the path filled in when configuring "hadoop.kerberos.keytab".
                     type: string
