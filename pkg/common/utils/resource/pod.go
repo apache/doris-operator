@@ -20,6 +20,7 @@ package resource
 import (
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/kerberos"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -40,11 +41,10 @@ const (
 	fe_meta_path       = "/opt/apache-doris/fe/doris-meta"
 	fe_meta_name       = "fe-meta"
 
-	keytab_volume_name        = "keytab-volume"
+	keytab_volume_name        = "keytab"
 	keytab_default_mount_path = "/etc/keytab"
-	krb5_volume_name          = "krb5-volume"
+	krb5_volume_name          = "krb5"
 	krb5_default_mount_path   = "/etc/krb5"
-	krb5_default_config       = "/etc/krb5.conf"
 
 	HEALTH_API_PATH            = "/api/health"
 	HEALTH_BROKER_LIVE_COMMAND = "/opt/apache-doris/broker_is_alive.sh"
@@ -60,9 +60,11 @@ const (
 	ADMIN_USER    = "USER"
 	ADMIN_PASSWD  = "PASSWD"
 	DORIS_ROOT    = "DORIS_ROOT"
-	KRB5_PATH     = "KRB5_PATH"
-	KRB5_CONFIG   = "KRB5_CONFIG"
-	KEYTAB_PATH   = "KEYTAB_PATH"
+
+	KRB5_MOUNT_PATH        = "KRB5_MOUNT_PATH"
+	KRB5_CONFIG            = "KRB5_CONFIG"
+	KEYTAB_MOUNT_PATH      = "KEYTAB_MOUNT_PATH"
+	KEYTAB_FINAL_USED_PATH = "KEYTAB_FINAL_USED_PATH"
 
 	DEFAULT_ADMIN_USER   = "root"
 	DEFAULT_ROOT_PATH    = "/opt/apache-doris"
@@ -382,6 +384,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	volumeMounts := buildVolumeMounts(spec, componentType)
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)
+	envs = append(envs, buildKerberosEnv(dcr.Spec.KerberosInfo, config, componentType)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
 
 	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
@@ -488,28 +491,52 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 		}}...)
 	}
 
-	if dcr.Spec.KerberosInfo != nil {
-		keytabVolumeMountPath := keytab_default_mount_path
-		if dcr.Spec.KerberosInfo.Keytab != nil && dcr.Spec.KerberosInfo.Keytab.MountPath != "" {
-			keytabVolumeMountPath = dcr.Spec.KerberosInfo.Keytab.MountPath
-		}
-		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{
-			{
-				Name:  KRB5_CONFIG,
-				Value: krb5_default_config,
-			},
-			{
-				Name:  KRB5_PATH,
-				Value: krb5_default_mount_path,
-			},
-			{
-				Name:  KEYTAB_PATH,
-				Value: keytabVolumeMountPath,
-			},
-		}...)
+	return defaultEnvs
+}
+
+func buildKerberosEnv(info *v1.KerberosInfo, config map[string]interface{}, componentType v1.ComponentType) []corev1.EnvVar {
+	if info == nil {
+		return nil
 	}
 
-	return defaultEnvs
+	var krb5ConfPath string
+	switch componentType {
+	case v1.Component_FE:
+		krb5ConfPath = kerberos.GetKrb5ConfFromJavaOpts(config)
+	case v1.Component_BE:
+		// be config krb5.conf file must set 'kerberos_krb5_conf_path' in be.conf
+		// https://doris.apache.org/docs/3.0/lakehouse/datalake-analytics/hive?_highlight=kerberos_krb5_conf_path#connect-to-kerberos-enabled-hive
+		if value, exists := config["kerberos_krb5_conf_path"]; exists {
+			krb5ConfPath = value.(string)
+		} else {
+			krb5ConfPath = kerberos.KRB5_DEFAULT_CONFIG
+		}
+	}
+
+	keytabFinalUsedPath := keytab_default_mount_path
+	if info.KeytabFinalUsedPath != "" {
+		keytabFinalUsedPath = info.KeytabFinalUsedPath
+	}
+
+	return []corev1.EnvVar{
+
+		{
+			Name:  KRB5_MOUNT_PATH,
+			Value: krb5_default_mount_path,
+		},
+		{
+			Name:  KRB5_CONFIG,
+			Value: krb5ConfPath,
+		},
+		{
+			Name:  KEYTAB_MOUNT_PATH,
+			Value: keytab_default_mount_path,
+		},
+		{
+			Name:  KEYTAB_FINAL_USED_PATH,
+			Value: keytabFinalUsedPath,
+		},
+	}
 }
 
 func buildEnvFromPod() []corev1.EnvVar {
@@ -831,26 +858,20 @@ func getKerberosVolumeAndVolumeMount(kerberosInfo *v1.KerberosInfo) ([]corev1.Vo
 	})
 
 	// keytab
-	if kerberosInfo.Keytab != nil {
-		volumes = append(volumes, corev1.Volume{
-			Name: keytab_volume_name,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: kerberosInfo.Keytab.SecretName,
-				},
+	volumes = append(volumes, corev1.Volume{
+		Name: keytab_volume_name,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: kerberosInfo.KeytabSecretName,
 			},
-		})
+		},
+	})
 
-		keytabVolumeMountPath := keytab_default_mount_path
-		if kerberosInfo.Keytab.MountPath != "" {
-			keytabVolumeMountPath = kerberosInfo.Keytab.MountPath
-		}
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      keytab_volume_name,
-			MountPath: keytabVolumeMountPath,
-		})
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      keytab_volume_name,
+		MountPath: keytab_default_mount_path,
+	})
 
-	}
 	return volumes, volumeMounts
 }
 

@@ -7918,29 +7918,22 @@ spec:
                 description: KerberosInfo contains a series of access key files, Provides
                   access to kerberos.
                 properties:
-                  keytab:
-                    description: Keytab is a struct including sercet details within
-                      '*.keytab' files
-                    properties:
-                      kerberosInfo:
-                        description: |-
-                          MountPath is the path where the Secret is mounted inside the pod. default '/etc/keytab/'.
-                          It is not recommended to modify it unless necessary.
-                        type: string
-                      secretName:
-                        description: "SecretName is the name of sercet within '*.keytab'
-                          files,\nrefer to the following command to create a Secret
-                          :\n\t'kubectl create secret generic {secret-name} --from-file=.
-                          '"
-                        type: string
-                    required:
-                    - secretName
-                    type: object
+                  keytabFinalUsedPath:
+                    description: |-
+                      KeytabFinalUsedPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+                      It is not recommended to modify it unless necessary.
+                      This path is the path filled in when configuring "hadoop.kerberos.keytab".
+                    type: string
+                  keytabSecretName:
+                    description: "SecretName is the name of sercet within '*.keytab'
+                      files,\nrefer to the following command to create a Secret :\n\t'kubectl
+                      create secret generic {secret-name} --from-file=. '"
+                    type: string
                   krb5ConfigMap:
                     description: Krb5ConfigMap is the name of configmap within 'krb5.conf'
                     type: string
                 required:
-                - keytab
+                - keytabSecretName
                 - krb5ConfigMap
                 type: object
             type: object

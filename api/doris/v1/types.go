@@ -61,19 +61,15 @@ type KerberosInfo struct {
 	// Krb5ConfigMap is the name of configmap within 'krb5.conf'
 	Krb5ConfigMap string `json:"krb5ConfigMap"`
 
-	// Keytab is a struct including sercet details within '*.keytab' files
-	Keytab *Keytab `json:"keytab"`
-}
-
-type Keytab struct {
 	// SecretName is the name of sercet within '*.keytab' files,
 	// refer to the following command to create a Secret :
 	// 	'kubectl create secret generic {secret-name} --from-file=. '
-	SecretName string `json:"secretName"`
+	KeytabSecretName string `json:"keytabSecretName"`
 
-	// MountPath is the path where the Secret is mounted inside the pod. default '/etc/keytab/'.
+	// KeytabFinalUsedPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
 	// It is not recommended to modify it unless necessary.
-	MountPath string `json:"kerberosInfo,omitempty"`
+	// This path is the path filled in when configuring "hadoop.kerberos.keytab".
+	KeytabFinalUsedPath string `json:"keytabFinalUsedPath,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
