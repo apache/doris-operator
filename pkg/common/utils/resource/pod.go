@@ -503,7 +503,7 @@ func buildKerberosEnv(info *v1.KerberosInfo, config map[string]interface{}, comp
 	switch componentType {
 	case v1.Component_FE:
 		krb5ConfPath = kerberos.GetKrb5ConfFromJavaOpts(config)
-	case v1.Component_BE:
+	case v1.Component_BE, v1.Component_CN:
 		// be config krb5.conf file must set 'kerberos_krb5_conf_path' in be.conf
 		// https://doris.apache.org/docs/3.0/lakehouse/datalake-analytics/hive?_highlight=kerberos_krb5_conf_path#connect-to-kerberos-enabled-hive
 		if value, exists := config["kerberos_krb5_conf_path"]; exists {
