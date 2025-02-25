@@ -52,6 +52,24 @@ type DorisClusterSpec struct {
 	// EnableRestartWhenConfigChange configmap monitoring, default is false.
 	// When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node
 	EnableRestartWhenConfigChange bool `json:"enableRestartWhenConfigChange,omitempty"`
+
+	// KerberosInfo contains a series of access key files, Provides access to kerberos.
+	KerberosInfo *KerberosInfo `json:"kerberosInfo,omitempty"`
+}
+
+type KerberosInfo struct {
+	// Krb5ConfigMap is the name of configmap within 'krb5.conf'
+	Krb5ConfigMap string `json:"krb5ConfigMap"`
+
+	// SecretName is the name of sercet within '*.keytab' files,
+	// refer to the following command to create a Secret :
+	// 	'kubectl create secret generic {secret-name} --from-file=. '
+	KeytabSecretName string `json:"keytabSecretName"`
+
+	// KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+	// It is not recommended to modify it unless necessary.
+	// This path is the path filled in when configuring "hadoop.kerberos.keytab".
+	KeytabPath string `json:"keytabPath,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
