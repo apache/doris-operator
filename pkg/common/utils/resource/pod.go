@@ -352,13 +352,16 @@ func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Conta
 func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) corev1.Container {
 	command, args := getCommand(componentType)
 	var spec v1.BaseSpec
+	var skipInit bool
 	switch componentType {
 	case v1.Component_FE:
 		spec = dcr.Spec.FeSpec.BaseSpec
 	case v1.Component_BE:
 		spec = dcr.Spec.BeSpec.BaseSpec
+		skipInit = dcr.Spec.BeSpec.SkipDefaultSystemInit
 	case v1.Component_CN:
 		spec = dcr.Spec.CnSpec.BaseSpec
+		skipInit = dcr.Spec.BeSpec.SkipDefaultSystemInit
 	case v1.Component_Broker:
 		spec = dcr.Spec.BrokerSpec.BaseSpec
 	default:
@@ -368,6 +371,11 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = mergeEnvs(envs, spec.EnvVars)
+	if skipInit {
+		// Only works when the doris version is higher than 2.1.8 or 3.0.4
+		// When the environment variable SKIP_CHECK_ULIMIT=true is passed in, the startup system parameter check of be will be skipped.
+		envs = append(envs, corev1.EnvVar{Name: "SKIP_CHECK_ULIMIT", Value: "true"})
+	}
 
 	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		_, configVolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
