@@ -221,6 +221,7 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 		}
 	}
 
+	// Need to adjust by pointer
 	(&ddc.Status).ComputeGroupStatuses = append((&ddc.Status).ComputeGroupStatuses, defaultStatus)
 }
 
