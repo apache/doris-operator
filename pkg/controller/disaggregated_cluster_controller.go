@@ -323,6 +323,11 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
+
+	if ddc.Status.ClusterHealth.Health != dv1.Green {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
 	return res, nil
 
 }

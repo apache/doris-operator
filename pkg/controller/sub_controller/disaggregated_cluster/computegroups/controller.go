@@ -221,7 +221,7 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 		}
 	}
 
-	ddc.Status.ComputeGroupStatuses = append(ddc.Status.ComputeGroupStatuses, defaultStatus)
+	(&ddc.Status).ComputeGroupStatuses = append((&ddc.Status).ComputeGroupStatuses, defaultStatus)
 }
 
 // check compute groups unique identifier duplicated or not. return duplicated key.
