@@ -323,6 +323,13 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
+
+	// To cover the possibility of untuned deployment,
+	// If the cluster status is abnormal(Health is not Green), reconciling is required.
+	if ddc.Status.ClusterHealth.Health != dv1.Green {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
 	return res, nil
 
 }
