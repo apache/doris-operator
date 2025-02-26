@@ -76,7 +76,7 @@ func Test_ClearResources(t *testing.T) {
             },
             Spec: corev1.PersistentVolumeClaimSpec{
                 AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-                Resources: corev1.ResourceRequirements{
+                Resources: corev1.VolumeResourceRequirements{
                     Requests: map[corev1.ResourceName]kr.Quantity{
                         "storage": kr.MustParse("500Gi"),
                     },
@@ -100,7 +100,7 @@ func Test_ClearResources(t *testing.T) {
             },
             Spec: corev1.PersistentVolumeClaimSpec{
                 AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-                Resources: corev1.ResourceRequirements{
+                Resources: corev1.VolumeResourceRequirements{
                     Requests: map[corev1.ResourceName]kr.Quantity{
                         "storage": kr.MustParse("500Gi"),
                     },
@@ -124,7 +124,7 @@ func Test_ClearResources(t *testing.T) {
             },
             Spec: corev1.PersistentVolumeClaimSpec{
                 AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-                Resources: corev1.ResourceRequirements{
+                Resources: corev1.VolumeResourceRequirements{
                     Requests: map[corev1.ResourceName]kr.Quantity{
                         "storage": kr.MustParse("500Gi"),
                     },
@@ -155,7 +155,7 @@ func Test_ClearResources(t *testing.T) {
                             MountPath: "/opt/apache-doris/fe/doris-meta",
                             PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
                                 AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-                                Resources: corev1.ResourceRequirements{
+                                Resources: corev1.VolumeResourceRequirements{
                                     Requests: corev1.ResourceList{
                                         "storage": kr.MustParse("500Gi"),
                                     },
