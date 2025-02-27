@@ -391,7 +391,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	envs = mergeEnvs(envs, spec.EnvVars)
 	if skipInit {
 		// Only works when the doris version is higher than 2.1.8 or 3.0.4
-		// When the environment variable SKIP_CHECK_ULIMIT=true is passed in, the startup system parameter check of be will be skipped.
+		// When the environment variable SKIP_CHECK_ULIMIT=true is passed in, the start_be.sh will not check system parameters like ulimit and vm.max_map_count etc.
 		envs = append(envs, corev1.EnvVar{Name: "SKIP_CHECK_ULIMIT", Value: "true"})
 	}
 

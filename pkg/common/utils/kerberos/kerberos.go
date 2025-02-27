@@ -33,8 +33,12 @@ func GetKrb5ConfFromJavaOpts(javaOpts map[string]interface{}) string {
 	krb5Property := "-Djava.security.krb5.conf="
 
 	// All keys in the parsed config map are lowercase, so 'java_opts_for_jdk_17' is used here instead of 'JAVA_OPTS_FOR_JDK_17'.
+	//this is because the viper is case-insensitive(please reference this issue:https://github.com/spf13/viper/issues/411), we use viper to resolve config file.
 	if jdk17Opts, exists := javaOpts["java_opts_for_jdk_17"]; exists {
 		//  The jvm configuration value in the configuration file(fe.conf/be.conf) has  "  symbol, so it needs to be cleared
+		// jvm value have empty space, so for represent it as a string, the value will add double quotas, when resolve it the string format as follows:
+		//""-Dfile.encoding=UTF-8 -Djavax.security.auth.useSubjectCredsOnly=false -Xss4m -Xmx8192m""
+		//this step will remove the \".
 		jdk17OptsString := strings.ReplaceAll(jdk17Opts.(string), "\"", "")
 		for _, opt := range strings.Split(jdk17OptsString, " ") {
 			if strings.Contains(opt, krb5Property) {
