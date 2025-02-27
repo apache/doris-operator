@@ -32,7 +32,9 @@ const (
 func GetKrb5ConfFromJavaOpts(javaOpts map[string]interface{}) string {
 	krb5Property := "-Djava.security.krb5.conf="
 
+	// All keys in the parsed config map are lowercase, so 'java_opts_for_jdk_17' is used here instead of 'JAVA_OPTS_FOR_JDK_17'.
 	if jdk17Opts, exists := javaOpts["java_opts_for_jdk_17"]; exists {
+		//  The jvm configuration value in the configuration file(fe.conf/be.conf) has  "  symbol, so it needs to be cleared
 		jdk17OptsString := strings.ReplaceAll(jdk17Opts.(string), "\"", "")
 		for _, opt := range strings.Split(jdk17OptsString, " ") {
 			if strings.Contains(opt, krb5Property) {
@@ -42,7 +44,9 @@ func GetKrb5ConfFromJavaOpts(javaOpts map[string]interface{}) string {
 		}
 	}
 
+	// All keys in the parsed config map are lowercase, so 'java_opts' is used here instead of 'JAVA_OPTS'.
 	if commonOpts, exists := javaOpts["java_opts"]; exists {
+		//  The jvm configuration value in the configuration file(fe.conf/be.conf) has  "  symbol, so it needs to be cleared
 		commonOptsString := strings.ReplaceAll(commonOpts.(string), "\"", "")
 		for _, opt := range strings.Split(commonOptsString, " ") {
 			if strings.Contains(opt, krb5Property) {
