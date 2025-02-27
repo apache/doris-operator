@@ -7914,6 +7914,28 @@ spec:
                 required:
                 - image
                 type: object
+              kerberosInfo:
+                description: KerberosInfo contains a series of access key files, Provides
+                  access to kerberos.
+                properties:
+                  keytabPath:
+                    description: |-
+                      KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+                      It is not recommended to modify it unless necessary.
+                      This path is the path filled in when configuring "hadoop.kerberos.keytab".
+                    type: string
+                  keytabSecretName:
+                    description: "SecretName is the name of sercet within '*.keytab'
+                      files,\nrefer to the following command to create a Secret :\n\t'kubectl
+                      create secret generic {secret-name} --from-file=. '"
+                    type: string
+                  krb5ConfigMap:
+                    description: Krb5ConfigMap is the name of configmap within 'krb5.conf'
+                    type: string
+                required:
+                - keytabSecretName
+                - krb5ConfigMap
+                type: object
             type: object
           status:
             description: DorisClusterStatus defines the observed state of DorisCluster
