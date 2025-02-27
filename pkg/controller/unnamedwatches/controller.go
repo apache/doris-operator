@@ -148,7 +148,7 @@ func (wr *WResource) Init(mgr ctrl.Manager, options *pc.Options) {
 		klog.Errorf("wresource init new controller failed, err=%s", err.Error())
 	}
 	for _, w := range wr.watches {
-		if err := c.Watch(&source.Kind{Type: w.GetType()}, w); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), w.GetType(), w)); err != nil {
 			klog.Errorf("wresource init build clientset from mgr failed, err=%s", err.Error())
 			os.Exit(1)
 		}

@@ -55,7 +55,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 	"time"
 
@@ -260,9 +259,8 @@ func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Bu
 }
 
 func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
-
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			labels := a.GetLabels()
 			dorisName := labels[dorisv1.DorisClusterLabelKey]
 			if dorisName != "" {
@@ -301,13 +299,13 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}},
+	return builder.Watches(&corev1.Pod{},
 		mapFn, controller_builder.WithPredicates(p))
 }
 
 func (r *DorisClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(a client.Object) []reconcile.Request {
+		func(ctx context.Context, a client.Object) []reconcile.Request {
 			cmnn := types.NamespacedName{Namespace: a.GetNamespace(), Name: a.GetName()}
 			if dcrNamespacedNameStr, ok := r.WatchConfigMaps[cmnn.String()]; ok {
 				// nna[0] is namespace, nna[1] is dcrName,
@@ -345,7 +343,7 @@ func (r *DorisClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *c
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+	return builder.Watches(&corev1.ConfigMap{},
 		mapFn, controller_builder.WithPredicates(p))
 }
 

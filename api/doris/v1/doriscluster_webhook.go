@@ -34,12 +34,14 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -51,29 +53,30 @@ func (r *DorisCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:unnamedwatches:path=/mutate-doris-selectdb-com-v1-doriscluster,mutating=true,failurePolicy=ignore,sideEffects=None,groups=doris.selectdb.com,resources=dorisclusters,verbs=create;update;delete,versions=v1,name=mdoriscluster.kb.io,admissionReviewVersions=v1
-var _ webhook.Defaulter = &DorisCluster{}
+var _ webhook.CustomDefaulter = &DorisCluster{}
 
 // Default implements webhook.Defaulter so a unnamedwatches will be registered for the type
-func (r *DorisCluster) Default() {
+func (r *DorisCluster) Default(ctx context.Context, obj runtime.Object) error {
 	klog.Infof("mutatingwebhook mutate doriscluster name=%s.", r.Name)
 	// TODO(user): fill in your defaulting logic.
+	return nil
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:unnamedwatches:path=/validate-doris-selectdb-com-v1-doriscluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=doris.selectdb.com,resources=dorisclusters,verbs=create;update,versions=v1,name=vdoriscluster.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &DorisCluster{}
+var _ webhook.CustomValidator = &DorisCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
-func (r *DorisCluster) ValidateCreate() error {
+func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
-func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
+func (r *DorisCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", r.Name)
 	var errors []error
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
@@ -82,16 +85,16 @@ func (r *DorisCluster) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if len(errors) != 0 {
-		return kerrors.NewAggregate(errors)
+		return nil, kerrors.NewAggregate(errors)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a unnamedwatches will be registered for the type
-func (r *DorisCluster) ValidateDelete() error {
+func (r *DorisCluster) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }

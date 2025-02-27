@@ -71,7 +71,7 @@ func Test_NewPodTemplateSpecWithCommonSpec(t *testing.T) {
 				"namespace": "default",
 			},
 			PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: map[corev1.ResourceName]kr.Quantity{
 						"storage": kr.MustParse("200Gi"),
 					},
@@ -98,7 +98,7 @@ func Test_NewPodTemplateSpecWithCommonSpec(t *testing.T) {
 				"namespace": "default",
 			},
 			PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: map[corev1.ResourceName]kr.Quantity{
 						"storage": kr.MustParse("200Gi"),
 					},

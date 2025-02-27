@@ -49,33 +49,38 @@ func (w *WatchValidatingWebhookConfiguration) GetType() client.Object {
 	return w.Type
 }
 
-func (w *WatchValidatingWebhookConfiguration) Create(event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
-	for _, req := range w.toReconcileRequest(event.Object) {
+func (w *WatchValidatingWebhookConfiguration) Create(ctx context.Context, e event.TypedCreateEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	for _, req := range w.toReconcileRequest(e.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) Update(event event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
-	for _, req := range w.toReconcileRequest(event.ObjectNew) {
+func (w *WatchValidatingWebhookConfiguration) Update(ctx context.Context, e event.TypedUpdateEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	for _, req := range w.toReconcileRequest(e.ObjectNew) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) Delete(event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
-	for _, req := range w.toReconcileRequest(event.Object) {
+func (w *WatchValidatingWebhookConfiguration) Delete(ctx context.Context, e event.TypedDeleteEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	for _, req := range w.toReconcileRequest(e.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) Generic(event event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
-	for _, req := range w.toReconcileRequest(event.Object) {
+func (w *WatchValidatingWebhookConfiguration) Generic(ctx context.Context, e event.TypedGenericEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	for _, req := range w.toReconcileRequest(e.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchValidatingWebhookConfiguration) toReconcileRequest(object metav1.Object) []reconcile.Request {
-	if object.GetName() == w.Name {
-		return []reconcile.Request{reconcile.Request{}}
+func (w *WatchValidatingWebhookConfiguration) toReconcileRequest(e metav1.Object) []reconcile.Request {
+	if e.GetName() == w.Name {
+		return []reconcile.Request{reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      e.GetName(),
+				Namespace: e.GetNamespace(),
+			},
+		}}
 	}
 
 	return nil

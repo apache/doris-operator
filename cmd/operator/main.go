@@ -34,6 +34,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
@@ -46,7 +47,10 @@ import (
 	"k8s.io/utils/pointer"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	controllerconfig "sigs.k8s.io/controller-runtime/pkg/config"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -110,16 +114,28 @@ func main() {
 	printVersionInfos(f.PrintVar)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&f.Opts)))
+	webhookServer := webhook.NewServer(webhook.Options{
+		Port: 9443,
+	})
+	defaultNamespaces := map[string]cache.Config{}
+	if f.Namespace != "" {
+		defaultNamespaces[f.Namespace] = cache.Config{}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     f.MetricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: f.MetricsAddr,
+		},
 		HealthProbeBindAddress: f.ProbeAddr,
-		Namespace:              f.Namespace,
-		LeaderElection:         f.EnableLeaderElection,
-		LeaderElectionID:       "e1370669.selectdb.com",
+		Cache: cache.Options{
+			DefaultNamespaces: defaultNamespaces,
+		},
+		WebhookServer:    webhookServer,
+		LeaderElection:   f.EnableLeaderElection,
+		LeaderElectionID: "e1370669.selectdb.com",
 		//if one reconcile failed, others will not be affected.
-		Controller: v1alpha1.ControllerConfigurationSpec{
+		Controller: controllerconfig.Controller{
 			RecoverPanic: pointer.Bool(true),
 		},
 
@@ -159,8 +175,12 @@ func main() {
 		//wait for the secret have
 		interval := time.Second * 1
 		timeout := time.Second * 30
-		keyPath := filepath.Join(mgr.GetWebhookServer().CertDir, certificate.TLsCertName)
-		err = wait.PollImmediate(interval, timeout, func() (bool, error) {
+		fctx := context.Background()
+		err = wait.PollUntilContextTimeout(fctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
+			srv := webhookServer.(*webhook.DefaultServer)
+			//when default server start in mgr.start, the option will add default values. so, certDir if not set, default values will be "<temp-dir>/k8s-webhook-server/serving-certs."
+			certDir := srv.Options.CertDir
+			keyPath := filepath.Join(certDir, certificate.TLsCertName)
 			_, err := os.Stat(keyPath)
 			if os.IsNotExist(err) {
 				setupLog.Info("webhook certificate have not present waiting kubelet update", "file", keyPath)

@@ -65,7 +65,7 @@ var dcr = &v1.DorisCluster{
 							"component": "fe",
 						},
 						PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: map[corev1.ResourceName]kr.Quantity{
 									"storage": kr.MustParse("100Gi"),
 								},
@@ -80,7 +80,7 @@ var dcr = &v1.DorisCluster{
 							"component": "fe",
 						},
 						PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: map[corev1.ResourceName]kr.Quantity{
 									"storage": kr.MustParse("100Gi"),
 								},
@@ -110,7 +110,7 @@ var dcr = &v1.DorisCluster{
 							"component": "be",
 						},
 						PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: map[corev1.ResourceName]kr.Quantity{
 									"storage": kr.MustParse("200Gi"),
 								},
@@ -125,7 +125,7 @@ var dcr = &v1.DorisCluster{
 							"component": "be",
 						},
 						PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: map[corev1.ResourceName]kr.Quantity{
 									"storage": kr.MustParse("100Gi"),
 								},
@@ -151,7 +151,7 @@ var dcr = &v1.DorisCluster{
 							"component": "be",
 						},
 						PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: map[corev1.ResourceName]kr.Quantity{
 									"storage": kr.MustParse("100Gi"),
 								},
@@ -166,7 +166,7 @@ var dcr = &v1.DorisCluster{
 							"component": "be",
 						},
 						PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: map[corev1.ResourceName]kr.Quantity{
 									"storage": kr.MustParse("100Gi"),
 								},

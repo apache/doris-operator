@@ -62,25 +62,25 @@ func (w *WatchSecret) GetType() client.Object {
 	return w.Type
 }
 
-func (w *WatchSecret) Create(event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchSecret) Create(ctx context.Context, event event.TypedCreateEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchSecret) Update(event event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchSecret) Update(ctx context.Context, event event.TypedUpdateEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.ObjectNew) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchSecret) Delete(event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchSecret) Delete(ctx context.Context, event event.TypedDeleteEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
 }
 
-func (w *WatchSecret) Generic(event event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (w *WatchSecret) Generic(ctx context.Context, event event.TypedGenericEvent[client.Object], limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for _, req := range w.toReconcileRequest(event.Object) {
 		limitingInterface.Add(req)
 	}
