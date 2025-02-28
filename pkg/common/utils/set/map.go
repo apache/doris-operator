@@ -25,6 +25,7 @@ import (
 )
 
 func Map2Hash(m map[string]interface{}) string {
+	//convert to json for the order in map is not fixed. but the json is sequential as alphabetic order.
 	jsonBytes, err := json.Marshal(m)
 	if err != nil {
 		klog.Errorf("Map2Hash json Marshal failed, err: %s", err.Error())

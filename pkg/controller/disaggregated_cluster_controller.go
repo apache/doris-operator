@@ -317,13 +317,13 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 		return res, err
 	}
 
+	//if decommissioning, be is migrating data should wait it over, so return reconciling after 10 seconds.
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
 		if cgs.Phase == dv1.Decommissioning {
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
 
-	// To cover the possibility of untuned deployment,
 	// If the cluster status is abnormal(Health is not Green), reconciling is required.
 	if ddc.Status.ClusterHealth.Health != dv1.Green {
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
