@@ -53,7 +53,7 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
   - [config compute specification](http://doris.apache.org/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-cg)
 
 ## Open source support
-- [forum](https://ask.selectdb.com/)
+- [CN Forum](https://ask.selectdb.com/)
 - [github issues](https://github.com/apache/doris-operator/issues)
 
 >[!WARNING]
