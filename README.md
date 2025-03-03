@@ -37,6 +37,8 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl -s https://api.github.com/repos/apache/doris-operator/releases/latest | grep tag_name | cut -d '"' -f4)/doc/examples/doriscluster-sample.yaml 
 ```
+>[!WARNING]
+>When custom the FE startup configuration, please set  `enable_fqdn_mode=true`. Please refer to [the official doc](https://doris.apache.org/docs/3.0/install/cluster-deployment/k8s-deploy/compute-storage-coupled/install-config-cluster) for how to use.
 
 ## Documentation
 - integration of storage and computation
