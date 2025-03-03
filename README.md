@@ -55,6 +55,3 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ## Open source support
 - [CN Forum](https://ask.selectdb.com/)
 - [github issues](https://github.com/apache/doris-operator/issues)
-
->[!WARNING]
->1. When custom the FE startup configuration, please set  `enable_fqdn_mode=true`. Please refer to [the official doc](https://doris.apache.org/docs/3.0/install/cluster-deployment/k8s-deploy/compute-storage-coupled/install-config-cluster) for how to use.
