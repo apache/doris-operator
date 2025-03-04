@@ -8868,9 +8868,6 @@ spec:
                   krb5ConfigMap:
                     description: Krb5ConfigMap is the name of configmap within 'krb5.conf'
                     type: string
-                required:
-                - keytabSecretName
-                - krb5ConfigMap
                 type: object
             type: object
           status:

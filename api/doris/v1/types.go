@@ -59,12 +59,12 @@ type DorisClusterSpec struct {
 
 type KerberosInfo struct {
 	// Krb5ConfigMap is the name of configmap within 'krb5.conf'
-	Krb5ConfigMap string `json:"krb5ConfigMap"`
+	Krb5ConfigMap string `json:"krb5ConfigMap,omitempty"`
 
 	// SecretName is the name of sercet within '*.keytab' files,
 	// refer to the following command to create a Secret :
 	// 	'kubectl create secret generic {secret-name} --from-file=. '
-	KeytabSecretName string `json:"keytabSecretName"`
+	KeytabSecretName string `json:"keytabSecretName,omitempty"`
 
 	// KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
 	// It is not recommended to modify it unless necessary.
