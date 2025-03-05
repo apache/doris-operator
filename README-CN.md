@@ -55,4 +55,4 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ## 开源支持
 - [CN Forum](https://ask.selectdb.com/)
 - [github issues](https://github.com/apache/doris-operator/issues)
-- [Slack](https://apachedoriscommunity.slack.com/archives/C08A99F88DP/p1739955284300669)
+- [Slack](https://apachedoriscommunity.slack.com/archives/C02T886T5AR)
