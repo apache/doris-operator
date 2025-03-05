@@ -57,3 +57,4 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 ## Open source support
 - [CN Forum](https://ask.selectdb.com/)
 - [github issues](https://github.com/apache/doris-operator/issues)
+- [Slack](https://apachedoriscommunity.slack.com/archives/C08A99F88DP/p1739955284300669)
