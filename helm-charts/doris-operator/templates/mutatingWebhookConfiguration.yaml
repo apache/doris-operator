@@ -41,3 +41,23 @@ webhooks:
         resources:
           - dorisclusters
     sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: {{ template "webhook.serviceName" . }}
+        namespace: {{ template "operator.namespace" . }}
+        path:  /mutate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster
+    failurePolicy: Ignore
+    name: mdorisdisaggregatedcluster.kb.io
+    rules:
+      - apiGroups:
+          - disaggregated.cluster.doris.com
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - dorisdisaggregatedclusters
+    sideEffects: None

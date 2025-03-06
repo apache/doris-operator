@@ -94,6 +94,8 @@ spec:
           env:
             - name: ENABLE_WEBHOOK
               value: "{{ template  "webhook.enable" . }}"
+            - name: START_DISAGGREGATED_OPERATOR
+              value: "true"
             - name: OPERATOR_NAMESPACE
               valueFrom:
                 fieldRef:
