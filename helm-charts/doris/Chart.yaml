@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apiVersion: v2
+apiVersion: v1
 name: doris
 description: Apache Doris is an easy-to-use, high-performance and real-time analytical database based on MPP architecture, known for its extreme speed and ease of use.
 
@@ -38,13 +38,15 @@ maintainers:
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 1.6.1
+# it will be replaced by real verison of operator in release.
+version: {operatorVersion}
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
-appVersion: "2.1.2"
+# if will be replaced by real version of doris in release.
+appVersion: {dorisVersion}
 
 kubeVersion: ">= 1.19"
 
