@@ -51,8 +51,8 @@ feSpec:
   labels: {}
     # selectdb.app.classify: "classify-1"
   image:
-    repository: selectdb/doris.fe-ubuntu
-    tag: 2.0.3
+    repository: apache/doris
+    tag: fe-2.1.7
     # imagePullSecrets:
     # - name: imagePullSecret
   # config the service port for fe service.
@@ -215,8 +215,8 @@ beSpec:
   labels: {}
     # selectdb.app.classify: "classify-1"
   image:
-    repository: selectdb/doris.be-ubuntu
-    tag: 2.0.3
+    repository: apache/doris
+    tag: be-2.1.7
     # imagePullSecrets:
     # - name: imagePullSecret
   # config the service port for be service.
@@ -380,8 +380,8 @@ cnSpec:
   labels: {}
     # selectdb.app.classify: "classify-1"
   image:
-    repository: selectdb/doris.be-ubuntu
-    tag: 2.0.3
+    repository: apache/doris
+    tag: be-2.1.7
     # imagePullSecrets:
     # - name: imagePullSecret
   # config the service port for cn service.
@@ -561,8 +561,8 @@ brokerSpec:
   labels: {}
     # selectdb.app.classify: "classify-1"
   image:
-    repository: selectdb/doris.broker-ubuntu
-    tag: 2.0.3
+    repository: apache/doris
+    tag: broker-2.1.7
     # imagePullSecrets:
     # - name: imagePullSecret
   # specify the configMap, as a dictionary.
