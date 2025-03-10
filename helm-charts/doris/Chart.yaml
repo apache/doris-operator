@@ -38,15 +38,13 @@ maintainers:
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-# it will be replaced by real verison of operator in release.
 version: {operatorVersion}
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
-# if will be replaced by real version of doris in release.
-appVersion: {dorisVersion}
+appVersion: 2.1.7
 
 kubeVersion: ">= 1.19"
 
