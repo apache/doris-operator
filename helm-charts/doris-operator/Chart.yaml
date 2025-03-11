@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apiVersion: v1
+apiVersion: v2
 name: doris-operator
 description: Doris-operator for doris creates, configures and manages doris cluster running on kubernetes. Operator provide deploy and manage fe, be, cn，broker components.
 

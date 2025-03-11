@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apiVersion: v1
+apiVersion: v2
 name: doris
 description: Apache Doris is an easy-to-use, high-performance and real-time analytical database based on MPP architecture, known for its extreme speed and ease of use.
 
