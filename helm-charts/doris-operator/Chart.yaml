@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apiVersion: v1
+apiVersion: v2
 name: doris-operator
 description: > 
   Kubernetes operator for creating, configuring and managing Doris clusters (dcr) and Doris disaggregated clusters 
