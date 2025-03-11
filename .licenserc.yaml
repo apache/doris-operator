@@ -17,6 +17,7 @@ header:
     - "**/*.txt"
     - '**/.helmignore'
     - 'helm-charts/doris-operator/crds/doris.apache.com_dorisclusters.yaml'
+    - 'helm-charts/doris-operator/crds/disaggregated.cluster.doris.com_dorisdisaggregatedclusters.yaml'
     - 'LICENSE'
     - 'NOTICE'
     - 'PROJECT'

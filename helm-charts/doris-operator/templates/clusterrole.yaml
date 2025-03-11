@@ -151,6 +151,30 @@ rules:
       - update
       - watch
   - apiGroups:
+      - disaggregated.cluster.doris.com
+    resources:
+      - dorisdisaggregatedclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps.foundationdb.org
+    resources:
+      - foundationdbclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
       - doris.selectdb.com
     resources:
       - dorisclusters/finalizers
@@ -160,6 +184,14 @@ rules:
       - doris.selectdb.com
     resources:
       - dorisclusters/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - disaggregated.cluster.doris.com
+    resources:
+      - dorisdisaggregatedclusters/status
     verbs:
       - get
       - patch
