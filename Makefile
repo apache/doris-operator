@@ -27,8 +27,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
-LATEST_TAG=$(shell git describe --tags --abbrev=0 2>/dev/null)
+LATEST_TAG=$(shell git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null)
+#LATEST_TAG=$(shell git describe --tags --abbrev=0 2>/dev/null)
 LATEST_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
 
 BUILD_DATE=$(shell date +"%Y%m%d-%T")
@@ -101,8 +101,18 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 ##@ Build
 
+.PHONY: helm
+helm: #replace variable
+ifeq ($(shell uname),Darwin)
+	sed -i "" "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris/Chart.yaml
+	sed -i "" "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris-operator/Chart.yaml
+else
+	sed -i "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris/Chart.yaml
+	sed -i "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris-operator/Chart.yaml
+endif
+
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: manifests generate fmt vet helm ## Build manager binary.
 	go build -ldflags=$(LDFLAGS) -o bin/dorisoperator cmd/operator/main.go
 
 .PHONY: run
