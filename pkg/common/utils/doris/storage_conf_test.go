@@ -148,7 +148,6 @@ func TestTransformStorage(t *testing.T) {
 	}
 }
 
-// 测试单个路径解析
 func TestParseSinglePath(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -386,7 +386,6 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	default:
 	}
 
-	//fullStoragePathFromConfig(&spec, config, componentType)
 	volumeMounts := buildVolumeMounts(spec, config, componentType)
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)

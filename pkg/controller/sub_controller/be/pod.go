@@ -84,7 +84,7 @@ func (be *Controller) addFeAntiAffinity(tplSpec *corev1.PodTemplateSpec) {
 		preferedScheduleTerm)
 }
 
-// aff fe affinity for be, wish the fe and be will 1:1 deployed in same node.
+// add fe affinity for be, wish the fe and be will 1:1 deployed in same node.
 func (be *Controller) addFeAffinity(tplSpec *corev1.PodTemplateSpec) {
 	pst := corev1.WeightedPodAffinityTerm{
 		// the weight of be antiAffinity with be is 20.
