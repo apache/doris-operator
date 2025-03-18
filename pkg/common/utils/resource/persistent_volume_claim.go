@@ -22,7 +22,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/doris"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
+	k8sResource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"strconv"
@@ -133,13 +133,13 @@ func ExplainFinalPersistentVolume(spec *dorisv1.BaseSpec, config map[string]inte
 		return pvs, nil
 	}
 
-	dataPath, dataExist := config[dataPathKey]
+	dataPathValue, dataExist := config[dataPathKey]
 	if !dataExist {
 		klog.Infof("explainFinalPersistentVolume: dataPathKey '%s' not found in config, default value will effect", dataPathKey)
 		dataPaths = append(dataPaths, doris.StorageRootPathInfo{MountPath: dataDefaultPath})
 	} else {
 		var err error
-		dataPaths, err = doris.TransformStorage(dataPath.(string))
+		dataPaths, err = doris.TransformStorage(dataPathValue.(string))
 		if err != nil {
 			klog.Errorf("ExplainFinalPersistentVolume TransformStorage failed, PersistentVolume template will not work: %s", err.Error())
 			return pvs, err
@@ -149,14 +149,13 @@ func ExplainFinalPersistentVolume(spec *dorisv1.BaseSpec, config map[string]inte
 	for i := range dataPaths {
 		tmp := *templet.DeepCopy()
 		tmp.Name = dataPVName + "-" + strconv.Itoa(i)
-		tmp.MountPath = dataPaths[0].MountPath
+		tmp.MountPath = dataPaths[i].MountPath
 
 		// Prioritize resource configuration in CRD.
 		// If there is no configuration in CRD, use the configuration in be.conf.
 		// If there is no setting, do not configure anything for resource.
-		if tmp.Resources.Requests.Storage().String() == "" && dataPaths[i].VolumeResource != "" {
-			tmp.Resources.Requests[corev1.ResourceStorage] = resource.MustParse(dataPaths[i].VolumeResource)
-			tmp.Resources.Limits[corev1.ResourceStorage] = resource.MustParse(dataPaths[i].VolumeResource)
+		if tmp.Resources.Requests.Storage().IsZero() && dataPaths[i].VolumeResource != "" {
+			tmp.Resources.Requests = corev1.ResourceList{corev1.ResourceStorage: k8sResource.MustParse(dataPaths[i].VolumeResource)}
 		}
 		pvs = append(pvs, tmp)
 	}
