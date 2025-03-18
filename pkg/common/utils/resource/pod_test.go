@@ -28,7 +28,8 @@ import (
 
 func Test_NewPodTemplateSpec(t *testing.T) {
 	for _, ct := range []v1.ComponentType{"fe", "be", "cn", "broker"} {
-		pt := NewPodTemplateSpec(dcr, ct)
+		config := map[string]interface{}{}
+		pt := NewPodTemplateSpec(dcr, config, ct)
 		t.Log(pt)
 	}
 }

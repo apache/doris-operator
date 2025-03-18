@@ -26,8 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_CN)
+func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}) corev1.PodTemplateSpec {
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, config, v1.Component_CN)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)

@@ -65,5 +65,5 @@ func Test_buildBEStatefulSet(t *testing.T) {
 		t.Errorf("Test_buildBEStatefulSet unmarshal failed, err=%s", err.Error())
 	}
 	bc := &Controller{}
-	bc.buildBEStatefulSet(dcr)
+	bc.buildBEStatefulSet(dcr, map[string]interface{}{})
 }

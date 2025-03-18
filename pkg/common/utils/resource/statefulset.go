@@ -32,7 +32,7 @@ const (
 )
 
 // NewStatefulSet construct statefulset.
-func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.StatefulSet {
+func NewStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) appv1.StatefulSet {
 	bSpec := getBaseSpecFromCluster(dcr, componentType)
 	orf := metav1.OwnerReference{
 		APIVersion: dcr.APIVersion,
@@ -46,7 +46,9 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 	}
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
-	for _, vct := range bSpec.PersistentVolumes {
+
+	pvs, _ := ExplainFinalPersistentVolume(bSpec, config, componentType)
+	for _, vct := range pvs {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        vct.Name,
@@ -69,7 +71,7 @@ func NewStatefulSet(dcr *v1.DorisCluster, componentType v1.ComponentType) appv1.
 		Spec: appv1.StatefulSetSpec{
 			Replicas:             bSpec.Replicas,
 			Selector:             &selector,
-			Template:             NewPodTemplateSpec(dcr, componentType),
+			Template:             NewPodTemplateSpec(dcr, config, componentType),
 			VolumeClaimTemplates: volumeClaimTemplates,
 			ServiceName:          v1.GenerateInternalCommunicateServiceName(dcr, componentType),
 			RevisionHistoryLimit: metadata.GetInt32Pointer(5),

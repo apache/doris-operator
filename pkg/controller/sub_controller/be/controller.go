@@ -99,7 +99,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return err
 	}
 
-	st := be.buildBEStatefulSet(dcr)
+	st := be.buildBEStatefulSet(dcr, config)
 	if !be.PrepareReconcileResources(ctx, dcr, v1.Component_BE) {
 		klog.Infof("be controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
 		return nil

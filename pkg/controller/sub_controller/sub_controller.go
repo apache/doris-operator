@@ -166,6 +166,38 @@ func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dor
 	return config, nil
 }
 
+func (d *SubDefaultController) GetFinalPersistentVolumes(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {
+
+	var baseSpec dorisv1.BaseSpec
+
+	switch componentType {
+	case dorisv1.Component_FE:
+		baseSpec = dcr.Spec.FeSpec.BaseSpec
+	case dorisv1.Component_BE:
+		baseSpec = dcr.Spec.BeSpec.BaseSpec
+	case dorisv1.Component_CN:
+		baseSpec = dcr.Spec.CnSpec.BaseSpec
+	case dorisv1.Component_Broker:
+		baseSpec = dcr.Spec.BrokerSpec.BaseSpec
+	default:
+		klog.Infof("GetFinalPersistentVolumes the componentType %s is not supported.", componentType)
+	}
+
+	config, err := d.GetConfig(ctx, &baseSpec.ConfigMapInfo, dcr.Namespace, componentType)
+	if err != nil {
+		klog.Errorf("GetFinalPersistentVolumes GetConfig failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
+		return nil, err
+	}
+
+	volume, err := resource.ExplainFinalPersistentVolume(&baseSpec, config, componentType)
+	if err != nil {
+		klog.Errorf("GetFinalPersistentVolumes ExplainFinalPersistentVolume failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
+		return nil, err
+	}
+
+	return volume, nil
+}
+
 // generate map for mountpath:configmap
 func (d *SubDefaultController) CheckConfigMountPath(dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) {
 	var configMapInfo dorisv1.ConfigMapInfo
@@ -355,19 +387,21 @@ func (d *SubDefaultController) prepareCNReconcileResources(ctx context.Context, 
 // 2. classify pvcs by dorisv1.PersistentVolume.name
 // 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
 func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) bool {
-	var volumes []dorisv1.PersistentVolume
 	var replicas int32
 	switch componentType {
 	case dorisv1.Component_FE:
-		volumes = dcr.Spec.FeSpec.PersistentVolumes
 		replicas = *dcr.Spec.FeSpec.Replicas
 	case dorisv1.Component_BE:
-		volumes = dcr.Spec.BeSpec.PersistentVolumes
 		replicas = *dcr.Spec.BeSpec.Replicas
 	case dorisv1.Component_CN:
-		volumes = dcr.Spec.CnSpec.PersistentVolumes
 		replicas = *dcr.Spec.CnSpec.Replicas
 	default:
+	}
+
+	volumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
+	if err != nil {
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCExplainFailed, fmt.Sprintf("listAndDeletePersistentVolumeClaim %s GetFinalPersistentVolumes failed：%s", componentType, err.Error()))
+		return false
 	}
 
 	pvcList := corev1.PersistentVolumeClaimList{}
@@ -480,19 +514,21 @@ func (d *SubDefaultController) recycleFEResources(ctx context.Context, dcr *dori
 // 2.1 travel pvcs, use key="-^"+volume.name, value=pvc put into map. starting with "-^" as the k8s resource name not allowed start with it.
 // 3. delete pvc
 func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) error {
-	var volumes []dorisv1.PersistentVolume
 	var replicas int32
 	switch componentType {
 	case dorisv1.Component_FE:
-		volumes = dcr.Spec.FeSpec.PersistentVolumes
 		replicas = *dcr.Spec.FeSpec.Replicas
 	case dorisv1.Component_BE:
-		volumes = dcr.Spec.BeSpec.PersistentVolumes
 		replicas = *dcr.Spec.BeSpec.Replicas
 	case dorisv1.Component_CN:
-		volumes = dcr.Spec.CnSpec.PersistentVolumes
 		replicas = *dcr.Spec.CnSpec.Replicas
 	default:
+	}
+
+	volumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
+	if err != nil {
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCExplainFailed, fmt.Sprintf("listAndDeletePersistentVolumeClaim %s GetFinalPersistentVolumes failed：%s", componentType, err.Error()))
+		return err
 	}
 
 	pvcList := corev1.PersistentVolumeClaimList{}
