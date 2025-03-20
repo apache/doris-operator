@@ -47,7 +47,7 @@ func NewStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}, compone
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
-	pvs, _ := ExplainFinalPersistentVolume(bSpec, config, componentType)
+	pvs, _ := GenerateEveryoneMountPathPersistentVolume(bSpec, config, componentType)
 	for _, vct := range pvs {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{

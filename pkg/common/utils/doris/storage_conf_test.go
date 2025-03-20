@@ -22,178 +22,143 @@ import (
 	"testing"
 )
 
-func TestTransformStorage(t *testing.T) {
+func TestResolveStorageRootPath(t *testing.T) {
+	var empty []string
 	tests := []struct {
 		name    string
 		input   string
-		want    []StorageRootPathInfo
+		want    []string
 		wantErr bool
 	}{
 		// Normal test
 		{
 			input: "",
-			want:  []StorageRootPathInfo{},
+			want:  empty,
 		},
 		{
 			input: "/path1",
-			want: []StorageRootPathInfo{
-				{MountPath: "/path1", Medium: "HDD"},
-			},
+			want:  []string{"/path1"},
 		},
 		{
 			input: "/path1;/path2",
-			want: []StorageRootPathInfo{
-				{MountPath: "/path1", Medium: "HDD"},
-				{MountPath: "/path2", Medium: "HDD"},
-			},
+			want:  []string{"/path1", "/path2"},
 		},
 		{
-			input: "/home/disk1/palo.HDD,50",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", VolumeResource: "50Gi", Medium: "HDD"},
-			},
+			input: "/home/disk1/doris.HDD,50",
+			want:  []string{"/home/disk1/doris"},
 		},
 		{
-			input: "/home/disk1/palo,medium:ssd,capacity:50",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", VolumeResource: "50Gi", Medium: "SSD"},
-			},
+			input: "/home/disk1/doris,medium:ssd,capacity:50",
+			want:  []string{"/home/disk1/doris"},
 		},
 		{
-			input: "/home/disk1/palo.SSD,100;/home/disk2/palo,medium:hdd,capacity:200",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", VolumeResource: "100Gi", Medium: "SSD"},
-				{MountPath: "/home/disk2/palo", VolumeResource: "200Gi", Medium: "HDD"},
-			},
+			input: "/home/disk1/doris.SSD,100;/home/disk2/doris,medium:hdd,capacity:200",
+			want:  []string{"/home/disk1/doris", "/home/disk2/doris"},
 		},
 		{
-			input: "/home/disk1/palo/,capacity:50",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", VolumeResource: "50Gi", Medium: "HDD"},
-			},
+			input: "/home/disk1/doris/,capacity:50",
+			want:  []string{"/home/disk1/doris"},
 		},
 		{
-			input: "/home/disk1/palo.HDD,medium:ssd",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", Medium: "SSD"},
-			},
+			input: "/home/disk1/doris.HDD,medium:ssd",
+			want:  []string{"/home/disk1/doris"},
 		},
 		{
-			input: "/home/disk1/palo,capacity:50;",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", VolumeResource: "50Gi", Medium: "HDD"},
-			},
+			input: "/home/disk1/doris,capacity:50;",
+			want:  []string{"/home/disk1/doris"},
 		},
 		{
-			input: " /home/disk1/palo , capacity : 50 ; /home/disk2/palo , medium : ssd ",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/palo", VolumeResource: "50Gi", Medium: "HDD"},
-				{MountPath: "/home/disk2/palo", Medium: "SSD"},
-			},
-		},
-		{
-			input: "/home/disk1/cache,medium:remote_cache,capacity:50",
-			want: []StorageRootPathInfo{
-				{MountPath: "/home/disk1/cache", VolumeResource: "50Gi", Medium: "REMOTE_CACHE"},
-			},
+			input: " /home/disk1/doris , capacity : 50 ; /home/disk2/doris , medium : ssd ",
+			want:  []string{"/home/disk1/doris", "/home/disk2/doris"},
 		},
 
-		// Error Condition Testing
 		{
-			input:   "home/disk1/palo,capacity:50",
-			wantErr: true,
+			input: "/home/disk1/doris,capacity:50;/home/disk1/doris,medium:ssd",
+			want:  []string{"/home/disk1/doris", "/home/disk1/doris"},
 		},
+
 		{
-			input:   "/home/disk1/palo,capacity:-10",
-			wantErr: true,
+			input: ",capacity:50",
+			want:  empty,
 		},
+
 		{
-			input:   "/home/disk1/palo,capacity:abc",
-			wantErr: true,
-		},
-		{
-			input:   "/home/disk1/palo,medium:invalid",
-			wantErr: true,
-		},
-		{
-			input:   "/home/disk1/palo,capacity:50;/home/disk1/palo,medium:ssd",
-			wantErr: true,
-		},
-		{
-			input:   "/home/disk1/palo,unknown:value",
-			wantErr: true,
-		},
-		{
-			input:   ",capacity:50",
-			wantErr: true,
-		},
-		{
-			input:   ";",
-			want:    []StorageRootPathInfo{},
-			wantErr: false,
+			input: "/home/disk1/doris/,unknown:value",
+			want:  []string{"/home/disk1/doris"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := TransformStorage(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("TransformStorage() error = %v, Expectation Error = %v", err, tt.wantErr)
-				return
-			}
-			if err == nil && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseStorageRootPath() = %v, Expectation = %v", got, tt.want)
+			got := ResolveStorageRootPath(tt.input)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("input: %s, got %v, Expectation %v", tt.input, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestParseSinglePath(t *testing.T) {
+func TestGetNameOfEachPath(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    StorageRootPathInfo
-		wantErr bool
+		name  string
+		input []string
+		want  []string
 	}{
 		{
-			input: "/home/data",
-			want:  StorageRootPathInfo{MountPath: "/home/data", Medium: "HDD"},
+			input: []string{},
+			want:  []string{},
 		},
 		{
-			input: "/home/data.HDD",
-			want:  StorageRootPathInfo{MountPath: "/home/data", Medium: "HDD"},
+			input: []string{"/path1"},
+			want:  []string{"path1"},
 		},
 		{
-			input: "/home/data.SSD",
-			want:  StorageRootPathInfo{MountPath: "/home/data", Medium: "SSD"},
+			input: []string{"/opt/doris/path1"},
+			want:  []string{"path1"},
 		},
 		{
-			input: "/home/data,50",
-			want:  StorageRootPathInfo{MountPath: "/home/data", VolumeResource: "50Gi", Medium: "HDD"},
+			input: []string{"/path1", "/path2"},
+			want:  []string{"path1", "path2"},
 		},
 		{
-			input: "/home/data,medium:ssd,capacity:100",
-			want:  StorageRootPathInfo{MountPath: "/home/data", VolumeResource: "100Gi", Medium: "SSD"},
+			input: []string{"/home/disk1/doris", "/home/disk2/doris"},
+			want:  []string{"disk1-doris", "disk2-doris"},
 		},
 		{
-			input:   "relative/path",
-			wantErr: true,
+			input: []string{"/home/disk1/doris", "/home/disk1/doris"},
+			want:  []string{"doris", "doris"},
 		},
 		{
-			input:   "",
-			wantErr: true,
+			input: []string{"/home/disk1/doris", "/home/disk1/doris", "/home/disk2/doris"},
+			want:  []string{"disk1-doris", "disk1-doris", "disk2-doris"},
+		},
+		{
+			input: []string{"/home/disk1/doris", "/home/disk2/doris", "/home/disk3/doris"},
+			want:  []string{"disk1-doris", "disk2-doris", "disk3-doris"},
+		},
+		{
+			input: []string{"/home/disk1/doris", "/home/disk1/doris", "/home/disk1/doris"},
+			want:  []string{"doris", "doris", "doris"},
+		},
+		{
+			input: []string{"/home/disk1/doris", "/home/disk1/doris/subdir"},
+			want:  []string{"doris", "doris-subdir"},
+		},
+		{
+			input: []string{"/home/disk1/doris", "/home/disk1/doris/subdir", "/home/disk1/doris/subdir/subsubdir"},
+			want:  []string{"doris", "doris-subdir", "doris-subdir-subsubdir"},
+		},
+		{
+			input: []string{"/home/disk1/doris", "/home/disk1/doris/subdir", "/home/disk1/doris/subdir/subsubdir", "/home/disk1/doris/subdir/subsubdir"},
+			want:  []string{"doris", "doris-subdir", "doris-subdir-subsubdir", "doris-subdir-subsubdir"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseSinglePath(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseSinglePath() error = %v, Expectations Error = %v", err, tt.wantErr)
-				return
-			}
-			if err == nil && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseSinglePath() = %v, Expectation = %v", got, tt.want)
+			got := GetNameOfEachPath(tt.input)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("input: %v, got %v, Expectation %v", tt.input, got, tt.want)
 			}
 		})
 	}

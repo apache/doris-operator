@@ -22,10 +22,8 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/doris"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	corev1 "k8s.io/api/core/v1"
-	k8sResource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
-	"strconv"
 )
 
 var (
@@ -85,7 +83,7 @@ func getDefaultDorisHome(componentType dorisv1.ComponentType) string {
 	return ""
 }
 
-// ExplainFinalPersistentVolume is used to process the pvc template configuration in CRD.
+// GenerateEveryoneMountPathPersistentVolume is used to process the pvc template configuration in CRD.
 // The template is defined as follows:
 // - PersistentVolume.MountPath is "", it`s template configuration.
 // - PersistentVolume.MountPath is not "", it`s actual pvc configuration.
@@ -94,11 +92,11 @@ func getDefaultDorisHome(componentType dorisv1.ComponentType) string {
 // 2. If there is a pvc template, return the actual list of pvcs after processing.
 // 3. The template needs to parse the configuration of the doris config file to create the pvc.
 // 4. If there are multiple templates, the last valid template will be used.
-func ExplainFinalPersistentVolume(spec *dorisv1.BaseSpec, config map[string]interface{}, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {
+func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, config map[string]interface{}, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {
 
 	// Only the last data pvc template configuration takes effect
-	var templet *dorisv1.PersistentVolume
-	// pvcs is the pvc that needs to be actually created, specified by the user
+	var template *dorisv1.PersistentVolume
+	// pvs is the pvc that needs to be actually created, specified by the user
 	var pvs []dorisv1.PersistentVolume
 
 	for i := range spec.PersistentVolumes {
@@ -106,57 +104,44 @@ func ExplainFinalPersistentVolume(spec *dorisv1.BaseSpec, config map[string]inte
 			pvs = append(pvs, spec.PersistentVolumes[i])
 
 		} else {
-			//templets = &spec.PersistentVolumes[i]
-			templet = (&spec.PersistentVolumes[i]).DeepCopy()
+			template = (&spec.PersistentVolumes[i]).DeepCopy()
 		}
 	}
 
-	if templet == nil {
-		return spec.PersistentVolumes, nil
+	if template == nil {
+		return pvs, nil
 	}
 
 	// Processing pvc template
-	var dataPVName, dataPathKey, dataDefaultPath string
-	var dataPaths []doris.StorageRootPathInfo
+	var dataPathKey, dataDefaultPath string
+	var dataPaths []string
 	dorisHome := getDefaultDorisHome(componentType)
 	switch componentType {
 	case dorisv1.Component_FE:
 		dataPathKey = "meta_dir"
 		dataDefaultPath = dorisHome + "/doris-meta"
-		dataPVName = "fe-meta"
 	case dorisv1.Component_BE, dorisv1.Component_CN:
 		dataPathKey = "storage_root_path"
 		dataDefaultPath = dorisHome + "/storage"
-		dataPVName = "be-storage"
 	default:
-		klog.Infof("ExplainFinalPersistentVolume the componentType: %s is not supported, PersistentVolume template will not work ", componentType)
+		klog.Infof("GenerateEveryoneMountPathPersistentVolume the componentType: %s is not supported, PersistentVolume template will not work ", componentType)
 		return pvs, nil
 	}
 
 	dataPathValue, dataExist := config[dataPathKey]
 	if !dataExist {
-		klog.Infof("explainFinalPersistentVolume: dataPathKey '%s' not found in config, default value will effect", dataPathKey)
-		dataPaths = append(dataPaths, doris.StorageRootPathInfo{MountPath: dataDefaultPath})
+		klog.Infof("GenerateEveryoneMountPathPersistentVolume: dataPathKey '%s' not found in config, default value will effect", dataPathKey)
+		dataPaths = append(dataPaths, dataDefaultPath)
 	} else {
-		var err error
-		dataPaths, err = doris.TransformStorage(dataPathValue.(string))
-		if err != nil {
-			klog.Errorf("ExplainFinalPersistentVolume TransformStorage failed, PersistentVolume template will not work: %s", err.Error())
-			return pvs, err
-		}
+		dataPaths = doris.ResolveStorageRootPath(dataPathValue.(string))
 	}
 
-	for i := range dataPaths {
-		tmp := *templet.DeepCopy()
-		tmp.Name = dataPVName + "-" + strconv.Itoa(i)
-		tmp.MountPath = dataPaths[i].MountPath
+	pathName := doris.GetNameOfEachPath(dataPaths)
 
-		// Prioritize resource configuration in CRD.
-		// If there is no configuration in CRD, use the configuration in be.conf.
-		// If there is no setting, do not configure anything for resource.
-		if tmp.Resources.Requests.Storage().IsZero() && dataPaths[i].VolumeResource != "" {
-			tmp.Resources.Requests = corev1.ResourceList{corev1.ResourceStorage: k8sResource.MustParse(dataPaths[i].VolumeResource)}
-		}
+	for i := range dataPaths {
+		tmp := *template.DeepCopy()
+		tmp.Name = tmp.Name + "-" + pathName[i]
+		tmp.MountPath = dataPaths[i]
 		pvs = append(pvs, tmp)
 	}
 

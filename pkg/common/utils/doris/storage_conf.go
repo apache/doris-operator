@@ -18,145 +18,92 @@
 package doris
 
 import (
-	"fmt"
-	"path/filepath"
-	"strconv"
 	"strings"
 )
 
-// StorageRootPathInfo represents the parsed storage path information.
-type StorageRootPathInfo struct {
-	MountPath      string
-	VolumeResource string
-	Medium         string
-}
+// ResolveStorageRootPath transforms a string of storage paths into a slice of StorageRootPathInfo.
+func ResolveStorageRootPath(configPath string) []string {
+	var res []string
 
-// TransformStorage transforms a string of storage paths into a slice of StorageRootPathInfo.
-// Currently, both of three following formats are supported(as doris`s be.conf), remote cache is the
-// local path :
-//
-//	format 1:   /home/disk1/palo.HDD,50
-//	format 2:   /home/disk1/palo,medium:ssd,capacity:50
-//
-// remote storage :
-//
-//	format 1:   /home/disk/palo/cache,medium:remote_cache,capacity:50
-func TransformStorage(configPath string) ([]StorageRootPathInfo, error) {
 	if configPath == "" {
-		return []StorageRootPathInfo{}, nil
+		return res
 	}
 
 	// Separate multiple paths by ';'
-	pathVec := strings.Split(configPath, ";")
+	configPathSplit := strings.Split(configPath, ";")
 
 	// Remove empty elements
-	var cleanPaths []string
-	for _, p := range pathVec {
-		if trimmed := strings.TrimSpace(p); trimmed != "" {
-			cleanPaths = append(cleanPaths, trimmed)
+	for _, c := range configPathSplit {
+		if path := parseSinglePath(c); path != "" {
+			res = append(res, path)
 		}
 	}
 
-	if len(cleanPaths) == 0 {
-		return []StorageRootPathInfo{}, nil
-	}
-
-	// Check path uniqueness
-	uniquePaths := make(map[string]bool)
-	result := make([]StorageRootPathInfo, 0, len(cleanPaths))
-
-	for _, item := range cleanPaths {
-		info, err := parseSinglePath(item)
-		if err != nil {
-			return nil, fmt.Errorf("TransformStorage error parsing path %s: %w", item, err)
-		}
-
-		// Check path uniqueness
-		if uniquePaths[info.MountPath] {
-			return nil, fmt.Errorf("TransformStorage duplicate paths found : %s", info.MountPath)
-		}
-		uniquePaths[info.MountPath] = true
-		result = append(result, info)
-	}
-
-	return result, nil
+	return res
 }
 
 // Resolving a single storage path
-func parseSinglePath(pathConfig string) (StorageRootPathInfo, error) {
-	info := StorageRootPathInfo{
-		Medium: "HDD", // default Medium is HDD
+func parseSinglePath(pathConfig string) string {
+	if pathConfig == "" {
+		return ""
+	}
+	path := strings.Split(strings.Split(pathConfig, ".")[0], ",")[0]
+	path = strings.TrimSpace(path)
+	if strings.HasSuffix(path, "/") {
+		path = path[:len(path)-1]
+	}
+	return path
+}
+
+// GetNameOfEachPath is used to parse a set of paths to obtain unique and concise names for each path.
+// If the paths are repeated, the returned names may also be repeated.
+// And the order of each name in the array is consistent with the input paths.
+// For example:
+//
+//	["/path1"] >> ["path1"]
+//	["/opt/doris/path1"] >> ["path1"]
+//	["/path1", "/path2"] >> ["path1", "path2"]
+//	["/home/disk1/doris", "/home/disk2/doris"] >> ["disk1-doris", "disk2-doris"]
+//	["/home/disk1/doris", "/home/disk1/doris"] >> ["doris", "doris"]
+//	["/home/disk1/doris", "/home/disk1/doris", "/home/disk2/doris"] >> ["disk1-doris", "disk1-doris", "disk2-doris"]
+func GetNameOfEachPath(paths []string) []string {
+	if len(paths) == 0 {
+		return []string{}
 	}
 
-	// split by ','
-	parts := strings.Split(pathConfig, ",")
-	if len(parts) == 0 || parts[0] == "" {
-		return info, fmt.Errorf("invalid storage path format: %s", pathConfig)
-	}
-
-	// path
-	rawPath := strings.TrimSpace(parts[0])
-	// remove suffix '/' , if exists
-	cleanPath := strings.TrimRight(rawPath, "/")
-	if cleanPath == "" || cleanPath[0] != '/' {
-		return info, fmt.Errorf("the path must start with '/', but got an err path: %s", rawPath)
-	}
-
-	// Check path suffix as storage medium
-	extension := filepath.Ext(cleanPath)
-	if extension != "" {
-		// Remove the leading '.' and uppercase
-		mediumType := strings.ToUpper(extension[1:])
-		// Only set if this is a valid storage type
-		if mediumType == "HDD" || mediumType == "SSD" || mediumType == "REMOTE_CACHE" {
-			info.Medium = mediumType
-			cleanPath = cleanPath[:len(cleanPath)-len(extension)]
+	temp := make([][]string, len(paths))
+	for i, path := range paths {
+		if strings.HasPrefix(path, "/") {
+			path = path[1:]
 		}
+		temp[i] = strings.Split(path, "/")
 	}
 
-	info.MountPath = cleanPath
+	if len(paths) == 1 {
+		return []string{temp[0][len(temp[0])-1]}
+	}
 
-	// Handling other attributes (e.g., capacity, medium)
-	for i := 1; i < len(parts); i++ {
-		propStr := strings.TrimSpace(parts[i])
-		if propStr == "" {
+	var res []string
+	i := 0
+	for true {
+		current := temp[0][i]
+		for j := range temp {
+			if current != temp[j][i] || len(temp[j]) == i+1 {
+				goto LOOP
+			}
+		}
+		i++
+	}
+
+LOOP:
+	for _, path := range temp {
+		if i > len(path) {
+			res = append(res, "")
 			continue
 		}
-
-		// Parsing property format: 'property:value' or directly the value (indicating 'capacity')
-		var property, value string
-		if colonPos := strings.Index(propStr, ":"); colonPos != -1 {
-			property = strings.ToUpper(strings.TrimSpace(propStr[:colonPos]))
-			value = strings.TrimSpace(propStr[colonPos+1:])
-		} else {
-			property = "CAPACITY"
-			value = strings.TrimSpace(propStr)
-		}
-
-		// Storage properties configuration
-		switch property {
-		case "CAPACITY":
-			// Verify that the capacity is a non-negative integer
-			if value == "" {
-				return info, fmt.Errorf("parseSinglePathcapacity value cannot be empty")
-			}
-			num, err := strconv.ParseInt(value, 10, 64)
-			if err != nil || num < 0 {
-				return info, fmt.Errorf("parseSinglePath invalid capacity value: %s", value)
-			}
-			// Convert to Kubernetes quantity format (e.g., "10Gi")
-			info.VolumeResource = fmt.Sprintf("%dGi", num)
-		case "MEDIUM":
-			mediumType := strings.ToUpper(value)
-			if mediumType != "HDD" && mediumType != "SSD" && mediumType != "REMOTE_CACHE" {
-				return info, fmt.Errorf("parseSinglePath invalid storage media type: %s", value)
-			}
-			// The medium parameter takes precedence over path extension.
-			info.Medium = mediumType
-		default:
-			return info, fmt.Errorf("parseSinglePath Invalid attribute: %s", property)
-		}
+		resPathSplit := path[i:]
+		res = append(res, strings.Join(resPathSplit, "-"))
 	}
 
-	return info, nil
+	return res
 }

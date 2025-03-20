@@ -189,9 +189,9 @@ func (d *SubDefaultController) GetFinalPersistentVolumes(ctx context.Context, dc
 		return nil, err
 	}
 
-	volume, err := resource.ExplainFinalPersistentVolume(&baseSpec, config, componentType)
+	volume, err := resource.GenerateEveryoneMountPathPersistentVolume(&baseSpec, config, componentType)
 	if err != nil {
-		klog.Errorf("GetFinalPersistentVolumes ExplainFinalPersistentVolume failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
+		klog.Errorf("GetFinalPersistentVolumes GenerateEveryoneMountPathPersistentVolume failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
 		return nil, err
 	}
 

@@ -288,7 +288,7 @@ func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedCompone
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
 func newVolumesFromBaseSpec(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) []corev1.Volume {
 	var volumes []corev1.Volume
-	pvs, _ := ExplainFinalPersistentVolume(&spec, config, componentType)
+	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, config, componentType)
 	for _, pv := range pvs {
 		var volume corev1.Volume
 		volume.Name = pv.Name
@@ -313,7 +313,7 @@ func buildVolumeMounts(spec v1.BaseSpec, config map[string]interface{}, componen
 		return volumeMounts
 	}
 
-	pvs, _ := ExplainFinalPersistentVolume(&spec, config, componentType)
+	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, config, componentType)
 	for _, pvs := range pvs {
 		var volumeMount corev1.VolumeMount
 		volumeMount.MountPath = pvs.MountPath
