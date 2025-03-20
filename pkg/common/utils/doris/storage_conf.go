@@ -65,6 +65,7 @@ func parseSinglePath(pathConfig string) string {
 //	["/path1", "/path2"] >> ["path1", "path2"]
 //	["/home/disk1/doris", "/home/disk2/doris"] >> ["disk1-doris", "disk2-doris"]
 //	["/home/disk1/doris", "/home/disk1/doris"] >> ["doris", "doris"]
+//	["/home/doris/disk1", "/home/doris/disk2"] >> ["disk1", "disk2"]
 //	["/home/disk1/doris", "/home/disk1/doris", "/home/disk2/doris"] >> ["disk1-doris", "disk1-doris", "disk2-doris"]
 func GetNameOfEachPath(paths []string) []string {
 	if len(paths) == 0 {
