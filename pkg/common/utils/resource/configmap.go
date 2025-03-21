@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	"os"
 )
 
 // the fe ports key
@@ -124,7 +125,9 @@ func ResolveConfigMaps(configMaps []*corev1.ConfigMap, componentType dorisv1.Com
 			continue
 		}
 		if value, ok := configMap.Data[key]; ok {
+			os.Setenv("DORIS_HOME", getDefaultDorisHome(componentType))
 			viper.SetConfigType("properties")
+			viper.AutomaticEnv()
 			viper.ReadConfig(bytes.NewBuffer([]byte(value)))
 			return viper.AllSettings(), nil
 		}

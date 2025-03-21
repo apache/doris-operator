@@ -23,8 +23,8 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 )
 
-func (be *Controller) buildBEStatefulSet(dcr *v1.DorisCluster) appv1.StatefulSet {
-	st := resource.NewStatefulSet(dcr, v1.Component_BE)
-	st.Spec.Template = be.buildBEPodTemplateSpec(dcr)
+func (be *Controller) buildBEStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}) appv1.StatefulSet {
+	st := resource.NewStatefulSet(dcr, config, v1.Component_BE)
+	st.Spec.Template = be.buildBEPodTemplateSpec(dcr, config)
 	return st
 }

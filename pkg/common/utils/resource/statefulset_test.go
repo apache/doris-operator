@@ -27,7 +27,7 @@ import (
 func Test_NewStatefulset(t *testing.T) {
 	cts := []v1.ComponentType{v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker}
 	for _, ct := range cts {
-		st := NewStatefulSet(dcr, ct)
+		st := NewStatefulSet(dcr, map[string]interface{}{}, ct)
 		t.Log(st)
 	}
 }

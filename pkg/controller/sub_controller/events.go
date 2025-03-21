@@ -31,6 +31,7 @@ const (
 	StatefulSetNotExist     = "StatefulSetNotExist"
 	AutoScalerDeleteFailed  = "AutoScalerDeleteFailed"
 	ComponentImageUpdate    = "ComponentImageUpdate"
+	PVCExplainFailed        = "PVCExplainFailed"
 	PVCListFailed           = "PVCListFailed"
 	PVCUpdate               = "PVCUpdated"
 	PVCUpdateFailed         = "PVCUpdateFailed"

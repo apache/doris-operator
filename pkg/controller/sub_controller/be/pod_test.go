@@ -57,9 +57,8 @@ func Test_buildBEPodTemplateSpec(t *testing.T) {
 	}
 
 	be := &Controller{}
-	be.buildBEPodTemplateSpec(dcr)
+	be.buildBEPodTemplateSpec(dcr, map[string]interface{}{})
 }
-
 
 func Test_buildBEPodTemplateSpecWithFEAffinity(t *testing.T) {
 	dcrJsonStr := `{
@@ -97,5 +96,5 @@ func Test_buildBEPodTemplateSpecWithFEAffinity(t *testing.T) {
 	}
 
 	be := &Controller{}
-	be.buildBEPodTemplateSpec(dcr)
+	be.buildBEPodTemplateSpec(dcr, map[string]interface{}{})
 }

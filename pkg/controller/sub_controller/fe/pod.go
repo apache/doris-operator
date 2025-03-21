@@ -18,7 +18,6 @@
 package fe
 
 import (
-	"context"
 	"strconv"
 
 	v1 "github.com/apache/doris-operator/api/doris/v1"
@@ -26,11 +25,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_FE)
+func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}) corev1.PodTemplateSpec {
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, config, v1.Component_FE)
 	var containers []corev1.Container
 	//containers = append(containers, podTemplateSpec.Spec.Containers...)
-	config, _ := fc.GetConfig(context.Background(), &dcr.Spec.FeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_FE)
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.FeSpec.ContainerSecurityContext)

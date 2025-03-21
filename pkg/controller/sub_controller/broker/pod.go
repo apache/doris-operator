@@ -26,8 +26,8 @@ import (
 	"strconv"
 )
 
-func (broker *Controller) buildBrokerPodTemplateSpec(dcr *v1.DorisCluster) corev1.PodTemplateSpec {
-	podTemplateSpec := resource.NewPodTemplateSpec(dcr, v1.Component_Broker)
+func (broker *Controller) buildBrokerPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}) corev1.PodTemplateSpec {
+	podTemplateSpec := resource.NewPodTemplateSpec(dcr, config, v1.Component_Broker)
 	var containers []corev1.Container
 	broker.addDefaultBorkerPodAffinity(dcr, &podTemplateSpec)
 	containers = append(containers, podTemplateSpec.Spec.Containers...)

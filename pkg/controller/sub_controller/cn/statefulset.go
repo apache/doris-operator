@@ -23,8 +23,8 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 )
 
-func (cn *Controller) buildCnStatefulSet(dcr *v1.DorisCluster) appv1.StatefulSet {
-	statefulSet := resource.NewStatefulSet(dcr, v1.Component_CN)
-	statefulSet.Spec.Template = cn.buildCnPodTemplateSpec(dcr)
+func (cn *Controller) buildCnStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}) appv1.StatefulSet {
+	statefulSet := resource.NewStatefulSet(dcr, config, v1.Component_CN)
+	statefulSet.Spec.Template = cn.buildCnPodTemplateSpec(dcr, config)
 	return statefulSet
 }

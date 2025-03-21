@@ -91,7 +91,7 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 			svc.Name, svc.Namespace, dcr.Name, err.Error())
 		return err
 	}
-	cnStatefulSet := cn.buildCnStatefulSet(dcr)
+	cnStatefulSet := cn.buildCnStatefulSet(dcr, config)
 	if !cn.PrepareReconcileResources(ctx, dcr, dorisv1.Component_CN) {
 		klog.Infof("cn controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
 		return nil

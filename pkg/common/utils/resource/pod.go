@@ -91,7 +91,7 @@ var (
 	Exec      ProbeType = "exec"
 )
 
-func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) corev1.PodTemplateSpec {
+func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
 	var volumes []corev1.Volume
 	var si *v1.SystemInitialization
@@ -101,12 +101,12 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, componentType v1.ComponentType) co
 	var skipInit bool
 	switch componentType {
 	case v1.Component_FE:
-		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec)
+		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec, config, componentType)
 		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.FeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.FeSpec.BaseSpec.SecurityContext
 	case v1.Component_BE:
-		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec)
+		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec, config, componentType)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.BeSpec.BaseSpec.SecurityContext
@@ -286,9 +286,10 @@ func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedCompone
 }
 
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
-func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
+func newVolumesFromBaseSpec(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) []corev1.Volume {
 	var volumes []corev1.Volume
-	for _, pv := range spec.PersistentVolumes {
+	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, config, componentType)
+	for _, pv := range pvs {
 		var volume corev1.Volume
 		volume.Name = pv.Name
 		volume.VolumeSource = corev1.VolumeSource{
@@ -303,7 +304,7 @@ func newVolumesFromBaseSpec(spec v1.BaseSpec) []corev1.Volume {
 }
 
 // buildVolumeMounts construct all volumeMounts contains default volumeMounts if persistentVolumes not definition.
-func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev1.VolumeMount {
+func buildVolumeMounts(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
 	_, volumeMounts = appendPodInfoVolumesVolumeMounts(nil, volumeMounts)
 	if len(spec.PersistentVolumes) == 0 {
@@ -312,7 +313,8 @@ func buildVolumeMounts(spec v1.BaseSpec, componentType v1.ComponentType) []corev
 		return volumeMounts
 	}
 
-	for _, pvs := range spec.PersistentVolumes {
+	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, config, componentType)
+	for _, pvs := range pvs {
 		var volumeMount corev1.VolumeMount
 		volumeMount.MountPath = pvs.MountPath
 		volumeMount.Name = pvs.Name
@@ -384,7 +386,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	default:
 	}
 
-	volumeMounts := buildVolumeMounts(spec, componentType)
+	volumeMounts := buildVolumeMounts(spec, config, componentType)
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = append(envs, buildKerberosEnv(dcr.Spec.KerberosInfo, config, componentType)...)
