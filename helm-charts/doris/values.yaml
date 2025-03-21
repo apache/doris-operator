@@ -45,7 +45,7 @@ dorisCluster:
 
 feSpec:
   # annotations for fe pods and service
-  # annotations: {}
+  annotations: {}
   replicas: 3
   # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
   # electionNumber: 3
@@ -213,7 +213,7 @@ feSpec:
 
 beSpec:
   # annotations for be pods and service
-  # annotations: {}
+  annotations: {}
   replicas: 3
   # the pod labels for user select or classify pods.
   labels: {}
@@ -380,7 +380,7 @@ beSpec:
 
 cnSpec:
   # annotations for cn pods and service
-  # annotations: {}
+  annotations: {}
   replicas: 3
   # the pod labels for user select or classify pods.
   labels: {}
@@ -563,7 +563,7 @@ cnSpec:
 
 brokerSpec:
   # annotations for broker pods and service
-  # annotations: {}
+  annotations: {}
   replicas: 3
   # the pod labels for user select or classify pods.
   labels: {}
