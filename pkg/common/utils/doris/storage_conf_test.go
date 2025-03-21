@@ -109,6 +109,14 @@ func TestGetNameOfEachPath(t *testing.T) {
 			want:  []string{},
 		},
 		{
+			input: []string{"", "", "", ""},
+			want:  []string{"", "", "", ""},
+		},
+		{
+			input: []string{"", ""},
+			want:  []string{"", ""},
+		},
+		{
 			input: []string{"/path1"},
 			want:  []string{"path1"},
 		},
@@ -122,11 +130,11 @@ func TestGetNameOfEachPath(t *testing.T) {
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk2/doris"},
-			want:  []string{"disk1-doris", "disk2-doris"},
+			want:  []string{"doris", "disk2-doris"},
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk1/doris"},
-			want:  []string{"doris", "doris"},
+			want:  []string{"disk1-doris", "disk1-doris"},
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk1/doris", "/home/disk2/doris"},
@@ -134,23 +142,23 @@ func TestGetNameOfEachPath(t *testing.T) {
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk2/doris", "/home/disk3/doris"},
-			want:  []string{"disk1-doris", "disk2-doris", "disk3-doris"},
-		},
-		{
-			input: []string{"/home/disk1/doris", "/home/disk1/doris", "/home/disk1/doris"},
-			want:  []string{"doris", "doris", "doris"},
+			want:  []string{"doris", "disk2-doris", "disk3-doris"},
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk1/doris/subdir"},
-			want:  []string{"doris", "doris-subdir"},
+			want:  []string{"doris", "subdir"},
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk1/doris/subdir", "/home/disk1/doris/subdir/subsubdir"},
-			want:  []string{"doris", "doris-subdir", "doris-subdir-subsubdir"},
+			want:  []string{"doris", "subdir", "subsubdir"},
 		},
 		{
 			input: []string{"/home/disk1/doris", "/home/disk1/doris/subdir", "/home/disk1/doris/subdir/subsubdir", "/home/disk1/doris/subdir/subsubdir"},
-			want:  []string{"doris", "doris-subdir", "doris-subdir-subsubdir", "doris-subdir-subsubdir"},
+			want:  []string{"doris", "subdir", "subdir-subsubdir", "subdir-subsubdir"},
+		},
+		{
+			input: []string{"/home/disk1/doris", "/home/disk1/doris", "/home/disk2/doris"},
+			want:  []string{"disk1-doris", "disk1-doris", "disk2-doris"},
 		},
 	}
 

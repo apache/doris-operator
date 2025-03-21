@@ -63,48 +63,38 @@ func parseSinglePath(pathConfig string) string {
 //	["/path1"] >> ["path1"]
 //	["/opt/doris/path1"] >> ["path1"]
 //	["/path1", "/path2"] >> ["path1", "path2"]
-//	["/home/disk1/doris", "/home/disk2/doris"] >> ["disk1-doris", "disk2-doris"]
-//	["/home/disk1/doris", "/home/disk1/doris"] >> ["doris", "doris"]
+//	["/home/disk1/doris", "/home/disk2/doris"] >> ["doris", "disk2-doris"]
 //	["/home/doris/disk1", "/home/doris/disk2"] >> ["disk1", "disk2"]
 //	["/home/disk1/doris", "/home/disk1/doris", "/home/disk2/doris"] >> ["disk1-doris", "disk1-doris", "disk2-doris"]
 func GetNameOfEachPath(paths []string) []string {
-	if len(paths) == 0 {
-		return []string{}
-	}
+	namePath := map[string]string{}
+	pathName := map[string]string{}
+	for _, path := range paths {
+		//use unix path separator.
+		sp := strings.Split(path, "/")
+		name := ""
+		for i := 1; i <= len(sp); i++ {
+			if sp[len(sp)-i] == "" {
+				continue
+			}
 
-	temp := make([][]string, len(paths))
-	for i, path := range paths {
-		if strings.HasPrefix(path, "/") {
-			path = path[1:]
-		}
-		temp[i] = strings.Split(path, "/")
-	}
+			if name == "" {
+				name = sp[len(sp)-i]
+			} else {
+				name = sp[len(sp)-i] + "-" + name
+			}
 
-	if len(paths) == 1 {
-		return []string{temp[0][len(temp[0])-1]}
-	}
-
-	var res []string
-	i := 0
-	for true {
-		current := temp[0][i]
-		for j := range temp {
-			if current != temp[j][i] || len(temp[j]) == i+1 {
-				goto LOOP
+			if _, ok := namePath[name]; !ok {
+				break
 			}
 		}
-		i++
-	}
 
-LOOP:
-	for _, path := range temp {
-		if i > len(path) {
-			res = append(res, "")
-			continue
-		}
-		resPathSplit := path[i:]
-		res = append(res, strings.Join(resPathSplit, "-"))
+		namePath[name] = path
+		pathName[path] = name
 	}
-
+	res := make([]string, len(paths))
+	for k := range paths {
+		res[k] = pathName[paths[k]]
+	}
 	return res
 }
