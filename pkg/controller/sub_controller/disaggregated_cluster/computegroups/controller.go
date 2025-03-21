@@ -348,7 +348,7 @@ func (dcgs *DisaggregatedComputeGroupsController) clearCGInDorisMeta(ctx context
 		return nil
 	}
 
-	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, ddc)
+	sqlClient, err := dcgs.getMasterSqlClient(ctx, ddc)
 	if err != nil {
 		klog.Errorf("DisaggregatedComputeGroupsController clearCGInDorisMeta dropCGBySQLClient getMasterSqlClient failed: %s", err.Error())
 		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), string(sc.CGSqlExecFailed), "computeGroupSync dropCGBySQLClient failed: "+err.Error())

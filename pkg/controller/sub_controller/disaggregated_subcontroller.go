@@ -238,3 +238,18 @@ func (d *DisaggregatedSubDefaultController) RestrictConditionsEqual(nst *appv1.S
 	// TODO: updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden
 	nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
 }
+
+func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (string, string) {
+	adminUserName := "root"
+	password := ""
+	if ddc.Spec.AuthSecret != "" {
+		secret, _ := k8s.GetSecret(ctx, d.K8sclient, ddc.Namespace, ddc.Spec.AuthSecret)
+		adminUserName, password = resource.GetDorisLoginInformation(secret)
+	} else if ddc.Spec.AdminUser != nil {
+		adminUserName = ddc.Spec.AdminUser.Name
+		password = ddc.Spec.AdminUser.Password
+	}
+
+	return adminUserName, password
+
+}

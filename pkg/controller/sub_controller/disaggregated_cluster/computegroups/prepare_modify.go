@@ -20,12 +20,10 @@ package computegroups
 import (
 	"context"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
 )
@@ -56,7 +54,7 @@ func (dcgs *DisaggregatedComputeGroupsController) preApplyStatefulSet(ctx contex
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) scaleOut(ctx context.Context, cgStatus *dv1.ComputeGroupStatus, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) error {
-	sqlClient, err := dcgs.getMasterSqlClient(ctx, dcgs.K8sclient, cluster)
+	sqlClient, err := dcgs.getMasterSqlClient(ctx, cluster)
 	if err != nil {
 		klog.Errorf("ScaleOut getMasterSqlClient failed, get fe master node connection err:%s", err.Error())
 		return err
@@ -161,10 +159,9 @@ func (dcgs *DisaggregatedComputeGroupsController) decommissionBENodes(
 	return nil
 }
 
-func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context.Context, k8sclient client.Client, cluster *dv1.DorisDisaggregatedCluster) (*mysql.DB, error) {
+func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context.Context, cluster *dv1.DorisDisaggregatedCluster) (*mysql.DB, error) {
 	// get user and password
-	secret, _ := k8s.GetSecret(ctx, k8sclient, cluster.Namespace, cluster.Spec.AuthSecret)
-	adminUserName, password := resource.GetDorisLoginInformation(secret)
+	adminUserName, password := dcgs.GetManagementAdminUserAndPWD(ctx, cluster)
 
 	// get host and port
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace

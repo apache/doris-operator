@@ -307,8 +307,7 @@ func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc 
 // dropFEBySQLClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
 func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8sclient client.Client, cluster *v1.DorisDisaggregatedCluster) error {
 	// get adminuserName and pwd
-	secret, _ := k8s.GetSecret(ctx, k8sclient, cluster.Namespace, cluster.Spec.AuthSecret)
-	adminUserName, password := resource.GetDorisLoginInformation(secret)
+	adminUserName, password := dfc.GetManagementAdminUserAndPWD(ctx, cluster)
 
 	// get host and port
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
