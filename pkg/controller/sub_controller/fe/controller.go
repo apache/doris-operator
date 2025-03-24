@@ -128,7 +128,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return err
 	}
 
-	st := fc.buildFEStatefulSet(cluster)
+	st := fc.buildFEStatefulSet(cluster, config)
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
 		fc.RestrictConditionsEqual(new, old)
 		return resource.StatefulSetDeepEqual(new, old, false)

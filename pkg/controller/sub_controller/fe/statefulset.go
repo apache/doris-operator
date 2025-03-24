@@ -23,8 +23,8 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 )
 
-func (fc *Controller) buildFEStatefulSet(dcr *v1.DorisCluster) appv1.StatefulSet {
-	st := resource.NewStatefulSet(dcr, v1.Component_FE)
-	st.Spec.Template = fc.buildFEPodTemplateSpec(dcr)
+func (fc *Controller) buildFEStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}) appv1.StatefulSet {
+	st := resource.NewStatefulSet(dcr, config, v1.Component_FE)
+	st.Spec.Template = fc.buildFEPodTemplateSpec(dcr, config)
 	return st
 }

@@ -65,5 +65,5 @@ func Test_buildFEPodTemplateSpec(t *testing.T) {
 		t.Errorf("Test_buildBEStatefulSet unmarshal failed, err=%s", err.Error())
 	}
 	fc := &Controller{}
-	fc.buildFEPodTemplateSpec(dcr)
+	fc.buildFEPodTemplateSpec(dcr, map[string]interface{}{})
 }
