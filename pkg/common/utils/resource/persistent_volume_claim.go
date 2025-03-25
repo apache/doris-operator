@@ -141,10 +141,10 @@ func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, config ma
 		tmp.MountPath = dataPaths[0]
 		pvs = append(pvs, tmp)
 	} else {
-		pathName := doris.GetNameOfEachPath(dataPaths)
+		pathNames := doris.GetNameOfEachPath(dataPaths)
 		for i := range dataPaths {
 			tmp := *template.DeepCopy()
-			tmp.Name = tmp.Name + "-" + pathName[i]
+			tmp.Name = tmp.Name + "-" + pathNames[i]
 			tmp.MountPath = dataPaths[i]
 			pvs = append(pvs, tmp)
 		}
