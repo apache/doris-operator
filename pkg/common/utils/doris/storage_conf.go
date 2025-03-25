@@ -94,7 +94,7 @@ func GetNameOfEachPath(paths []string) []string {
 	}
 	res := make([]string, len(paths))
 	for k := range paths {
-		res[k] = pathName[paths[k]]
+		res[k] = strings.ReplaceAll(pathName[paths[k]], "_", "-")
 	}
 	return res
 }
