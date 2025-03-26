@@ -379,6 +379,9 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 				break
 			}
 		}
+
+		namePath[name] = path
+		pathName[path] = name
 	}
 
 	var vs []corev1.Volume
