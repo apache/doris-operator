@@ -315,7 +315,6 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 	}
 
 	pathName := map[string]string{} /*key=path, value=name*/
-	namePath := map[string]string{} /*key=name, value=path*/
 	var requiredPaths []string
 	switch componentType {
 	case v1.DisaggregatedMS:
@@ -323,14 +322,12 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 		if !commonSpec.PersistentVolume.LogNotStore && !commonSpec.LogNotStore {
 			logPath := d.getLogPath(confMap, componentType)
 			pathName[logPath] = MSLogStoreName
-			namePath[MSLogStoreName] = logPath
 			requiredPaths = append(requiredPaths, logPath)
 		}
 	case v1.DisaggregatedFE:
 		if !commonSpec.PersistentVolume.LogNotStore && !commonSpec.LogNotStore {
 			logPath := d.getLogPath(confMap, componentType)
 			pathName[logPath] = FELogStoreName
-			namePath[MSLogStoreName] = logPath
 			requiredPaths = append(requiredPaths, logPath)
 		}
 		metaPath := d.getFEMetaPath(confMap)
@@ -340,14 +337,12 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 		if !commonSpec.PersistentVolume.LogNotStore && !commonSpec.LogNotStore {
 			logPath := d.getLogPath(confMap, componentType)
 			pathName[logPath] = BELogStoreName
-			namePath[MSLogStoreName] = logPath
 			requiredPaths = append(requiredPaths, logPath)
 		}
 		cachePaths, _ := d.getCacheMaxSizeAndPaths(confMap)
 		for i, _ := range cachePaths {
 			path_i := BECacheStorePreName + strconv.Itoa(i)
 			pathName[cachePaths[i]] = path_i
-			namePath[path_i] = cachePaths[i]
 			requiredPaths = append(requiredPaths, cachePaths[i])
 		}
 	default:
@@ -361,28 +356,7 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 		}
 
 		requiredPaths = append(requiredPaths, path)
-		//use unix path separator.
-		sp := strings.Split(path, "/")
-		name := ""
-		for i := 1; i <= len(sp); i++ {
-			//avoid sp[i]=="/"
-			if sp[len(sp)-i] == "" {
-				continue
-			}
-
-			if name == "" {
-				name = sp[len(sp)-i]
-			} else {
-				name = sp[len(sp)-i] + "-" + name
-			}
-
-			if _, ok := namePath[name]; !ok {
-				break
-			}
-		}
-
-		namePath[name] = path
-		pathName[path] = name
+		pathName[path] = BECacheStorePreName + strconv.Itoa(len(requiredPaths))
 	}
 
 	var vs []corev1.Volume
