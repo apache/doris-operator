@@ -345,19 +345,24 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 			pathName[cachePaths[i]] = path_i
 			requiredPaths = append(requiredPaths, cachePaths[i])
 		}
+
+		//generate the last path's name, the ordinal is length of cache paths.
+		baseIndex := len(cachePaths)
+		for _, path := range v1pv.MountPaths {
+			if _, ok := pathName[path]; ok {
+				//compatible before name= storage+i
+				continue
+			}
+
+			requiredPaths = append(requiredPaths, path)
+			pathName[path] = BECacheStorePreName + strconv.Itoa(baseIndex)
+			baseIndex = baseIndex + 1
+		}
+
 	default:
 
 	}
 
-	for _, path := range v1pv.MountPaths {
-		if _, ok := pathName[path]; ok {
-			//compatible before name= storage+i
-			continue
-		}
-
-		requiredPaths = append(requiredPaths, path)
-		pathName[path] = BECacheStorePreName + strconv.Itoa(len(requiredPaths))
-	}
 
 	var vs []corev1.Volume
 	var vms []corev1.VolumeMount
