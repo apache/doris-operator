@@ -360,6 +360,7 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 			continue
 		}
 
+		requiredPaths = append(requiredPaths, path)
 		//use unix path separator.
 		sp := strings.Split(path, "/")
 		name := ""
