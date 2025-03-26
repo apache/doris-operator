@@ -94,6 +94,13 @@ func (in *CommonSpec) DeepCopyInto(out *CommonSpec) {
 		*out = new(PersistentVolume)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PersistentVolumes != nil {
+		in, out := &in.PersistentVolumes, &out.PersistentVolumes
+		*out = make([]PersistentVolume, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations
 		*out = make([]corev1.Toleration, len(*in))

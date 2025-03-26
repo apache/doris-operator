@@ -59,7 +59,7 @@ const (
 	POD_NAMESPACE = "POD_NAMESPACE"
 	ADMIN_USER    = "USER"
 	ADMIN_PASSWD  = "PASSWD"
-	DORIS_ROOT    = "DORIS_ROOT"
+	DORIS_ROOT_KEY    = "DORIS_ROOT"
 
 	KRB5_MOUNT_PATH        = "KRB5_MOUNT_PATH"
 	KRB5_CONFIG            = "KRB5_CONFIG"
@@ -496,7 +496,7 @@ func buildBaseEnvs(dcr *v1.DorisCluster) []corev1.EnvVar {
 			Name:  ADMIN_USER,
 			Value: DEFAULT_ADMIN_USER,
 		}, {
-			Name:  DORIS_ROOT,
+			Name:  DORIS_ROOT_KEY,
 			Value: DEFAULT_ROOT_PATH,
 		}}...)
 	}

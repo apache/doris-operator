@@ -24,9 +24,7 @@ import (
 	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	kr "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
 	"strconv"
 )
 
@@ -37,15 +35,9 @@ const (
 )
 
 const (
-	DefaultMetaPath          = "/opt/apache-doris/fe/doris-meta"
-	MetaPathKey              = "meta_dir"
-	DefaultLogPath           = "/opt/apache-doris/fe/log"
-	LogPathKey               = "LOG_DIR"
-	LogStoreName             = "fe-log"
-	MetaStoreName            = "fe-meta"
-	DefaultStorageSize int64 = 107374182400
-	basic_auth_path          = "/etc/basic_auth"
-	auth_volume_name         = "basic-auth"
+	//DefaultStorageSize int64 = 107374182400
+	basic_auth_path  = "/etc/basic_auth"
+	auth_volume_name = "basic-auth"
 )
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
@@ -65,7 +57,7 @@ func (dfc *DisaggregatedFEController) newFESchedulerLabels(ddcName string) map[s
 
 func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) *appv1.StatefulSet {
 	spec := ddc.Spec.FeSpec
-	_, _, vcts := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &spec)
+	_, _, vcts := dfc.BuildVolumesVolumeMountsAndPVCs(confMap, v1.DisaggregatedFE, &spec.CommonSpec)
 	pts := dfc.NewPodTemplateSpec(ddc, confMap)
 	st := dfc.NewDefaultStatefulset(ddc)
 	//metadata
@@ -100,7 +92,7 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 	pts.Labels = labels
 	c := dfc.NewFEContainer(ddc, confMap)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
-	vs, _, _ := dfc.buildVolumesVolumeMountsAndPVCs(confMap, &ddc.Spec.FeSpec)
+	vs, _, _ := dfc.BuildVolumesVolumeMountsAndPVCs(confMap, v1.DisaggregatedFE, &ddc.Spec.FeSpec.CommonSpec)
 	configVolumes, _ := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
@@ -147,7 +139,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	}
 
 	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
-	_, vms, _ := dfc.buildVolumesVolumeMountsAndPVCs(cvs, &ddc.Spec.FeSpec)
+	_, vms, _ := dfc.BuildVolumesVolumeMountsAndPVCs(cvs, v1.DisaggregatedFE, &ddc.Spec.FeSpec.CommonSpec)
 	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
 	c.VolumeMounts = vms
 	if c.VolumeMounts == nil {
@@ -170,128 +162,6 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	}
 
 	return c
-}
-
-func (dfc *DisaggregatedFEController) buildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, fe *v1.FeSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
-	if fe.PersistentVolume == nil {
-		vs, vms := dfc.getDefaultVolumesVolumeMounts(confMap)
-		return vs, vms, nil
-	}
-
-	var vs []corev1.Volume
-	var vms []corev1.VolumeMount
-	var pvcs []corev1.PersistentVolumeClaim
-
-	func() {
-		defQuantity := kr.NewQuantity(DefaultStorageSize, kr.BinarySI)
-		if fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests == nil {
-			fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests = map[corev1.ResourceName]kr.Quantity{}
-		}
-		pvcSize := fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
-		cmp := defQuantity.Cmp(pvcSize)
-		if cmp > 0 {
-			fe.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage] = *defQuantity
-		}
-
-		if len(fe.PersistentVolume.PersistentVolumeClaimSpec.AccessModes) == 0 {
-			fe.PersistentVolume.PersistentVolumeClaimSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-		}
-	}()
-
-	//generate log volume, volumeMount, pvc
-	func() {
-		if !fe.PersistentVolume.LogNotStore {
-			vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: LogStoreName,
-				}}})
-			vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: dfc.getLogPath(confMap)})
-			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        LogStoreName,
-					Annotations: fe.CommonSpec.PersistentVolume.Annotations,
-				},
-				Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
-			})
-		}
-	}()
-
-	vs = append(vs, corev1.Volume{Name: MetaStoreName, VolumeSource: corev1.VolumeSource{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: MetaStoreName,
-		}}})
-	vms = append(vms, corev1.VolumeMount{Name: MetaStoreName, MountPath: dfc.getMetaPath(confMap)})
-	pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        MetaStoreName,
-			Annotations: fe.CommonSpec.PersistentVolume.Annotations,
-		},
-		Spec: *fe.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
-	})
-
-	return vs, vms, pvcs
-}
-
-// when not config persisentTemplateSpec, pod should mount emptyDir volume for meta data and log. mountPath resolve from config file.
-func (dfc *DisaggregatedFEController) getDefaultVolumesVolumeMounts(confMap map[string]interface{}) ([]corev1.Volume, []corev1.VolumeMount) {
-	vs := []corev1.Volume{
-		{
-			Name: LogStoreName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		{
-			Name: MetaStoreName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-	}
-	vms := []corev1.VolumeMount{
-		{
-			Name:      LogStoreName,
-			MountPath: dfc.getLogPath(confMap),
-		},
-		{
-			Name:      MetaStoreName,
-			MountPath: dfc.getMetaPath(confMap),
-		},
-	}
-	return vs, vms
-}
-
-func (dfc *DisaggregatedFEController) getLogPath(confMap map[string]interface{}) string {
-	v := confMap[LogPathKey]
-	if v == nil {
-		return DefaultLogPath
-	}
-	//log path support use $DORIS_HOME as subPath.
-	dev := map[string]string{
-		"DORIS_HOME": "/opt/apache-doris/fe",
-	}
-	mapping := func(key string) string {
-		return dev[key]
-	}
-	path := os.Expand(v.(string), mapping)
-	return path
-}
-
-func (dfc *DisaggregatedFEController) getMetaPath(confMap map[string]interface{}) string {
-	v := confMap[MetaPathKey]
-	if v == nil {
-		return DefaultMetaPath
-	}
-	//log path support use $DORIS_HOME as subPath.
-	dev := map[string]string{
-		"DORIS_HOME": "/opt/apache-doris/fe",
-	}
-	mapping := func(key string) string {
-		return dev[key]
-	}
-	//resolve relative path to absolute path
-	path := os.Expand(v.(string), mapping)
-	return path
 }
 
 func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregatedCluster) []corev1.EnvVar {

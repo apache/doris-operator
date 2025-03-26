@@ -441,7 +441,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 	}
 
 	currentPVCs := corev1.PersistentVolumeClaimList{}
-	pvcMap := make(map[string]*corev1.PersistentVolumeClaim)
+	//pvcMap := make(map[string]*corev1.PersistentVolumeClaim)
 
 	pvcLabels := dcgs.newCGPodsSelector(ddc.Name, cgs.UniqueId)
 
@@ -450,52 +450,45 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 		return err
 	}
 
-	for i := range currentPVCs.Items {
-		pvcMap[currentPVCs.Items[i].Name] = &currentPVCs.Items[i]
+	// now only clear scale down pod.
+	if cg == nil {
+		return nil
 	}
 
-	if cg != nil {
-		//we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
-		replicas := 0
-		stsName := ddc.GetCGStatefulsetName(cg)
-		sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
-		if err != nil {
-			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs get statefulset namespace=%s, name=%s, failed, err=%s", ddc.Namespace, stsName, err.Error())
-			//waiting next reconciling.
-			return nil
+	var clearPVC []string
+	//we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
+	stsName := ddc.GetCGStatefulsetName(cg)
+	sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
+	if err != nil {
+		klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs get statefulset namespace=%s, name=%s, failed, err=%s", ddc.Namespace, stsName, err.Error())
+		//waiting next reconciling.
+		return nil
+	}
+	replicas := *sts.Spec.Replicas
+	for _, pvc := range currentPVCs.Items {
+		pvcName := pvc.Name
+		sl := strings.Split(pvcName, stsName+"-")
+		if len(sl) != 2 {
+			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s not format pvc name format.", ddc.Namespace, pvcName)
+			continue
 		}
-		replicas = int(*sts.Spec.Replicas)
-
-		cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
-		paths, _ := dcgs.getCacheMaxSizeAndPaths(cvs)
-
-		if cgs.Phase == dv1.Suspended || cgs.Phase == dv1.SuspendFailed || replicas == 0 {
-			return nil
+		var index int64
+		var perr error
+		index, perr = strconv.ParseInt(sl[1], 10, 32)
+		if perr != nil {
+			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s index parse failed, err=%s", ddc.Namespace, pvcName, err.Error())
+			continue
 		}
-
-		var reservePVCNameList []string
-
-		for i := 0; i < replicas; i++ {
-			iStr := strconv.Itoa(i)
-			reservePVCNameList = append(reservePVCNameList, resource.BuildPVCName(stsName, iStr, LogStoreName))
-			for j := 0; j < len(paths); j++ {
-				jStr := strconv.Itoa(j)
-				reservePVCNameList = append(reservePVCNameList, resource.BuildPVCName(stsName, iStr, StorageStorePreName+jStr))
-			}
-		}
-
-		for _, pvcName := range reservePVCNameList {
-			if _, ok := pvcMap[pvcName]; ok {
-				delete(pvcMap, pvcName)
-			}
+		if int32(index) >= replicas {
+			clearPVC = append(clearPVC, pvcName)
 		}
 	}
 
 	var mergeError error
-	for _, claim := range pvcMap {
-		if err := k8s.DeletePVC(ctx, dcgs.K8sclient, claim.Namespace, claim.Name, pvcLabels); err != nil {
+	for _, pvcName := range clearPVC {
+		if err = k8s.DeletePVC(ctx, dcgs.K8sclient, ddc.Namespace, pvcName, pvcLabels); err != nil {
 			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCDeleteFailed, err.Error())
-			klog.Errorf("ClearStatefulsetUnusedPVCs deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", claim.Namespace, claim.Name, claim.Name, err.Error())
+			klog.Errorf("ClearStatefulsetUnusedPVCs deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", ddc.Namespace, pvcName, pvcName, err.Error())
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}
