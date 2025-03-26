@@ -50,7 +50,7 @@ func main() {
 }
 
 func envParse() {
-	dorisRootPath, _ = os.LookupEnv(resource.DORIS_ROOT)
+	dorisRootPath, _ = os.LookupEnv(resource.DORIS_ROOT_KEY)
 	if dorisRootPath == "" {
 		dorisRootPath = "/opt/apache-doris"
 	}

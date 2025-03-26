@@ -128,8 +128,14 @@ type CommonSpec struct {
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
 	// VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
+	//+deprecated please use persistentVolumes
 	PersistentVolume *PersistentVolume `json:"persistentVolume,omitempty"`
 
+	//if config true, the log will mount a pvc to store logs. the pvc size is definitely 200Gi, as the log recycling system will regular recycling.
+	LogNotStore bool `json:"logNotStore,omitempty"`
+
+	//volume template for mountPath
+	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
 	// (Optional) Tolerations for scheduling pods onto some dedicated nodes
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
@@ -197,6 +203,7 @@ type PersistentVolume struct {
 	MountPaths []string `json:"mountPaths,omitempty"`
 
 	//if config true, the log will mount a pvc to store logs. the pvc size is definitely 200Gi, as the log recycling system will regular recycling.
+	//+deprecated
 	LogNotStore bool `json:"logNotStore,omitempty"`
 
 	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.

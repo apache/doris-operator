@@ -18,32 +18,18 @@
 package computegroups
 
 import (
-	"encoding/json"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	kr "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
-	"os"
 	"strconv"
 )
 
 const (
-	DefaultCacheRootPath = "/opt/apache-doris/be/file_cache"
-	//default cache storage size: unit=B
-	DefaultCacheSize               int64 = 107374182400
-	FileCachePathKey                     = "file_cache_path"
-	FileCacheSubConfigPathKey            = "path"
-	FileCacheSubConfigTotalSizeKey       = "total_size"
-	DefaultLogPath                       = "/opt/apache-doris/be/log"
-	LogPathKey                           = "LOG_DIR"
-	LogStoreName                         = "be-log"
-	StorageStorePreName                  = "be-storage"
-	basic_auth_path                      = "/etc/basic_auth"
-	auth_volume_name                     = "basic-auth"
+	basic_auth_path  = "/etc/basic_auth"
+	auth_volume_name = "basic-auth"
 )
 
 // generate statefulset or service labels
@@ -83,7 +69,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisD
 		st.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: matchLabels,
 		}
-		_, _, vcts := dcgs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
+		_, _, vcts := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
 		st.Spec.Replicas = cg.Replicas
 		st.Spec.VolumeClaimTemplates = vcts
 		st.Spec.ServiceName = ddc.GetCGServiceName(cg)
@@ -106,7 +92,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	c := dcgs.NewCGContainer(ddc, cvs, cg)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 
-	vs, _, _ := dcgs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
+	vs, _, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
 	configVolumes, _ := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
@@ -147,7 +133,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg)...)
 
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
-	_, vms, _ := dcgs.buildVolumesVolumeMountsAndPVCs(cvs, cg)
+	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
 	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
 	c.VolumeMounts = vms
 	if c.VolumeMounts == nil {
@@ -170,179 +156,6 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	}
 
 	return c
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) buildVolumesVolumeMountsAndPVCs(cvs map[string]interface{}, cg *dv1.ComputeGroup) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
-	if cg.CommonSpec.PersistentVolume == nil {
-		vs, vms := dcgs.getDefaultVolumesVolumeMounts(cvs)
-		return vs, vms, nil
-	}
-
-	var vs []corev1.Volume
-	var vms []corev1.VolumeMount
-	var pvcs []corev1.PersistentVolumeClaim
-
-	paths, maxSize := dcgs.getCacheMaxSizeAndPaths(cvs)
-
-	//fill defect fields of pvcSpec.
-	func() {
-		if maxSize > 0 {
-			cs := kr.NewQuantity(maxSize, kr.BinarySI)
-			if cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests == nil {
-				cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests = map[corev1.ResourceName]kr.Quantity{}
-			}
-			pvcSize := cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
-			cmp := cs.Cmp(pvcSize)
-			if cmp > 0 {
-				cg.PersistentVolume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage] = *cs
-			}
-		}
-		if len(cg.PersistentVolume.PersistentVolumeClaimSpec.AccessModes) == 0 {
-			cg.PersistentVolume.PersistentVolumeClaimSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-		}
-	}()
-
-	//generate log volume, volumeMount, pvc
-	func() {
-		if !cg.CommonSpec.PersistentVolume.LogNotStore {
-			logPath := dcgs.getLogPath(cvs)
-			vs = append(vs, corev1.Volume{Name: LogStoreName, VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: LogStoreName,
-				}}})
-			vms = append(vms, corev1.VolumeMount{Name: LogStoreName, MountPath: logPath})
-			logPvc := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        LogStoreName,
-					Annotations: cg.CommonSpec.PersistentVolume.Annotations,
-				},
-				Spec: *cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
-			}
-			pvcs = append(pvcs, logPvc)
-		}
-	}()
-
-	//merge mountPaths
-	for _, p := range cg.PersistentVolume.MountPaths {
-		plen := len(paths)
-		for ; plen > 0; plen-- {
-			if paths[plen-1] == p {
-				break
-			}
-		}
-
-		if plen <= 0 {
-			paths = append(paths, p)
-		}
-	}
-
-	for i, _ := range paths {
-		vs = append(vs, corev1.Volume{Name: StorageStorePreName + strconv.Itoa(i), VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: StorageStorePreName + strconv.Itoa(i),
-			}}})
-		vms = append(vms, corev1.VolumeMount{Name: StorageStorePreName + strconv.Itoa(i), MountPath: paths[i]})
-		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        StorageStorePreName + strconv.Itoa(i),
-				Annotations: cg.CommonSpec.PersistentVolume.Annotations,
-			},
-			Spec: *cg.CommonSpec.PersistentVolume.PersistentVolumeClaimSpec.DeepCopy(),
-		})
-	}
-
-	return vs, vms, pvcs
-}
-
-// when not config persisentTemplateSpec, pod should mount emptyDir volume for storing data and log. mountPath resolve from config file.
-func (dcgs *DisaggregatedComputeGroupsController) getDefaultVolumesVolumeMounts(cvs map[string]interface{}) ([]corev1.Volume, []corev1.VolumeMount) {
-	LogPath := dcgs.getLogPath(cvs)
-	vs := []corev1.Volume{
-		{
-			Name: LogStoreName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-	}
-
-	vms := []corev1.VolumeMount{
-		{
-			Name:      LogStoreName,
-			MountPath: LogPath,
-		},
-	}
-
-	storagePaths, _ := dcgs.getCacheMaxSizeAndPaths(cvs)
-	for i, path := range storagePaths {
-		vs = append(vs, corev1.Volume{
-			Name: StorageStorePreName + strconv.Itoa(i),
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
-		vms = append(vms, corev1.VolumeMount{
-			Name:      StorageStorePreName + strconv.Itoa(i),
-			MountPath: path,
-		})
-	}
-
-	return vs, vms
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) getCacheMaxSizeAndPaths(cvs map[string]interface{}) ([]string, int64) {
-	v := cvs[FileCachePathKey]
-	if v == nil {
-		return []string{DefaultCacheRootPath}, DefaultCacheSize
-	}
-
-	var paths []string
-	var maxCacheSize int64
-	vbys := v.(string)
-	var pa []map[string]interface{}
-	err := json.Unmarshal([]byte(vbys), &pa)
-	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_path failed, err=%s", err.Error())
-		return []string{}, 0
-	}
-
-	for i, mp := range pa {
-		pv := mp[FileCacheSubConfigPathKey]
-		pv_str, ok := pv.(string)
-		if !ok {
-			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d have not path config.", i)
-			continue
-		}
-		paths = append(paths, pv_str)
-		cache_v := mp[FileCacheSubConfigTotalSizeKey]
-		fc_size, ok := cache_v.(float64)
-		cache_size := int64(fc_size)
-		if !ok {
-			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d total_size is not number.", i)
-			continue
-		}
-		if maxCacheSize < cache_size {
-			maxCacheSize = cache_size
-		}
-	}
-	return paths, maxCacheSize
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) getLogPath(cvs map[string]interface{}) string {
-	v := cvs[LogPathKey]
-	if v == nil {
-		return DefaultLogPath
-	}
-	//log path support use $DORIS_HOME as subPath.
-	dev := map[string]string{
-		"DORIS_HOME": "/opt/apache-doris/be",
-	}
-	mapping := func(key string) string {
-		return dev[key]
-	}
-	//resolve relative path to absolute path
-	path := os.Expand(v.(string), mapping)
-	return path
 }
 
 // add specific envs for be, the env will used by be_disaggregated_entrypoint script.

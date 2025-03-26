@@ -20,11 +20,13 @@ package sub_controller
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/metadata"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
 	"github.com/spf13/viper"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +34,29 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+	"strings"
+)
+
+const (
+	//doris use LOG_DIR as the key of log path. this update from 2.1.7
+	//metaservice use log_dir, when used please ignore case-sensitive
+	oldLogPathKey        = "LOG_DIR"
+	newLogPathKey        = "sys_log_dir"
+	FEMetaPathKey        = "meta_dir"
+	FELogStoreName       = "fe-log"
+	FEMetaStoreName      = "fe-meta"
+	BELogStoreName       = "be-log"
+	BECacheStorePreName  = "be-storage"
+	MSLogStoreName       = "ms-log"
+	DefaultCacheRootPath = "/opt/apache-doris/be/file_cache"
+	//default cache storage size: unit=B
+	DefaultCacheSize               int64 = 107374182400
+	FileCachePathKey                     = "file_cache_path"
+	FileCacheSubConfigPathKey            = "path"
+	FileCacheSubConfigTotalSizeKey       = "total_size"
 )
 
 type DisaggregatedSubController interface {
@@ -71,12 +95,26 @@ func (d *DisaggregatedSubDefaultController) GetConfigValuesFromConfigMaps(namesp
 		}
 
 		v := kcm.Data[resolveKey]
-		viper.SetConfigType("properties")
-		viper.ReadConfig(bytes.NewBuffer([]byte(v)))
-		return viper.AllSettings()
+		return d.resolveStartConfig([]byte(v), resolveKey)
 	}
 
 	return nil
+}
+
+func (d *DisaggregatedSubDefaultController) resolveStartConfig(vb []byte, resolveKey string) map[string]interface{} {
+	switch resolveKey {
+	case resource.MS_RESOLVEKEY:
+		os.Setenv("DORIS_HOME", resource.DEFAULT_ROOT_PATH+"/ms")
+	case resource.FE_RESOLVEKEY:
+		os.Setenv("DORIS_HOME", resource.DEFAULT_ROOT_PATH+"/fe")
+	case resource.BE_RESOLVEKEY:
+		os.Setenv("DORIS_HOME", resource.DEFAULT_ROOT_PATH+"/be")
+	default:
+	}
+
+	viper.SetConfigType("properties")
+	viper.ReadConfig(bytes.NewBuffer(vb))
+	return viper.AllSettings()
 }
 
 // for config default values.
@@ -252,4 +290,406 @@ func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx con
 
 	return adminUserName, password
 
+}
+
+
+
+func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType, commonSpec *v1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+	if commonSpec.PersistentVolume == nil && len(commonSpec.PersistentVolumes) == 0 {
+		vs, vms := d.getEmptyDirVolumesVolumeMounts(confMap, componentType)
+		return vs, vms, nil
+	}
+
+	if commonSpec.PersistentVolume != nil {
+		return d.PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+	}
+
+	return d.PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+}
+
+// the old config before 25.2.1, the requiredPaths should filter log path before call this function.
+func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec *v1.CommonSpec, confMap map[string]interface{}, componentType v1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+	v1pv := commonSpec.PersistentVolume
+	if v1pv == nil {
+		return nil, nil, nil
+	}
+
+	pathName := map[string]string{} /*key=path, value=name*/
+	namePath := map[string]string{} /*key=name, value=path*/
+	var requiredPaths []string
+	switch componentType {
+	case v1.DisaggregatedMS:
+		//if logNotStore anywhere is true, not build pvc.
+		if !commonSpec.PersistentVolume.LogNotStore && !commonSpec.LogNotStore {
+			logPath := d.getLogPath(confMap, componentType)
+			pathName[logPath] = MSLogStoreName
+			namePath[MSLogStoreName] = logPath
+			requiredPaths = append(requiredPaths, logPath)
+		}
+	case v1.DisaggregatedFE:
+		if !commonSpec.PersistentVolume.LogNotStore && !commonSpec.LogNotStore {
+			logPath := d.getLogPath(confMap, componentType)
+			pathName[logPath] = FELogStoreName
+			namePath[MSLogStoreName] = logPath
+			requiredPaths = append(requiredPaths, logPath)
+		}
+		metaPath := d.getFEMetaPath(confMap)
+		pathName[metaPath] = FEMetaStoreName
+		requiredPaths = append(requiredPaths, metaPath)
+	case v1.DisaggregatedBE:
+		if !commonSpec.PersistentVolume.LogNotStore && !commonSpec.LogNotStore {
+			logPath := d.getLogPath(confMap, componentType)
+			pathName[logPath] = BELogStoreName
+			namePath[MSLogStoreName] = logPath
+			requiredPaths = append(requiredPaths, logPath)
+		}
+		cachePaths, _ := d.getCacheMaxSizeAndPaths(confMap)
+		for i, _ := range cachePaths {
+			path_i := BECacheStorePreName + strconv.Itoa(i)
+			pathName[cachePaths[i]] = path_i
+			namePath[path_i] = cachePaths[i]
+			requiredPaths = append(requiredPaths, cachePaths[i])
+		}
+	default:
+
+	}
+
+	for _, path := range v1pv.MountPaths {
+		if _, ok := pathName[path]; ok {
+			//compatible before name= storage+i
+			continue
+		}
+
+		//use unix path separator.
+		sp := strings.Split(path, "/")
+		name := ""
+		for i := 1; i <= len(sp); i++ {
+			//avoid sp[i]=="/"
+			if sp[len(sp)-i] == "" {
+				continue
+			}
+
+			if name == "" {
+				name = sp[len(sp)-i]
+			} else {
+				name = sp[len(sp)-i] + "-" + name
+			}
+
+			if _, ok := namePath[name]; !ok {
+				break
+			}
+		}
+	}
+
+	var vs []corev1.Volume
+	var vms []corev1.VolumeMount
+	var pvcs []corev1.PersistentVolumeClaim
+
+	for _, path := range requiredPaths {
+		name := pathName[path]
+		vs = append(vs, corev1.Volume{Name: name, VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: name,
+			}}})
+		vms = append(vms, corev1.VolumeMount{Name: name, MountPath: path})
+		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Annotations: v1pv.Annotations,
+			},
+			Spec: *v1pv.PersistentVolumeClaimSpec.DeepCopy(),
+		})
+	}
+
+	return vs, vms, pvcs
+}
+
+// use array of PersistentVolume, the new config from 25.2.x
+func (d *DisaggregatedSubDefaultController) PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec *v1.CommonSpec, confMap map[string]interface{}, componentType v1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+	var requiredPaths []string
+
+	//find storage mountPaths.
+	switch componentType {
+	case v1.DisaggregatedFE:
+		metaPath := d.getFEMetaPath(confMap)
+		requiredPaths = append(requiredPaths, metaPath)
+	case v1.DisaggregatedBE:
+		cachePaths, _ := d.getCacheMaxSizeAndPaths(confMap)
+		requiredPaths = append(requiredPaths, cachePaths...)
+	default:
+	}
+
+	//check logNotStore, if true should not generate log pvc.
+	logNotStore := false
+	for _, v1pv := range commonSpec.PersistentVolumes {
+		if len(v1pv.MountPaths) != 0 {
+			requiredPaths = append(requiredPaths, v1pv.MountPaths...)
+		}
+
+		logNotStore = logNotStore || v1pv.LogNotStore
+	}
+
+	//the last check logNotStore, fist check config in any one of persistentVolumes.
+	if !logNotStore && !commonSpec.LogNotStore {
+		logPath := d.getLogPath(confMap, componentType)
+		requiredPaths = append(requiredPaths, logPath)
+	}
+
+	//generate name of persistentVolumeClaim use the mountPath
+	namePath := map[string]string{}
+	pathName := map[string]string{}
+	for _, path := range requiredPaths {
+		//use unix path separator.
+		sp := strings.Split(path, "/")
+		name := ""
+		for i := 1; i <= len(sp); i++ {
+			if sp[len(sp)-i] == "" {
+				continue
+			}
+
+			if name == "" {
+				name = sp[len(sp)-i]
+			} else {
+				name = sp[len(sp)-i] + "-" + name
+			}
+
+			if _, ok := namePath[name]; !ok {
+				break
+			}
+		}
+
+		namePath[name] = path
+		pathName[path] = name
+	}
+
+	pathPV := map[string]*v1.PersistentVolume{}
+	//the template index.
+	ti := -1
+	for i, v1pv := range commonSpec.PersistentVolumes {
+		if len(v1pv.MountPaths) == 0 {
+			ti = i
+			continue
+		}
+		for _, mp := range v1pv.MountPaths {
+			pathPV[mp] = &commonSpec.PersistentVolumes[i]
+		}
+	}
+
+	var vs []corev1.Volume
+	var vms []corev1.VolumeMount
+	var pvcs []corev1.PersistentVolumeClaim
+
+	//generate pvc from the last path in requiredPaths, the mountPath that  configured by user is the highest wight, so first use the v1pv to generate pvc not template v1pv.
+	ss := set.NewSetString()
+
+	for i:= len(requiredPaths); i > 0; i-- {
+		path := requiredPaths[i -1]
+		//if the path have build volume, vm, pvc, skip it.
+		if ss.Find(path) {
+			continue
+		}
+		ss.Add(path)
+
+		pv, ok := pathPV[path]
+		name := pathName[path]
+		metadataName := strings.ReplaceAll(name, "_", "-")
+		//use specific PersistentVolume generate volume, vm, pvc
+		if ok {
+			vs = append(vs, corev1.Volume{Name: metadataName, VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: metadataName,
+				}}})
+			vms = append(vms, corev1.VolumeMount{Name: metadataName, MountPath: path})
+			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        metadataName,
+					Annotations: pv.Annotations,
+				},
+				Spec: *pv.PersistentVolumeClaimSpec.DeepCopy(),
+			})
+		}
+
+		//use template PersistentVolume generate volume, vm, pvc
+		if !ok && ti != -1 {
+			vs = append(vs, corev1.Volume{Name: metadataName, VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: metadataName,
+				}}})
+			vms = append(vms, corev1.VolumeMount{Name: metadataName, MountPath: path})
+			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        metadataName,
+					Annotations: commonSpec.PersistentVolumes[ti].Annotations,
+				},
+				Spec: *commonSpec.PersistentVolumes[ti].PersistentVolumeClaimSpec.DeepCopy(),
+			})
+		}
+	}
+
+	return vs, vms, pvcs
+}
+
+func (d *DisaggregatedSubDefaultController) getEmptyDirVolumesVolumeMounts(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount) {
+	switch componentType {
+	case v1.DisaggregatedMS:
+		return d.getMSEmptyDirVolumesVolumeMounts(confMap)
+	case v1.DisaggregatedFE:
+		return d.getFEEmptyDirVolumesVolumeMounts(confMap)
+	case v1.DisaggregatedBE:
+		return d.getBEEmptyDirVolumesVolumeMounts(confMap)
+	default:
+		return nil, nil
+	}
+}
+
+func (d *DisaggregatedSubDefaultController) getBEEmptyDirVolumesVolumeMounts(confMap map[string]interface{}) ([]corev1.Volume, []corev1.VolumeMount) {
+	vs := []corev1.Volume{
+		{
+			Name: BELogStoreName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+
+	vms := []corev1.VolumeMount{
+		{
+			Name:      BELogStoreName,
+			MountPath: d.getLogPath(confMap, v1.DisaggregatedBE),
+		},
+	}
+
+	cachePaths, _ := d.getCacheMaxSizeAndPaths(confMap)
+	for i, path := range cachePaths {
+		vs = append(vs, corev1.Volume{
+			Name: BECacheStorePreName + strconv.Itoa(i),
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+		vms = append(vms, corev1.VolumeMount{
+			Name:      BECacheStorePreName + strconv.Itoa(i),
+			MountPath: path,
+		})
+	}
+
+	return vs, vms
+}
+
+func (d *DisaggregatedSubDefaultController) getCacheMaxSizeAndPaths(cvs map[string]interface{}) ([]string, int64) {
+	v := cvs[FileCachePathKey]
+	if v == nil {
+		return []string{DefaultCacheRootPath}, DefaultCacheSize
+	}
+
+	var paths []string
+	var maxCacheSize int64
+	vbys := v.(string)
+	var pa []map[string]interface{}
+	err := json.Unmarshal([]byte(vbys), &pa)
+	if err != nil {
+		klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths json unmarshal file_cache_path failed, err=%s", err.Error())
+		return []string{}, 0
+	}
+
+	for i, mp := range pa {
+		pv := mp[FileCacheSubConfigPathKey]
+		pv_str, ok := pv.(string)
+		if !ok {
+			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d have not path config.", i)
+			continue
+		}
+		paths = append(paths, pv_str)
+		cache_v := mp[FileCacheSubConfigTotalSizeKey]
+		fc_size, ok := cache_v.(float64)
+		cache_size := int64(fc_size)
+		if !ok {
+			klog.Errorf("disaggregatedComputeGroupsController getStorageMaxSizeAndPaths index %d total_size is not number.", i)
+			continue
+		}
+		if maxCacheSize < cache_size {
+			maxCacheSize = cache_size
+		}
+	}
+	return paths, maxCacheSize
+}
+
+// use emptyDir mode generate metaservice use volume and volumeMount.
+func (d *DisaggregatedSubDefaultController) getMSEmptyDirVolumesVolumeMounts(confMap map[string]interface{}) ([]corev1.Volume, []corev1.VolumeMount) {
+	vs := []corev1.Volume{
+		{
+			Name: MSLogStoreName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+	vms := []corev1.VolumeMount{
+		{
+			Name:      MSLogStoreName,
+			MountPath: d.getLogPath(confMap, v1.DisaggregatedMS),
+		},
+	}
+	return vs, vms
+}
+
+// use emptyDir mode generate fe use volume and volumeMount.
+func (d *DisaggregatedSubDefaultController) getFEEmptyDirVolumesVolumeMounts(confMap map[string]interface{}) ([]corev1.Volume, []corev1.VolumeMount) {
+	vs := []corev1.Volume{
+		{
+			Name: FELogStoreName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			Name: FEMetaStoreName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+	vms := []corev1.VolumeMount{
+		{
+			Name:      FELogStoreName,
+			MountPath: d.getLogPath(confMap, v1.DisaggregatedFE),
+		},
+		{
+			Name:      FEMetaStoreName,
+			MountPath: d.getFEMetaPath(confMap),
+		},
+	}
+	return vs, vms
+}
+
+// confMap, convert use viper, the viper will convert key to lowercase.
+func (d *DisaggregatedSubDefaultController) getLogPath(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType) string {
+	v := confMap[oldLogPathKey]
+	if v != nil {
+		return v.(string)
+	}
+	v = confMap[newLogPathKey]
+	if v != nil {
+		return v.(string)
+	}
+
+	//return default log path.
+	switch componentType {
+	case v1.DisaggregatedMS:
+		return resource.DEFAULT_ROOT_PATH + "/ms/log"
+	case v1.DisaggregatedFE:
+		return resource.DEFAULT_ROOT_PATH + "/fe/log"
+	case v1.DisaggregatedBE:
+		return resource.DEFAULT_ROOT_PATH + "/be/log"
+	default:
+		return ""
+	}
+}
+
+func (d *DisaggregatedSubDefaultController) getFEMetaPath(confMap map[string]interface{}) string {
+	v := confMap[FEMetaPathKey]
+	if v == nil {
+		return resource.DEFAULT_ROOT_PATH + "/fe/doris-meta"
+	}
+	return v.(string)
 }
