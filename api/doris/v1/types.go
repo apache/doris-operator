@@ -207,6 +207,10 @@ type BaseSpec struct {
 	//cnEnvVars is a slice of environment variables that are added to the pods, the default is empty.
 	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
 
+	//EnvFrom is a list of sources to populate environment variables in the container, the default is empty.
+	//+optional
+	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
 	//+optional
 	//If specified, the pod's scheduling constraints.
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
@@ -240,6 +244,10 @@ type BaseSpec struct {
 	// Multi Secret for pod.
 	// +optional
 	Secrets []Secret `json:"secrets,omitempty"`
+
+	// InitContainers is a list of containers that should be run before the app containers are started.
+	// +optional
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 }
 
 type SystemInitialization struct {
