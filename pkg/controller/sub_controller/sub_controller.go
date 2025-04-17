@@ -189,7 +189,8 @@ func (d *SubDefaultController) GetFinalPersistentVolumes(ctx context.Context, dc
 		return nil, err
 	}
 
-	volume, err := resource.GenerateEveryoneMountPathPersistentVolume(&baseSpec, config, componentType)
+	_, _, sharedPaths := resource.BuildSharedVolumesAndVolumeMounts(dcr.Spec.SharedPersistentVolumeClaims, componentType)
+	volume, err := resource.GenerateEveryoneMountPathPersistentVolume(&baseSpec, sharedPaths, config, componentType)
 	if err != nil {
 		klog.Errorf("GetFinalPersistentVolumes GenerateEveryoneMountPathPersistentVolume failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
 		return nil, err
@@ -277,6 +278,28 @@ func (d *SubDefaultController) CheckSecretExist(ctx context.Context, dcr *dorisv
 		klog.Errorf("CheckSecretExist error: %s.", errMessage)
 		d.K8srecorder.Event(dcr, string(EventWarning), string(SecretNotExist), fmt.Sprintf("CheckSecretExist error: %s.", errMessage))
 	}
+}
+
+// CheckSharePVC verifies two points:
+//  1. Whether the SharePVC exists
+//  2. Whether the AccessMode of the SharePVC is ReadWriteMany
+func (d *SubDefaultController) CheckSharePVC(ctx context.Context, dcr *dorisv1.DorisCluster) {
+	if len(dcr.Spec.SharedPersistentVolumeClaims) > 0 {
+		errMessage := ""
+		for _, claim := range dcr.Spec.SharedPersistentVolumeClaims {
+			pvc, err := k8s.GetPVC(ctx, d.K8sclient, claim.ClaimName, dcr.Namespace)
+			if err != nil {
+				errMessage = errMessage + fmt.Sprintf("(PersistentVolumeClaim get failed name: %s, namespace: %s, err: %s), ", claim.ClaimName, dcr.Namespace, err.Error())
+			} else if !set.ArrayContains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
+				errMessage = errMessage + fmt.Sprintf("(PersistentVolumeClaim name: %s, namespace: %s AccessMode cannot be shared: %+v), ", claim.ClaimName, dcr.Namespace, pvc.Spec.AccessModes)
+			}
+		}
+		if errMessage != "" {
+			klog.Errorf("CheckSharePVC error: %s.", errMessage)
+			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), fmt.Sprintf("CheckSharePVC error: %s.", errMessage))
+		}
+	}
+
 }
 
 // ClearCommonResources clear common resources all component have, as statefulset, service.

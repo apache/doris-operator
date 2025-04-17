@@ -67,6 +67,7 @@ var (
 	ConfigMapPathRepeated           EventReason = "ConfigMapPathRepeated"
 	SecretPathRepeated              EventReason = "SecretPathRepeated"
 	SecretNotExist                  EventReason = "SecretNotExist"
+	CheckSharePVC                   EventReason = "CheckSharePVC"
 	WaitMetaServiceAvailable        EventReason = "WaitMetaServiceAvailable"
 	WaitFEAvailable                 EventReason = "WaitFEAvailable"
 	ServiceApplyedFailed            EventReason = "ServiceApplyedFailed"
