@@ -85,7 +85,7 @@ func getDefaultDorisHome(componentType dorisv1.ComponentType) string {
 	return ""
 }
 
-// GenerateEveryoneMountPathPersistentVolume is used to process the pvc template configuration in CRD.
+// GenerateEveryoneMountPathDorisPersistentVolume is used to process the pvc template configuration in CRD.
 // The template is defined as follows:
 // - PersistentVolume.MountPath is "", it`s template configuration.
 // - PersistentVolume.MountPath is not "", it`s actual pvc configuration.
@@ -94,21 +94,21 @@ func getDefaultDorisHome(componentType dorisv1.ComponentType) string {
 // 2. If there is a pvc template, return the actual list of pvcs after processing.
 // 3. The template needs to parse the configuration of the doris config file to create the pvc.
 // 4. If there are multiple templates, the last valid template will be used.
-func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, sharedPaths []string, config map[string]interface{}, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {
+func GenerateEveryoneMountPathDorisPersistentVolume(spec *dorisv1.BaseSpec, excludePaths []string, config map[string]interface{}, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {
 	// Only the last data pvc template configuration takes effect
 	var template *dorisv1.PersistentVolume
-	// pvs is the pvc that needs to be actually created, specified by the user
-	var pvs []dorisv1.PersistentVolume
+	// dorisPersistentVolumes is the pvc that needs to be actually created, specified by the user
+	var dorisPersistentVolumes []dorisv1.PersistentVolume
 	for i := range spec.PersistentVolumes {
 		if spec.PersistentVolumes[i].MountPath != "" {
 			path := spec.PersistentVolumes[i].MountPath
 			if strings.HasSuffix(path, "/") {
 				path = path[:len(path)-1]
 			}
-			if !set.ArrayContains(sharedPaths, path) {
-				pvs = append(pvs, spec.PersistentVolumes[i])
+			if !set.ArrayContains(excludePaths, path) {
+				dorisPersistentVolumes = append(dorisPersistentVolumes, spec.PersistentVolumes[i])
 			} else {
-				klog.Errorf("GenerateEveryoneMountPathPersistentVolume SharedPersistentVolumeClaim.MountPath (%s) conflicts with the MountPath configured in BaseSpec.PersistentVolumes, "+
+				klog.Errorf("GenerateEveryoneMountPathDorisPersistentVolume SharedPersistentVolumeClaim.MountPath (%s) conflicts with the MountPath configured in BaseSpec.PersistentVolumes, "+
 					"and the SharedPersistentVolumeClaims configuration takes precedence, skipping the processing of the BaseSpec.PersistentVolumes for the PVC. "+
 					"If it does not meet expectations, please handle the conflict and rebuild the cluster.", path)
 			}
@@ -118,7 +118,7 @@ func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, sharedPat
 	}
 
 	if template == nil {
-		return pvs, nil
+		return dorisPersistentVolumes, nil
 	}
 
 	// Processing pvc template
@@ -133,13 +133,13 @@ func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, sharedPat
 		dataPathKey = "storage_root_path"
 		dataDefaultPath = dorisHome + "/storage"
 	default:
-		klog.Infof("GenerateEveryoneMountPathPersistentVolume the componentType: %s is not supported, PersistentVolume template will not work ", componentType)
-		return pvs, nil
+		klog.Infof("GenerateEveryoneMountPathDorisPersistentVolume the componentType: %s is not supported, PersistentVolume template will not work ", componentType)
+		return dorisPersistentVolumes, nil
 	}
 
 	dataPathValue, dataExist := config[dataPathKey]
 	if !dataExist {
-		klog.Infof("GenerateEveryoneMountPathPersistentVolume: dataPathKey '%s' not found in config, default value will effect", dataPathKey)
+		klog.Infof("GenerateEveryoneMountPathDorisPersistentVolume: dataPathKey '%s' not found in config, default value will effect", dataPathKey)
 		dataPaths = append(dataPaths, dataDefaultPath)
 	} else {
 		dataPaths = doris.ResolveStorageRootPath(dataPathValue.(string))
@@ -148,10 +148,10 @@ func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, sharedPat
 	if len(dataPaths) == 1 {
 		tmp := *template.DeepCopy()
 		tmp.MountPath = dataPaths[0]
-		if !set.ArrayContains(sharedPaths, dataPaths[0]) {
-			pvs = append(pvs, tmp)
+		if !set.ArrayContains(excludePaths, dataPaths[0]) {
+			dorisPersistentVolumes = append(dorisPersistentVolumes, tmp)
 		} else {
-			klog.Errorf("GenerateEveryoneMountPathPersistentVolume SharedPersistentVolumeClaims.MountPath (%s) conflicts with the MountPath configured in BaseSpec.PersistentVolumes, "+
+			klog.Errorf("GenerateEveryoneMountPathDorisPersistentVolume SharedPersistentVolumeClaims.MountPath (%s) conflicts with the MountPath configured in BaseSpec.PersistentVolumes, "+
 				"and the SharedPersistentVolumeClaims configuration takes precedence, skipping the processing of the BaseSpec.PersistentVolumes for the PVC. "+
 				"If it does not meet expectations, please handle the conflict and rebuild the cluster.", dataPaths[0])
 		}
@@ -161,15 +161,15 @@ func GenerateEveryoneMountPathPersistentVolume(spec *dorisv1.BaseSpec, sharedPat
 			tmp := *template.DeepCopy()
 			tmp.Name = tmp.Name + "-" + pathNames[i]
 			tmp.MountPath = dataPaths[i]
-			if !set.ArrayContains(sharedPaths, dataPaths[i]) {
-				pvs = append(pvs, tmp)
+			if !set.ArrayContains(excludePaths, dataPaths[i]) {
+				dorisPersistentVolumes = append(dorisPersistentVolumes, tmp)
 			} else {
-				klog.Errorf("GenerateEveryoneMountPathPersistentVolume SharedPersistentVolumeClaims.MountPath (%s) conflicts with the MountPath configured in BaseSpec.PersistentVolumes, "+
+				klog.Errorf("GenerateEveryoneMountPathDorisPersistentVolume SharedPersistentVolumeClaims.MountPath (%s) conflicts with the MountPath configured in BaseSpec.PersistentVolumes, "+
 					"and the SharedPersistentVolumeClaims configuration takes precedence, skipping the processing of the BaseSpec.PersistentVolumes for the PVC. "+
 					"If it does not meet expectations, please handle the conflict and rebuild the cluster.", dataPaths[i])
 			}
 		}
 	}
 
-	return pvs, nil
+	return dorisPersistentVolumes, nil
 }

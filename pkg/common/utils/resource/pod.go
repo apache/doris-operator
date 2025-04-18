@@ -296,13 +296,13 @@ func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedCompone
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
 func newVolumesFromBaseSpec(spec v1.BaseSpec, sharedPaths []string, config map[string]interface{}, componentType v1.ComponentType) []corev1.Volume {
 	var volumes []corev1.Volume
-	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, sharedPaths, config, componentType)
-	for _, pv := range pvs {
+	dorisPersistentVolumes, _ := GenerateEveryoneMountPathDorisPersistentVolume(&spec, sharedPaths, config, componentType)
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		var volume corev1.Volume
-		volume.Name = pv.Name
+		volume.Name = dorisPersistentVolume.Name
 		volume.VolumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pv.Name,
+				ClaimName: dorisPersistentVolume.Name,
 			},
 		}
 		volumes = append(volumes, volume)
@@ -319,7 +319,6 @@ func BuildSharedVolumesAndVolumeMounts(spvcs []v1.SharedPersistentVolumeClaim, c
 	var volumes []corev1.Volume
 	var mounts []corev1.VolumeMount
 	var paths []string
-	var supportComponents = []v1.ComponentType{v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker}
 
 	home := getDefaultDorisHome(componentType)
 
@@ -328,21 +327,18 @@ func BuildSharedVolumesAndVolumeMounts(spvcs []v1.SharedPersistentVolumeClaim, c
 		if strings.HasSuffix(path, "/") {
 			path = path[:len(path)-1]
 		}
-		if len(claim.SupportComponents) > 0 {
-			supportComponents = claim.SupportComponents
-		}
-		if set.ArrayContains(supportComponents, componentType) {
+		if len(claim.SupportComponents) == 0 || set.ArrayContains(claim.SupportComponents, componentType) {
 			volumes = append(volumes, corev1.Volume{
-				Name: claim.ClaimName,
+				Name: claim.PersistentVolumeClaimName,
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: claim.ClaimName,
+						ClaimName: claim.PersistentVolumeClaimName,
 					},
 				},
 			})
 
 			mounts = append(mounts, corev1.VolumeMount{
-				Name:      claim.ClaimName,
+				Name:      claim.PersistentVolumeClaimName,
 				MountPath: path,
 			})
 
@@ -364,11 +360,12 @@ func buildVolumeMounts(spec v1.BaseSpec, sharedPaths []string, config map[string
 		return volumeMounts
 	}
 
-	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, sharedPaths, config, componentType)
-	for _, pvs := range pvs {
+	dorisPersistentVolumes, _ := GenerateEveryoneMountPathDorisPersistentVolume(&spec, sharedPaths, config, componentType)
+
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		var volumeMount corev1.VolumeMount
-		volumeMount.MountPath = pvs.MountPath
-		volumeMount.Name = pvs.Name
+		volumeMount.MountPath = dorisPersistentVolume.MountPath
+		volumeMount.Name = dorisPersistentVolume.Name
 		volumeMounts = append(volumeMounts, volumeMount)
 	}
 

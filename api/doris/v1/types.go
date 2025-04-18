@@ -61,19 +61,16 @@ type DorisClusterSpec struct {
 }
 
 type SharedPersistentVolumeClaim struct {
-	// Shared PVC mount path in pod.
-	// doris operator does not provide the ability to create, but it will check the existence of the pvc and whether the MountPath conflicts.
-	// If it conflicts with the MountPath in BaseSpec.PersistentVolumes or the actual mount path, the configuration here takes precedence
-	// support use environment : ${DORIS_HOME}
-	//	 FE: ${DORIS_HOME} = /opt/apache-doris/fe
-	//	 BE: ${DORIS_HOME} = /opt/apache-doris/be
+	// MountPath must be an absolute path. support use environment : ${DORIS_HOME}, ${DORIS_HOME} is /opt/apache-doris/fe/ in fe container, /opt/apache-doris/be in be container.
+	// if the MountPath conflict to the MountPath in BaseSpec.PersistentVolumes config, this MountPath will have high priority, and the MountPath will attach the shard pvc.
 	MountPath string `json:"mountPath,omitempty"`
 
 	// the shared PersistentVolumeClaim's name
-	// PersistentVolumeClaim AccessModes must include ReadWriteMany
-	ClaimName string `json:"claimName,omitempty"`
+	// PersistentVolumeClaim AccessModes must include ReadWriteMany, Please create the ReadWriteMany pvc before deploying doris cluster.
+	// Doris Operator will check the pvc exists or not, the AccessMode is ReadWriteMany or not.
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
 
-	//the components of need config the pvc, if emptyy, all deployment component will config the pvc.
+	//the components of need config the pvc, if empty, all deployment component will config the pvc.
 	SupportComponents []ComponentType `json:"supportComponents,omitempty"`
 }
 

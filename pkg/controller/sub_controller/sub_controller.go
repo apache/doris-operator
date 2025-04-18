@@ -190,13 +190,13 @@ func (d *SubDefaultController) GetFinalPersistentVolumes(ctx context.Context, dc
 	}
 
 	_, _, sharedPaths := resource.BuildSharedVolumesAndVolumeMounts(dcr.Spec.SharedPersistentVolumeClaims, componentType)
-	volume, err := resource.GenerateEveryoneMountPathPersistentVolume(&baseSpec, sharedPaths, config, componentType)
+	dorisPersistentVolumes, err := resource.GenerateEveryoneMountPathDorisPersistentVolume(&baseSpec, sharedPaths, config, componentType)
 	if err != nil {
-		klog.Errorf("GetFinalPersistentVolumes GenerateEveryoneMountPathPersistentVolume failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
+		klog.Errorf("GetFinalPersistentVolumes GenerateEveryoneMountPathDorisPersistentVolume failed, namespace: %s,err: %s \n", dcr.Namespace, err.Error())
 		return nil, err
 	}
 
-	return volume, nil
+	return dorisPersistentVolumes, nil
 }
 
 // generate map for mountpath:configmap
@@ -280,26 +280,28 @@ func (d *SubDefaultController) CheckSecretExist(ctx context.Context, dcr *dorisv
 	}
 }
 
-// CheckSharePVC verifies two points:
+// CheckSharedPVC verifies two points:
 //  1. Whether the SharePVC exists
 //  2. Whether the AccessMode of the SharePVC is ReadWriteMany
-func (d *SubDefaultController) CheckSharePVC(ctx context.Context, dcr *dorisv1.DorisCluster) {
-	if len(dcr.Spec.SharedPersistentVolumeClaims) > 0 {
-		errMessage := ""
-		for _, claim := range dcr.Spec.SharedPersistentVolumeClaims {
-			pvc, err := k8s.GetPVC(ctx, d.K8sclient, claim.ClaimName, dcr.Namespace)
-			if err != nil {
-				errMessage = errMessage + fmt.Sprintf("(PersistentVolumeClaim get failed name: %s, namespace: %s, err: %s), ", claim.ClaimName, dcr.Namespace, err.Error())
-			} else if !set.ArrayContains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
-				errMessage = errMessage + fmt.Sprintf("(PersistentVolumeClaim name: %s, namespace: %s AccessMode cannot be shared: %+v), ", claim.ClaimName, dcr.Namespace, pvc.Spec.AccessModes)
-			}
+func (d *SubDefaultController) CheckSharedPVC(ctx context.Context, dcr *dorisv1.DorisCluster) {
+	if len(dcr.Spec.SharedPersistentVolumeClaims) == 0 {
+		return
+	}
+	for _, claim := range dcr.Spec.SharedPersistentVolumeClaims {
+		pvc, err := k8s.GetPVC(ctx, d.K8sclient, claim.PersistentVolumeClaimName, dcr.Namespace)
+		if err != nil || pvc == nil {
+			errMessage := fmt.Sprintf("(PersistentVolumeClaim get failed name: %s, namespace: %s, err: %s), ", claim.PersistentVolumeClaimName, dcr.Namespace, err.Error())
+			klog.Errorf(errMessage)
+			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), errMessage)
+			return
 		}
-		if errMessage != "" {
-			klog.Errorf("CheckSharePVC error: %s.", errMessage)
-			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), fmt.Sprintf("CheckSharePVC error: %s.", errMessage))
+		if !set.ArrayContains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
+			errMessage := fmt.Sprintf("(PersistentVolumeClaim name: %s, namespace: %s AccessMode cannot be shared: %+v), ", claim.PersistentVolumeClaimName, dcr.Namespace, pvc.Spec.AccessModes)
+			klog.Errorf(errMessage)
+			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), errMessage)
+			return
 		}
 	}
-
 }
 
 // ClearCommonResources clear common resources all component have, as statefulset, service.
@@ -421,7 +423,7 @@ func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context,
 	default:
 	}
 
-	volumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
+	dorisPersistentVolumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
 	if err != nil {
 		d.K8srecorder.Event(dcr, string(EventWarning), PVCExplainFailed, fmt.Sprintf("listAndDeletePersistentVolumeClaim %s GetFinalPersistentVolumes failed：%s", componentType, err.Error()))
 		return false
@@ -440,9 +442,9 @@ func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context,
 	for _, pvc := range pvcList.Items {
 		//start with unique string for classify pvc, avoid empty string match all pvc.Name
 		key := "-^"
-		for _, volume := range volumes {
-			if volume.Name != "" && strings.HasPrefix(pvc.Name, volume.Name) {
-				key = key + volume.Name
+		for _, dorisPersistentVolume := range dorisPersistentVolumes {
+			if dorisPersistentVolume.Name != "" && strings.HasPrefix(pvc.Name, dorisPersistentVolume.Name) {
+				key = key + dorisPersistentVolume.Name
 				break
 			}
 		}
@@ -455,13 +457,13 @@ func (d *SubDefaultController) preparePersistentVolumeClaim(ctx context.Context,
 
 	//presents the pvc have all created or updated to new version.
 	prepared := true
-	for _, volume := range volumes {
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		// if provider not `operator` should not manage pvc.
-		if volume.PVCProvisioner != dorisv1.PVCProvisionerOperator {
+		if dorisPersistentVolume.PVCProvisioner != dorisv1.PVCProvisionerOperator {
 			continue
 		}
 
-		if !d.patchPVCs(ctx, dcr, selector, pvcMap["-^"+volume.Name], stsName, volume, replicas) {
+		if !d.patchPVCs(ctx, dcr, selector, pvcMap["-^"+dorisPersistentVolume.Name], stsName, dorisPersistentVolume, replicas) {
 			prepared = false
 		}
 	}
@@ -548,7 +550,7 @@ func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Co
 	default:
 	}
 
-	volumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
+	dorisPersistentVolumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
 	if err != nil {
 		d.K8srecorder.Event(dcr, string(EventWarning), PVCExplainFailed, fmt.Sprintf("listAndDeletePersistentVolumeClaim %s GetFinalPersistentVolumes failed：%s", componentType, err.Error()))
 		return err
@@ -567,9 +569,9 @@ func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Co
 	for _, pvc := range pvcList.Items {
 		//start with unique string for classify pvc, avoid empty string match all pvc.Name
 		key := "-^"
-		for _, volume := range volumes {
-			if volume.Name != "" && strings.HasPrefix(pvc.Name, volume.Name) {
-				key = key + volume.Name
+		for _, dorisPersistentVolume := range dorisPersistentVolumes {
+			if dorisPersistentVolume.Name != "" && strings.HasPrefix(pvc.Name, dorisPersistentVolume.Name) {
+				key = key + dorisPersistentVolume.Name
 				break
 			}
 		}
@@ -581,13 +583,13 @@ func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Co
 	}
 
 	var mergeError error
-	for _, volume := range volumes {
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		// Clean up the existing PVC that is larger than expected
-		claims := pvcMap["-^"+volume.Name]
+		claims := pvcMap["-^"+dorisPersistentVolume.Name]
 		if len(claims) <= int(replicas) {
 			continue
 		}
-		if err := d.deletePVCs(ctx, dcr, selector, len(claims), stsName, volume.Name, replicas); err != nil {
+		if err := d.deletePVCs(ctx, dcr, selector, len(claims), stsName, dorisPersistentVolume.Name, replicas); err != nil {
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}

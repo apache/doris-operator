@@ -48,14 +48,14 @@ func NewStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}, compone
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
 	_, _, sharedPaths := BuildSharedVolumesAndVolumeMounts(dcr.Spec.SharedPersistentVolumeClaims, componentType)
-	pvs, _ := GenerateEveryoneMountPathPersistentVolume(bSpec, sharedPaths, config, componentType)
-	for _, vct := range pvs {
+	dorisPersistentVolumes, _ := GenerateEveryoneMountPathDorisPersistentVolume(bSpec, sharedPaths, config, componentType)
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        vct.Name,
-				Annotations: buildPVCAnnotations(vct),
+				Name:        dorisPersistentVolume.Name,
+				Annotations: buildPVCAnnotations(dorisPersistentVolume),
 			},
-			Spec: vct.PersistentVolumeClaimSpec,
+			Spec: dorisPersistentVolume.PersistentVolumeClaimSpec,
 		}
 
 		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
