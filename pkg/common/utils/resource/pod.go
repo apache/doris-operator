@@ -21,6 +21,7 @@ import (
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/kerberos"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -53,13 +54,13 @@ const (
 	BROKER_PRESTOP             = "/opt/apache-doris/broker_prestop.sh"
 
 	//keys for pod env variables
-	POD_NAME      = "POD_NAME"
-	POD_IP        = "POD_IP"
-	HOST_IP       = "HOST_IP"
-	POD_NAMESPACE = "POD_NAMESPACE"
-	ADMIN_USER    = "USER"
-	ADMIN_PASSWD  = "PASSWD"
-	DORIS_ROOT_KEY    = "DORIS_ROOT"
+	POD_NAME       = "POD_NAME"
+	POD_IP         = "POD_IP"
+	HOST_IP        = "HOST_IP"
+	POD_NAMESPACE  = "POD_NAMESPACE"
+	ADMIN_USER     = "USER"
+	ADMIN_PASSWD   = "PASSWD"
+	DORIS_ROOT_KEY = "DORIS_ROOT"
 
 	KRB5_MOUNT_PATH        = "KRB5_MOUNT_PATH"
 	KRB5_CONFIG            = "KRB5_CONFIG"
@@ -99,14 +100,17 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 	var defaultInitContainers []corev1.Container
 	var SecurityContext *corev1.PodSecurityContext
 	var skipInit bool
+
+	sharedVolumes, _, sharedPaths := BuildSharedVolumesAndVolumeMounts(dcr.Spec.SharedPersistentVolumeClaims, componentType)
+
 	switch componentType {
 	case v1.Component_FE:
-		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec, config, componentType)
+		volumes = newVolumesFromBaseSpec(dcr.Spec.FeSpec.BaseSpec, sharedPaths, config, componentType)
 		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.FeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.FeSpec.BaseSpec.SecurityContext
 	case v1.Component_BE:
-		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec, config, componentType)
+		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec, sharedPaths, config, componentType)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.BeSpec.BaseSpec.SecurityContext
@@ -153,6 +157,10 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 	if dcr.Spec.KerberosInfo != nil {
 		kerberosVolumes, _ := getKerberosVolumeAndVolumeMount(dcr.Spec.KerberosInfo)
 		volumes = append(volumes, kerberosVolumes...)
+	}
+
+	if len(sharedVolumes) != 0 {
+		volumes = append(volumes, sharedVolumes...)
 	}
 
 	pts := corev1.PodTemplateSpec{
@@ -286,15 +294,15 @@ func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedCompone
 }
 
 // newVolumesFromBaseSpec return corev1.Volume build from baseSpec.
-func newVolumesFromBaseSpec(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) []corev1.Volume {
+func newVolumesFromBaseSpec(spec v1.BaseSpec, sharedPaths []string, config map[string]interface{}, componentType v1.ComponentType) []corev1.Volume {
 	var volumes []corev1.Volume
-	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, config, componentType)
-	for _, pv := range pvs {
+	dorisPersistentVolumes, _ := GenerateEveryoneMountPathDorisPersistentVolume(&spec, sharedPaths, config, componentType)
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		var volume corev1.Volume
-		volume.Name = pv.Name
+		volume.Name = dorisPersistentVolume.Name
 		volume.VolumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pv.Name,
+				ClaimName: dorisPersistentVolume.Name,
 			},
 		}
 		volumes = append(volumes, volume)
@@ -303,8 +311,47 @@ func newVolumesFromBaseSpec(spec v1.BaseSpec, config map[string]interface{}, com
 	return volumes
 }
 
+func BuildSharedVolumesAndVolumeMounts(spvcs []v1.SharedPersistentVolumeClaim, componentType v1.ComponentType) ([]corev1.Volume, []corev1.VolumeMount, []string) {
+	if len(spvcs) == 0 {
+		return nil, nil, nil
+	}
+
+	var volumes []corev1.Volume
+	var mounts []corev1.VolumeMount
+	var paths []string
+
+	home := getDefaultDorisHome(componentType)
+
+	for _, claim := range spvcs {
+		path := strings.ReplaceAll(claim.MountPath, "$DORIS_HOME", home)
+		if strings.HasSuffix(path, "/") {
+			path = path[:len(path)-1]
+		}
+		if len(claim.SupportComponents) == 0 || set.ArrayContains(claim.SupportComponents, componentType) {
+			volumes = append(volumes, corev1.Volume{
+				Name: claim.PersistentVolumeClaimName,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: claim.PersistentVolumeClaimName,
+					},
+				},
+			})
+
+			mounts = append(mounts, corev1.VolumeMount{
+				Name:      claim.PersistentVolumeClaimName,
+				MountPath: path,
+			})
+
+			paths = append(paths, path)
+		}
+
+	}
+
+	return volumes, mounts, paths
+}
+
 // buildVolumeMounts construct all volumeMounts contains default volumeMounts if persistentVolumes not definition.
-func buildVolumeMounts(spec v1.BaseSpec, config map[string]interface{}, componentType v1.ComponentType) []corev1.VolumeMount {
+func buildVolumeMounts(spec v1.BaseSpec, sharedPaths []string, config map[string]interface{}, componentType v1.ComponentType) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
 	_, volumeMounts = appendPodInfoVolumesVolumeMounts(nil, volumeMounts)
 	if len(spec.PersistentVolumes) == 0 {
@@ -313,11 +360,12 @@ func buildVolumeMounts(spec v1.BaseSpec, config map[string]interface{}, componen
 		return volumeMounts
 	}
 
-	pvs, _ := GenerateEveryoneMountPathPersistentVolume(&spec, config, componentType)
-	for _, pvs := range pvs {
+	dorisPersistentVolumes, _ := GenerateEveryoneMountPathDorisPersistentVolume(&spec, sharedPaths, config, componentType)
+
+	for _, dorisPersistentVolume := range dorisPersistentVolumes {
 		var volumeMount corev1.VolumeMount
-		volumeMount.MountPath = pvs.MountPath
-		volumeMount.Name = pvs.Name
+		volumeMount.MountPath = dorisPersistentVolume.MountPath
+		volumeMount.Name = dorisPersistentVolume.Name
 		volumeMounts = append(volumeMounts, volumeMount)
 	}
 
@@ -386,7 +434,8 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	default:
 	}
 
-	volumeMounts := buildVolumeMounts(spec, config, componentType)
+	_, sharedVolumeMounts, sharedPaths := BuildSharedVolumesAndVolumeMounts(dcr.Spec.SharedPersistentVolumeClaims, componentType)
+	volumeMounts := buildVolumeMounts(spec, sharedPaths, config, componentType)
 	var envs []corev1.EnvVar
 	envs = append(envs, buildBaseEnvs(dcr)...)
 	envs = append(envs, buildKerberosEnv(dcr.Spec.KerberosInfo, config, componentType)...)
@@ -418,6 +467,10 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 			Name:      auth_volume_name,
 			MountPath: basic_auth_path,
 		})
+	}
+
+	if len(sharedVolumeMounts) != 0 {
+		volumeMounts = append(volumeMounts, sharedVolumeMounts...)
 	}
 
 	c := corev1.Container{

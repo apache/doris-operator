@@ -55,6 +55,23 @@ type DorisClusterSpec struct {
 
 	// KerberosInfo contains a series of access key files, Provides access to kerberos.
 	KerberosInfo *KerberosInfo `json:"kerberosInfo,omitempty"`
+
+	// SharedPersistentVolumeClaims used to configure the shared pvc that needs to be mounted on the pod
+	SharedPersistentVolumeClaims []SharedPersistentVolumeClaim `json:"sharedPersistentVolumeClaims,omitempty"`
+}
+
+type SharedPersistentVolumeClaim struct {
+	// MountPath must be an absolute path. support use environment : ${DORIS_HOME}, ${DORIS_HOME} is /opt/apache-doris/fe/ in fe container, /opt/apache-doris/be in be container.
+	// if the MountPath conflict to the MountPath in BaseSpec.PersistentVolumes config, this MountPath will have high priority, and the MountPath will attach the shard pvc.
+	MountPath string `json:"mountPath,omitempty"`
+
+	// the shared PersistentVolumeClaim's name
+	// PersistentVolumeClaim AccessModes must include ReadWriteMany, Please create the ReadWriteMany pvc before deploying doris cluster.
+	// Doris Operator will check the pvc exists or not, the AccessMode is ReadWriteMany or not.
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
+
+	//the components of need config the pvc, if empty, all deployment component will config the pvc.
+	SupportComponents []ComponentType `json:"supportComponents,omitempty"`
 }
 
 type KerberosInfo struct {

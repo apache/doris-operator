@@ -376,3 +376,11 @@ func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName 
 	}
 	return nil
 }
+
+func GetPVC(ctx context.Context, k8sclient client.Client, name, namespace string) (*corev1.PersistentVolumeClaim, error) {
+	var pvc corev1.PersistentVolumeClaim
+	if err := k8sclient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &pvc); err != nil {
+		return nil, err
+	}
+	return &pvc, nil
+}

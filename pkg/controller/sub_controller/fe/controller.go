@@ -103,6 +103,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	fc.CheckConfigMountPath(cluster, v1.Component_FE)
 	fc.CheckSecretMountPath(cluster, v1.Component_FE)
 	fc.CheckSecretExist(ctx, cluster, v1.Component_FE)
+	fc.CheckSharedPVC(ctx, cluster)
 
 	//generate new fe service.
 	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)
