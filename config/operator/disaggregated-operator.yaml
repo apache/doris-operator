@@ -516,7 +516,7 @@ spec:
             - /dorisoperator
           args:
             - --leader-elect
-          image: selectdb/doris.k8s-operator:latest
+          image: apache/doris:operator-latest
           imagePullPolicy: Always
           name: dorisoperator
           securityContext:
