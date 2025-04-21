@@ -89,6 +89,13 @@ type ComputeGroup struct {
 	//the unique identifier of compute group, first register in fe will use UniqueId as cluster name.
 	UniqueId string `json:"uniqueId"`
 
+	// EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
+	// Default value is 'false'.
+	// Enabling it means that the container must be started in privileged mode.
+	// Please confirm whether the host machine and k8s cluster allow it.
+	// Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
+	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
+
 	CommonSpec `json:",inline"`
 }
 
