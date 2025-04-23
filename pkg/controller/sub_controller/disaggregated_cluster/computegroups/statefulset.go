@@ -18,12 +18,14 @@
 package computegroups
 
 import (
+	"fmt"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"strconv"
 )
 
@@ -120,6 +122,14 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.Container {
+
+	if cg.EnableWorkloadGroup {
+		if cg.ContainerSecurityContext == nil {
+			cg.ContainerSecurityContext = &corev1.SecurityContext{}
+		}
+		cg.ContainerSecurityContext.Privileged = pointer.Bool(true)
+	}
+
 	c := resource.NewContainerWithCommonSpec(&cg.CommonSpec)
 	c.Lifecycle = resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedBE))
 	cmd, args := sub.GetDisaggregatedCommand(dv1.DisaggregatedBE)
@@ -180,6 +190,12 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 		cgEnvs = append(cgEnvs,
 			corev1.EnvVar{Name: resource.ADMIN_USER, Value: ddc.Spec.AdminUser.Name},
 			corev1.EnvVar{Name: resource.ADMIN_PASSWD, Value: ddc.Spec.AdminUser.Password},
+		)
+	}
+
+	if cg.EnableWorkloadGroup {
+		cgEnvs = append(cgEnvs,
+			corev1.EnvVar{Name: resource.ENABLE_WORKLOAD_GROUP, Value: fmt.Sprintf("%t", cg.EnableWorkloadGroup)},
 		)
 	}
 
