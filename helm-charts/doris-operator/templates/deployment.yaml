@@ -105,7 +105,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: SERVICE_NAME
-              value: {{ template "webhook.serviceName" . }}
+              value: {{ template "operator.serviceName" . }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -121,7 +121,7 @@ spec:
           # TODO(user): Configure the resources accordingly based on the project requirements.
           # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
           resources:
-            {{- include "operator.default.resource" . | indent 8 }}
+            {{- include "operator.default.resources" . | indent 8 }}
           volumeMounts:
             - mountPath:  /tmp/k8s-webhook-server/serving-certs
               name: cert
