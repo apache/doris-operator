@@ -73,6 +73,9 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *v1.DorisDisaggregatedC
 	}
 
 	replicas := metadata.GetInt32Pointer(v1.DefaultMetaserviceNumber)
+	if msSpec.Replicas != nil {
+		replicas = msSpec.Replicas
+	}
 
 	func() {
 		st.Spec.Replicas = replicas
