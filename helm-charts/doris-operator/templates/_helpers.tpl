@@ -36,7 +36,7 @@
 {{/*
 doris operator pod default resource.
 */}}
-{{- define "operator.default.resource" }}
+{{- define "operator.default.resources" }}
     requests:
       cpu: 2
       memory: 4Gi
@@ -46,16 +46,15 @@ doris operator pod default resource.
 {{- end }}
 
 {{/*
-doris operator webhook open.
+cancle webhook set, webhook is deprecated.
 */}}
 {{- define "webhook.enable" -}}
-{{ default "false" .Values.dorisOperator.enableWebhook }}
-{{- end -}}
-
+{{- print "false" }}
+{{- end }}
 
 {{/*
-doris operator webhook service name.
+doris operator service name.
 */}}
-{{- define "webhook.serviceName" }}
+{{- define "operator.serviceName" }}
 {{- print "doris-operator-service" }}
 {{- end }}

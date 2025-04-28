@@ -18,9 +18,7 @@
 apiVersion: v2
 name: doris-operator
 description: > 
-  Kubernetes operator for creating, configuring and managing Doris clusters (dcr) and Doris disaggregated clusters 
-  (ddc). It can deploy and manage all components for Doris clusters: meta service, fe, be, cn, compute group, and 
-  broker.
+  Doris Operator for creating, configuring and managing Doris clusters (dcr) and Doris disaggregated clusters (ddc).
 
 icon: https://charts.selectdb.com/images/doris.jpg
 
