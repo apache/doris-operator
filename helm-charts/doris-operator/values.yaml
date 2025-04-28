@@ -48,3 +48,6 @@ dorisOperator:
   #             operator: In
   #             values:
   #               - target-host-name
+  # create aggregate-cluster role, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles
+  enableAggregatedClusterRole: false
+
