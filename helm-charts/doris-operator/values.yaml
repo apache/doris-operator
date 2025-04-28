@@ -44,3 +44,6 @@ dorisOperator:
   #             values:
   #               - target-host-name
   enableWebhook: false
+
+  # create aggregate-cluster role, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles
+  enableAggregatedClusterRole: false
