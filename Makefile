@@ -73,6 +73,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=config/crd/bases
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/doris/..." output:crd:artifacts:config=helm-charts/doris-operator/crds
 	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/disaggregated/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-doris crd:generateEmbeddedObjectMeta=true webhook paths="./api/disaggregated/..." output:crd:artifacts:config=helm-charts/doris-operator/crds
 	cp config/crd/bases/doris.selectdb.com_dorisclusters.yaml  config/crd/bases/doris.apache.com_dorisclusters.yaml
 	mv helm-charts/doris-operator/crds/doris.selectdb.com_dorisclusters.yaml helm-charts/doris-operator/crds/doris.apache.com_dorisclusters.yaml
 	cat config/crd/bases/doris.selectdb.com_dorisclusters.yaml > config/crd/bases/crds.yaml
