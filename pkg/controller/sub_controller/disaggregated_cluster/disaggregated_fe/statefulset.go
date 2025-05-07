@@ -86,7 +86,7 @@ func (dfc *DisaggregatedFEController) getFEPodLabels(ddc *v1.DorisDisaggregatedC
 }
 
 func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) corev1.PodTemplateSpec {
-	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
+	pts := resource.NewPodTemplateSpecWithCommonSpec(false, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	//pod template metadata.
 	labels := dfc.getFEPodLabels(ddc)
 	pts.Labels = labels

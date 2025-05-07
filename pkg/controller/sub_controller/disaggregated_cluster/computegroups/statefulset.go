@@ -81,7 +81,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisD
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, selector map[string]string, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.PodTemplateSpec {
-	pts := resource.NewPodTemplateSpecWithCommonSpec(&cg.CommonSpec, dv1.DisaggregatedBE)
+	pts := resource.NewPodTemplateSpecWithCommonSpec(cg.SkipDefaultSystemInit, &cg.CommonSpec, dv1.DisaggregatedBE)
 	//pod template metadata.
 	func() {
 		l := (resource.Labels)(selector)
@@ -131,6 +131,12 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	c.Env = cg.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg)...)
+
+	if cg.SkipDefaultSystemInit {
+		// Only works when the doris version is higher than 2.1.8 or 3.0.4
+		// When the environment variable SKIP_CHECK_ULIMIT=true is passed in, the start_be.sh will not check system parameters like ulimit and vm.max_map_count etc.
+		c.Env = append(c.Env, corev1.EnvVar{Name: "SKIP_CHECK_ULIMIT", Value: "true"})
+	}
 
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
 	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)

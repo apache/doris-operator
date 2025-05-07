@@ -90,6 +90,12 @@ type ComputeGroup struct {
 	UniqueId string `json:"uniqueId"`
 
 	CommonSpec `json:",inline"`
+
+	// SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
+	// Default value is 'false'.
+	// Default System Init means that the container must be started in privileged mode.
+	// Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
+	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 }
 
 type CommonSpec struct {

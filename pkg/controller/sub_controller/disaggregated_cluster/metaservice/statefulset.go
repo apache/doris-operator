@@ -88,7 +88,7 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *v1.DorisDisaggregatedC
 }
 
 func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
-	pts := resource.NewPodTemplateSpecWithCommonSpec(&ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
+	pts := resource.NewPodTemplateSpecWithCommonSpec(false, &ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 	//pod template metadata.
 	func() {
 		l := (resource.Labels)(selector)
