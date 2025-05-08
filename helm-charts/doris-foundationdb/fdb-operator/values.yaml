@@ -17,7 +17,7 @@ initContainers:
   7.1:
     image:
       repository: foundationdb/foundationdb-kubernetes-sidecar
-      tag: 7.1.15-1
+      tag: 7.1.38-1
       pullPolicy: IfNotPresent
 globalMode:
   enabled: false
@@ -68,8 +68,3 @@ initContainerSecurityContext:
       - all
   readOnlyRootFilesystem: true
 nodeReadClusterRole: true
-
-foundationdbImage:
-  repository: foundationdb/fdb-kubernetes-operator
-  tag: v2.3.0
-  pullPolicy: IfNotPresent

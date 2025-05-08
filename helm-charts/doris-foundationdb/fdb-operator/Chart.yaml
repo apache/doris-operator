@@ -1,5 +1,5 @@
 apiVersion: v2
-name: fdb-operator
+name: doris-foundationdb
 description: A Helm chart for foundationDB operator
 home: https://www.foundationdb.org/
 sources:
