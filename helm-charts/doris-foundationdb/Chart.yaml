@@ -1,6 +1,6 @@
 apiVersion: v2
 name: doris-foundationdb
-description: A Helm chart for foundationDB operator
+description: A Helm chart for FoundationDB
 home: https://www.foundationdb.org/
 sources:
   - https://github.com/FoundationDB/fdb-kubernetes-operator/tree/main/charts/fdb-operator
@@ -16,8 +16,11 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 version: 0.2.0
+dependencies:
+  - name: fdb-operator
+    version: v2.3.0
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: v2.3.0
+appVersion: 7.1.38
 maintainers:
-  - name: "foundationdb-ci"
+  - name: "doris"

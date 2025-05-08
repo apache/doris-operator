@@ -1,0 +1,91 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: {{ include "foundationdb.clusterName" . }}
+spec:
+  databaseConfiguration:
+    redundancy_mode: {{ template "foundationdb.redundancyMode" }}
+  automationOptions:
+    replacements:
+      enabled: true
+    podUpdateStrategy: "Delete"
+  imageType: split
+  minimumUptimeSecondsForBounce: 60
+  processCounts:
+  {{- if .Values.processCounts }}
+  {{- toYaml .Values.processCounts | nindent 4 }}
+  {{- else }}
+  {{- include "foundationdb.processCounts" . | nindent 4 }}
+  {{- end }}
+  processes:
+    general:
+      podTemplate:
+        spec:
+          containers:
+          - name: foundationdb
+            resources:
+            {{- if .Values.resources -}}
+            {{- toYaml .Values.resources | nindent 14 }}
+            {{- else -}}
+            {{- include "foundationdb.resources" . | nindent 14 }}
+            {{- end }}
+            securityContext:
+              runAsUser: 0
+          - name: foundationdb-kubernetes-sidecar
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+          initContainers:
+          - name: foundationdb-kubernetes-init
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+      volumeClaimTemplate:
+      {{- if .Values.volumeClaimTemplate }}
+      {{- toYaml .Values.volumeClaimTemplate | nindent 8 }}
+      {{- else }}
+      {{- include "foundationdb.volumeClaimTemplate" . | nindent 8 }}
+      {{- end }}
+  routing:
+    useDNSInClusterFile: true
+  mainContainer:
+    imageConfigs:
+    - baseImage: {{ include "foundationdb.baseImage" . }}
+      tag: {{ include "foundationdb.tag" . }}
+  sidecarContainer:
+    imageConfigs:
+    - baseImage: {{ include "foundationdb.sidecar.baseImage" . }}
+      tag: {{ include "foundationdb.sidecar.tag" . }}
+    enableLivenessProbe: true
+    enableReadinessProbe: false
+  useExplicitListenAddress: true
+  version: {{ include "foundationdb.version" . }}

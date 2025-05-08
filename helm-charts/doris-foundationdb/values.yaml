@@ -1,0 +1,41 @@
+# specify the foundationdb cluster name
+name: test-cluster
+
+#specify the data replicas. enum: single, double, triple
+redundancy_mode: "double"
+
+# repository specify the image repository, default is "foundationdb/foundationdb", if in private environment, should be set.
+# the tag and the version default is 7.1.38, if tag is not allowed use version, pleast set tag and version by yourself.
+foundatinondbImage:
+  repository: foundationdb/foundationdb
+  tag: 7.1.38
+  version: 7.1.38
+
+foundationdbSidecarImage:
+  repository: foundationdb/foundationdb-kubernetes-sidecar
+  tag: 7.1.38-1
+# ProcessCounts defines the number of processes to configure for each
+# process class. You can generally omit this, to allow the operator to
+# infer the process counts based on the database configuration.
+processCounts:
+  cluster_controller: 1
+  log: 2
+  storage: 2
+  stateless: -1
+
+# resources describe the compute resource which pod used.
+resources:
+  requests:
+    cpu: 1
+    memory: 2Gi
+  limits:
+    cpu: 1
+    memory: 4Gi
+
+# VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
+# this config reference the kubernetes doc about statefulset volumeClaimTemplate: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+volumeClaimTemplate:
+  spec:
+    resources:
+      requests:
+        storage: 50G
