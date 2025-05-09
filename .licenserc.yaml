@@ -21,6 +21,7 @@ header:
     - 'LICENSE'
     - 'NOTICE'
     - 'PROJECT'
+    - 'helm-charts/doris-foundationdb/**'
 
   comment: on-failure
 
