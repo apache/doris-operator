@@ -190,7 +190,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 }
 
 // for disaggregated cluster.
-func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
+func NewPodTemplateSpecWithCommonSpec(skipDefaultInit bool, cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
 	var vs []corev1.Volume
 	si := cs.SystemInitialization
 	var defaultInitContainers []corev1.Container
@@ -214,7 +214,7 @@ func NewPodTemplateSpecWithCommonSpec(cs *dv1.CommonSpec, componentType dv1.Disa
 			Volumes:            vs,
 		},
 	}
-	constructDisaggregatedInitContainers(componentType, &pts.Spec, si)
+	constructDisaggregatedInitContainers(skipDefaultInit, componentType, &pts.Spec, si)
 	return pts
 }
 
@@ -264,7 +264,7 @@ func constructInitContainers(skipInit bool, componentType v1.ComponentType, podS
 	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)
 }
 
-func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedComponentType, podSpec *corev1.PodSpec, si *dv1.SystemInitialization) {
+func constructDisaggregatedInitContainers(skipDefaultInit bool, componentType dv1.DisaggregatedComponentType, podSpec *corev1.PodSpec, si *dv1.SystemInitialization) {
 	initImage := DEFAULT_INIT_IMAGE
 	var defaultInitContains []corev1.Container
 	if si != nil {
@@ -287,7 +287,7 @@ func constructDisaggregatedInitContainers(componentType dv1.DisaggregatedCompone
 	}
 
 	// the init containers have sequence，should confirm use initial is always in the first priority.
-	if componentType == dv1.DisaggregatedBE {
+	if !skipDefaultInit && componentType == dv1.DisaggregatedBE {
 		podSpec.InitContainers = append(podSpec.InitContainers, constructBeDefaultInitContainer(initImage))
 	}
 	podSpec.InitContainers = append(podSpec.InitContainers, defaultInitContains...)

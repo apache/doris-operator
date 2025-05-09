@@ -122,7 +122,7 @@ func Test_NewPodTemplateSpecWithCommonSpec(t *testing.T) {
 	tm[dv1.DisaggregatedMS] = mcs
 
 	for dct, cs := range tm {
-		pts := NewPodTemplateSpecWithCommonSpec(cs, dct)
+		pts := NewPodTemplateSpecWithCommonSpec(false, cs, dct)
 		t.Log(pts)
 	}
 }
