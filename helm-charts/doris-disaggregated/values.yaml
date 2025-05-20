@@ -1,0 +1,137 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# specify the doris cluster name of compute and storage decoupled.
+clusterName: "test-cluster"
+# config the labels for select.
+Labels: {}
+
+# specify the initial user and password for management cluster. if config, operator will create it, and use it to add or remove fe or be node from cluster.
+# notice `admin` and `root` not supported to create password by operator.
+adminUser: {}
+# name: doris
+# password: 123456
+
+
+# describe the ms specification for deploying.
+msSpec:
+  # fdb is required config, the last is example to config, not available to use.
+  fdb:
+    # specify the fdb cluster deployed namespace.
+    namespace: {}
+    # the fdb cluster name which deployed by fdb-kubernetes-operator. if use doris-foundationdb, the value default is `test-cluster`,
+    # if updated or not use doris-foundationdb deployed, should config it by manual.
+    fdbClusterName: test-cluster
+  # the replicas of ms, 2 are usually enough.
+  replicas: 2
+  image:
+    repository: apache/doris
+    tag: ms-3.0.5
+  imagePullSecrets: []
+  # config the compute resource for ms to use.
+  resources:
+    requests:
+      cpu: 1
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 1Gi
+  # the node have the labels will have the ms pods.
+  nodeSelector: {}
+
+# describe the fe specification for deploying.
+feSpec:
+  # the electionNumber denotes the FE followers number.
+  electionNumber: 3
+  # the number of fe, the number contains the number of follower and observer.
+  replicas: 3
+  image:
+    repository: apache/doris
+    tag: fe-3.0.5
+  imagePullSecrets: []
+  # if logNotStore is true, the log will not output the file, only print to stdout.
+  logNotStore: false
+  # config the compute resource for fe.
+  resources:
+    requests:
+      cpu: 4
+      memory: 8Gi
+    limits:
+      requests:
+        cpu: 4
+        memory: 8Gi
+
+  # config the service resource, default is clusterIP mode. NodePort example as follows:
+  service: {}
+  # type: NodePort
+  # portMaps:
+  # - nodePort: 19030
+  #   targetPort: 9030
+  # - nodePort: 19010
+  #   targetPort: 9010
+  # - nodePort: 19020
+  #   targetPort: 9020
+  # - nodePort: 18030
+  #   targetPort: 8030
+
+  # use LoadBalancer
+  # type: LoadBalancer
+
+  persistentVolumes:
+  - persistentVolumeClaimSpec:
+      # if storageClassName empty, will use the default storageClass in k8s cluster.
+      # storageClassName: default-storage
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        storage: 200Gi
+
+# specify the names of compute groups. this is required. if config
+computeGroupNames:
+- test-cg
+- test-cg1
+
+# describe the compute group spec to deploy.
+computeSpec:
+  replicas: 2
+  image:
+    repository: apache/doris
+    tag: be-3.0.5
+  imagePullSecrets: []
+  # config the compute resources to used.
+  resources:
+    requests:
+      cpu: 8
+      memory: 8Gi
+    limits:
+      cpu: 8
+      memory: 8Gi
+  # if logNotStore is true, the log will not output the file, only print to stdout.
+  logNotStore: false
+  # Config the Service type
+  serviceType: ClusterIP
+  # config the storage specification, persistentVolumeClaimSpec is the spec of PersistentVolumeClaim(https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/)
+  persistentVolumes:
+  # when set mountPaths, the persistentVolume will be used for the specific mount paths. if mountPaths is empty, It will be used for all storage paths which config in the `be.conf`.
+  # mountPaths: []
+  - persistentVolumeClaimSpec:
+      # if storageClassName empty, will use the default storageClass in k8s cluster.
+      # storageClassName: default-storage
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        storage: 500Gi

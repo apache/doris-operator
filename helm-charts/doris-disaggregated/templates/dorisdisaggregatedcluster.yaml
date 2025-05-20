@@ -1,0 +1,96 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+apiVersion: disaggregated.cluster.doris.com/v1
+kind: DorisDisaggregatedCluster
+metadata:
+  name: {{ include "doris-disaggregated.name" . }}
+  {{- if .Values.Labels }}
+  labels:
+  {{- .Values.Labels | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.adminUser }}
+  adminUser:
+    name: {{ .Values.adminUser.name }}
+    password: {{ .Values.adminUser.password }}
+  {{- end }}
+  metaService:
+    image: {{ .Values.msSpec.image.repository }}:{{ .Values.msSpec.image.tag }}
+    {{- if .Values.msSpec.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.msSpec.imagePullSecrets | nindent 6 }}
+    {{- end }}
+    replicas: {{ .Values.msSpec.replicas }}
+    fdb:
+      configMapNamespaceName:
+        name: {{ include "ms.fdb.configmap.name" . }}
+        namespace: {{ include "ms.fdb.namespace" . }}
+    configMaps:
+    - name: {{ include "ms.configmap.name" . }}
+      mountPath: {{ include "ms.configmap.mountpath" . }}
+    {{- if .Values.msSpec.resources }}
+    {{- toYaml .Values.msSpec.resources | nindent 4 }}
+    {{- end }}
+    {{- if .Values.msSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml .Values.msSpec.nodeSelector | nindent 6 }}
+    {{- end }}
+  feSpec:
+    replicas: {{ .Values.feSpec.replicas }}
+    electionNumber: {{ include "fe.electionnumber" . }}
+    image: {{ .Values.feSpec.image.repository }}:{{ .Values.feSpec.image.tag }}
+    {{- if .Values.feSpec.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml .Values.feSpec.imagePullSecrets | nindent 6 }}
+    {{- end }}
+    configMaps:
+    - name: {{ include "fe.configmap.name" . }}
+      mountPath: {{ include "fe.configmap.mountpath" . }}
+    logNotStore: {{ .Values.feSpec.logNotStore }}
+    {{- if .Values.feSpec.resources }}
+    {{- toYaml .Values.feSpec.resources | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.service }}
+    {{- toYaml .Values.feSpec.service }}
+    {{- end }}
+    {{- if .Values.feSpec.persistentVolumes }}
+    persistentVolumes:
+    {{- toYaml .Values.feSpec.persistentVolumes | nindent 4 }}
+    {{- end }}
+  computeGroups:
+  {{- $originalContext := . -}}
+  {{- range $index, $cgName := .Values.computeGroupNames }}
+  - uniqueId: {{ $cgName }}
+    replicas: {{ $originalContext.Values.computeSpec.replicas }}
+    image: {{ $originalContext.Values.computeSpec.image.repository }}:{{ $originalContext.Values.computeSpec.image.tag }}
+    {{- if $originalContext.Values.computeSpec.imagePullSecrets }}
+    imagePullSecrets:
+    {{- toYaml $originalContext.Values.computeSpec.imagePullSecrets | nindent 6 }}
+    {{- end }}
+    {{- if $originalContext.Values.computeSpec.resources }}
+    {{- toYaml $originalContext.Values.computeSpec.resources | nindent 4 }}
+    {{- end }}
+    configMaps:
+    - name: {{ include "be.configmap.name" . }}
+      mountPath: {{ include "be.configmap.mountpath" . }}
+    logNotStore: {{ $originalContext.Values.computeSpec.logNotStore }}
+    {{- if $originalContext.Values.computeSpec.persistentVolumes }}
+    persistentVolumes:
+    {{- toYaml $originalContext.Values.computeSpec.persistentVolumes | nindent 4 }}
+    {{- end }}
+  {{- end }}
