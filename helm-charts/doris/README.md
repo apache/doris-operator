@@ -33,10 +33,11 @@ this document and doris-operator installation document are duplicated. you can s
   ```bash
   $ helm install doriscluster selectdb/doris
   ```
-- Custom doris deploying 
+- Custom doris deploying
   when you want to specify resources or different deployment type, please custom the [`values.yaml`](./values.yaml) and use next command for deploying.  
   ```bash
-  $ helm install -f values.yaml doriscluster selectdb/doris 
+  # helm pull --untar selectdb/doris
+  $ helm install -f values.yaml doriscluster doris 
   ```
 
 ### Validate installation status

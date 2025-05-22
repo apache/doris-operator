@@ -36,6 +36,8 @@ msSpec:
     # the fdb cluster name which deployed by fdb-kubernetes-operator. if use doris-foundationdb, the value default is `test-cluster`,
     # if updated or not use doris-foundationdb deployed, should config it by manual.
     fdbClusterName: test-cluster
+    # if the fdb deployed on machine, directly config the address that find from the fdb.cluster file.
+    #address: ""
   # the replicas of ms, 2 are usually enough.
   replicas: 2
   image:

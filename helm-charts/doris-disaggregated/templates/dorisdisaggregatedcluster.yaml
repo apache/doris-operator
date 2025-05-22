@@ -37,9 +37,13 @@ spec:
     {{- end }}
     replicas: {{ .Values.msSpec.replicas }}
     fdb:
+      {{- if .Values.msSpec.fdb.address }}
+      address: {{ .Values.msSpec.fdb.address }}
+      {{- else }}
       configMapNamespaceName:
         name: {{ include "ms.fdb.configmap.name" . }}
         namespace: {{ include "ms.fdb.namespace" . }}
+      {{- end }}
     configMaps:
     - name: {{ include "ms.configmap.name" . }}
       mountPath: {{ include "ms.configmap.mountpath" . }}
