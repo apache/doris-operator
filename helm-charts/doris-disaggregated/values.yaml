@@ -71,9 +71,8 @@ feSpec:
       cpu: 4
       memory: 8Gi
     limits:
-      requests:
-        cpu: 4
-        memory: 8Gi
+      cpu: 4
+      memory: 8Gi
 
   # config the service resource, default is clusterIP mode. NodePort example as follows:
   service: {}
@@ -98,7 +97,8 @@ feSpec:
       accessModes:
       - ReadWriteOnce
       resources:
-        storage: 200Gi
+        requests:
+          storage: 200Gi
 
 # specify the names of compute groups. this is required. if config
 computeGroupNames:
@@ -134,4 +134,5 @@ computeSpec:
       accessModes:
       - ReadWriteOnce
       resources:
-        storage: 500Gi
+        requests:
+          storage: 500Gi
