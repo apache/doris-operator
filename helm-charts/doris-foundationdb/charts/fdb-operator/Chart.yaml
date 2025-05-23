@@ -1,6 +1,6 @@
 apiVersion: v2
 name: fdb-operator
-description: A Helm chart for foundationDB operator
+description: A Helm chart for foundationDB and fdb-kubernetes-operator
 home: https://www.foundationdb.org/
 sources:
   - https://github.com/FoundationDB/fdb-kubernetes-operator/tree/main/charts/fdb-operator

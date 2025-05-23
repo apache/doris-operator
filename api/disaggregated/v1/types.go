@@ -153,7 +153,7 @@ type CommonSpec struct {
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-	// export metaservice for accessing from outside k8s.
+	// export service for accessing from outside k8s.
 	Service *ExportService `json:"service,omitempty"`
 
 	// ConfigMaps describe all configmap that need to be mounted.
