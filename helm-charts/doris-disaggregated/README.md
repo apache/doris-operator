@@ -31,7 +31,7 @@
     ```Bash
     helm install doris-disaggregated --set  msSpec.fdb.namespace={namespace} --set msSpec.fdb.fdbClusterName={fdbClusterName}
     ```
-    please use the real namespace replace the {namespace} as the foundationdb deployed namespace, if you use the [fdb-kubernetes-operator]() or [doris-foundationdb]() deploy foundationdb.
+    please use the real namespace replace the {namespace} as the foundationdb deployed namespace, if you use the [fdb-kubernetes-operator](https://github.com/FoundationDB/fdb-kubernetes-operator) or [doris-foundationdb](https://artifacthub.io/packages/helm/doris/doris-foundationdb) deploy foundationdb.
     {fdbClusterName} is the `FoundationDBCluster` resource's name. 
 - fdb deployed on machine
     ```Bash

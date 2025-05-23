@@ -17,28 +17,23 @@
 
 apiVersion: v1
 data:
-  doris_cloud.conf: |
-    # // meta_service
-    brpc_listen_port = 5000
-    brpc_num_threads = -1
-    brpc_idle_timeout_sec = 30
-    http_token = greedisgood9999
-
-    # // doris txn config
-    label_keep_max_second = 259200
-    expired_txn_scan_key_nums = 1000
-
-    # // logging
-    log_dir = ./log/
-    # info warn error
-    log_level = info
-    log_size_mb = 1024
-    log_filenum_quota = 10
-    log_immediate_flush = false
-    # log_verbose_modules = *
-
-    # //max stage num
-    max_num_stages = 40
+  fe.conf: |
+    CUR_DATE=`date +%Y%m%d-%H%M%S`
+    # Log dir
+    LOG_DIR = ${DORIS_HOME}/log
+    # For jdk 17, this JAVA_OPTS will be used as default JVM options
+    JAVA_OPTS_FOR_JDK_17="-Djavax.security.auth.useSubjectCredsOnly=false -Xmx8192m -Xms8192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$LOG_DIR -Xlog:gc*:$LOG_DIR/fe.gc.log.$CUR_DATE:time,uptime:filecount=10,filesize=50M --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens java.base/jdk.internal.ref=ALL-UNNAMED"
+    # INFO, WARN, ERROR, FATAL
+    sys_log_level = INFO
+    # NORMAL, BRIEF, ASYNC
+    sys_log_mode = NORMAL
+    # Default dirs to put jdbc drivers,default value is ${DORIS_HOME}/jdbc_drivers
+    # jdbc_drivers_dir = ${DORIS_HOME}/jdbc_drivers
+    http_port = 8030
+    rpc_port = 9020
+    query_port = 9030
+    edit_log_port = 9010
+    enable_fqdn_mode=true
 kind: ConfigMap
 metadata:
   name: {{ include "fe.configmap.name" . }}
