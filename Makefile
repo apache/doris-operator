@@ -103,9 +103,11 @@ helm: #replace variable
 ifeq ($(shell uname),Darwin)
 	sed -i "" "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris/Chart.yaml
 	sed -i "" "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris-operator/Chart.yaml
+	sed -i "" "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris-disaggregated/Chart.yaml
 else
 	sed -i "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris/Chart.yaml
 	sed -i "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris-operator/Chart.yaml
+	sed -i "s/{operatorVersion}/$(VERSION)/g" helm-charts/doris-disaggregated/Chart.yaml
 endif
 
 .PHONY: build
