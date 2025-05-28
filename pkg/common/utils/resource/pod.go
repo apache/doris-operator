@@ -900,6 +900,24 @@ func GetMultiSecretVolumeAndVolumeMountWithCommonSpec(cSpec *dv1.CommonSpec) ([]
 }
 
 func getKerberosVolumeAndVolumeMount(kerberosInfo *v1.KerberosInfo) ([]corev1.Volume, []corev1.VolumeMount) {
+	if kerberosInfo == nil {
+		return []corev1.Volume{}, []corev1.VolumeMount{}
+	}
+
+	return getKerberosConfigAndSecretVolumeAndVolumeMount(kerberosInfo.Krb5ConfigMap, kerberosInfo.KeytabSecretName)
+}
+
+//get the kerberos volume and mounts to ddc.
+func GetDv1KerberosVolumeAndVolumeMount(kerberosInfo *dv1.KerberosInfo)([]corev1.Volume, []corev1.VolumeMount) {
+	if kerberosInfo == nil {
+		return []corev1.Volume{}, []corev1.VolumeMount{}
+	}
+
+	return getKerberosConfigAndSecretVolumeAndVolumeMount(kerberosInfo.Krb5ConfigMap, kerberosInfo.KeytabSecretName)
+}
+
+//abstract a base function for dcr and ddc used.
+func getKerberosConfigAndSecretVolumeAndVolumeMount(configMapName, secretName string) ([]corev1.Volume, []corev1.VolumeMount) {
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 
@@ -909,7 +927,7 @@ func getKerberosVolumeAndVolumeMount(kerberosInfo *v1.KerberosInfo) ([]corev1.Vo
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kerberosInfo.Krb5ConfigMap,
+					Name: configMapName,
 				},
 			},
 		},
@@ -925,7 +943,7 @@ func getKerberosVolumeAndVolumeMount(kerberosInfo *v1.KerberosInfo) ([]corev1.Vo
 		Name: keytab_volume_name,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: kerberosInfo.KeytabSecretName,
+				SecretName: secretName,
 			},
 		},
 	})

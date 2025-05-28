@@ -115,6 +115,8 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 		pts.Spec.Volumes = append(pts.Spec.Volumes, secretVolumes...)
 	}
 
+	//add last supplementary spec. if add new config in ddc spec and the config need add in pod, use the follow function to add.
+	dcgs.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(dv1.DisaggregatedBE, &ddc.Spec, &pts)
 	cgUniqueId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
 	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgUniqueId, pts.Spec.Affinity)
 
@@ -135,7 +137,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	cmd, args := sub.GetDisaggregatedCommand(dv1.DisaggregatedBE)
 	c.Command = cmd
 	c.Args = args
-	c.Name = "compute"
+	c.Name = sub.BEMainContainerName
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedBE)
 	c.Env = cg.CommonSpec.EnvVars
