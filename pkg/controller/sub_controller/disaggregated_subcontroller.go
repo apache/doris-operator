@@ -57,6 +57,8 @@ const (
 	FileCachePathKey                     = "file_cache_path"
 	FileCacheSubConfigPathKey            = "path"
 	FileCacheSubConfigTotalSizeKey       = "total_size"
+	FEMainContainerName = "fe"
+	BEMainContainerName = "compute"
 )
 
 type DisaggregatedSubController interface {
@@ -292,7 +294,46 @@ func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx con
 
 }
 
+// add cluster specification on container spec. this is useful to add common spec on different type pods, example: kerberos volume for fe and be.
+func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, configMap map[string]interface{}, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec){
+	var c *corev1.Container
+	switch componentType {
+	case v1.DisaggregatedFE:
+		for	i, _ := range pts.Spec.Containers {
+			if pts.Spec.Containers[i].Name == FEMainContainerName {
+				c = &pts.Spec.Containers[i]
+				break
+			}
+		}
+	case v1.DisaggregatedBE:
+		for i, _ := range pts.Spec.Containers {
+			if pts.Spec.Containers[i].Name == BEMainContainerName {
+				c = &pts.Spec.Containers[i]
+				break
+			}
+		}
 
+	default:
+		klog.Errorf("DisaggregatedSubDefaultController AddClusterSpecForPodTemplate componentType %s not supported.", componentType)
+		return
+	}
+
+	//add pod envs
+	envs := resource.BuildKerberosEnvForDDC(spec.KerberosInfo, configMap, componentType)
+	if len(envs) != 0 {
+		c.Env = append(c.Env, envs...)
+	}
+
+	//add kerberos volumeMounts and volumes
+	volumes, volumeMounts := resource.GetDv1KerberosVolumeAndVolumeMount(spec.KerberosInfo)
+	if len(volumeMounts) != 0 {
+		c.VolumeMounts = append(c.VolumeMounts, volumeMounts...)
+	}
+	if len(volumes) != 0 {
+		pts.Spec.Volumes = append(pts.Spec.Volumes, volumes...)
+	}
+
+}
 
 func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType, commonSpec *v1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
 	if commonSpec.PersistentVolume == nil && len(commonSpec.PersistentVolumes) == 0 {

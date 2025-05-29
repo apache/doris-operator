@@ -38,6 +38,7 @@ const (
 	//DefaultStorageSize int64 = 107374182400
 	basic_auth_path  = "/etc/basic_auth"
 	auth_volume_name = "basic-auth"
+
 )
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
@@ -59,6 +60,8 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedC
 	spec := ddc.Spec.FeSpec
 	_, _, vcts := dfc.BuildVolumesVolumeMountsAndPVCs(confMap, v1.DisaggregatedFE, &spec.CommonSpec)
 	pts := dfc.NewPodTemplateSpec(ddc, confMap)
+	//add last supplementary spec. if add new config in ddc spec and the config need add in pod, use the follow function to add.
+	dfc.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(v1.DisaggregatedFE,confMap, &ddc.Spec, &pts)
 	st := dfc.NewDefaultStatefulset(ddc)
 	//metadata
 	func() {
@@ -124,7 +127,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	cmd, args := sub.GetDisaggregatedCommand(v1.DisaggregatedFE)
 	c.Command = cmd
 	c.Args = args
-	c.Name = "fe"
+	c.Name = sub.FEMainContainerName
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedFE)
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
