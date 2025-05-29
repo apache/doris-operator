@@ -295,8 +295,7 @@ func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx con
 }
 
 // add cluster specification on container spec. this is useful to add common spec on different type pods, example: kerberos volume for fe and be.
-func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec){
-	//TODO: realize the kerberos volumeMounts added.
+func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, configMap map[string]interface{}, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec){
 	var c *corev1.Container
 	switch componentType {
 	case v1.DisaggregatedFE:
@@ -317,6 +316,12 @@ func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componen
 	default:
 		klog.Errorf("DisaggregatedSubDefaultController AddClusterSpecForPodTemplate componentType %s not supported.", componentType)
 		return
+	}
+
+	//add pod envs
+	envs := resource.BuildKerberosEnvForDDC(spec.KerberosInfo, configMap, componentType)
+	if len(envs) != 0 {
+		c.Env = append(c.Env, envs...)
 	}
 
 	//add kerberos volumeMounts and volumes

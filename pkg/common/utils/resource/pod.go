@@ -562,11 +562,23 @@ func buildKerberosEnv(info *v1.KerberosInfo, config map[string]interface{}, comp
 		return nil
 	}
 
+	return buildKerberosEnvUseSecretMountPath(info.KeytabPath, config, string(componentType))
+}
+
+func BuildKerberosEnvForDDC(info *dv1.KerberosInfo, config map[string]interface{}, componentType dv1.DisaggregatedComponentType)[]corev1.EnvVar {
+	if info == nil {
+		return nil
+	}
+
+	return  buildKerberosEnvUseSecretMountPath(info.KeytabPath, config, string(componentType))
+}
+
+func buildKerberosEnvUseSecretMountPath(keytabPath string, config map[string]interface{}, componentType string) []corev1.EnvVar {
 	var krb5ConfPath string
 	switch componentType {
-	case v1.Component_FE:
+	case string(v1.Component_FE), string(dv1.DisaggregatedFE):
 		krb5ConfPath = kerberos.GetKrb5ConfFromJavaOpts(config)
-	case v1.Component_BE, v1.Component_CN:
+	case string(v1.Component_BE), string(v1.Component_CN), string(dv1.DisaggregatedBE):
 		// be config krb5.conf file must set 'kerberos_krb5_conf_path' in be.conf
 		// https://doris.apache.org/docs/3.0/lakehouse/datalake-analytics/hive?_highlight=kerberos_krb5_conf_path#connect-to-kerberos-enabled-hive
 		if value, exists := config["kerberos_krb5_conf_path"]; exists {
@@ -574,11 +586,13 @@ func buildKerberosEnv(info *v1.KerberosInfo, config map[string]interface{}, comp
 		} else {
 			krb5ConfPath = kerberos.KRB5_DEFAULT_CONFIG
 		}
+	default:
+		klog.Errorf("BuildKerberosEnvUseSecretMountPath, componentType %s not supported.", componentType)
 	}
 
 	keytabFinalUsedPath := keytab_default_mount_path
-	if info.KeytabPath != "" {
-		keytabFinalUsedPath = info.KeytabPath
+	if keytabPath != "" {
+		keytabFinalUsedPath = keytabPath
 	}
 
 	return []corev1.EnvVar{

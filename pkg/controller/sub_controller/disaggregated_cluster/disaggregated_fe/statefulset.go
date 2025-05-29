@@ -61,7 +61,7 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedC
 	_, _, vcts := dfc.BuildVolumesVolumeMountsAndPVCs(confMap, v1.DisaggregatedFE, &spec.CommonSpec)
 	pts := dfc.NewPodTemplateSpec(ddc, confMap)
 	//add last supplementary spec. if add new config in ddc spec and the config need add in pod, use the follow function to add.
-	dfc.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(v1.DisaggregatedFE, &ddc.Spec, &pts)
+	dfc.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(v1.DisaggregatedFE,confMap, &ddc.Spec, &pts)
 	st := dfc.NewDefaultStatefulset(ddc)
 	//metadata
 	func() {
