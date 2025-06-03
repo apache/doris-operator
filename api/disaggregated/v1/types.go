@@ -48,6 +48,24 @@ type DorisDisaggregatedClusterSpec struct {
 	// if true, will decommission be node when scale down compute group.
 	// if false, will drop be node when scale down compute group.
 	EnableDecommission bool `json:"enableDecommission,omitempty"`
+
+	// KerberosInfo contains a series of access key files, Provides access to kerberos.
+	KerberosInfo *KerberosInfo `json:"kerberosInfo,omitempty"`
+}
+
+type KerberosInfo struct {
+	// Krb5ConfigMap is the name of configmap within 'krb5.conf'
+	Krb5ConfigMap string `json:"krb5ConfigMap,omitempty"`
+
+	// SecretName is the name of sercet within '*.keytab' files,
+	// refer to the following command to create a Secret :
+	// 	'kubectl create secret generic {secret-name} --from-file=. '
+	KeytabSecretName string `json:"keytabSecretName,omitempty"`
+
+	// KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+	// It is not recommended to modify it unless necessary.
+	// This path is the path filled in when configuring "hadoop.kerberos.keytab".
+	KeytabPath string `json:"keytabPath,omitempty"`
 }
 
 // AdminUser describe administrator for manage components in specified cluster.
