@@ -266,6 +266,7 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 		}
 	}
 
+	ddc.Status.ObservedGeneration = ddc.Generation
 	ddc.Status.ClusterHealth.Health = dv1.Green
 	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
 		ddc.Status.ClusterHealth.Health = dv1.Red
