@@ -364,8 +364,8 @@ func(d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpd
 
 
 	for _, pod := range pods {
-		annos := pod.Annotations
-		podControlledRevision := annos[resource.POD_CONTROLLER_REVISION_HASH_KEY]
+		labels := pod.Labels
+		podControlledRevision := labels[resource.POD_CONTROLLER_REVISION_HASH_KEY]
 		//if use selector filter pods have one controlled by new revision of statefulset, represents the new revision is working.
 		if stsUpdateRevision != podControlledRevision {
 			return false

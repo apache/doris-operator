@@ -95,10 +95,10 @@ func (dms *DisaggregatedMSController) UpdateComponentStatus(obj client.Object) e
 	}
 
 	//check statefulset updated or not, if this reconcile update the sts, so we should exclude the circumstance that get old sts and the pods not updated.
-	//if this reconcile not update statefulset will not check the generation equals or not.
 	updateStatefulsetKey := strings.ToLower(fmt.Sprintf(v1.UpdateStatefulsetName, ddc.GetMSStatefulsetName()))
 	if _, updated := ddc.Annotations[updateStatefulsetKey]; updated {
 		generation := dms.DisaggregatedSubDefaultController.ReturnStatefulsetUpdatedGeneration(sts, updateStatefulsetKey)
+		//if this reconcile not update statefulset will not check the generation equals or not.
 		if ddc.Generation != generation {
 			return errors.New("waiting statefulset updated")
 		}
