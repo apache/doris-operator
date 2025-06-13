@@ -335,6 +335,46 @@ func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componen
 
 }
 
+//return which generation had updated the statefulset.
+func(d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(sts *appv1.StatefulSet, annoGenerationKey string) int64 {
+	if sts == nil {
+		return 0
+	}
+
+	if len(sts.Annotations) == 0 {
+		return 0
+	}
+
+	g_str := sts.Annotations[annoGenerationKey]
+	//if g_str is empty, g will be zero, this is our expectation, so ignore parse failed or not.
+	g, _ := strconv.ParseInt(g_str, 10, 64)
+	return g
+}
+
+//use statefulset.status.updateRevision and pod `controller-revision-hash` annotation to check pods updated to new revision.
+//if all pods used new updateRevision return true, else return false.
+func(d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpdateRevision(stsUpdateRevision string, pods []corev1.Pod) bool {
+	if stsUpdateRevision == "" {
+		return false
+	}
+
+	if len(pods) ==0 {
+		return false
+	}
+
+
+	for _, pod := range pods {
+		labels := pod.Labels
+		podControlledRevision := labels[resource.POD_CONTROLLER_REVISION_HASH_KEY]
+		//if use selector filter pods have one controlled by new revision of statefulset, represents the new revision is working.
+		if stsUpdateRevision != podControlledRevision {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType, commonSpec *v1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
 	if commonSpec.PersistentVolume == nil && len(commonSpec.PersistentVolumes) == 0 {
 		vs, vms := d.getEmptyDirVolumesVolumeMounts(confMap, componentType)

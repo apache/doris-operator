@@ -226,6 +226,7 @@ func getScaledOutBENode(
 	return dropNodes, nil
 }
 
+//if in decommission, skip apply statefulset.
 func skipApplyStatefulset(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) bool {
 	var cgStatus *dv1.ComputeGroupStatus
 	uniqueId := cg.UniqueId

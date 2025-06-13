@@ -19,6 +19,7 @@ package disaggregated_fe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
@@ -57,7 +58,7 @@ func New(mgr ctrl.Manager) *DisaggregatedFEController {
 
 func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Object) error {
 	ddc := obj.(*v1.DorisDisaggregatedCluster)
-	//TODO: check ms status
+	//deploying fe when ms is available.
 	if !dfc.msAvailable(ddc) {
 		dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.WaitMetaServiceAvailable), "meta service have not ready.")
 		return nil
@@ -85,6 +86,7 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	svc := dfc.newService(ddc, confMap)
 
 	st := dfc.NewStatefulset(ddc, confMap)
+	//initial fe status on start. in resource process step, may be use the status record the process.
 	dfc.initialFEStatus(ddc)
 
 	event, err := dfc.DefaultReconcileService(ctx, svcInternal)
@@ -195,7 +197,23 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	ddc := obj.(*v1.DorisDisaggregatedCluster)
 
 	stfName := ddc.GetFEStatefulsetName()
+	sts, err := k8s.GetStatefulSet(context.Background(), dfc.K8sclient, ddc.Namespace, stfName)
+	if err != nil {
+		klog.Errorf("DisaggregatedFEController UpdateComponentStatus get statefulset %s failed, err=%s", stfName, err.Error())
+		return err
+	}
 
+	//check statefulset updated or not, if this reconcile update the sts, should exclude the circumstance that get old sts and the pods not updated.
+	updateStatefulsetKey := strings.ToLower(fmt.Sprintf(v1.UpdateStatefulsetName, ddc.GetFEStatefulsetName()))
+	if _, updated := ddc.Annotations[updateStatefulsetKey]; updated {
+		generation := dfc.DisaggregatedSubDefaultController.ReturnStatefulsetUpdatedGeneration(sts, updateStatefulsetKey)
+		//if this reconcile not update statefulset will not check the generation equals or not.
+		if ddc.Generation != generation {
+			return errors.New("waiting statefulset upd ated")
+		}
+	}
+
+	updateRevision := sts.Status.UpdateRevision
 	// FEStatus
 	feSpec := ddc.Spec.FeSpec
 	electionNumber := ddc.GetElectionNumber()
@@ -204,6 +222,8 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	if err := dfc.K8sclient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
 		return err
 	}
+	//check all pods controlled by new statefulset.
+	allUpdated := dfc.DisaggregatedSubDefaultController.StatefulsetControlledPodsAllUseNewUpdateRevision(updateRevision, podList.Items)
 	for _, pod := range podList.Items {
 
 		if ready := k8s.PodIsReady(&pod.Status); ready {
@@ -227,7 +247,7 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	if masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
+	if allUpdated && masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = v1.Ready
 	}
 
@@ -288,7 +308,23 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 
 	// apply fe StatefulSet
 	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, false)
+		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
+		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
+		equal := resource.StatefulsetDeepEqualWithKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, false)
+		if !equal {
+			if len(st.Annotations) == 0 {
+				st.Annotations = map[string]string{}
+			}
+			st_annos := (resource.Annotations)(st.Annotations)
+			st_annos.Add(v1.UpdateStatefulsetGeneration, strconv.FormatInt(cluster.Generation, 10))
+			if len(cluster.Annotations) == 0 {
+				cluster.Annotations = map[string]string{}
+			}
+			ddc_annos := (resource.Annotations)(cluster.Annotations)
+			msUniqueIdKey := strings.ToLower(fmt.Sprintf(v1.UpdateStatefulsetName, cluster.GetFEStatefulsetName()))
+			ddc_annos.Add(msUniqueIdKey, "true")
+		}
+		return equal
 	}); err != nil {
 		klog.Errorf("disaggregatedFEController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.FEApplyResourceFailed, Message: err.Error()}, err

@@ -309,6 +309,9 @@ type DorisDisaggregatedClusterStatus struct {
 
 	//ComputeGroupStatuses reflect a list of computeGroup status.
 	ComputeGroupStatuses []ComputeGroupStatus `json:"computeGroupStatuses,omitempty"`
+
+	//is the most recent generation observed for DorisDisaggregatedCluster
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 type MetaServiceStatus struct {

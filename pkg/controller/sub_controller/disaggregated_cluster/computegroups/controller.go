@@ -187,7 +187,24 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-		return resource.StatefulsetDeepEqualWithKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
+		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
+		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
+		equal := resource.StatefulsetDeepEqualWithKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
+		if !equal {
+			if len(st.Annotations) == 0 {
+				st.Annotations = map[string]string{}
+			}
+			st_annos := (resource.Annotations)(st.Annotations)
+			st_annos.Add(dv1.UpdateStatefulsetGeneration, strconv.FormatInt(cluster.Generation, 10))
+			if len(cluster.Annotations) == 0 {
+				cluster.Annotations = map[string]string{}
+			}
+			ddc_annos := (resource.Annotations)(cluster.Annotations)
+			msUniqueIdKey := strings.ToLower(fmt.Sprintf(dv1.UpdateStatefulsetName, cluster.GetCGStatefulsetName(cg)))
+			ddc_annos.Add(msUniqueIdKey, "true")
+		}
+		return equal
+
 	}); err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
@@ -546,11 +563,33 @@ func (dcgs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisDisaggregatedCluster, cgs *dv1.ComputeGroupStatus) error {
+	stfName := cgs.StatefulsetName
+	sts, err := k8s.GetStatefulSet(context.Background(), dcgs.K8sclient, ddc.Namespace, stfName)
+	if err != nil {
+		klog.Errorf("DisaggregatedComputeGroupsController updateCGStatus get statefulset %s failed, err=%s", stfName, err.Error())
+		return err
+	}
+
+	//check statefulset updated or not, if this reconcile update the sts, should exclude the circumstance that get old sts and the pods not updated.
+	updateStatefulsetKey := strings.ToLower(fmt.Sprintf(dv1.UpdateStatefulsetName, stfName))
+	if _, updated := ddc.Annotations[updateStatefulsetKey]; updated {
+		generation := dcgs.DisaggregatedSubDefaultController.ReturnStatefulsetUpdatedGeneration(sts, updateStatefulsetKey)
+		//if this reconcile not update statefulset will not check the generation equals or not.
+		if ddc.Generation != generation {
+			return errors.New("waiting statefulset upd ated")
+		}
+	}
+
 	selector := dcgs.newCGPodsSelector(ddc.Name, cgs.UniqueId)
 	var podList corev1.PodList
 	if err := dcgs.K8sclient.List(context.Background(), &podList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
 		return err
 	}
+
+
+	updateRevision := sts.Status.UpdateRevision
+	//check all pods controlled by new statefulset.
+	allUpdated := dcgs.DisaggregatedSubDefaultController.StatefulsetControlledPodsAllUseNewUpdateRevision(updateRevision, podList.Items)
 
 	var availableReplicas int32
 	var creatingReplicas int32
@@ -567,7 +606,7 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 	}
 
 	cgs.AvailableReplicas = availableReplicas
-	if availableReplicas == cgs.Replicas {
+	if allUpdated && availableReplicas == cgs.Replicas {
 		cgs.Phase = dv1.Ready
 	}
 	return nil

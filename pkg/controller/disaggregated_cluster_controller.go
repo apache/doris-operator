@@ -262,16 +262,24 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 		//update component status.
 		if err := sc.UpdateComponentStatus(ddc); err != nil {
 			klog.Errorf("DorisClusterReconciler reconcile update component %s status failed.err=%s\n", sc.GetControllerName(), err.Error())
-			return requeueIfError(err)
+			// if failed, the cluster status is not green, in follow step will return requeue after 5 second. so, return error is not need.
+			//return requeueIfError(err)
 		}
 	}
 
+	ddc.Status.ObservedGeneration = ddc.Generation
 	ddc.Status.ClusterHealth.Health = dv1.Green
 	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
 		ddc.Status.ClusterHealth.Health = dv1.Red
 	} else if ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
 		ddc.Status.ClusterHealth.Health = dv1.Yellow
 	}
+
+	//if have any component not ready, should reconcile.
+	if ddc.Status.MetaServiceStatus.Phase != dv1.Ready || ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount != ddc.Status.ClusterHealth.CGCount {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
