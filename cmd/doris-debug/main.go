@@ -121,7 +121,13 @@ func kickOffDebug() bool {
 		return true
 	}
 
-	fmt.Println("the value not equal!", value, v1.AnnotationDebugValue)
+	valueDoris := viper.GetString(v1.AnnotationDebugDorisKey)
+
+	if valueDoris ==  "\""+v1.AnnotationDebugDorisKey+"\"" {
+		return true
+	}
+
+	fmt.Println("the value not equal!", value, v1.AnnotationDebugValue, v1.AnnotationDebugDorisKey)
 	return false
 }
 
