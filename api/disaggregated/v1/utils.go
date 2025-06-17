@@ -30,6 +30,12 @@ const (
 	DisaggregatedSpecHashValueAnnotation string = "doris.disaggregated.cluster/hash"
 
 	ServiceRoleForCluster string = "app.doris.service/role"
+
+	//annnotate on statefulset, represent which generation of DorisDisaggregatedCluster update the statefulset.
+	UpdateStatefulsetGeneration string = "doris.disaggregated.cluster/generation"
+
+	//use uniqueId as indifier of which statefulset updated. value is the ddc updateVersion
+	UpdateStatefulsetName = "doris.disaggregated.cluster/%s"
 )
 
 type DisaggregatedComponentType string

@@ -82,6 +82,8 @@ const (
 
 	DISAGGREGATED_LIVE_PARAM_ALIVE = "alive"
 	DISAGGREGATED_LIVE_PARAM_READY = "ready"
+
+	POD_CONTROLLER_REVISION_HASH_KEY = "controller-revision-hash"
 )
 
 type ProbeType string
