@@ -99,7 +99,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 	var volumes []corev1.Volume
 	var si *v1.SystemInitialization
 	var dcrAffinity *corev1.Affinity
-	var defaultInitContainers []corev1.Container
+	var InitContainers []corev1.Container
 	var SecurityContext *corev1.PodSecurityContext
 	var skipInit bool
 
@@ -111,21 +111,25 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 		si = dcr.Spec.FeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.FeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.FeSpec.BaseSpec.SecurityContext
+		InitContainers = dcr.Spec.FeSpec.InitContainers
 	case v1.Component_BE:
 		volumes = newVolumesFromBaseSpec(dcr.Spec.BeSpec.BaseSpec, sharedPaths, config, componentType)
 		si = dcr.Spec.BeSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BeSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.BeSpec.BaseSpec.SecurityContext
 		skipInit = dcr.Spec.BeSpec.SkipDefaultSystemInit
+		InitContainers = dcr.Spec.BeSpec.InitContainers
 	case v1.Component_CN:
 		si = dcr.Spec.CnSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.CnSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.CnSpec.BaseSpec.SecurityContext
 		skipInit = dcr.Spec.CnSpec.SkipDefaultSystemInit
+		InitContainers = dcr.Spec.CnSpec.InitContainers
 	case v1.Component_Broker:
 		si = dcr.Spec.BrokerSpec.BaseSpec.SystemInitialization
 		dcrAffinity = dcr.Spec.BrokerSpec.BaseSpec.Affinity
 		SecurityContext = dcr.Spec.BrokerSpec.BaseSpec.SecurityContext
+		InitContainers = dcr.Spec.BrokerSpec.InitContainers
 	default:
 		klog.Errorf("NewPodTemplateSpec dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -180,7 +184,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 			Affinity:           spec.Affinity.DeepCopy(),
 			Tolerations:        spec.Tolerations,
 			HostAliases:        spec.HostAliases,
-			InitContainers:     defaultInitContainers,
+			InitContainers:     InitContainers,
 			SecurityContext:    SecurityContext,
 		},
 	}
@@ -195,7 +199,7 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 func NewPodTemplateSpecWithCommonSpec(skipDefaultInit bool, cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) corev1.PodTemplateSpec {
 	var vs []corev1.Volume
 	si := cs.SystemInitialization
-	var defaultInitContainers []corev1.Container
+	var InitContainers []corev1.Container
 	vs, _ = appendPodInfoVolumesVolumeMounts(vs, nil)
 	pts := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -211,7 +215,7 @@ func NewPodTemplateSpecWithCommonSpec(skipDefaultInit bool, cs *dv1.CommonSpec, 
 			Affinity:           cs.Affinity.DeepCopy(),
 			Tolerations:        cs.Tolerations,
 			HostAliases:        cs.HostAliases,
-			InitContainers:     defaultInitContainers,
+			InitContainers:     InitContainers,
 			SecurityContext:    cs.SecurityContext,
 			Volumes:            vs,
 		},
@@ -229,6 +233,7 @@ func NewContainerWithCommonSpec(cs *dv1.CommonSpec) corev1.Container {
 		SecurityContext: cs.ContainerSecurityContext,
 		Resources:       cs.ResourceRequirements,
 		VolumeMounts:    vms,
+		EnvFrom:         cs.EnvFrom,
 	}
 	return c
 }
