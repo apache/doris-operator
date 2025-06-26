@@ -20,6 +20,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -306,6 +307,8 @@ func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc 
 // when spec revert by operator should update cr or directly update status.
 func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, preHv string) (ctrl.Result, error) {
 	postHv := hash.HashObject(ddc.Spec)
+	//clear reconcile used message
+	dc.clearReconcileAnnotations(ddc)
 	deepCopyDDC := ddc.DeepCopy()
 	if preHv != postHv {
 		var eddc dv1.DorisDisaggregatedCluster
@@ -339,6 +342,23 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 
 	return res, nil
 
+}
+
+func(dc *DisaggregatedClusterReconciler) clearReconcileAnnotations(ddc *dv1.DorisDisaggregatedCluster) {
+	if len(ddc.Annotations) == 0 {
+		return
+	}
+
+	var delAnnos []string
+	delAnnos = append(delAnnos, fmt.Sprintf(dv1.UpdateStatefulsetName, ddc.GetFEStatefulsetName()))
+	delAnnos = append(delAnnos, fmt.Sprintf(dv1.UpdateStatefulsetName, ddc.GetMSStatefulsetName()))
+	for _, cg := range ddc.Spec.ComputeGroups {
+		delAnnos = append(delAnnos, fmt.Sprintf(dv1.UpdateStatefulsetName, ddc.GetCGStatefulsetName(&cg)))
+	}
+
+	for _, delAnno := range delAnnos {
+		delete(ddc.Annotations, delAnno)
+	}
 }
 
 func (dc *DisaggregatedClusterReconciler) updateDorisDisaggregatedClusterStatus(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
