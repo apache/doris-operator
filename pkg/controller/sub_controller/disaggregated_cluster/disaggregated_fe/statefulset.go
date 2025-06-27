@@ -127,7 +127,7 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	cmd, args := sub.GetDisaggregatedCommand(v1.DisaggregatedFE)
 	c.Command = cmd
 	c.Args = args
-	c.Name = sub.FEMainContainerName
+	c.Name = resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedFE)
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars

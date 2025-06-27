@@ -137,7 +137,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	cmd, args := sub.GetDisaggregatedCommand(dv1.DisaggregatedBE)
 	c.Command = cmd
 	c.Args = args
-	c.Name = sub.BEMainContainerName
+	c.Name = resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedBE)
 	c.Env = cg.CommonSpec.EnvVars
@@ -208,4 +208,8 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	}
 
 	return cgEnvs
+}
+
+func(dcgs *DisaggregatedComputeGroupsController) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
+	resource.UseNewDefaultInitContainerImage(&st.Spec.Template)
 }

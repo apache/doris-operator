@@ -57,8 +57,7 @@ const (
 	FileCachePathKey                     = "file_cache_path"
 	FileCacheSubConfigPathKey            = "path"
 	FileCacheSubConfigTotalSizeKey       = "total_size"
-	FEMainContainerName = "fe"
-	BEMainContainerName = "compute"
+
 )
 
 type DisaggregatedSubController interface {
@@ -300,14 +299,14 @@ func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componen
 	switch componentType {
 	case v1.DisaggregatedFE:
 		for	i, _ := range pts.Spec.Containers {
-			if pts.Spec.Containers[i].Name == FEMainContainerName {
+			if pts.Spec.Containers[i].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME {
 				c = &pts.Spec.Containers[i]
 				break
 			}
 		}
 	case v1.DisaggregatedBE:
 		for i, _ := range pts.Spec.Containers {
-			if pts.Spec.Containers[i].Name == BEMainContainerName {
+			if pts.Spec.Containers[i].Name == resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME {
 				c = &pts.Spec.Containers[i]
 				break
 			}
