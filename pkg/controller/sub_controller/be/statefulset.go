@@ -28,3 +28,7 @@ func (be *Controller) buildBEStatefulSet(dcr *v1.DorisCluster, config map[string
 	st.Spec.Template = be.buildBEPodTemplateSpec(dcr, config)
 	return st
 }
+
+func (be *Controller) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
+	resource.UseNewDefaultInitContainerImage(&st.Spec.Template)
+}

@@ -84,6 +84,9 @@ const (
 	DISAGGREGATED_LIVE_PARAM_READY = "ready"
 
 	POD_CONTROLLER_REVISION_HASH_KEY = "controller-revision-hash"
+
+	DISAGGREGATED_FE_MAIN_CONTAINER_NAME = "fe"
+	DISAGGREGATED_BE_MAIN_CONTAINER_NAME = "compute"
 )
 
 type ProbeType string
@@ -1211,4 +1214,22 @@ func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 			Args:      []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
 		},
 	)
+}
+
+// the default value has updated, when updated statefulset use new default value.
+func UseNewDefaultInitContainerImage(pts *corev1.PodTemplateSpec) {
+	var beImage string
+	for _, c := range pts.Spec.Containers {
+		if c.Name == string(v1.Component_BE) || c.Name == string(DISAGGREGATED_BE_MAIN_CONTAINER_NAME){
+			beImage = c.Image
+			break
+		}
+	}
+
+	//use be image as default init image
+	for i, _ := range pts.Spec.InitContainers {
+		if pts.Spec.InitContainers[i].Image == DEFAULT_INIT_IMAGE {
+			pts.Spec.InitContainers[i].Image = beImage
+		}
+	}
 }
