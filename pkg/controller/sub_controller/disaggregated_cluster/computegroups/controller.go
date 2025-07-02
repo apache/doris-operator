@@ -186,6 +186,10 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, nil
 	}
 
+	//use new default value before apply new statefulset
+	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
+		dcgs.useNewDefaultValuesInStatefulset(st)
+	}
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
@@ -205,7 +209,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		}
 		return equal
 
-	}); err != nil {
+	}, ndf); err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
 	}

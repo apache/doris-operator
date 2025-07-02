@@ -105,11 +105,16 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 		return nil
 	}
 
+	//use new default value before apply new statefulset.
+	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet){
+		be.useNewDefaultValuesInStatefulset(st)
+	}
+
 	if err = k8s.ApplyStatefulSet(ctx, be.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
 		// if have restart annotation, we should exclude the interference for comparison.
 		be.RestrictConditionsEqual(new, est)
 		return resource.StatefulSetDeepEqual(new, est, false)
-	}); err != nil {
+	}, ndf); err != nil {
 		klog.Errorf("fe controller sync statefulset name=%s, namespace=%s, clusterName=%s failed. message=%s.",
 			st.Name, st.Namespace, dcr.Name, err.Error())
 		return err

@@ -42,6 +42,8 @@ type ServiceEqual func(svc1 *corev1.Service, svc2 *corev1.Service) bool
 // judge two statefulset equal or not in some fields. develoer can custom the function.
 type StatefulSetEqual func(st1 *appv1.StatefulSet, st2 *appv1.StatefulSet) bool
 
+type PreApplyStatefulset func(nst *appv1.StatefulSet, est *appv1.StatefulSet)
+
 func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Service, equal ServiceEqual) error {
 	// As stated in the RetryOnConflict's documentation, the returned error shouldn't be wrapped.
 	var esvc corev1.Service
@@ -87,17 +89,30 @@ func ListStatefulsetInNamespace(ctx context.Context, k8sclient client.Client, na
 }
 
 // ApplyStatefulSet when the object is not exist, create object. if exist and statefulset have been updated, patch the statefulset.
-func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.StatefulSet, equal StatefulSetEqual) error {
+func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.StatefulSet, equal StatefulSetEqual, pasfs ...PreApplyStatefulset) error {
 	var est appv1.StatefulSet
+	create := false
 	err := k8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est)
 	if err != nil && apierrors.IsNotFound(err) {
-		return CreateClientObject(ctx, k8sclient, st)
+		create = true
 	} else if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
+	//check the statefulset need update or not.
+	ev := equal(st, &est)
+
+	// apply pre-processing before create statefulset
+	for _, pasf := range pasfs {
+		pasf(st, nil)
+	}
+
+	if create {
+		return CreateClientObject(ctx, k8sclient, st)
+	}
+
 	//if have restart annotation we should exclude it impacts on hash.
-	if equal(st, &est) {
+	if ev {
 		klog.Infof("ApplyStatefulSet Sync exist statefulset name=%s, namespace=%s, equals to new statefulset.", est.Name, est.Namespace)
 		return nil
 	}
