@@ -13,10 +13,9 @@ Users custom `DorisCluster` CRD to deploy doris as demand.
 
 ## Features
 - Realized Doris management by custom DorisCluster resource.
-- Customized storage provisioning.
-- Seamless upgrade Doris.
+- Safe Doris cluster configuration & topology changes.
+- Custom node configuration and attributes.
 - Provide the debug ability in container when the service crashed.
-- Support kerberos certification of doris on Kubernetes.
 - Support deploy storage-compute separation mode of Doris.
 
 ## Requirements
