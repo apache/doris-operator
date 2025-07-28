@@ -104,7 +104,7 @@ type FeSpec struct {
 
 // ComputeGroup describe the specification that a group of compute node.
 type ComputeGroup struct {
-	//the unique identifier of compute group, first register in fe will use UniqueId as cluster name.
+	//the unique identifier of compute group, first register in fe will use UniqueId as compute group name.
 	UniqueId string `json:"uniqueId"`
 
 	// EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.

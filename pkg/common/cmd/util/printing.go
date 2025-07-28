@@ -14,13 +14,16 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package templates
+package cmdutil
 
-import "github.com/spf13/cobra"
+import (
+    "fmt"
+    "github.com/apache/doris-operator/pkg/common/cmd/templates"
+)
 
-type CommandGroup struct {
-    //describe the command class function.
-    Message string
-    Commands []*cobra.Command
+// SuggestAPIResources returns a suggestion to use the "api-resources" command
+// to retrieve a supported list of resources
+func SuggestAPIResources(parent string) string {
+    return templates.LongDesc(fmt.Sprintf("Use \"%s api-resources\" for a complete list of supported resources.", parent))
 }
 

@@ -1259,6 +1259,14 @@ spec:
                               type: string
                           type: object
                       type: object
+                    enableWorkloadGroup:
+                      description: |-
+                        EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
+                        Default value is 'false'.
+                        Enabling it means that the container must be started in privileged mode.
+                        Please confirm whether the host machine and k8s cluster allow it.
+                        Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
+                      type: boolean
                     envVars:
                       description: EnvVars is a slice of environment variables that
                         are added to the pods, the default is empty.
@@ -2183,7 +2191,7 @@ spec:
                           type: object
                       type: object
                     service:
-                      description: export metaservice for accessing from outside k8s.
+                      description: export service for accessing from outside k8s.
                       properties:
                         annotations:
                           additionalProperties:
@@ -2234,6 +2242,13 @@ spec:
                     serviceAccount:
                       description: serviceAccount for compute node access cloud service.
                       type: string
+                    skipDefaultSystemInit:
+                      description: |-
+                        SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
+                        Default value is 'false'.
+                        Default System Init means that the container must be started in privileged mode.
+                        Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
+                      type: boolean
                     startTimeout:
                       description: pod start timeout, unit is second
                       format: int32
@@ -2299,7 +2314,7 @@ spec:
                       type: array
                     uniqueId:
                       description: the unique identifier of compute group, first register
-                        in fe will use UniqueId as cluster name.
+                        in fe will use UniqueId as compute group name.
                       type: string
                   required:
                   - uniqueId
@@ -4412,7 +4427,7 @@ spec:
                         type: object
                     type: object
                   service:
-                    description: export metaservice for accessing from outside k8s.
+                    description: export service for accessing from outside k8s.
                     properties:
                       annotations:
                         additionalProperties:
@@ -4524,6 +4539,25 @@ spec:
                           type: string
                       type: object
                     type: array
+                type: object
+              kerberosInfo:
+                description: KerberosInfo contains a series of access key files, Provides
+                  access to kerberos.
+                properties:
+                  keytabPath:
+                    description: |-
+                      KeytabPath is the path where the Secret is finally stored inside the pod. default '/etc/keytab/'.
+                      It is not recommended to modify it unless necessary.
+                      This path is the path filled in when configuring "hadoop.kerberos.keytab".
+                    type: string
+                  keytabSecretName:
+                    description: "SecretName is the name of sercet within '*.keytab'
+                      files,\nrefer to the following command to create a Secret :\n\t'kubectl
+                      create secret generic {secret-name} --from-file=. '"
+                    type: string
+                  krb5ConfigMap:
+                    description: Krb5ConfigMap is the name of configmap within 'krb5.conf'
+                    type: string
                 type: object
               metaService:
                 description: MetaService describe the metaservice that cluster want
@@ -6641,7 +6675,7 @@ spec:
                         type: object
                     type: object
                   service:
-                    description: export metaservice for accessing from outside k8s.
+                    description: export service for accessing from outside k8s.
                     properties:
                       annotations:
                         additionalProperties:
@@ -6848,6 +6882,10 @@ spec:
                     description: Phase represent the stage of reconciling.
                     type: string
                 type: object
+              observedGeneration:
+                description: is the most recent generation observed for DorisDisaggregatedCluster
+                format: int64
+                type: integer
             type: object
         type: object
     served: true
