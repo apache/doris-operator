@@ -24,12 +24,12 @@ WORKDIR /workspace
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o doris-debug cmd/doris-debug/main.go
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o dorisctrl cmd/dorisctrl/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o dorisctl cmd/dorisctl/main.go
 
 FROM ubuntu:22.04
 
 WORKDIR /
 
 COPY --from=builder /workspace/doris-debug .
-COPY --from=builder /workspace/dorisctrl .
+COPY --from=builder /workspace/dorisctl .
 
