@@ -144,12 +144,10 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	_, vms, _ := dfc.BuildVolumesVolumeMountsAndPVCs(cvs, v1.DisaggregatedFE, &ddc.Spec.FeSpec.CommonSpec)
 	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
-	c.VolumeMounts = vms
-	if c.VolumeMounts == nil {
-		c.VolumeMounts = cmvms
-	} else {
-		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
+	if vms != nil {
+		c.VolumeMounts = append(c.VolumeMounts, vms...)
 	}
+	c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 
 	// add basic auth secret volumeMount
 	if ddc.Spec.AuthSecret != "" {
