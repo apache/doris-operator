@@ -87,6 +87,7 @@ const (
 
 	DISAGGREGATED_FE_MAIN_CONTAINER_NAME = "fe"
 	DISAGGREGATED_BE_MAIN_CONTAINER_NAME = "compute"
+	DISAGGREGATED_MS_MAIN_CONTAINER_NAME= "metaservice"
 )
 
 type ProbeType string
@@ -736,6 +737,11 @@ func getFeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 	}
 
 	return volumes, volumMounts
+}
+
+//
+func GetPodInfoVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount){
+	return appendPodInfoVolumesVolumeMounts(nil, nil)
 }
 
 func appendPodInfoVolumesVolumeMounts(volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) ([]corev1.Volume, []corev1.VolumeMount) {

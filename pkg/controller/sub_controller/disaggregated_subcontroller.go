@@ -57,7 +57,6 @@ const (
 	FileCachePathKey                     = "file_cache_path"
 	FileCacheSubConfigPathKey            = "path"
 	FileCacheSubConfigTotalSizeKey       = "total_size"
-
 )
 
 type DisaggregatedSubController interface {
@@ -602,6 +601,19 @@ func (d *DisaggregatedSubDefaultController) getEmptyDirVolumesVolumeMounts(confM
 		return d.getBEEmptyDirVolumesVolumeMounts(confMap)
 	default:
 		return nil, nil
+	}
+}
+
+// this function is a compensation, because the DownwardAPI annotations and labels are not mount in pod, so this function amends。
+func(d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
+	t := &st.Spec.Template
+	for index, _ := range t.Spec.Containers {
+		if t.Spec.Containers[index].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME || t.Spec.Containers[index].Name == resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME ||
+			t.Spec.Containers[index].Name == resource.DISAGGREGATED_MS_MAIN_CONTAINER_NAME {
+			_, d_v_m := resource.GetPodInfoVolumesVolumeMounts()
+			t.Spec.Containers[index].VolumeMounts = append(t.Spec.Containers[index].VolumeMounts, d_v_m...)
+			break
+		}
 	}
 }
 
