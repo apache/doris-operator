@@ -166,6 +166,8 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) (*sc.Event, error) {
 	var est appv1.StatefulSet
 	if err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
+		//TODO: add downlaodAPI volume Mounts
+		dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(st)
 		if err = k8s.CreateClientObject(ctx, dcgs.K8sclient, st); err != nil {
 			klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
@@ -206,6 +208,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 			ddc_annos := (resource.Annotations)(cluster.Annotations)
 			msUniqueIdKey := strings.ToLower(fmt.Sprintf(dv1.UpdateStatefulsetName, cluster.GetCGStatefulsetName(cg)))
 			ddc_annos.Add(msUniqueIdKey, "true")
+			dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(st)
 		}
 		return equal
 

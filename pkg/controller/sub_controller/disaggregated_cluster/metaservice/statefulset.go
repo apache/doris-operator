@@ -122,7 +122,8 @@ func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedC
 	cmd, args := sc.GetDisaggregatedCommand(v1.DisaggregatedMS)
 	c.Command = cmd
 	c.Args = args
-	c.Name = "metaservice"
+	//c.Name = "metaservice"
+	c.Name = resource.DISAGGREGATED_MS_MAIN_CONTAINER_NAME
 
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, v1.DisaggregatedMS)
 	c.Env = ddc.Spec.MetaService.CommonSpec.EnvVars
