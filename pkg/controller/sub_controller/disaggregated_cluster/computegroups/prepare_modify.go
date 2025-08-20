@@ -62,16 +62,16 @@ func (dcgs *DisaggregatedComputeGroupsController) scaleOut(ctx context.Context, 
 	defer sqlClient.Close()
 
 	cgKeepAmount := *cg.Replicas
-	cgName := cluster.GetCGName(cg)
+	cgid := cgStatus.ComputeGroupId
 
 	if cluster.Spec.EnableDecommission {
-		if err := dcgs.scaledOutBENodesByDecommission(cluster, cgStatus, sqlClient, cgName, cgKeepAmount); err != nil {
+		if err := dcgs.scaledOutBENodesByDecommission(cluster, cgStatus, sqlClient, cgid, cgKeepAmount); err != nil {
 			return err
 		}
 	} else { // not decommission , drop node
-		if err := dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount); err != nil {
+		if err := dcgs.scaledOutBENodesByDrop(sqlClient, cgid, cgKeepAmount); err != nil {
 			cgStatus.Phase = dv1.ScaleDownFailed
-			klog.Errorf("ScaleOut scaledOutBENodesByDrop ddcName:%s, namespace:%s, computeGroupName:%s, drop nodes failed:%s ", cluster.Name, cluster.Namespace, cgName, err.Error())
+			klog.Errorf("ScaleOut scaledOutBENodesByDrop ddcName:%s, namespace:%s, computeGroupName:%s, drop nodes failed:%s ", cluster.Name, cluster.Namespace, cgid, err.Error())
 			return err
 		}
 		cgStatus.Phase = dv1.Scaling
@@ -80,27 +80,27 @@ func (dcgs *DisaggregatedComputeGroupsController) scaleOut(ctx context.Context, 
 	return nil
 }
 
-func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cluster *dv1.DorisDisaggregatedCluster, cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgName string, cgKeepAmount int32) error {
-	decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgName, cgKeepAmount)
+func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cluster *dv1.DorisDisaggregatedCluster, cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgid string, cgKeepAmount int32) error {
+	decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgid, cgKeepAmount)
 	if err != nil {
 		return err
 	}
 	switch decommissionPhase {
 	case resource.DecommissionAcceptable:
-		err = dcgs.decommissionBENodes(sqlClient, cgName, cgKeepAmount)
+		err = dcgs.decommissionBENodes(sqlClient, cgid, cgKeepAmount)
 		if err != nil {
 			cgStatus.Phase = dv1.ScaleDownFailed
-			klog.Errorf("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupName:%s , Decommission failed, err:%s ", cluster.Name, cluster.Namespace, cgName, err.Error())
+			klog.Errorf("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupId:%s , Decommission failed, err:%s ", cluster.Name, cluster.Namespace, cgid, err.Error())
 			return err
 		}
 		cgStatus.Phase = dv1.Decommissioning
 		return nil
 	case resource.Decommissioning, resource.DecommissionPhaseUnknown:
 		cgStatus.Phase = dv1.Decommissioning
-		klog.Infof("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupName:%s, Decommission in progress", cluster.Name, cluster.Namespace, cgName)
+		klog.Infof("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupId:%s, Decommission in progress", cluster.Name, cluster.Namespace, cgid)
 		return nil
 	case resource.Decommissioned:
-		dcgs.scaledOutBENodesByDrop(sqlClient, cgName, cgKeepAmount)
+		dcgs.scaledOutBENodesByDrop(sqlClient, cgid, cgKeepAmount)
 	}
 	cgStatus.Phase = dv1.Scaling
 	return nil
@@ -117,12 +117,12 @@ func getOperationType(st, est *appv1.StatefulSet, phase dv1.Phase) string {
 
 func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDrop(
 	masterDBClient *mysql.DB,
-	cgName string,
+	cgid string,
 	cgKeepAmount int32) error {
 
-	dropNodes, err := getScaledOutBENode(masterDBClient, cgName, cgKeepAmount)
+	dropNodes, err := getScaledOutBENode(masterDBClient, cgid, cgKeepAmount)
 	if err != nil {
-		klog.Errorf("scaledOutBENodesByDrop getScaledOutBENode cgName %s failed, err:%s ", cgName, err.Error())
+		klog.Errorf("scaledOutBENodesByDrop getScaledOutBENode cgid %s failed, err:%s ", cgid, err.Error())
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDrop(
 	}
 	err = masterDBClient.DropBE(dropNodes)
 	if err != nil {
-		klog.Errorf("scaledOutBENodesByDrop cgName %s DropBENodes failed, err:%s ", cgName, err.Error())
+		klog.Errorf("scaledOutBENodesByDrop cgid %s DropBENodes failed, err:%s ", cgid, err.Error())
 		return err
 	}
 	return nil
@@ -188,10 +188,10 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 }
 
 // isDecommissionProgressFinished check decommission status
-func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(masterDBClient *mysql.DB, cgName string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
-	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
+func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(masterDBClient *mysql.DB, cgid string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
+	allBackends, err := masterDBClient.GetBackendsByComputeGroupId(cgid)
 	if err != nil {
-		klog.Errorf("decommissionProgressCheck failed, cgName %s ShowBackends err:%s", cgName, err.Error())
+		klog.Errorf("decommissionProgressCheck failed, cgid %s ShowBackends err:%s", cgid, err.Error())
 		return resource.DecommissionPhaseUnknown, err
 	}
 	dts := resource.ConstructDecommissionTaskStatus(allBackends, cgKeepAmount)
@@ -200,12 +200,12 @@ func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(mast
 
 func getScaledOutBENode(
 	masterDBClient *mysql.DB,
-	cgName string,
+	cgid string,
 	cgKeepAmount int32) ([]*mysql.Backend, error) {
 
-	allBackends, err := masterDBClient.GetBackendsByCGName(cgName)
+	allBackends, err := masterDBClient.GetBackendsByComputeGroupId(cgid)
 	if err != nil {
-		klog.Errorf("scaledOutBEPreprocessing failed,  cgName %s ShowBackends err:%s", cgName, err.Error())
+		klog.Errorf("scaledOutBEPreprocessing failed,  cgid %s ShowBackends err:%s", cgid, err.Error())
 		return nil, err
 	}
 
@@ -216,7 +216,7 @@ func getScaledOutBENode(
 		splitCGIDArr := strings.Split(split[0], "-")
 		podNum, err := strconv.Atoi(splitCGIDArr[len(splitCGIDArr)-1])
 		if err != nil {
-			klog.Errorf("scaledOutBEPreprocessing  cgName %s splitCGIDArr can not split host : %s,err:%s", cgName, node.Host, err.Error())
+			klog.Errorf("scaledOutBEPreprocessing  cgid %s splitCGIDArr can not split host : %s,err:%s", cgid, node.Host, err.Error())
 			return nil, err
 		}
 		if podNum >= int(cgKeepAmount) {

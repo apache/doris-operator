@@ -385,8 +385,11 @@ type ComputeGroupStatus struct {
 	// the service that can access the compute group pods.
 	ServiceName string `json:"serviceName,omitempty"`
 
-	//
+	//the unique id of compute group in kubernetes, this field is part of compute group statefulset.
 	UniqueId string `json:"uniqueId,omitempty"`
+
+	//the compute group id in doris meta, this response to the backend's tag "compute_group_id";
+	ComputeGroupId string `json:"computeGroupId,omitempty"`
 
 	//AvailableStatus represents the compute group available or not.
 	AvailableStatus AvailableStatus `json:"availableStatus,omitempty"`

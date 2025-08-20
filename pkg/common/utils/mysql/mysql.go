@@ -18,12 +18,18 @@
 package mysql
 
 import (
-	"database/sql"
-	"encoding/json"
-	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
-	"k8s.io/klog/v2"
+    "database/sql"
+    "encoding/json"
+    "fmt"
+    "os"
+
+    _ "github.com/go-sql-driver/mysql"
+    "github.com/jmoiron/sqlx"
+    "k8s.io/klog/v2"
+)
+
+const (
+	COMPUTE_GROUP_ID = "compute_group_id"
 )
 
 type DBConfig struct {
@@ -34,11 +40,20 @@ type DBConfig struct {
 	Database string
 }
 
+func NewDBConfig() DBConfig {
+	return DBConfig{
+		Database: "mysql",
+	}
+}
+
 type DB struct {
 	*sqlx.DB
 }
 
 func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
+    if os.Getenv("DEBUG") == "true" {
+        cfg.Host = "10.152.183.86"
+    }
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
@@ -168,10 +183,10 @@ func (db *DB) GetObservers() ([]*Frontend, error) {
 	return res, nil
 }
 
-func (db *DB) GetBackendsByCGName(cgName string) ([]*Backend, error) {
+func (db *DB) GetBackendsByComputeGroupId(cgid string) ([]*Backend, error) {
 	backends, err := db.ShowBackends()
 	if err != nil {
-		klog.Errorf("GetBackendsByCGName show backends failed, err: %s\n", err.Error())
+		klog.Errorf("GetBackendsByComputeGroupId show backends failed, err: %s\n", err.Error())
 		return nil, err
 	}
 	var res []*Backend
@@ -179,16 +194,16 @@ func (db *DB) GetBackendsByCGName(cgName string) ([]*Backend, error) {
 		var m map[string]interface{}
 		err := json.Unmarshal([]byte(be.Tag), &m)
 		if err != nil {
-			klog.Errorf("GetBackendsByCGName backends tag stirng to map failed, tag: %s, err: %s\n", be.Tag, err.Error())
+			klog.Errorf("GetBackendsByComputeGroupId backends tag stirng to map failed, tag: %s, err: %s\n", be.Tag, err.Error())
 			return nil, err
 		}
-		if _, ok := m["compute_group_name"]; !ok {
-			klog.Errorf("GetBackendsByCGName backends tag get compute_group_name failed, tag: %s, err: %s\n", be.Tag, err.Error())
+		if _, ok := m[COMPUTE_GROUP_ID]; !ok {
+			klog.Errorf("GetBackendsByComputeGroupId backends tag get compute_group_name failed, tag: %s, err: %s\n", be.Tag, err.Error())
 			return nil, err
 		}
 
-		cgNameFromTag := fmt.Sprintf("%s", m["compute_group_name"])
-		if cgNameFromTag == cgName {
+		computegroupId := fmt.Sprintf("%s", m[COMPUTE_GROUP_ID])
+		if computegroupId == cgid {
 			res = append(res, be)
 		}
 	}

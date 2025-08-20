@@ -15953,6 +15953,10 @@ spec:
                       description: AvailableStatus represents the compute group available
                         or not.
                       type: string
+                    computeGroupId:
+                      description: the compute group id in doris meta, this response
+                        to the backend's tag "compute_group_id";
+                      type: string
                     phase:
                       description: Phase represent the stage of reconciling.
                       type: string
@@ -15973,6 +15977,8 @@ spec:
                       format: int32
                       type: integer
                     uniqueId:
+                      description: the unique id of compute group in kubernetes, this
+                        field is part of compute group statefulset.
                       type: string
                   type: object
                 type: array
