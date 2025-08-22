@@ -67,7 +67,7 @@ func TestDisaggregatedSubDefaultController_BuildVolumesVolumeMountsAndPVCs_persi
     if len(fevs) != 2 || len(fevms) != 2 || len(fepvcs) != 2 {
         t.Errorf("build fe default volumes volumemounts and pvcs failed, the number is not right.")
     }
-    if len(bevs) !=3 || len(bevms) !=3 || len(bepvcs) != 3 {
+    if len(bevs) != 4 || len(bevms) != 4 || len(bepvcs) != 4 {
         t.Errorf("build be default volumes volumemounts and pvcs failed, the number is not right.")
     }
     if len(msvs) != 1 ||len(msvms) != 1 || len(mspvcs) != 1 {
