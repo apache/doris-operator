@@ -18,9 +18,9 @@
 package v1
 
 import (
-	"crypto/sha256"
-	"math/big"
-	"strings"
+    "crypto/sha256"
+    "math/big"
+    "strings"
 )
 
 /*
@@ -80,6 +80,7 @@ func (ddc *DorisDisaggregatedCluster) GetMSServiceName() string {
 	return ddc.Name + "-" + "ms"
 }
 
+//the first deployed used computegroup name, when user rename the compute group name by sql command `ALTER SYSTEM RENAME COMPUTE GROUP <old_name> <new_name>`, this function will not right.
 func (ddc *DorisDisaggregatedCluster) GetCGName(cg *ComputeGroup) string {
 	// use uniqueId as compute group name, the uniqueId restrict not empty, and the computegroup's name should use "_" not "-"
 	return strings.ReplaceAll(cg.UniqueId, "-", "_")
