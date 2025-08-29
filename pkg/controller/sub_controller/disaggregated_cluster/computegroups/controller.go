@@ -92,7 +92,7 @@ func (dcgs *DisaggregatedComputeGroupsController) Sync(ctx context.Context, obj 
 				dcgs.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
 			}
 			errs = append(errs, err)
-			klog.Errorf("disaggregatedComputeGroupsController computeGroups sync failed, compute group Uniqueid %s  sync failed, err=%s", cgs[i].UniqueId, sc.EventString(event))
+			klog.Errorf("disaggregatedComputeGroupsController computeGroups sync failed, compute group Uniqueid %s  sync failed, err=%s", cgs[i].UniqueId, err.Error())
 		}
 	}
 
