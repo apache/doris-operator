@@ -99,6 +99,9 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 		return err
 	}
 
+	//check the statefulset need update or not.
+	ev := equal(st, &est)
+
 	// apply pre-processing before create statefulset
 	for _, pasf := range pasfs {
 		pasf(st, nil)
@@ -107,9 +110,6 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 	if create {
 		return CreateClientObject(ctx, k8sclient, st)
 	}
-
-	//check the statefulset need update or not.
-	ev := equal(st, &est)
 
 	//if have restart annotation we should exclude it impacts on hash.
 	if ev {
