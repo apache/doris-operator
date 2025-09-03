@@ -18,8 +18,6 @@ package k8s
 
 import (
 	"context"
-	"testing"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
@@ -30,6 +28,7 @@ import (
 	"k8s.io/utils/pointer"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"testing"
 )
 
 func Test_ApplyService(t *testing.T) {
@@ -96,18 +95,14 @@ func Test_ApplyStatefulSet(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithObjects(svcs...).Build()
 	tsts := []*appv1.StatefulSet{
-		{
+		&appv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testnoexist",
 				Namespace: "test",
 			},
-			Spec: appv1.StatefulSetSpec{
-				Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"namespace": "test", "name": "testnoexist"}},
-				Replicas: pointer.Int32(1),
-				Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "fe", Image: "test"}}}},
-			},
+			Spec: appv1.StatefulSetSpec{},
 		},
-		{
+		&appv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test2",
 				Namespace: "test",
