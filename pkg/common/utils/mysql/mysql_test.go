@@ -20,10 +20,11 @@ package mysql
 import (
 	_ "crypto/tls"
 	"database/sql/driver"
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/jmoiron/sqlx"
 	"strconv"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/jmoiron/sqlx"
 )
 
 func Test_ShowFrontends(t *testing.T) {
@@ -98,7 +99,7 @@ func TestDB_GetBackendsByCGName(t *testing.T) {
 	}
 	defer db.Close()
 
-	db.GetBackendsByCGName("test")
+	db.GetBackendsByComputeGroupId("test")
 }
 
 func Test_DecommissionBE(t *testing.T) {
