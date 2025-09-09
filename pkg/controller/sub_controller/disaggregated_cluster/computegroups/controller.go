@@ -167,14 +167,28 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 
 // reconcileStatefulset return bool means reconcile print error message.
 func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) (*sc.Event, error) {
-	var est appv1.StatefulSet
-	if err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
+    //use new default value before apply new statefulset, when creating and apply spec change.
+    ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
+        dcgs.useNewDefaultValuesInStatefulset(st)
+    }
+
+    var est appv1.StatefulSet
+    if err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
 		// add downlaodAPI volume Mounts
 		dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(st)
-		if err = k8s.CreateClientObject(ctx, dcgs.K8sclient, st); err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
-			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
-		}
+		//if err = k8s.CreateClientObject(ctx, dcgs.K8sclient, st); err != nil {
+		//	klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+		//	return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
+		//}
+
+        //use apply replace create, if use create the default image not replace with be image and annotation for equal not assign.
+        if err = k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
+            //creating use the function to assign equal annotation.
+            return resource.StatefulsetDeepEqualWithKey(st ,est, dv1.DisaggregatedSpecHashValueAnnotation, false)
+        }, ndf); err != nil {
+            klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+            return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
+        }
 
 		return nil, nil
 	} else if err != nil {
@@ -191,10 +205,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, nil
 	}
 
-	//use new default value before apply new statefulset
-	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
-		dcgs.useNewDefaultValuesInStatefulset(st)
-	}
+
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
@@ -605,7 +616,10 @@ func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.
 	cfg.Host = host
 	cfg.Port = strconv.FormatInt(int64(queryPort), 10)
 
-	db,err := mysql.NewDorisSqlDB(cfg)
+	tlsConfig, secretName := dcgs.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, ddc)
+	secret, _ := k8s.GetSecret(context.Background(), dcgs.K8sclient, ddc.Namespace, secretName)
+
+	db, err := mysql.NewDorisSqlDB(cfg, tlsConfig, secret)
 	if err != nil {
 		klog.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds new doris client failed,err=%s", err.Error())
 		return err

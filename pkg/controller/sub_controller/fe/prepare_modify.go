@@ -96,6 +96,7 @@ func (fc *Controller) safeScaleDown(cluster *v1.DorisCluster, ost *appv1.Statefu
 
 	return
 }
+
 // dropObserverBySqlClient handles doris'SQL(drop frontend) through the MySQL client when dealing with scale in observer
 // targetDCR is new dcr
 func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient client.Client, targetDCR *v1.DorisCluster) error {
@@ -118,7 +119,7 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
-	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf)
+	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, nil, nil)
 	if err != nil {
 		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
 		return err

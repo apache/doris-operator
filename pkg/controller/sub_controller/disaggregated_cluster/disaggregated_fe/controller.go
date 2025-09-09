@@ -21,6 +21,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
@@ -33,8 +36,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 var _ sc.DisaggregatedSubController = &DisaggregatedFEController{}
@@ -350,6 +351,8 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 	host := cluster.GetFEVIPAddresss()
 	confMap := dfc.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
 	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
+	tlsConfig, secretName := dfc.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, cluster)
+	secret, _ := k8s.GetSecret(context.Background(), dfc.K8sclient, cluster.Namespace, secretName)
 
 	// connect to doris sql to get master node
 	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.
@@ -360,7 +363,7 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
-	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf)
+	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, tlsConfig, secret)
 	if err != nil {
 		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
 		return err

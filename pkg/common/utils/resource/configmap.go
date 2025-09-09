@@ -20,11 +20,12 @@ package resource
 import (
 	"bytes"
 	"errors"
+	"os"
+
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
-	"os"
 )
 
 // the fe ports key
@@ -46,13 +47,17 @@ const (
 
 // the default ResolveKey
 const (
-	FE_RESOLVEKEY     = "fe.conf"
-	BE_RESOLVEKEY     = "be.conf"
-	CN_RESOLVEKEY     = "be.conf"
-	BROKER_RESOLVEKEY = "apache_hdfs_broker.conf"
-	MS_RESOLVEKEY     = "doris_cloud.conf"
-	DefaultMsToken    = "greedisgood9999"
-	DefaultMsTokenKey = "http_token"
+	FE_RESOLVEKEY               = "fe.conf"
+	BE_RESOLVEKEY               = "be.conf"
+	CN_RESOLVEKEY               = "be.conf"
+	BROKER_RESOLVEKEY           = "apache_hdfs_broker.conf"
+	MS_RESOLVEKEY               = "doris_cloud.conf"
+	DefaultMsToken              = "greedisgood9999"
+	DefaultMsTokenKey           = "http_token"
+	ENABLE_TLS_KEY              = "enable_tls"
+	TLS_CERTIFICATE_PATH_KEY    = "tls_certificate_path"
+	TLS_PRIVATE_KEY_PATH_KEY    = "tls_private_key_path"
+	TLS_CA_CERTIFICATE_PATH_KEY = "tls_ca_certificate_path"
 )
 
 const ARROW_FLIGHT_SQL_PORT = "arrow_flight_sql_port"
