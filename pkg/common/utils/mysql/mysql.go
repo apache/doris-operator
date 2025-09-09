@@ -18,14 +18,18 @@
 package mysql
 
 import (
-    "database/sql"
-    "encoding/json"
-    "fmt"
-    "os"
+	"crypto/tls"
+	"crypto/x509"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
 
-    _ "github.com/go-sql-driver/mysql"
-    "github.com/jmoiron/sqlx"
-    "k8s.io/klog/v2"
+	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -40,6 +44,12 @@ type DBConfig struct {
 	Database string
 }
 
+type TLSConfig struct {
+	CAFileName         string
+	ClientCertFileName string
+	ClientKeyFileName  string
+}
+
 func NewDBConfig() DBConfig {
 	return DBConfig{
 		Database: "mysql",
@@ -50,11 +60,35 @@ type DB struct {
 	*sqlx.DB
 }
 
-func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
-    if os.Getenv("DEBUG") == "true" {
-        cfg.Host = "10.152.183.86"
-    }
+func NewDorisSqlDB(cfg DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+	rootCertPool := x509.NewCertPool()
+
+	if tlsConfig != nil && secret != nil {
+		ca := secret.Data[tlsConfig.CAFileName]
+		clientCert := secret.Data[tlsConfig.ClientCertFileName]
+		clientKey := secret.Data[tlsConfig.ClientKeyFileName]
+		if ok := rootCertPool.AppendCertsFromPEM(ca); !ok {
+			klog.Errorf("NewDorisSqlDB append cert from pem failed")
+			return nil, errors.New("NewDorisSqlDB append cert from pem failed")
+		}
+		clientCerts := make([]tls.Certificate, 0, 1)
+		cCert, err := tls.X509KeyPair(clientCert, clientKey)
+		if err != nil {
+			return nil, errors.New("NewDorisSqlDB load x509 key pair failed," + err.Error())
+		}
+
+		clientCerts = append(clientCerts, cCert)
+		registerKey := secret.Namespace + "-" + secret.Name
+		if err = mysql.RegisterTLSConfig(registerKey, &tls.Config{
+			RootCAs:      rootCertPool,
+			Certificates: clientCerts,
+		}); err != nil {
+			return nil, errors.New("NewDorisSqlDB register tls config failed," + err.Error())
+		}
+		dsn = dsn + "?tls=" + registerKey
+	}
+
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		klog.Errorf("NewDorisSqlDB sqlx.Open failed open doris sql client connection, err: %s \n", err.Error())
@@ -68,8 +102,8 @@ func NewDorisSqlDB(cfg DBConfig) (*DB, error) {
 	return &DB{db}, nil
 }
 
-func NewDorisMasterSqlDB(dbConf DBConfig) (*DB, error) {
-	loadBalanceDBClient, err := NewDorisSqlDB(dbConf)
+func NewDorisMasterSqlDB(dbConf DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*DB, error) {
+	loadBalanceDBClient, err := NewDorisSqlDB(dbConf, tlsConfig, secret)
 	if err != nil {
 		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
 		return nil, err
@@ -92,7 +126,7 @@ func NewDorisMasterSqlDB(dbConf DBConfig) (*DB, error) {
 			Host:     master.Host,
 			Port:     dbConf.Port,
 			Database: "mysql",
-		})
+		}, tlsConfig, secret)
 		if err != nil {
 			klog.Errorf("NewDorisMasterSqlDB failed, get fe master connection  err:%s", err.Error())
 			return nil, err

@@ -19,13 +19,15 @@ package computegroups
 
 import (
 	"context"
+	"strconv"
+	"strings"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/klog/v2"
-	"strconv"
-	"strings"
 )
 
 func (dcgs *DisaggregatedComputeGroupsController) preApplyStatefulSet(ctx context.Context, st, est *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) error {
@@ -178,8 +180,11 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
+	tlsConfig, secretName := dcgs.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, cluster)
+	secret, _ := k8s.GetSecret(context.Background(), dcgs.K8sclient, cluster.Namespace, secretName)
+
 	// Connect to the master and run the SQL statement of system admin, because it is not excluded that the user can shrink be and fe at the same time
-	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf)
+	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, tlsConfig, secret)
 	if err != nil {
 		klog.Errorf("getMasterSqlClient NewDorisMasterSqlDB failed for ddc %s namespace %s, get fe node connection err:%s", cluster.Namespace, cluster.Name, err.Error())
 		return nil, err
@@ -226,7 +231,7 @@ func getScaledOutBENode(
 	return dropNodes, nil
 }
 
-//if in decommission, skip apply statefulset.
+// if in decommission, skip apply statefulset.
 func skipApplyStatefulset(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) bool {
 	var cgStatus *dv1.ComputeGroupStatus
 	uniqueId := cg.UniqueId

@@ -41,3 +41,11 @@ func GetTerminationGracePeriodSeconds(config map[string]interface{}) int64 {
 
 	return 0
 }
+
+func GetString(config map[string]interface{}, key string) string {
+	if v, ok := config[key]; ok {
+		return v.(string)
+	}
+
+	return ""
+}
