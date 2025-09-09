@@ -17,11 +17,17 @@
 package cmdutil
 
 import (
-    "errors"
-    "fmt"
-    "github.com/apache/doris-operator/pkg/common/cmd/types"
-    _ "github.com/go-sql-driver/mysql"
-    "github.com/jmoiron/sqlx"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
+	"fmt"
+	"os"
+	"strconv"
+
+	"github.com/apache/doris-operator/pkg/common/cmd/types"
+	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 //Client provides abstractions that access doris cluster methods.
@@ -31,16 +37,47 @@ type Client interface {
 }
 
 var _ Client = &DorisClient{}
+
 type DorisClient struct {
     db *sqlx.DB
 }
 
-func NewDorisClient(user, password, host, queryPort string) (*DorisClient, error) {
+func  NewDorisClient(dc *DorisConfig) (*DorisClient, error) {
+	user := dc.User
+	password := dc.Password
+	host := dc.FeHost
+	queryPort := strconv.Itoa(dc.QueryPort)
     dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, queryPort, "mysql")
-    db, err := sqlx.Open("mysql", dsn)
-    if err != nil {
-        return nil, errors.New("NewDorisSqlDB sqlx.Open failed open doris sql client connection, err: "+ err.Error())
+	rootCertPool := x509.NewCertPool()
+    if dc.SSLCaPath != "" {
+        pem, err := os.ReadFile(dc.SSLCaPath)
+        if err != nil {
+            return nil, errors.New("read root ca cert failed," + err.Error())
+        }
+
+        if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
+            return nil, errors.New("Failed to append ca cert or pem failed.")
+        }
+
+        clientCerts := make([]tls.Certificate, 0, 1)
+        cCert, err := tls.LoadX509KeyPair(dc.SSLCrtPath, dc.SSLKeyPath)
+        if err != nil {
+            return nil, errors.New("load x509 key pair failed," + err.Error())
+        }
+
+        clientCerts = append(clientCerts, cCert)
+        if err = mysql.RegisterTLSConfig("doris", &tls.Config{
+            RootCAs:      rootCertPool,
+            Certificates: clientCerts,
+        }); err != nil {
+            return nil, errors.New("register tls config failed," + err.Error())
+        }
+        dsn = dsn + "?tls=doris"
     }
+	db, err := sqlx.Open("mysql", dsn)
+	if err != nil {
+		return nil, errors.New("NewDorisSqlDB sqlx.Open failed open doris sql client connection, err: " + err.Error())
+	}
 
     return &DorisClient{
         db:db,

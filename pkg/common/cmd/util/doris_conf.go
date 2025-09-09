@@ -17,8 +17,11 @@
 package cmdutil
 
 type DorisConfig struct {
-    FeHost string
-    QueryPort int
-    User string
-    Password string
+	FeHost     string
+	QueryPort  int
+	User       string
+	Password   string
+	SSLCrtPath string
+	SSLCaPath  string
+	SSLKeyPath string
 }
