@@ -25,7 +25,6 @@ import (
     "github.com/spf13/cobra"
     "github.com/tidwall/gjson"
     "io"
-    "strconv"
     "strings"
 )
 
@@ -73,7 +72,7 @@ func (o *GetOptions) getComputeGroup(computeGroupName string) {
 
 //getNode get the node details information.
 func (o *GetOptions) getNode(node string) {
-    c, err := cmdutil.NewDorisClient(o.dc.User, o.dc.Password, o.dc.FeHost, strconv.Itoa(o.dc.QueryPort))
+    c, err := cmdutil.NewDorisClient(o.dc)
     if err != nil {
         fmt.Fprintf(o.out, "%s\n", err.Error())
         return

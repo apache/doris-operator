@@ -17,11 +17,12 @@
 package root_command
 
 import (
+	"io"
+
 	"github.com/apache/doris-operator/pkg/common/cmd/get"
 	"github.com/apache/doris-operator/pkg/common/cmd/templates"
 	cmdutil "github.com/apache/doris-operator/pkg/common/cmd/util"
 	"github.com/spf13/cobra"
-	"io"
 )
 
 func NewDorisctlCommand(out io.Writer) (*cobra.Command, error) {
@@ -40,6 +41,9 @@ func NewDorisctlCommand(out io.Writer) (*cobra.Command, error) {
 	flags.StringVar(&dc.User, "user", "", "The name of user to access doris.")
 	flags.StringVar(&dc.Password, "password", "", "The password of login in doris.")
 	flags.IntVar(&dc.QueryPort, "query-port", 9030, "The FE mysql protocol listen port")
+	flags.StringVar(&dc.SSLCaPath, "ssl-ca", "", "the root certificate path.")
+	flags.StringVar(&dc.SSLCrtPath, "ssl-cert", "", "the client certificate path.")
+	flags.StringVar(&dc.SSLKeyPath, "ssl-key", "", "the client private key path")
 	groups := templates.CommandGroups{
 		{
 			Message: "Basic Commands (Beginner):",
