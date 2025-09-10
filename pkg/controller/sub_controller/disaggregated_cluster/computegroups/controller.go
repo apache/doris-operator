@@ -624,6 +624,8 @@ func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.
 		klog.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds new doris client failed,err=%s", err.Error())
 		return err
 	}
+    defer db.Close()
+
 	backends, err := db.ShowBackends()
 	if err != nil {
 		klog.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds show backends failed, err=%s", err.Error())
