@@ -110,7 +110,7 @@ func Test_ResolveConfigMpas(t *testing.T) {
 
 	m, err := ResolveConfigMaps(tests, dorisv1.Component_FE)
 	if err != nil || len(m) == 0 {
-		t.Errorf("resolve configmaps faild, len=%d, err=%s", len(m), err.Error())
+		t.Errorf("resolve configmaps faild, len=%d, err=%#v", len(m), err)
 	}
 }
 

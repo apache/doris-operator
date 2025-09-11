@@ -232,8 +232,7 @@ func (db *DB) GetBackendsByComputeGroupId(cgid string) ([]*Backend, error) {
 			return nil, err
 		}
 		if _, ok := m[COMPUTE_GROUP_ID]; !ok {
-			klog.Errorf("GetBackendsByComputeGroupId backends tag get compute_group_name failed, tag: %s, err: %s\n", be.Tag, err.Error())
-			return nil, err
+			return nil, fmt.Errorf("GetBackendsByComputeGroupId backends tag get compute_group_name failed, tag: %s, err: no compute_group_id field found", be.Tag)
 		}
 
 		computegroupId := fmt.Sprintf("%s", m[COMPUTE_GROUP_ID])
