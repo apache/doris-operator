@@ -335,7 +335,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 
 // RecycleResources pvc resource for fe recycle
 func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) error {
-	if ddc.Spec.FeSpec.PersistentVolume != nil {
+	if ddc.Spec.FeSpec.PersistentVolume != nil || len(ddc.Spec.FeSpec.PersistentVolumes) != 0{
 		return dfc.listAndDeletePersistentVolumeClaim(ctx, ddc)
 	}
 	return nil
