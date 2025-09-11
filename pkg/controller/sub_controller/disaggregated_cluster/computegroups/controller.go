@@ -524,7 +524,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 		var perr error
 		index, perr = strconv.ParseInt(sl[1], 10, 32)
 		if perr != nil {
-			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s index parse failed, err=%s", ddc.Namespace, pvcName, err.Error())
+			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s index parse failed, err=%s", ddc.Namespace, pvcName, perr.Error())
 			continue
 		}
 		if int32(index) >= replicas {
@@ -639,8 +639,7 @@ func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.
 			return err
 		}
 		if _, ok := tags[mysql.COMPUTE_GROUP_ID]; !ok {
-			klog.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds backend tag get compute_group_name failed, tag: %s, err: %s", backend.Tag, err.Error())
-			return err
+			return fmt.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds backend tag get compute_group_name failed, tag: %s, err: no compute_group_id field found ", backend.Tag)
 		}
 
 		podName := strings.Split(backend.Host, ".")[0]
