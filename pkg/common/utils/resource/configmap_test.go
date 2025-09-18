@@ -18,11 +18,12 @@
 package resource
 
 import (
-	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
-	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"strconv"
 	"testing"
+
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func Test_GetStartMode(t *testing.T) {
@@ -109,8 +110,10 @@ func Test_ResolveConfigMpas(t *testing.T) {
 	}
 
 	m, err := ResolveConfigMaps(tests, dorisv1.Component_FE)
-	if err != nil || len(m) == 0 {
+	if err != nil {
 		t.Errorf("resolve configmaps faild, len=%d, err=%s", len(m), err.Error())
+	} else if len(m) == 0 {
+		t.Errorf("resolve configmaps faild, len=%d", len(m))
 	}
 }
 

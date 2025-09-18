@@ -290,7 +290,7 @@ func (d *SubDefaultController) CheckSharedPVC(ctx context.Context, dcr *dorisv1.
 	for _, claim := range dcr.Spec.SharedPersistentVolumeClaims {
 		pvc, err := k8s.GetPVC(ctx, d.K8sclient, claim.PersistentVolumeClaimName, dcr.Namespace)
 		if err != nil || pvc == nil {
-			errMessage := fmt.Sprintf("(PersistentVolumeClaim get failed name: %s, namespace: %s, err: %s), ", claim.PersistentVolumeClaimName, dcr.Namespace, err.Error())
+			errMessage := fmt.Sprintf("(PersistentVolumeClaim get failed name: %s, namespace: %s, err: %#v), ", claim.PersistentVolumeClaimName, dcr.Namespace, err)
 			klog.Errorf(errMessage)
 			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), errMessage)
 			return
@@ -555,7 +555,7 @@ func (d *SubDefaultController) listAndDeletePersistentVolumeClaim(ctx context.Co
 
 	dorisPersistentVolumes, err := d.GetFinalPersistentVolumes(ctx, dcr, componentType)
 	if err != nil {
-		d.K8srecorder.Event(dcr, string(EventWarning), PVCExplainFailed, fmt.Sprintf("listAndDeletePersistentVolumeClaim %s GetFinalPersistentVolumes failed：%s", componentType, err.Error()))
+		d.K8srecorder.Event(dcr, string(EventWarning), PVCExplainFailed, fmt.Sprintf("listAndDeletePersistentVolumeClaim %s GetFinalPersistentVolumes failed: %s", componentType, err.Error()))
 		return err
 	}
 
