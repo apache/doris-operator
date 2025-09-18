@@ -15,7 +15,7 @@
     ```
 2. update the helm chart repo to the latest version
     ```Bash
-    helm repo udpate selectdb
+    helm repo update selectdb
     ```
 3. check the helm chart repo is the latest version
     ```Bash
