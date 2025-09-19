@@ -21,6 +21,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"time"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -35,7 +38,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	controller_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 var (
@@ -214,7 +215,7 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	// clear unused resources.
 	clearRes, clearErr := dc.clearUnusedResources(ctx, &ddc)
 	if clearErr != nil {
-		msg = msg + reconErr.Error()
+		msg = msg + clearErr.Error()
 	}
 
 	if !clearRes.IsZero() {
@@ -344,7 +345,7 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 
 }
 
-func(dc *DisaggregatedClusterReconciler) clearReconcileAnnotations(ddc *dv1.DorisDisaggregatedCluster) {
+func (dc *DisaggregatedClusterReconciler) clearReconcileAnnotations(ddc *dv1.DorisDisaggregatedCluster) {
 	if len(ddc.Annotations) == 0 {
 		return
 	}
