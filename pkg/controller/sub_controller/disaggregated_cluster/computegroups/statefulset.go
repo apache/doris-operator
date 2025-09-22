@@ -153,12 +153,10 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
 	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
 	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
-	c.VolumeMounts = vms
-	if c.VolumeMounts == nil {
-		c.VolumeMounts = cmvms
-	} else {
-		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
+	if vms != nil {
+		c.VolumeMounts = append(c.VolumeMounts, vms...)
 	}
+	c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 
 	// add basic auth secret volumeMount
 	if ddc.Spec.AuthSecret != "" {
