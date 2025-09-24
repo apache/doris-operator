@@ -151,14 +151,16 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	}
 
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
-	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
-	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
-	c.VolumeMounts = vms
+
 	if c.VolumeMounts == nil {
-		c.VolumeMounts = cmvms
-	} else {
-		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
+		c.VolumeMounts = []corev1.VolumeMount{}
 	}
+	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
+	if vms != nil {
+		c.VolumeMounts = append(c.VolumeMounts, vms...)
+	}
+	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
+	c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 
 	// add basic auth secret volumeMount
 	if ddc.Spec.AuthSecret != "" {
@@ -210,6 +212,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	return cgEnvs
 }
 
-func(dcgs *DisaggregatedComputeGroupsController) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
+func (dcgs *DisaggregatedComputeGroupsController) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
 	resource.UseNewDefaultInitContainerImage(&st.Spec.Template)
 }
+
