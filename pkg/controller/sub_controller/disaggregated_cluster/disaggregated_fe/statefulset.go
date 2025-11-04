@@ -19,13 +19,14 @@ package disaggregated_fe
 
 import (
 	"fmt"
-	"github.com/apache/doris-operator/api/disaggregated/v1"
+	"strconv"
+
+	v1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strconv"
 )
 
 const (
@@ -38,7 +39,6 @@ const (
 	//DefaultStorageSize int64 = 107374182400
 	basic_auth_path  = "/etc/basic_auth"
 	auth_volume_name = "basic-auth"
-
 )
 
 func (dfc *DisaggregatedFEController) newFEPodsSelector(ddcName string) map[string]string {
@@ -61,7 +61,7 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedC
 	_, _, vcts := dfc.BuildVolumesVolumeMountsAndPVCs(confMap, v1.DisaggregatedFE, &spec.CommonSpec)
 	pts := dfc.NewPodTemplateSpec(ddc, confMap)
 	//add last supplementary spec. if add new config in ddc spec and the config need add in pod, use the follow function to add.
-	dfc.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(v1.DisaggregatedFE,confMap, &ddc.Spec, &pts)
+	dfc.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(v1.DisaggregatedFE, confMap, &ddc.Spec, &pts)
 	st := dfc.NewDefaultStatefulset(ddc)
 	//metadata
 	func() {
@@ -133,13 +133,6 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	c.Env = ddc.Spec.FeSpec.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
 	c.Env = append(c.Env, dfc.newSpecificEnvs(ddc)...)
-
-	if ddc.Spec.FeSpec.ElectionNumber != nil {
-		c.Env = append(c.Env, corev1.EnvVar{
-			Name:  resource.ENV_FE_ELECT_NUMBER,
-			Value: strconv.FormatInt(int64(*ddc.Spec.FeSpec.ElectionNumber), 10),
-		})
-	}
 
 	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	_, vms, _ := dfc.BuildVolumesVolumeMountsAndPVCs(cvs, v1.DisaggregatedFE, &ddc.Spec.FeSpec.CommonSpec)
