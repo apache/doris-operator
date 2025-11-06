@@ -34,7 +34,13 @@ dorisCluster:
   adminUser: {}
   # name: root
   # password: "12345"
-  # use authSecret can encrypt and save passwords, recommend this method
+  # Option 1: Reference an existing secret
+  # Use this when you have created a secret outside of this Helm chart
+  # Example: kubectl create secret generic doris-auth --type=kubernetes.io/basic-auth --from-literal=username=root --from-literal=password='your-password'
+  authSecretName: ""
+  # Example: authSecretName: "doris-auth"
+  
+  # Option 2: use authSecret can encrypt and save passwords
   # 1. run shell:  echo -n '{your_password}' | base64    to get password base64 string
   # 2. run shell:  echo -n '{your_user}' | base64        to get user base64 string
   # 3. Fill the encrypted string into the corresponding position

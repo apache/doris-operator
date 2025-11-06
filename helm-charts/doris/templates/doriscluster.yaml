@@ -36,6 +36,9 @@ spec:
     {{- toYaml .Values.dorisCluster.adminUser | nindent 4 }}
   {{- else if .Values.dorisCluster.authSecret }}
   authSecret: {{ template "doriscluster.secret.name" . }}
+  {{- else if .Values.dorisCluster.authSecretName }}
+  # Reference an existing secret
+  authSecret: {{ .Values.dorisCluster.authSecretName }}
   {{- end }}
   feSpec:
     {{- if .Values.feSpec.annotations }}
