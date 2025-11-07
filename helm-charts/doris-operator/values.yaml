@@ -31,6 +31,12 @@ dorisOperator:
     # kubernetes.io/arch: amd64
     # kubernetes.io/os: linux
     # app.kubernetes.node.name: "k8s-node1"
+  tolerations: []
+    # tolerations for operator pod assignment
+    # - key: "example-key"
+    #   operator: "Equal"
+    #   value: "example-value"
+    #   effect: "NoSchedule"
   resources: {}
   # resources used to specify compute resources, default is 2c 4Gi, the resource follow k8s requests and limits config.(https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
   # requests:
