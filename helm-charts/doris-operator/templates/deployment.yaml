@@ -141,3 +141,7 @@ spec:
       nodeSelector:
         {{- toYaml .Values.dorisOperator.nodeSelector | nindent 8 }}
       {{- end }}
+      {{- if .Values.dorisOperator.tolerations }}
+      tolerations:
+        {{- toYaml .Values.dorisOperator.tolerations | nindent 8 }}
+      {{- end }}

@@ -55,6 +55,26 @@ Observe that the Pod of `doriscluster` is in the `Running` state and all contain
     doriscluster-helm-be-2   1/1     Running   0          16s
    ```
 
+## Authentication Options
+
+The chart supports three authentication methods (in order of precedence):
+1. `adminUser` - Plain text credentials (not recommended)
+2. `authSecret` - Helm creates a secret from base64 values
+3. `authSecretName` - Reference an existing secret (recommended)
+
+### Using External Secret (Recommended)
+```bash
+# Create secret
+kubectl create secret generic doris-auth \
+  --type=kubernetes.io/basic-auth \
+  --from-literal=username=root \
+  --from-literal=password='your-password'
+
+# Reference in values.yaml
+dorisCluster:
+  authSecretName: "doris-auth"
+```
+
 ## Uninstall doriscluster
 Please confirm the Doris is not used, when using next command to uninstall `doriscluster`.
 ```bash
