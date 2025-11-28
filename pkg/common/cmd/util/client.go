@@ -6,7 +6,7 @@
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
 //
-//   http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
@@ -30,80 +30,80 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-//Client provides abstractions that access doris cluster methods.
+// Client provides abstractions that access doris cluster methods.
 type Client interface {
-    ShowFrontends() ([]*cmdtypes.Frontend, error)
-    ShowBackends() ([]*cmdtypes.Backend, error)
+	ShowFrontends() ([]*cmdtypes.Frontend, error)
+	ShowBackends() ([]*cmdtypes.Backend, error)
 }
 
 var _ Client = &DorisClient{}
 
 type DorisClient struct {
-    db *sqlx.DB
+	db *sqlx.DB
 }
 
-func  NewDorisClient(dc *DorisConfig) (*DorisClient, error) {
+func NewDorisClient(dc *DorisConfig) (*DorisClient, error) {
 	user := dc.User
 	password := dc.Password
 	host := dc.FeHost
 	queryPort := strconv.Itoa(dc.QueryPort)
-    dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, queryPort, "mysql")
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, queryPort, "mysql")
 	rootCertPool := x509.NewCertPool()
-    if dc.SSLCaPath != "" {
-        pem, err := os.ReadFile(dc.SSLCaPath)
-        if err != nil {
-            return nil, errors.New("read root ca cert failed," + err.Error())
-        }
+	if dc.SSLCaPath != "" {
+		pem, err := os.ReadFile(dc.SSLCaPath)
+		if err != nil {
+			return nil, errors.New("read root ca cert failed," + err.Error())
+		}
 
-        if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
-            return nil, errors.New("Failed to append ca cert or pem failed.")
-        }
+		if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
+			return nil, errors.New("Failed to append ca cert or pem failed.")
+		}
 
-        clientCerts := make([]tls.Certificate, 0, 1)
-        cCert, err := tls.LoadX509KeyPair(dc.SSLCrtPath, dc.SSLKeyPath)
-        if err != nil {
-            return nil, errors.New("load x509 key pair failed," + err.Error())
-        }
+		clientCerts := make([]tls.Certificate, 0, 1)
+		cCert, err := tls.LoadX509KeyPair(dc.SSLCrtPath, dc.SSLKeyPath)
+		if err != nil {
+			return nil, errors.New("load x509 key pair failed," + err.Error())
+		}
 
-        clientCerts = append(clientCerts, cCert)
-        if err = mysql.RegisterTLSConfig("doris", &tls.Config{
-            RootCAs:      rootCertPool,
-            Certificates: clientCerts,
-        }); err != nil {
-            return nil, errors.New("register tls config failed," + err.Error())
-        }
-        dsn = dsn + "?tls=doris"
-    }
+		clientCerts = append(clientCerts, cCert)
+		if err = mysql.RegisterTLSConfig("doris", &tls.Config{
+			RootCAs:      rootCertPool,
+			Certificates: clientCerts,
+		}); err != nil {
+			return nil, errors.New("register tls config failed," + err.Error())
+		}
+		dsn = dsn + "?tls=doris"
+	}
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		return nil, errors.New("NewDorisSqlDB sqlx.Open failed open doris sql client connection, err: " + err.Error())
 	}
 
-    return &DorisClient{
-        db:db,
-    }, nil
+	return &DorisClient{
+		db: db,
+	}, nil
 }
 
-func(dc *DorisClient) ShowFrontends()([]*cmdtypes.Frontend, error) {
-    if err := dc.db.Ping(); err != nil {
-        return nil, err
-    }
+func (dc *DorisClient) ShowFrontends() ([]*cmdtypes.Frontend, error) {
+	if err := dc.db.Ping(); err != nil {
+		return nil, err
+	}
 
-    var fs []*cmdtypes.Frontend
-    if err := dc.db.Select(&fs, "show frontends"); err != nil {
-        return fs, err
-    }
-    return fs, nil
+	var fs []*cmdtypes.Frontend
+	if err := dc.db.Unsafe().Select(&fs, "show frontends"); err != nil {
+		return fs, err
+	}
+	return fs, nil
 }
 
-func (dc *DorisClient) ShowBackends()([]*cmdtypes.Backend, error) {
-    if err := dc.db.Ping(); err != nil {
-        return nil, err
-    }
+func (dc *DorisClient) ShowBackends() ([]*cmdtypes.Backend, error) {
+	if err := dc.db.Ping(); err != nil {
+		return nil, err
+	}
 
-    var bs []*cmdtypes.Backend
-    if err := dc.db.Select(&bs, "show backends"); err != nil {
-        return bs, err
-    }
-    return bs, nil
+	var bs []*cmdtypes.Backend
+	if err := dc.db.Unsafe().Select(&bs, "show backends"); err != nil {
+		return bs, err
+	}
+	return bs, nil
 }
