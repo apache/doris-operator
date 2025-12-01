@@ -297,11 +297,11 @@ func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx con
 }
 
 // add cluster specification on container spec. this is useful to add common spec on different type pods, example: kerberos volume for fe and be.
-func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, configMap map[string]interface{}, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec){
+func (d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, configMap map[string]interface{}, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec) {
 	var c *corev1.Container
 	switch componentType {
 	case v1.DisaggregatedFE:
-		for	i, _ := range pts.Spec.Containers {
+		for i, _ := range pts.Spec.Containers {
 			if pts.Spec.Containers[i].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME {
 				c = &pts.Spec.Containers[i]
 				break
@@ -337,8 +337,8 @@ func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componen
 
 }
 
-//return which generation had updated the statefulset.
-func(d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(sts *appv1.StatefulSet, annoGenerationKey string) int64 {
+// return which generation had updated the statefulset.
+func (d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(sts *appv1.StatefulSet, annoGenerationKey string) int64 {
 	if sts == nil {
 		return 0
 	}
@@ -353,17 +353,16 @@ func(d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(st
 	return g
 }
 
-//use statefulset.status.updateRevision and pod `controller-revision-hash` annotation to check pods updated to new revision.
-//if all pods used new updateRevision return true, else return false.
-func(d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpdateRevision(stsUpdateRevision string, pods []corev1.Pod) bool {
+// use statefulset.status.updateRevision and pod `controller-revision-hash` annotation to check pods updated to new revision.
+// if all pods used new updateRevision return true, else return false.
+func (d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpdateRevision(stsUpdateRevision string, pods []corev1.Pod) bool {
 	if stsUpdateRevision == "" {
 		return false
 	}
 
-	if len(pods) ==0 {
+	if len(pods) == 0 {
 		return false
 	}
-
 
 	for _, pod := range pods {
 		labels := pod.Labels
@@ -378,16 +377,23 @@ func(d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpd
 }
 
 func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType, commonSpec *v1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+	var vs []corev1.Volume
+	var vms []corev1.VolumeMount
+
+	vs = append(vs, commonSpec.Volumes...)
+	vms = append(vms, commonSpec.VolumeMounts...)
 	if commonSpec.PersistentVolume == nil && len(commonSpec.PersistentVolumes) == 0 {
-		vs, vms := d.getEmptyDirVolumesVolumeMounts(confMap, componentType)
-		return vs, vms, nil
+		vs_, vms_ := d.getEmptyDirVolumesVolumeMounts(confMap, componentType)
+		return append(vs, vs_...), append(vms, vms_...), nil
 	}
 
 	if commonSpec.PersistentVolume != nil {
-		return d.PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+		vs_, vms_, pvcs_ := d.PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+		return append(vs, vs_...), append(vms, vms_...), pvcs_
 	}
 
-	return d.PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+	vs_, vms_, pvcs_ := d.PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+	return append(vs, vs_...), append(vms, vms_...), pvcs_
 }
 
 // the old config before 25.2.1, the requiredPaths should filter log path before call this function.
@@ -445,7 +451,6 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 	default:
 
 	}
-
 
 	var vs []corev1.Volume
 	var vms []corev1.VolumeMount
@@ -548,8 +553,8 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeArrayBuildVolumesVol
 	//generate pvc from the last path in requiredPaths, the mountPath that  configured by user is the highest wight, so first use the v1pv to generate pvc not template v1pv.
 	ss := set.NewSetString()
 
-	for i:= len(requiredPaths); i > 0; i-- {
-		path := requiredPaths[i -1]
+	for i := len(requiredPaths); i > 0; i-- {
+		path := requiredPaths[i-1]
 		//if the path have build volume, vm, pvc, skip it.
 		if ss.Find(path) {
 			continue
@@ -609,7 +614,7 @@ func (d *DisaggregatedSubDefaultController) getEmptyDirVolumesVolumeMounts(confM
 }
 
 // this function is a compensation, because the DownwardAPI annotations and labels are not mount in pod, so this function amends。
-func(d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
+func (d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
 	t := &st.Spec.Template
 	for index, _ := range t.Spec.Containers {
 		if t.Spec.Containers[index].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME || t.Spec.Containers[index].Name == resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME ||
