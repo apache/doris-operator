@@ -118,10 +118,12 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
-          # TODO(user): Configure the resources accordingly based on the project requirements.
-          # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
           resources:
+            {{- if .Values.dorisOperator.resources }}
+            {{- toYaml .Values.dorisOperator.resources | nindent 12 }}
+            {{ else }}
             {{- include "operator.default.resources" . | indent 8 }}
+            {{- end }}
           volumeMounts:
             - mountPath:  /tmp/k8s-webhook-server/serving-certs
               name: cert
