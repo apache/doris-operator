@@ -1008,6 +1008,13 @@ spec:
                     description: annotation for fe pods. user can config monitor annotation
                       for collect to monitor system.
                     type: object
+                  autoResolveLimitCPU:
+                    description: |-
+                      AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+                      Default value is 'false'. This means that the Doris BE is unaware of the CPU configuration of resources.
+                      Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the 'be.conf' file inside the BE container.
+                      Changing this configuration will cause a BE rolling restart.
+                    type: boolean
                   claims:
                     description: |-
                       Claims lists the names of resources, defined in spec.resourceClaims,
@@ -5093,6 +5100,13 @@ spec:
                     description: annotation for fe pods. user can config monitor annotation
                       for collect to monitor system.
                     type: object
+                  autoResolveLimitCPU:
+                    description: |-
+                      AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+                      Default value is 'false'. This means that the Doris BE is unaware of the CPU configuration of resources.
+                      Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the 'be.conf' file inside the BE container.
+                      Changing this configuration will cause a BE rolling restart.
+                    type: boolean
                   autoScalingPolicy:
                     description: AutoScalingPolicy auto scaling strategy
                     properties:

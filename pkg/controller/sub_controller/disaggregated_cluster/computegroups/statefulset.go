@@ -19,6 +19,8 @@ package computegroups
 
 import (
 	"fmt"
+	"strconv"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -26,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
-	"strconv"
 )
 
 const (
@@ -150,6 +151,10 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 		c.Env = append(c.Env, corev1.EnvVar{Name: "SKIP_CHECK_ULIMIT", Value: "true"})
 	}
 
+	if cg.AutoResolveLimitCPU && cg.Limits.Cpu() != nil {
+		c.Env = append(c.Env, corev1.EnvVar{Name: "BE_CPU_LIMIT", Value: cg.Limits.Cpu().String()})
+	}
+
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
 	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
 	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
@@ -210,6 +215,6 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	return cgEnvs
 }
 
-func(dcgs *DisaggregatedComputeGroupsController) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
+func (dcgs *DisaggregatedComputeGroupsController) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
 	resource.UseNewDefaultInitContainerImage(&st.Spec.Template)
 }

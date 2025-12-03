@@ -121,6 +121,12 @@ type ComputeGroup struct {
 	// Default System Init means that the container must be started in privileged mode.
 	// Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
 	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
+
+	// AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+	// Default value is 'false'. This means that the Doris BE is unaware of the CPU configuration of resources.
+	// Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the 'be.conf' file inside the BE container.
+	// Changing this configuration will cause a BE rolling restart.
+	AutoResolveLimitCPU bool `json:"autoResolveLimitCPU,omitempty"`
 }
 
 type CommonSpec struct {

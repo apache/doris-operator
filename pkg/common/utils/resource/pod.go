@@ -18,6 +18,9 @@
 package resource
 
 import (
+	"strconv"
+	"strings"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/kerberos"
@@ -26,8 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -87,7 +88,7 @@ const (
 
 	DISAGGREGATED_FE_MAIN_CONTAINER_NAME = "fe"
 	DISAGGREGATED_BE_MAIN_CONTAINER_NAME = "compute"
-	DISAGGREGATED_MS_MAIN_CONTAINER_NAME= "metaservice"
+	DISAGGREGATED_MS_MAIN_CONTAINER_NAME = "metaservice"
 )
 
 type ProbeType string
@@ -452,6 +453,14 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		envs = append(envs, corev1.EnvVar{Name: "SKIP_CHECK_ULIMIT", Value: "true"})
 	}
 
+	if componentType == v1.Component_BE && dcr.Spec.BeSpec.AutoResolveLimitCPU && spec.Limits.Cpu() != nil {
+		envs = append(envs, corev1.EnvVar{Name: "BE_CPU_LIMIT", Value: spec.Limits.Cpu().String()})
+	}
+
+	if componentType == v1.Component_CN && dcr.Spec.CnSpec.AutoResolveLimitCPU && spec.Limits.Cpu() != nil {
+		envs = append(envs, corev1.EnvVar{Name: "BE_CPU_LIMIT", Value: spec.Limits.Cpu().String()})
+	}
+
 	if len(GetMountConfigMapInfo(spec.ConfigMapInfo)) != 0 {
 		_, configVolumeMounts := getMultiConfigVolumeAndVolumeMount(&spec.ConfigMapInfo, componentType)
 		volumeMounts = append(volumeMounts, configVolumeMounts...)
@@ -571,12 +580,12 @@ func buildKerberosEnv(info *v1.KerberosInfo, config map[string]interface{}, comp
 	return buildKerberosEnvUseSecretMountPath(info.KeytabPath, config, string(componentType))
 }
 
-func BuildKerberosEnvForDDC(info *dv1.KerberosInfo, config map[string]interface{}, componentType dv1.DisaggregatedComponentType)[]corev1.EnvVar {
+func BuildKerberosEnvForDDC(info *dv1.KerberosInfo, config map[string]interface{}, componentType dv1.DisaggregatedComponentType) []corev1.EnvVar {
 	if info == nil {
 		return nil
 	}
 
-	return  buildKerberosEnvUseSecretMountPath(info.KeytabPath, config, string(componentType))
+	return buildKerberosEnvUseSecretMountPath(info.KeytabPath, config, string(componentType))
 }
 
 func buildKerberosEnvUseSecretMountPath(keytabPath string, config map[string]interface{}, componentType string) []corev1.EnvVar {
@@ -739,8 +748,7 @@ func getFeDefaultVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 	return volumes, volumMounts
 }
 
-//
-func GetPodInfoVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount){
+func GetPodInfoVolumesVolumeMounts() ([]corev1.Volume, []corev1.VolumeMount) {
 	return appendPodInfoVolumesVolumeMounts(nil, nil)
 }
 
@@ -932,8 +940,8 @@ func getKerberosVolumeAndVolumeMount(kerberosInfo *v1.KerberosInfo) ([]corev1.Vo
 	return getKerberosConfigAndSecretVolumeAndVolumeMount(kerberosInfo.Krb5ConfigMap, kerberosInfo.KeytabSecretName)
 }
 
-//get the kerberos volume and mounts to ddc.
-func GetDv1KerberosVolumeAndVolumeMount(kerberosInfo *dv1.KerberosInfo)([]corev1.Volume, []corev1.VolumeMount) {
+// get the kerberos volume and mounts to ddc.
+func GetDv1KerberosVolumeAndVolumeMount(kerberosInfo *dv1.KerberosInfo) ([]corev1.Volume, []corev1.VolumeMount) {
 	if kerberosInfo == nil {
 		return []corev1.Volume{}, []corev1.VolumeMount{}
 	}
@@ -941,7 +949,7 @@ func GetDv1KerberosVolumeAndVolumeMount(kerberosInfo *dv1.KerberosInfo)([]corev1
 	return getKerberosConfigAndSecretVolumeAndVolumeMount(kerberosInfo.Krb5ConfigMap, kerberosInfo.KeytabSecretName)
 }
 
-//abstract a base function for dcr and ddc used.
+// abstract a base function for dcr and ddc used.
 func getKerberosConfigAndSecretVolumeAndVolumeMount(configMapName, secretName string) ([]corev1.Volume, []corev1.VolumeMount) {
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
@@ -1226,7 +1234,7 @@ func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 func UseNewDefaultInitContainerImage(pts *corev1.PodTemplateSpec) {
 	var beImage string
 	for _, c := range pts.Spec.Containers {
-		if c.Name == string(v1.Component_BE) || c.Name == string(DISAGGREGATED_BE_MAIN_CONTAINER_NAME){
+		if c.Name == string(v1.Component_BE) || c.Name == string(DISAGGREGATED_BE_MAIN_CONTAINER_NAME) {
 			beImage = c.Image
 			break
 		}
