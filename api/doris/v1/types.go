@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	AnnotationDebugKey   = "selectdb.com.doris/runmode"
-	AnnotationDebugValue = "debug"
+	AnnotationDebugKey      = "selectdb.com.doris/runmode"
+	AnnotationDebugValue    = "debug"
 	AnnotationDebugDorisKey = "apache.com.doris/runmode"
 )
 
@@ -129,6 +129,12 @@ type BeSpec struct {
 	//EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.
 	//the weight of antiAffinity in same node is greater than this affinity.
 	EnableFeAffinity bool `json:"enableFeAffinity,omitempty"`
+
+	// AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+	// Default value is 'false'. This means that the Doris BE is unaware of the CPU configuration of resources.
+	// Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the 'be.conf' file inside the BE container.
+	// Changing this configuration will cause a BE rolling restart.
+	AutoResolveLimitCPU bool `json:"autoResolveLimitCPU,omitempty"`
 }
 
 // FeAddress specify the fe address, please set it when you deploy fe outside k8s or deploy components use crd except fe, if not set .
@@ -158,6 +164,12 @@ type CnSpec struct {
 
 	//AutoScalingPolicy auto scaling strategy
 	AutoScalingPolicy *AutoScalingPolicy `json:"autoScalingPolicy,omitempty"`
+
+	// AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+	// Default value is 'false'. This means that the Doris BE is unaware of the CPU configuration of resources.
+	// Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the 'be.conf' file inside the BE container.
+	// Changing this configuration will cause a BE rolling restart.
+	AutoResolveLimitCPU bool `json:"autoResolveLimitCPU,omitempty"`
 }
 
 // BrokerSpec describes a template for creating copies of a broker software service, if deploy broker we recommend you add affinity for deploy with be pod.
