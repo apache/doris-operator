@@ -189,22 +189,12 @@ func (d *DisaggregatedSubDefaultController) BuildDefaultConfigMapVolumesVolumeMo
 }
 
 func (d *DisaggregatedSubDefaultController) ConstructDefaultAffinity(matchKey, value string, ddcAffinity *corev1.Affinity) *corev1.Affinity {
-	affinity := d.newDefaultAffinity(matchKey, value)
-
-	if ddcAffinity == nil {
-		return affinity
+	// If user provides affinity, respect it completely without injecting defaults
+	if ddcAffinity != nil {
+		return ddcAffinity.DeepCopy()
 	}
-
-	ddcPodAntiAffinity := ddcAffinity.PodAntiAffinity
-	if ddcPodAntiAffinity != nil {
-		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = ddcPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, ddcPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-	}
-
-	affinity.NodeAffinity = ddcAffinity.NodeAffinity
-	affinity.PodAffinity = ddcAffinity.PodAffinity
-
-	return affinity
+	// Only apply defaults when user hasn't specified any affinity
+	return d.newDefaultAffinity(matchKey, value)
 }
 
 func (d *DisaggregatedSubDefaultController) newDefaultAffinity(matchKey, value string) *corev1.Affinity {

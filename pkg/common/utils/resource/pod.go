@@ -178,15 +178,16 @@ func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, com
 		},
 
 		Spec: corev1.PodSpec{
-			ImagePullSecrets:   spec.ImagePullSecrets,
-			NodeSelector:       spec.NodeSelector,
-			Volumes:            volumes,
-			ServiceAccountName: spec.ServiceAccount,
-			Affinity:           spec.Affinity.DeepCopy(),
-			Tolerations:        spec.Tolerations,
-			HostAliases:        spec.HostAliases,
-			InitContainers:     defaultInitContainers,
-			SecurityContext:    SecurityContext,
+			ImagePullSecrets:          spec.ImagePullSecrets,
+			NodeSelector:              spec.NodeSelector,
+			Volumes:                   volumes,
+			ServiceAccountName:        spec.ServiceAccount,
+			Affinity:                  spec.Affinity.DeepCopy(),
+			Tolerations:               spec.Tolerations,
+			TopologySpreadConstraints: spec.TopologySpreadConstraints,
+			HostAliases:               spec.HostAliases,
+			InitContainers:            defaultInitContainers,
+			SecurityContext:           SecurityContext,
 		},
 	}
 
@@ -210,15 +211,16 @@ func NewPodTemplateSpecWithCommonSpec(skipDefaultInit bool, cs *dv1.CommonSpec, 
 		},
 
 		Spec: corev1.PodSpec{
-			ImagePullSecrets:   cs.ImagePullSecrets,
-			NodeSelector:       cs.NodeSelector,
-			ServiceAccountName: cs.ServiceAccount,
-			Affinity:           cs.Affinity.DeepCopy(),
-			Tolerations:        cs.Tolerations,
-			HostAliases:        cs.HostAliases,
-			InitContainers:     defaultInitContainers,
-			SecurityContext:    cs.SecurityContext,
-			Volumes:            vs,
+			ImagePullSecrets:          cs.ImagePullSecrets,
+			NodeSelector:              cs.NodeSelector,
+			ServiceAccountName:        cs.ServiceAccount,
+			Affinity:                  cs.Affinity.DeepCopy(),
+			Tolerations:               cs.Tolerations,
+			TopologySpreadConstraints: cs.TopologySpreadConstraints,
+			HostAliases:               cs.HostAliases,
+			InitContainers:            defaultInitContainers,
+			SecurityContext:           cs.SecurityContext,
+			Volumes:                   vs,
 		},
 	}
 	constructDisaggregatedInitContainers(skipDefaultInit, componentType, &pts.Spec, si)
@@ -1201,22 +1203,12 @@ func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
 }
 
 func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentType) *corev1.Affinity {
-	affinity := getDefaultAffinity(componentType)
-
-	if dcrAffinity == nil {
-		return affinity
+	// If user provides affinity, respect it completely without injecting defaults
+	if dcrAffinity != nil {
+		return dcrAffinity.DeepCopy()
 	}
-
-	dcrPodAntiAffinity := dcrAffinity.PodAntiAffinity
-	if dcrPodAntiAffinity != nil {
-		affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = dcrPodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-		affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, dcrPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-	}
-
-	affinity.NodeAffinity = dcrAffinity.NodeAffinity
-	affinity.PodAffinity = dcrAffinity.PodAffinity
-
-	return affinity
+	// Only apply defaults when user hasn't specified any affinity
+	return getDefaultAffinity(componentType)
 }
 
 func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
