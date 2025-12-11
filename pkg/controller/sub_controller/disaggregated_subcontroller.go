@@ -37,6 +37,7 @@ import (
 	"github.com/spf13/viper"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -272,13 +273,13 @@ func (d *DisaggregatedSubDefaultController) CheckSecretExist(ctx context.Context
 
 // RestrictConditionsEqual adds two StatefulSet,
 // It is used to control the conditions for comparing.
-// nst StatefulSet - a new StatefulSet
-// est StatefulSet - an old StatefulSet
-func (d *DisaggregatedSubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, est *appv1.StatefulSet) {
+func (d *DisaggregatedSubDefaultController) RestrictConditionsEqual(new *appv1.StatefulSet, old *appv1.StatefulSet) {
 	//shield persistent volume update when the pvcProvider=Operator
 	//in webhook should intercept the volume spec updated when use statefulset pvc.
 	// TODO: updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden
-	nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
+	if len(old.Spec.VolumeClaimTemplates) != 0 {
+		new.Spec.VolumeClaimTemplates = old.Spec.VolumeClaimTemplates
+	}
 }
 
 func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (string, string) {
@@ -297,11 +298,11 @@ func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx con
 }
 
 // add cluster specification on container spec. this is useful to add common spec on different type pods, example: kerberos volume for fe and be.
-func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, configMap map[string]interface{}, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec){
+func (d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componentType v1.DisaggregatedComponentType, configMap map[string]interface{}, spec *v1.DorisDisaggregatedClusterSpec, pts *corev1.PodTemplateSpec) {
 	var c *corev1.Container
 	switch componentType {
 	case v1.DisaggregatedFE:
-		for	i, _ := range pts.Spec.Containers {
+		for i, _ := range pts.Spec.Containers {
 			if pts.Spec.Containers[i].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME {
 				c = &pts.Spec.Containers[i]
 				break
@@ -337,8 +338,8 @@ func(d *DisaggregatedSubDefaultController) AddClusterSpecForPodTemplate(componen
 
 }
 
-//return which generation had updated the statefulset.
-func(d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(sts *appv1.StatefulSet, annoGenerationKey string) int64 {
+// return which generation had updated the statefulset.
+func (d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(sts *appv1.StatefulSet, annoGenerationKey string) int64 {
 	if sts == nil {
 		return 0
 	}
@@ -353,17 +354,16 @@ func(d *DisaggregatedSubDefaultController) ReturnStatefulsetUpdatedGeneration(st
 	return g
 }
 
-//use statefulset.status.updateRevision and pod `controller-revision-hash` annotation to check pods updated to new revision.
-//if all pods used new updateRevision return true, else return false.
-func(d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpdateRevision(stsUpdateRevision string, pods []corev1.Pod) bool {
+// use statefulset.status.updateRevision and pod `controller-revision-hash` annotation to check pods updated to new revision.
+// if all pods used new updateRevision return true, else return false.
+func (d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpdateRevision(stsUpdateRevision string, pods []corev1.Pod) bool {
 	if stsUpdateRevision == "" {
 		return false
 	}
 
-	if len(pods) ==0 {
+	if len(pods) == 0 {
 		return false
 	}
-
 
 	for _, pod := range pods {
 		labels := pod.Labels
@@ -375,6 +375,99 @@ func(d *DisaggregatedSubDefaultController) StatefulsetControlledPodsAllUseNewUpd
 	}
 
 	return true
+}
+
+func (d *DisaggregatedSubDefaultController) ReconcilePVC(
+	ctx context.Context,
+	ddc *v1.DorisDisaggregatedCluster,
+	cm map[string]interface{},
+	componentType v1.DisaggregatedComponentType,
+	sts *appv1.StatefulSet,
+	cg *v1.ComputeGroup,
+) (*Event, error) {
+
+	var commonSpec *v1.CommonSpec
+	switch componentType {
+	case v1.DisaggregatedMS:
+		commonSpec = &ddc.Spec.MetaService.CommonSpec
+	case v1.DisaggregatedFE:
+		commonSpec = &ddc.Spec.FeSpec.CommonSpec
+	case v1.DisaggregatedBE:
+		commonSpec = &cg.CommonSpec
+	default:
+	}
+
+	_, _, pvcTemplates := d.BuildVolumesVolumeMountsAndPVCs(cm, componentType, commonSpec)
+
+	oldPvcList := corev1.PersistentVolumeClaimList{}
+	selector := sts.Spec.Selector.MatchLabels
+	if err := d.K8sclient.List(ctx, &oldPvcList, client.InNamespace(ddc.Namespace), client.MatchingLabels(selector)); err != nil {
+		message := fmt.Sprintf("ReconcilePVC list pvc failed, namespace: %s, name: %s, error: %s", ddc.Namespace, ddc.Name, err.Error())
+		klog.Error(message)
+		return &Event{Type: EventWarning, Reason: PVCListFailed, Message: message}, err
+	}
+
+	for i := range pvcTemplates {
+		manager := pvcTemplates[i].Annotations[resource.PVCManagerAnnotationApache]
+		if manager != string(v1.PVCProvisionerOperator) {
+			continue
+		}
+		for ordinal := range *commonSpec.Replicas {
+			pvc := resource.BuildDisaggregatedPVC(pvcTemplates[i], selector, ddc.Namespace, sts.Name, strconv.FormatInt(int64(ordinal), 10))
+			oldPvc := getPvc(oldPvcList, pvc.Name)
+
+			// need add new pvc,
+			// however, this feature seems to have some additional limitations and may require recreating the statefulset.
+			// The impact of this behavior on the stability of the Doris cluster is still under investigation;
+			// therefore, the recreating statefulset needs to be performed manually.
+			if oldPvc == nil {
+				if err := d.K8sclient.Create(ctx, &pvc); err != nil && !apierrors.IsAlreadyExists(err) {
+					message := fmt.Sprintf("ReconcilePVC create pvc failed, namespace: %s, name: %s create pvc %s, error %s.", ddc.Namespace, ddc.Name, pvc.Name, err.Error())
+					//d.K8srecorder.Event(ddc, string(EventWarning), PVCCreateFailed, message)
+					klog.Error(message)
+					return &Event{Type: EventWarning, Reason: PVCCreateFailed, Message: message}, err
+				}
+				message := fmt.Sprintf("ReconcilePVC create pvc, namespace: %s, name: %s create pvc %s .", ddc.Namespace, ddc.Name, pvc.Name)
+				klog.Infof(message)
+				d.K8srecorder.Event(ddc, string(EventNormal), PVCCreate, message)
+				continue
+			}
+
+			oldQuantity := oldPvc.Spec.Resources.Requests[corev1.ResourceStorage]
+			newQuantity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+			//if !oldQuantity.Equal(newQuantity){
+			if oldQuantity.Cmp(newQuantity) == -1 {
+				// pvc need update
+				oldPvc.Spec.Resources.Requests[corev1.ResourceStorage] = newQuantity
+				if err := d.K8sclient.Patch(ctx, oldPvc, client.Merge); err != nil {
+					message := fmt.Sprintf("ReconcilePVC patch pvc failed, namespace: %s, ddc name: %s, patch pvc %s, error: %s", ddc.Namespace, ddc.Name, pvc.Name, err.Error())
+					klog.Errorf(message)
+					return &Event{Type: EventWarning, Reason: PVCUpdateFailed, Message: message}, err
+				}
+				message := fmt.Sprintf("ReconcilePVC patch pvc, namespace: %s, ddc name: %s update pvc %s .", ddc.Namespace, ddc.Name, pvc.Name)
+				klog.Infof(message)
+				d.K8srecorder.Event(ddc, string(EventNormal), PVCUpdate, message)
+			}
+
+			if oldQuantity.Cmp(newQuantity) == 1 {
+				message := fmt.Sprintf("ReconcilePVC pvc resize is rejected, PVC shrinking is not supported. namespace: %s, ddc name: %s, resize pvc %s", ddc.Namespace, ddc.Name, pvc.Name)
+				klog.Warningf(message)
+				d.K8srecorder.Event(ddc, string(EventWarning), PVCUpdateFailed, message)
+			}
+
+		}
+	}
+
+	return nil, nil
+}
+
+func getPvc(pvcs corev1.PersistentVolumeClaimList, pvcName string) *corev1.PersistentVolumeClaim {
+	for _, pvc := range pvcs.Items {
+		if pvc.Name == pvcName {
+			return &pvc
+		}
+	}
+	return nil
 }
 
 func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType, commonSpec *v1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
@@ -390,7 +483,7 @@ func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(conf
 	return d.PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
 }
 
-// the old config before 25.2.1, the requiredPaths should filter log path before call this function.
+// PersistentVolumeBuildVolumesVolumeMountsAndPVCs the old config before 25.2.1, the requiredPaths should filter log path before call this function.
 func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec *v1.CommonSpec, confMap map[string]interface{}, componentType v1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
 	v1pv := commonSpec.PersistentVolume
 	if v1pv == nil {
@@ -446,7 +539,6 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 
 	}
 
-
 	var vs []corev1.Volume
 	var vms []corev1.VolumeMount
 	var pvcs []corev1.PersistentVolumeClaim
@@ -461,7 +553,7 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
-				Annotations: v1pv.Annotations,
+				Annotations: resource.BuildDisaggregatedPVCAnnotations(*v1pv),
 			},
 			Spec: *v1pv.PersistentVolumeClaimSpec.DeepCopy(),
 		})
@@ -470,7 +562,7 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeBuildVolumesVolumeMo
 	return vs, vms, pvcs
 }
 
-// use array of PersistentVolume, the new config from 25.2.x
+// PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs use array of PersistentVolume, the new config from 25.2.x
 func (d *DisaggregatedSubDefaultController) PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec *v1.CommonSpec, confMap map[string]interface{}, componentType v1.DisaggregatedComponentType) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
 	var requiredPaths []string
 
@@ -548,8 +640,8 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeArrayBuildVolumesVol
 	//generate pvc from the last path in requiredPaths, the mountPath that  configured by user is the highest wight, so first use the v1pv to generate pvc not template v1pv.
 	ss := set.NewSetString()
 
-	for i:= len(requiredPaths); i > 0; i-- {
-		path := requiredPaths[i -1]
+	for i := len(requiredPaths); i > 0; i-- {
+		path := requiredPaths[i-1]
 		//if the path have build volume, vm, pvc, skip it.
 		if ss.Find(path) {
 			continue
@@ -569,7 +661,7 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeArrayBuildVolumesVol
 			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        metadataName,
-					Annotations: pv.Annotations,
+					Annotations: resource.BuildDisaggregatedPVCAnnotations(*pv),
 				},
 				Spec: *pv.PersistentVolumeClaimSpec.DeepCopy(),
 			})
@@ -585,7 +677,7 @@ func (d *DisaggregatedSubDefaultController) PersistentVolumeArrayBuildVolumesVol
 			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        metadataName,
-					Annotations: commonSpec.PersistentVolumes[ti].Annotations,
+					Annotations: resource.BuildDisaggregatedPVCAnnotations(commonSpec.PersistentVolumes[ti]),
 				},
 				Spec: *commonSpec.PersistentVolumes[ti].PersistentVolumeClaimSpec.DeepCopy(),
 			})
@@ -609,7 +701,7 @@ func (d *DisaggregatedSubDefaultController) getEmptyDirVolumesVolumeMounts(confM
 }
 
 // this function is a compensation, because the DownwardAPI annotations and labels are not mount in pod, so this function amends。
-func(d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
+func (d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
 	t := &st.Spec.Template
 	for index, _ := range t.Spec.Containers {
 		if t.Spec.Containers[index].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME || t.Spec.Containers[index].Name == resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME ||

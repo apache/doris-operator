@@ -149,13 +149,13 @@ func (db *DB) Select(dest interface{}, query string, args ...interface{}) error 
 
 func (db *DB) ShowFrontends() ([]*Frontend, error) {
 	var fes []*Frontend
-	err := db.Select(&fes, "show frontends")
+	err := db.Unsafe().Select(&fes, "show frontends")
 	return fes, err
 }
 
 func (db *DB) ShowBackends() ([]*Backend, error) {
 	var bes []*Backend
-	err := db.Select(&bes, "show backends")
+	err := db.Unsafe().Select(&bes, "show backends")
 	return bes, err
 }
 

@@ -21,6 +21,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
@@ -32,8 +35,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 type DisaggregatedMSController struct {
@@ -184,6 +185,11 @@ func (dms *DisaggregatedMSController) Sync(ctx context.Context, obj client.Objec
 		return err
 	}
 
+	event, err = dms.ReconcilePVC(ctx, ddc, confMap, v1.DisaggregatedMS, st, nil)
+	if err != nil {
+		klog.Errorf("MS Sync ReconcilePVC failed, namespace: %s, ddc name %s, error=%s!", ddc.Namespace, ddc.Name, err.Error())
+	}
+
 	return nil
 }
 
@@ -201,15 +207,16 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 		return nil, err
 	}
 
-	if err := k8s.ApplyStatefulSet(ctx, dms.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
+	if err := k8s.ApplyStatefulSet(ctx, dms.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
+		dms.RestrictConditionsEqual(new, est)
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
-		equal := resource.StatefulsetDeepEqualWithKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, false)
+		equal := resource.StatefulsetDeepEqualWithKey(new, est, v1.DisaggregatedSpecHashValueAnnotation, false)
 		if !equal {
-			if len(st.Annotations) == 0 {
-				st.Annotations = map[string]string{}
+			if len(new.Annotations) == 0 {
+				new.Annotations = map[string]string{}
 			}
-			st_annos := (resource.Annotations)(st.Annotations)
+			st_annos := (resource.Annotations)(new.Annotations)
 			st_annos.Add(v1.UpdateStatefulsetGeneration, strconv.FormatInt(ddc.Generation, 10))
 			if len(ddc.Annotations) == 0 {
 				ddc.Annotations = map[string]string{}
