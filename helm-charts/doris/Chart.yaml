@@ -46,7 +46,7 @@ version: {operatorVersion}
 # It is recommended to use it with quotes.
 appVersion: 2.1.7
 
-kubeVersion: ">= 1.19"
+kubeVersion: ">= 1.19.0-0"
 
 keywords:
   - doris
