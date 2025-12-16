@@ -246,7 +246,17 @@ type PersistentVolume struct {
 	//Annotation for PVC pods. Users can adapt the storage authentication and pv binding of the cloud platform through configuration.
 	//It only takes effect in the first configuration and cannot be added or modified later.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// defines pvc provisioner, default is ''.
+	PVCProvisioner PVCProvisioner `json:"provisioner,omitempty"`
 }
+
+type PVCProvisioner string
+
+// Possible values of PVC provisioner
+const (
+	PVCProvisionerOperator PVCProvisioner = "operator"
+)
 
 type Secret struct {
 	//specify the secret need to be mounted in deployed namespace.

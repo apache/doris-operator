@@ -94,10 +94,17 @@ subjects:
     namespace: doris
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: role
+    app.kubernetes.io/instance: doris-operator
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+    app.kubernetes.io/managed-by: kustomize
   name: doris-operator
+  namespace: doris
 rules:
   - apiGroups:
       - apps
@@ -170,24 +177,6 @@ rules:
       - ""
     resources:
       - secrets
-    verbs:
-      - get
-      - update
-      - list
-      - watch
-  - apiGroups:
-      - "admissionregistration.k8s.io"
-    resources:
-      - mutatingwebhookconfigurations
-    verbs:
-      - get
-      - update
-      - list
-      - watch
-  - apiGroups:
-      - "admissionregistration.k8s.io"
-    resources:
-      - validatingwebhookconfigurations
     verbs:
       - get
       - update
@@ -278,18 +267,6 @@ rules:
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
-      - clusterrolebindings
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
       - rolebindings
     verbs:
       - create
@@ -301,19 +278,20 @@ rules:
       - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   labels:
-    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/name: rolebinding
     app.kubernetes.io/instance: doris-operator-rolebinding
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: doris-operator
     app.kubernetes.io/part-of: doris-operator
     app.kubernetes.io/managed-by: kustomize
   name: doris-operator-rolebinding
+  namespace: doris
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: doris-operator
 subjects:
   - kind: ServiceAccount
@@ -332,100 +310,6 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: doris-operator
   namespace: doris
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  creationTimestamp: null
-  name: doris-operator-validate-webhook
-webhooks:
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: doris-operator-service
-        namespace: doris
-        path: /validate-doris-selectdb-com-v1-doriscluster
-    failurePolicy: Ignore
-    name: vdoriscluster.kb.io
-    rules:
-      - apiGroups:
-          - doris.selectdb.com
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - dorisclusters
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: doris-operator-service
-        namespace: doris
-        path: /validate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster
-    failurePolicy: Ignore
-    name: vdorisdisaggregatedcluster.kb.io
-    rules:
-      - apiGroups:
-          - disaggregated.cluster.doris.com
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - dorisdisaggregatedclusters
-    sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  creationTimestamp: null
-  name: doris-operator-mutate-webhook
-webhooks:
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: doris-operator-service
-        namespace: doris
-        path: /mutate-doris-selectdb-com-v1-doriscluster
-    failurePolicy: Ignore
-    name: mdoriscluster.kb.io
-    rules:
-      - apiGroups:
-          - doris.selectdb.com
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - dorisclusters
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: doris-operator-service
-        namespace: doris
-        path:  /mutate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster
-    failurePolicy: Ignore
-    name: mdorisdisaggregatedcluster.kb.io
-    rules:
-      - apiGroups:
-          - disaggregated.cluster.doris.com
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - dorisdisaggregatedclusters
-    sideEffects: None
 ---
 apiVersion: v1
 kind: Secret
@@ -483,40 +367,14 @@ spec:
         app.kubernetes.io/created-by: doris-operator
         app.kubernetes.io/part-of: doris-operator
     spec:
-      # TODO(user): Uncomment the following code to configure the nodeAffinity expression
-      # according to the platforms which are supported by your solution.
-      # It is considered best practice to support multiple architectures. You can
-      # build your manager image using the makefile target docker-buildx.
-      # affinity:
-      #   nodeAffinity:
-      #     requiredDuringSchedulingIgnoredDuringExecution:
-      #       nodeSelectorTerms:
-      #         - matchExpressions:
-      #           - key: kubernetes.io/arch
-      #             operator: In
-      #             values:
-      #               - amd64
-      #               - arm64
-      #               - ppc64le
-      #               - s390x
-      #           - key: kubernetes.io/os
-      #             operator: In
-      #             values:
-      #               - linux
       securityContext:
         runAsNonRoot: true
-        # TODO(user): For common cases that do not require escalating privileges
-        # it is recommended to ensure that all your Pods/Containers are restrictive.
-        # More info: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
-        # Please uncomment the following code if your project does NOT have to work on old Kubernetes
-        # versions < 1.19 or on vendors versions which do NOT support this field by default (i.e. Openshift < 4.11 ).
-        # seccompProfile:
-        #   type: RuntimeDefault
       containers:
         - command:
             - /dorisoperator
           args:
             - --leader-elect
+            - -namespace=doris
           image: apache/doris:operator-latest
           imagePullPolicy: Always
           name: dorisoperator
@@ -531,9 +389,7 @@ spec:
             - name: START_DISAGGREGATED_OPERATOR
               value: "true"
             - name: OPERATOR_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: "doris"
             - name: OPERATOR_NAME
               valueFrom:
                 fieldRef:
@@ -552,8 +408,6 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
-          # TODO(user): Configure the resources accordingly based on the project requirements.
-          # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
           resources:
             limits:
               cpu: "2"
@@ -565,8 +419,6 @@ spec:
             - mountPath:  /tmp/k8s-webhook-server/serving-certs
               name: cert
               readOnly: true
-      # imagePullSecrets:
-      #   - name: my-registry-key
       volumes:
         - name: cert
           secret:
