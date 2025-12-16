@@ -18,11 +18,12 @@
 package mysql
 
 import (
-	_ "github.com/go-sql-driver/mysql"
-	"k8s.io/klog/v2"
 	"sort"
 	"strconv"
 	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -67,7 +68,6 @@ type Backend struct {
 	TabletNum               int64   `json:"tablet_num" db:"TabletNum"`
 	DataUsedCapacity        string  `json:"data_used_capacity" db:"DataUsedCapacity"`
 	TrashUsedCapacity       string  `json:"trash_used_capacity" db:"TrashUsedCapacity"`
-	TrashUsedCapcacity      string  `json:"trash_used_capcacity" db:"TrashUsedCapcacity"`
 	AvailCapacity           string  `json:"avail_capacity" db:"AvailCapacity"`
 	TotalCapacity           string  `json:"total_capacity" db:"TotalCapacity"`
 	UsedPct                 string  `json:"used_pct" db:"UsedPct"`
