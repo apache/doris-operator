@@ -216,6 +216,7 @@ feSpec:
   systemInitialization: {}
     # initImage: "selectdb/alpine:latest"
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  serviceAccount: ""
 
 beSpec:
   # annotations for be pods and service
@@ -383,6 +384,7 @@ beSpec:
   systemInitialization: {}
     # initImage: "selectdb/alpine:latest"
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  serviceAccount: ""
 
 cnSpec:
   # annotations for cn pods and service
@@ -551,6 +553,7 @@ cnSpec:
   systemInitialization: {}
     # initImage: "selectdb/alpine:latest"
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
+  serviceAccount: ""
   # specific cn auto scale policy
   autoScalingPolicy:
     enable: true
@@ -707,5 +710,4 @@ brokerSpec:
   systemInitialization: {}
     # initImage: "selectdb/alpine:latest"
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
-
-
+  serviceAccount: ""

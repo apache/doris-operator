@@ -129,6 +129,9 @@ spec:
       command: {{ .Values.feSpec.systemInitialization.command }}
     {{- end }}
     {{- end }}
+    {{- if .Values.feSpec.serviceAccount }}
+    serviceAccount: {{ .Values.feSpec.serviceAccount }}
+    {{- end }}
   beSpec:
     {{- if .Values.beSpec.annotations }}
     annotations:
@@ -214,6 +217,9 @@ spec:
     {{- if .Values.beSpec.systemInitialization.command }}
       command: {{ .Values.beSpec.systemInitialization.command }}
     {{- end }}
+    {{- end }}
+    {{- if .Values.beSpec.serviceAccount }}
+    serviceAccount: {{ .Values.beSpec.serviceAccount }}
     {{- end }}
   {{- if .Values.dorisCluster.enabledCn }}
   cnSpec:
@@ -303,6 +309,9 @@ spec:
       command: {{ .Values.cnSpec.systemInitialization.command }}
     {{- end }}
     {{- end }}
+    {{- if .Values.cnSpec.serviceAccount }}
+    serviceAccount: {{ .Values.cnSpec.serviceAccount }}
+    {{- end }}
     {{- if .Values.cnSpec.autoScalingPolicy.enable }}
     autoScalingPolicy:
       version: {{default ( include "doriscluster.default.autoScalerVersion" . ) .Values.cnSpec.autoScalingPolicy.version }}
@@ -383,5 +392,8 @@ spec:
     {{- if .Values.brokerSpec.systemInitialization.command }}
       command: {{ .Values.brokerSpec.systemInitialization.command }}
     {{- end }}
+    {{- end }}
+    {{- if .Values.brokerSpec.serviceAccount }}
+    serviceAccount: {{ .Values.brokerSpec.serviceAccount }}
     {{- end }}
   {{- end }}
