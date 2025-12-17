@@ -60,6 +60,9 @@ type DB struct {
 	*sqlx.DB
 }
 
+// Debugging this code cannot be done through a standalone process on the host machine;
+// it can only be done by building the operator because it depends on the network configuration of the Kubernetes cluster.
+
 func NewDorisSqlDB(cfg DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
 	rootCertPool := x509.NewCertPool()
@@ -140,22 +143,26 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return db.DB.Exec(query, args...)
+	return db.DB.Unsafe().Exec(query, args...)
 }
 
 func (db *DB) Select(dest interface{}, query string, args ...interface{}) error {
 	return db.DB.Select(dest, query, args...)
 }
 
+func (db *DB) USelect(dest interface{}, query string, args ...interface{}) error {
+	return db.DB.Unsafe().Select(dest, query, args...)
+}
+
 func (db *DB) ShowFrontends() ([]*Frontend, error) {
 	var fes []*Frontend
-	err := db.Unsafe().Select(&fes, "show frontends")
+	err := db.USelect(&fes, "show frontends")
 	return fes, err
 }
 
 func (db *DB) ShowBackends() ([]*Backend, error) {
 	var bes []*Backend
-	err := db.Unsafe().Select(&bes, "show backends")
+	err := db.USelect(&bes, "show backends")
 	return bes, err
 }
 
