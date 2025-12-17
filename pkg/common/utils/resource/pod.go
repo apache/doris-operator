@@ -285,6 +285,7 @@ func constructDisaggregatedInitContainers(skipDefaultInit bool, componentType dv
 			Command:         si.Command,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Args:            si.Args,
+			Resources:       si.ResourceRequirements,
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &enablePrivileged,
 			},
@@ -404,6 +405,7 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 	return dst
 }
 
+// for DCR
 func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Container {
 	enablePrivileged := true
 	initImage := si.InitImage
@@ -416,6 +418,7 @@ func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Conta
 		Command:         si.Command,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Args:            si.Args,
+		Resources:       si.ResourceRequirements,
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: &enablePrivileged,
 		},
@@ -1219,6 +1222,7 @@ func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentT
 	return affinity
 }
 
+// for DDC and DCR
 func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 	return newBaseInitContainer(
 		"default-init",
