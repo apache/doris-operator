@@ -196,6 +196,9 @@ func (dms *DisaggregatedMSController) Sync(ctx context.Context, obj client.Objec
 func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, ddc *v1.DorisDisaggregatedCluster) (*sc.Event, error) {
 	var est appv1.StatefulSet
 	if err := dms.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
+		// add downlaodAPI volume Mounts
+		dms.DisaggregatedSubDefaultController.AddDownwardAPI(st)
+
 		if err = k8s.CreateClientObject(ctx, dms.K8sclient, st); err != nil {
 			klog.Errorf("dms controller reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
@@ -224,6 +227,7 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 			ddc_annos := (resource.Annotations)(ddc.Annotations)
 			msUniqueIdKey := strings.ToLower(fmt.Sprintf(v1.UpdateStatefulsetName, ddc.GetMSStatefulsetName()))
 			ddc_annos.Add(msUniqueIdKey, "true")
+			dms.DisaggregatedSubDefaultController.AddDownwardAPI(st)
 		}
 
 		return equal

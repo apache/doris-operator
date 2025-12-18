@@ -275,6 +275,9 @@ func (dfc *DisaggregatedFEController) initialFEStatus(ddc *v1.DorisDisaggregated
 func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *v1.DorisDisaggregatedCluster) (*sc.Event, error) {
 	var est appv1.StatefulSet
 	if err := dfc.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
+		// add downlaodAPI volume Mounts
+		dfc.DisaggregatedSubDefaultController.AddDownwardAPI(st)
+
 		if err = k8s.CreateClientObject(ctx, dfc.K8sclient, st); err != nil {
 			klog.Errorf("disaggregatedFEController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.FECreateResourceFailed, Message: err.Error()}, err
@@ -330,6 +333,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 			ddc_annos := (resource.Annotations)(cluster.Annotations)
 			msUniqueIdKey := strings.ToLower(fmt.Sprintf(v1.UpdateStatefulsetName, cluster.GetFEStatefulsetName()))
 			ddc_annos.Add(msUniqueIdKey, "true")
+			dfc.DisaggregatedSubDefaultController.AddDownwardAPI(st)
 		}
 		return equal
 	}); err != nil {
