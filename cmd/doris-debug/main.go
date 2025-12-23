@@ -20,12 +20,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	v1 "github.com/apache/doris-operator/api/doris/v1"
-	"github.com/apache/doris-operator/pkg/common/utils/resource"
-	"github.com/spf13/viper"
 	"net/http"
 	"os"
 	"strconv"
+
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -40,7 +41,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("start component " + componentType + "for debugging.....")
+	fmt.Println("start component " + componentType + " for debugging.....")
 	listenPort := readConfigListenPort()
 	//registerMockApiHealth()
 	if err := http.ListenAndServe(":"+listenPort, nil); err != nil {
@@ -62,7 +63,28 @@ func flagParse() {
 }
 
 func readConfigListenPort() string {
-	configFileName := dorisRootPath + "/" + componentType + "/conf/" + componentType + ".conf"
+
+	var listenPortName string
+	var configFileName string
+	var listenPort string
+
+	switch componentType {
+	case "fe":
+		configFileName = dorisRootPath + "/fe/conf/fe.conf"
+		listenPortName = resource.QUERY_PORT
+	case "be":
+		configFileName = dorisRootPath + "/be/conf/be.conf"
+		listenPortName = resource.HEARTBEAT_SERVICE_PORT
+	case "ms":
+		configFileName = dorisRootPath + "/ms/conf/doris_cloud.conf"
+		listenPortName = resource.BRPC_LISTEN_PORT
+	default:
+		{
+			fmt.Println("the componentType is not supported:" + componentType)
+			os.Exit(1)
+		}
+	}
+
 	_, err := os.Stat(configFileName)
 	if err != nil {
 		fmt.Println("the config file is not exist, stat error", err.Error())
@@ -72,32 +94,13 @@ func readConfigListenPort() string {
 	file, _ := os.Open(configFileName)
 	viper.SetConfigType("properties")
 	viper.ReadConfig(file)
-
-	var listenPort string
-	if componentType == "fe" {
-		configQueryPort := viper.GetString(resource.QUERY_PORT)
-		if configQueryPort == "" {
-			listenPort = strconv.Itoa(int(resource.GetDefaultPort(resource.QUERY_PORT)))
-		}
-	} else if componentType == "be" {
-		configHeartbeatPort := viper.GetString(resource.HEARTBEAT_SERVICE_PORT)
-		fmt.Println("component be" + configHeartbeatPort)
-		if configHeartbeatPort == "" {
-			listenPort = strconv.Itoa(int(resource.GetDefaultPort(resource.HEARTBEAT_SERVICE_PORT)))
-		}
+	listenPort = viper.GetString(listenPortName)
+	if listenPort == "" {
+		listenPort = strconv.Itoa(int(resource.GetDefaultPort(listenPortName)))
 	}
+
 	fmt.Println("component listen port " + listenPort)
-
 	return listenPort
-}
-
-func registerMockApiHealth() {
-	if componentType == "fe" {
-		http.HandleFunc("/api/health", mockFEHealth)
-		return
-	}
-
-	http.HandleFunc("/api/health", mockBEHealth)
 }
 
 func kickOffDebug() bool {
@@ -123,12 +126,21 @@ func kickOffDebug() bool {
 
 	valueDoris := viper.GetString(v1.AnnotationDebugDorisKey)
 
-	if valueDoris ==  "\""+v1.AnnotationDebugDorisKey+"\"" {
+	if valueDoris == "\""+v1.AnnotationDebugValue+"\"" {
 		return true
 	}
 
-	fmt.Println("the value not equal!", value, v1.AnnotationDebugValue, v1.AnnotationDebugDorisKey)
+	fmt.Printf("No debug flag matched, flags: [%s:%s],[%s:%s] !", v1.AnnotationDebugDorisKey, valueDoris, v1.AnnotationDebugKey, value)
 	return false
+}
+
+func registerMockApiHealth() {
+	if componentType == "fe" {
+		http.HandleFunc("/api/health", mockFEHealth)
+		return
+	}
+
+	http.HandleFunc("/api/health", mockBEHealth)
 }
 
 func mockFEHealth(w http.ResponseWriter, r *http.Request) {

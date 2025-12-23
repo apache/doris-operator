@@ -24,8 +24,8 @@ import (
 
 var (
 	AnnotationDebugKey      = "selectdb.com.doris/runmode"
+	AnnotationDebugDorisKey = "apache.org.doris/runmode"
 	AnnotationDebugValue    = "debug"
-	AnnotationDebugDorisKey = "apache.com.doris/runmode"
 )
 
 // DorisClusterSpec defines the desired state of DorisCluster
