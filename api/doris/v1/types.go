@@ -281,6 +281,11 @@ type SystemInitialization struct {
 
 	// Arguments to the entrypoint.
 	Args []string `json:"args,omitempty"`
+
+	// defines the specification of resource cpu and mem for Custom initContainer.
+	// the default behavior of the operator `initContainer` does not require resource constraints.
+	// ep: {"requests":{"cpu": 4, "memory": "16Gi"},"limits":{"cpu":4,"memory":"16Gi"}}
+	corev1.ResourceRequirements `json:",inline"`
 }
 
 // PersistentVolume defines volume information and container mount information.
