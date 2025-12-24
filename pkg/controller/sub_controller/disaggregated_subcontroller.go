@@ -471,16 +471,23 @@ func getPvc(pvcs corev1.PersistentVolumeClaimList, pvcName string) *corev1.Persi
 }
 
 func (d *DisaggregatedSubDefaultController) BuildVolumesVolumeMountsAndPVCs(confMap map[string]interface{}, componentType v1.DisaggregatedComponentType, commonSpec *v1.CommonSpec) ([]corev1.Volume, []corev1.VolumeMount, []corev1.PersistentVolumeClaim) {
+	var vs []corev1.Volume
+	var vms []corev1.VolumeMount
+
+	vs = append(vs, commonSpec.Volumes...)
+	vms = append(vms, commonSpec.VolumeMounts...)
 	if commonSpec.PersistentVolume == nil && len(commonSpec.PersistentVolumes) == 0 {
-		vs, vms := d.getEmptyDirVolumesVolumeMounts(confMap, componentType)
-		return vs, vms, nil
+		vs_, vms_ := d.getEmptyDirVolumesVolumeMounts(confMap, componentType)
+		return append(vs, vs_...), append(vms, vms_...), nil
 	}
 
 	if commonSpec.PersistentVolume != nil {
-		return d.PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+		vs_, vms_, pvcs_ := d.PersistentVolumeBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+		return append(vs, vs_...), append(vms, vms_...), pvcs_
 	}
 
-	return d.PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+	vs_, vms_, pvcs_ := d.PersistentVolumeArrayBuildVolumesVolumeMountsAndPVCs(commonSpec, confMap, componentType)
+	return append(vs, vs_...), append(vms, vms_...), pvcs_
 }
 
 // PersistentVolumeBuildVolumesVolumeMountsAndPVCs the old config before 25.2.1, the requiredPaths should filter log path before call this function.

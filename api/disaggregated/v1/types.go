@@ -173,6 +173,15 @@ type CommonSpec struct {
 
 	//volume template for mountPath
 	PersistentVolumes []PersistentVolume `json:"persistentVolumes,omitempty"`
+
+	// List of volumes that can be mounted by containers belonging to the pod.
+	// More info: https://kubernetes.io/docs/concepts/storage/volumes
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// Pod volumes to mount into the container's filesystem.
+	// Cannot be updated.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
 	// (Optional) Tolerations for scheduling pods onto some dedicated nodes
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
