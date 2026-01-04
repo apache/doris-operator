@@ -40,6 +40,19 @@ this document and doris-operator installation document are duplicated. you can s
   $ helm install -f values.yaml doriscluster doris 
   ```
 
+## Start Timeout
+`startTimeout` controls the pod start timeout (seconds) for each component spec. If not set, the operator default (300s) is used.
+```yaml
+feSpec:
+  startTimeout: 600
+beSpec:
+  startTimeout: 600
+cnSpec:
+  startTimeout: 600
+brokerSpec:
+  startTimeout: 600
+```
+
 ### Validate installation status
 After executing the installation command, deployment and distribution, service deployment scheduling and startup will take a certain amount of time. Check the deployment status of Pods through the kubectl get pods command.  
 Observe that the Pod of `doriscluster` is in the `Running` state and all containers in the Pod are ready, that means, the deployment is successful.
