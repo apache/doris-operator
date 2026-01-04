@@ -55,6 +55,8 @@ feSpec:
   replicas: 3
   # electionNumber represents `FOLLOWER` number, replicas - electionNumber as `OBSERVER`
   # electionNumber: 3
+  # pod start timeout, unit is second.
+  # startTimeout: 300
   # the pod labels for user select or classify pods.
   labels: {}
     # selectdb.app.classify: "classify-1"
@@ -221,6 +223,8 @@ beSpec:
   # annotations for be pods and service
   annotations: {}
   replicas: 3
+  # pod start timeout, unit is second.
+  # startTimeout: 300
   # the pod labels for user select or classify pods.
   labels: {}
     # selectdb.app.classify: "classify-1"
@@ -388,6 +392,8 @@ cnSpec:
   # annotations for cn pods and service
   annotations: {}
   replicas: 3
+  # pod start timeout, unit is second.
+  # startTimeout: 300
   # the pod labels for user select or classify pods.
   labels: {}
     # selectdb.app.classify: "classify-1"
@@ -571,6 +577,8 @@ brokerSpec:
   # annotations for broker pods and service
   annotations: {}
   replicas: 3
+  # pod start timeout, unit is second.
+  # startTimeout: 300
   # the pod labels for user select or classify pods.
   labels: {}
     # selectdb.app.classify: "classify-1"
@@ -707,5 +715,3 @@ brokerSpec:
   systemInitialization: {}
     # initImage: "selectdb/alpine:latest"
     # command: [ "/sbin/sysctl", "-w", "vm.max_map_count=2000000" ]
-
-

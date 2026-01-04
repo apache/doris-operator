@@ -49,6 +49,9 @@ spec:
     {{- if .Values.feSpec.electionNumber }}
     electionNumber: {{ .Values.feSpec.electionNumber }}
     {{- end }}
+    {{- if .Values.feSpec.startTimeout }}
+    startTimeout: {{ .Values.feSpec.startTimeout }}
+    {{- end }}
     {{- if .Values.feSpec.labels }}
     podLabels:
     {{- toYaml .Values.feSpec.labels | nindent 6 }}
@@ -135,6 +138,9 @@ spec:
     {{- toYaml .Values.beSpec.annotations | nindent 6 }}
     {{- end }}
     replicas: {{ .Values.beSpec.replicas }}
+    {{- if .Values.beSpec.startTimeout }}
+    startTimeout: {{ .Values.beSpec.startTimeout }}
+    {{- end }}
     {{- if .Values.beSpec.labels }}
     podLabels:
     {{- toYaml .Values.beSpec.labels | nindent 6 }}
@@ -222,6 +228,9 @@ spec:
     {{- toYaml .Values.cnSpec.annotations | nindent 6 }}
     {{- end }}
     replicas: {{ .Values.cnSpec.replicas }}
+    {{- if .Values.cnSpec.startTimeout }}
+    startTimeout: {{ .Values.cnSpec.startTimeout }}
+    {{- end }}
 
     {{- if .Values.cnSpec.labels }}
     podLabels:
@@ -320,6 +329,9 @@ spec:
     {{- toYaml .Values.brokerSpec.annotations | nindent 6 }}
     {{- end }}
     replicas: {{ .Values.brokerSpec.replicas }}
+    {{- if .Values.brokerSpec.startTimeout }}
+    startTimeout: {{ .Values.brokerSpec.startTimeout }}
+    {{- end }}
 
     {{- if .Values.brokerSpec.labels }}
     podLabels:
