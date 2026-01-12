@@ -85,6 +85,7 @@ func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 	func() {
 		l := (resource.Labels)(selector)
 		l.AddLabel(pts.Labels)
+		l.AddLabel(ddc.Spec.MetaService.Labels)
 		pts.Labels = l
 	}()
 

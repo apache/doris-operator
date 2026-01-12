@@ -89,6 +89,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	func() {
 		l := (resource.Labels)(selector)
 		l.AddLabel(pts.Labels)
+		l.AddLabel(cg.Labels)
 		pts.Labels = l
 	}()
 
