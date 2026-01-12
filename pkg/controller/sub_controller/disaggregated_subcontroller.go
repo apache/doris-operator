@@ -609,7 +609,7 @@ func (d *DisaggregatedSubDefaultController) getEmptyDirVolumesVolumeMounts(confM
 }
 
 // this function is a compensation, because the DownwardAPI annotations and labels are not mount in pod, so this function amends。
-func(d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
+func (d *DisaggregatedSubDefaultController) AddDownwardAPI(st *appv1.StatefulSet) {
 	t := &st.Spec.Template
 	for index, _ := range t.Spec.Containers {
 		if t.Spec.Containers[index].Name == resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME || t.Spec.Containers[index].Name == resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME ||
@@ -802,4 +802,13 @@ func (d *DisaggregatedSubDefaultController) FindSecretTLSConfig(feConfMap map[st
 	}
 
 	return tlsConfig, secretName
+}
+
+// Only configure the TerminationGracePeriodSeconds when grace_shutdown_wait_seconds configured in be.conf
+func (dcgs *DisaggregatedSubDefaultController) AddTerminationGracePeriodSeconds(cg *v1.ComputeGroup, ddc *v1.DorisDisaggregatedCluster, pts *corev1.PodTemplateSpec) {
+	config := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
+	seconds := resource.GetTerminationGracePeriodSeconds(config)
+	if seconds > 0 {
+		pts.Spec.TerminationGracePeriodSeconds = &seconds
+	}
 }

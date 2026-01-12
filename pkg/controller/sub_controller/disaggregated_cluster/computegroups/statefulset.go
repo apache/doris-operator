@@ -119,6 +119,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	dcgs.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(dv1.DisaggregatedBE, cvs, &ddc.Spec, &pts)
 	cgUniqueId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
 	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgUniqueId, pts.Spec.Affinity)
+	dcgs.DisaggregatedSubDefaultController.AddTerminationGracePeriodSeconds(cg, ddc, &pts)
 
 	return pts
 }
