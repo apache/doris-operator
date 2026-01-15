@@ -76,23 +76,26 @@ func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisD
 		st.Spec.Replicas = cg.Replicas
 		st.Spec.VolumeClaimTemplates = vcts
 		st.Spec.ServiceName = ddc.GetCGServiceName(cg)
-		pts := dcgs.NewPodTemplateSpec(ddc, matchLabels, cvs, cg)
+		pts := dcgs.NewPodTemplateSpec(ddc, cvs, cg)
 		st.Spec.Template = pts
 	}()
 
 	return st
 }
 
-func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, selector map[string]string, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.PodTemplateSpec {
+func (dcgs *DisaggregatedComputeGroupsController) getCGPodLabels(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) resource.Labels {
+	selector := dcgs.newCGPodsSelector(ddc.Name, cg.UniqueId)
+	labels := (resource.Labels)(selector)
+	labels.AddLabel(cg.Labels)
+	return labels
+
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.PodTemplateSpec {
 	pts := resource.NewPodTemplateSpecWithCommonSpec(cg.SkipDefaultSystemInit, &cg.CommonSpec, dv1.DisaggregatedBE)
 	//pod template metadata.
-	func() {
-		l := (resource.Labels)(selector)
-		l.AddLabel(pts.Labels)
-		l.AddLabel(cg.Labels)
-		pts.Labels = l
-	}()
-
+	labels := dcgs.getCGPodLabels(ddc, cg)
+	pts.Labels = labels
 	c := dcgs.NewCGContainer(ddc, cvs, cg)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 
@@ -119,7 +122,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 
 	//add last supplementary spec. if add new config in ddc spec and the config need add in pod, use the follow function to add.
 	dcgs.DisaggregatedSubDefaultController.AddClusterSpecForPodTemplate(dv1.DisaggregatedBE, cvs, &ddc.Spec, &pts)
-	cgUniqueId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
+	cgUniqueId := labels[dv1.DorisDisaggregatedComputeGroupUniqueId]
 	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgUniqueId, pts.Spec.Affinity)
 
 	return pts
