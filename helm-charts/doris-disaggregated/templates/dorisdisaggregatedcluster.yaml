@@ -70,7 +70,8 @@ spec:
     {{- toYaml .Values.feSpec.resources | nindent 4 }}
     {{- end }}
     {{- if .Values.feSpec.service }}
-    {{- toYaml .Values.feSpec.service }}
+    service:
+    {{- toYaml .Values.feSpec.service | nindent 6 }}
     {{- end }}
     {{- if .Values.feSpec.persistentVolumes }}
     persistentVolumes:
