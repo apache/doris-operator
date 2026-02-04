@@ -116,6 +116,10 @@ spec:
     hostAliases:
     {{- toYaml .Values.feSpec.hostAliases | nindent 4 }}
     {{- end }}
+    {{- if .Values.feSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.feSpec.secrets | nindent 4 }}
+    {{- end }}
     {{- if .Values.feSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.fe.pvc" . }}
@@ -203,6 +207,10 @@ spec:
     {{- if .Values.beSpec.hostAliases }}
     hostAliases:
     {{- toYaml .Values.beSpec.hostAliases | nindent 4 }}
+    {{- end }}
+    {{- if .Values.beSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.beSpec.secrets | nindent 4 }}
     {{- end }}
     {{- if .Values.beSpec.persistentVolumeClaim }}
     persistentVolumes:
@@ -295,7 +303,10 @@ spec:
     hostAliases:
     {{- toYaml .Values.cnSpec.hostAliases | nindent 4 }}
     {{- end }}
-
+    {{- if .Values.cnSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.cnSpec.secrets | nindent 4 }}
+    {{- end }}
     {{- if .Values.cnSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.cn.pvc" . }}
@@ -379,6 +390,10 @@ spec:
     {{- if .Values.brokerSpec.hostAliases }}
     hostAliases:
     {{- toYaml .Values.brokerSpec.hostAliases | nindent 4 }}
+    {{- end }}
+    {{- if .Values.brokerSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.brokerSpec.secrets | nindent 4 }}
     {{- end }}
     {{- if .Values.brokerSpec.persistentVolumeClaim }}
     persistentVolumes:

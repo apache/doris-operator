@@ -202,6 +202,13 @@ feSpec:
   # - ip: "127.0.0.2"
   #   hostnames:
   #   - "hostname2"
+  
+  # secrets allows mounting Kubernetes secrets into the pods
+  # Each secret must have a secretName (name of the secret in Kubernetes) and optionally a mountPath
+  secrets: []
+  # - secretName: my-secret
+  #   mountPath: /etc/doris
+  
   persistentVolumeClaim: {}
     # meta volume, mountPath is /opt/apache-doris/fe/doris-meta
     # metaPersistentVolume:
@@ -370,6 +377,13 @@ beSpec:
   # - ip: "127.0.0.2"
   #   hostnames:
   #   - "hostname2"
+  
+  # secrets allows mounting Kubernetes secrets into the pods
+  # Each secret must have a secretName (name of the secret in Kubernetes) and optionally a mountPath
+  secrets: []
+  # - secretName: my-secret
+  #   mountPath: /etc/doris
+  
   persistentVolumeClaim: {}
     # data volume, mountPath is /opt/apache-doris/be/storage
     # dataPersistentVolume:
@@ -539,6 +553,13 @@ cnSpec:
   # - ip: "127.0.0.2"
   #   hostnames:
   #   - "hostname2"
+  
+  # secrets allows mounting Kubernetes secrets into the pods
+  # Each secret must have a secretName (name of the secret in Kubernetes) and optionally a mountPath
+  secrets: []
+  # - secretName: my-secret
+  #   mountPath: /etc/doris
+  
   persistentVolumeClaim: {}
     # data volume, mountPath is /opt/apache-doris/be/storage
     # dataPersistentVolume:
@@ -701,6 +722,13 @@ brokerSpec:
   # - ip: "127.0.0.2"
   #   hostnames:
   #   - "hostname2"
+  
+  # secrets allows mounting Kubernetes secrets into the pods
+  # Each secret must have a secretName (name of the secret in Kubernetes) and optionally a mountPath
+  secrets: []
+  # - secretName: my-secret
+  #   mountPath: /etc/doris
+  
   persistentVolumeClaim: {}
     # logs volume, mountPath is /opt/apache-doris/apache_hdfs_broker/log
     # logsPersistentVolume:
