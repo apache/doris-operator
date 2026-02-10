@@ -177,6 +177,11 @@ type CommonSpec struct {
 	//+optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
+	// (Optional) TopologySpreadConstraints describes how a group of pods ought to spread across topology
+	// domains. Scheduler will schedule pods in a way which abides by the constraints.
+	// +optional
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+
 	// export service for accessing from outside k8s.
 	Service *ExportService `json:"service,omitempty"`
 
