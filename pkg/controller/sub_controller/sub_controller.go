@@ -329,6 +329,11 @@ func (d *SubDefaultController) ClearCommonResources(ctx context.Context, dcr *do
 }
 
 func (d *SubDefaultController) FeAvailable(dcr *dorisv1.DorisCluster) bool {
+	// If FE replicas is explicitly set to 0, allow BE creation
+	if dcr.Spec.FeSpec != nil && dcr.Spec.FeSpec.Replicas != nil && *dcr.Spec.FeSpec.Replicas == 0 {
+		return true
+	}
+
 	addr, _ := dorisv1.GetConfigFEAddrForAccess(dcr, dorisv1.Component_BE)
 	if addr != "" {
 		return true
