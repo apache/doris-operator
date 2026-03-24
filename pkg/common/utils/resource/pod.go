@@ -18,6 +18,7 @@
 package resource
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -543,6 +544,31 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	// use liveness as startup, when in debugging mode will not be killed
 	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, health_api_path, commands, liveProbeType)
 	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType)
+
+	// When TLS is enabled, replace HTTPGet readiness probe with Exec curl that carries client certs.
+	// In mTLS mode (tls_verify_mode=verify_fail_if_no_peer_cert), the HTTPS endpoint requires
+	// client certificates. Kubernetes HTTPGet probes cannot provide client certs, so we use
+	// an Exec probe with curl instead. This is compatible with both TLS and mTLS modes.
+	enableTLS := GetString(config, ENABLE_TLS_KEY)
+	if enableTLS == "true" && c.ReadinessProbe != nil && c.ReadinessProbe.HTTPGet != nil {
+		caCert := GetString(config, TLS_CA_CERTIFICATE_PATH_KEY)
+		clientCert := GetString(config, TLS_CERTIFICATE_PATH_KEY)
+		clientKey := GetString(config, TLS_PRIVATE_KEY_PATH_KEY)
+		curlCmd := fmt.Sprintf(
+			"curl --fail --silent --output /dev/null --cacert %s --cert %s --key %s https://localhost:%d%s",
+			caCert, clientCert, clientKey, readnessPort, health_api_path,
+		)
+		c.ReadinessProbe = &corev1.Probe{
+			PeriodSeconds:    5,
+			FailureThreshold: 3,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"bash", "-c", curlCmd},
+				},
+			},
+		}
+	}
+
 	c.Lifecycle = lifeCycle(prestopScript)
 
 	return c
