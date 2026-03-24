@@ -23,6 +23,7 @@ import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	utils "github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
 	appv1 "k8s.io/api/apps/v1"
@@ -32,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"path"
+	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
@@ -278,6 +281,41 @@ func (d *SubDefaultController) CheckSecretExist(ctx context.Context, dcr *dorisv
 		klog.Errorf("CheckSecretExist error: %s.", errMessage)
 		d.K8srecorder.Event(dcr, string(EventWarning), string(SecretNotExist), fmt.Sprintf("CheckSecretExist error: %s.", errMessage))
 	}
+}
+
+// FindSecretTLSConfig reads TLS configuration from FE config map and returns
+// the TLS config and secret name for establishing TLS-enabled MySQL connections.
+func (d *SubDefaultController) FindSecretTLSConfig(feConfMap map[string]interface{}, dcr *dorisv1.DorisCluster) (*mysql.TLSConfig, string) {
+	enableTLS := resource.GetString(feConfMap, resource.ENABLE_TLS_KEY)
+	if enableTLS == "" {
+		return nil, ""
+	}
+
+	caCertFile := resource.GetString(feConfMap, resource.TLS_CA_CERTIFICATE_PATH_KEY)
+	clientCertFile := resource.GetString(feConfMap, resource.TLS_CERTIFICATE_PATH_KEY)
+	clientKeyFile := resource.GetString(feConfMap, resource.TLS_PRIVATE_KEY_PATH_KEY)
+	caFileName := path.Base(caCertFile)
+	clientCertFileName := path.Base(clientCertFile)
+	clientKeyFileName := path.Base(clientKeyFile)
+
+	caCertDir := filepath.Dir(caCertFile)
+	secretName := ""
+	if dcr.Spec.FeSpec != nil {
+		for _, sn := range dcr.Spec.FeSpec.Secrets {
+			if sn.MountPath == caCertDir {
+				secretName = sn.SecretName
+				break
+			}
+		}
+	}
+
+	tlsConfig := &mysql.TLSConfig{
+		CAFileName:         caFileName,
+		ClientCertFileName: clientCertFileName,
+		ClientKeyFileName:  clientKeyFileName,
+	}
+
+	return tlsConfig, secretName
 }
 
 // CheckSharedPVC verifies two points:

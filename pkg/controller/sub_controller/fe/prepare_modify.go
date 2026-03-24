@@ -25,6 +25,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -119,7 +120,15 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
-	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, nil, nil)
+
+	// check if TLS is enabled in FE config and find the corresponding secret
+	tlsConfig, secretName := fc.FindSecretTLSConfig(maps, targetDCR)
+	var tlsSecret *corev1.Secret
+	if tlsConfig != nil && secretName != "" {
+		tlsSecret, _ = k8s.GetSecret(ctx, k8sclient, targetDCR.Namespace, secretName)
+	}
+
+	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, tlsConfig, tlsSecret)
 	if err != nil {
 		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
 		return err
