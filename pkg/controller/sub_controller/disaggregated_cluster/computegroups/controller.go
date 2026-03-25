@@ -146,17 +146,28 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 	cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 	st := dcgs.NewStatefulset(ddc, cg, cvs)
-	svc := dcgs.newService(ddc, cg, cvs)
+	internalSvc := dcgs.newInternalService(ddc, cg, cvs)
+	externalSvc := dcgs.newExternalService(ddc, cg, cvs)
 	dcgs.initialCGStatus(ddc, cg)
 
 	dcgs.CheckSecretMountPath(ddc, cg.Secrets)
 	dcgs.CheckSecretExist(ctx, ddc, cg.Secrets)
 
-	event, err := dcgs.DefaultReconcileService(ctx, svc)
+	// Reconcile internal headless service.
+	// During upgrade from older versions, the existing service may not be headless (has a ClusterIP assigned).
+	// Since K8s does not allow changing spec.clusterIP on an existing service, we must delete and recreate it.
+	if err := dcgs.reconcileInternalService(ctx, internalSvc); err != nil {
+		klog.Errorf("disaggregatedComputeGroupsController reconcile internal service namespace %s name %s failed, err=%s", internalSvc.Namespace, internalSvc.Name, err.Error())
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.ServiceApplyedFailed, Message: err.Error()}, err
+	}
+
+	// Reconcile external service for load-balanced access.
+	event, err := dcgs.DefaultReconcileService(ctx, externalSvc)
 	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
+		klog.Errorf("disaggregatedComputeGroupsController reconcile external service namespace %s name %s failed, err=%s", externalSvc.Namespace, externalSvc.Name, err.Error())
 		return event, err
 	}
+
 	event, err = dcgs.reconcileStatefulset(ctx, st, ddc, cg)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcile statefulset namespace %s name %s failed, err=%s", st.Namespace, st.Name, err.Error())
@@ -169,6 +180,34 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 
 	return event, err
+}
+
+// reconcileInternalService reconciles the internal headless service for a compute group.
+// If the existing service is not headless (upgrade scenario), it deletes and recreates it,
+// because K8s does not allow mutating spec.clusterIP from a valid IP to "None".
+func (dcgs *DisaggregatedComputeGroupsController) reconcileInternalService(ctx context.Context, svc *corev1.Service) error {
+	var existingSvc corev1.Service
+	err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, &existingSvc)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return k8s.CreateClientObject(ctx, dcgs.K8sclient, svc)
+		}
+		return err
+	}
+
+	// If the existing service is already headless, use normal reconcile path.
+	if existingSvc.Spec.ClusterIP == "None" {
+		_, err = dcgs.DefaultReconcileService(ctx, svc)
+		return err
+	}
+
+	// Existing service is not headless — delete and recreate.
+	klog.Infof("reconcileInternalService existing service %s/%s is not headless (clusterIP=%s), deleting and recreating as headless.",
+		existingSvc.Namespace, existingSvc.Name, existingSvc.Spec.ClusterIP)
+	if err = k8s.DeleteService(ctx, dcgs.K8sclient, svc.Namespace, svc.Name); err != nil {
+		return err
+	}
+	return k8s.CreateClientObject(ctx, dcgs.K8sclient, svc)
 }
 
 // reconcileStatefulset return bool means reconcile print error message.
