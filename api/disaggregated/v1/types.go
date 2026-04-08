@@ -129,6 +129,26 @@ type ComputeGroup struct {
 	AutoResolveLimitCPU bool `json:"autoResolveLimitCPU,omitempty"`
 }
 
+// ReadinessProbePolicy defines the timing policy for readiness probe.
+// This allows users to tune readiness probe behavior to avoid unnecessary endpoint removal
+// during transient resource pressure (e.g. large queries causing temporary health check timeouts).
+type ReadinessProbePolicy struct {
+	// Number of seconds after which the readiness probe times out.
+	// Defaults to 1 (Kubernetes default).
+	// +optional
+	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
+
+	// Minimum consecutive failures for the readiness probe to be considered failed.
+	// Defaults to 3.
+	// +optional
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+
+	// How often (in seconds) to perform the readiness probe.
+	// Defaults to 5.
+	// +optional
+	PeriodSeconds int32 `json:"periodSeconds,omitempty"`
+}
+
 type CommonSpec struct {
 	//Replicas represent the number of desired Pod.
 	// fe default is 2. fe is master-slave architecture only one is master.
@@ -149,6 +169,10 @@ type CommonSpec struct {
 
 	//Number of seconds after which the probe times out. Defaults to 180 second.
 	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
+	// ReadinessProbePolicy defines the timing policy for readiness probe.
+	// +optional
+	ReadinessProbePolicy *ReadinessProbePolicy `json:"readinessProbePolicy,omitempty"`
 
 	//defines the specification of resource cpu and mem. ep: {"requests":{"cpu": 4, "memory": "8Gi"},"limits":{"cpu":4,"memory":"8Gi"}}
 	corev1.ResourceRequirements `json:",inline"`

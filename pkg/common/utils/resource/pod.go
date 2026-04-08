@@ -543,7 +543,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	c.LivenessProbe = livenessProbe(livenessPort, spec.LiveTimeout, health_api_path, commands, liveProbeType)
 	// use liveness as startup, when in debugging mode will not be killed
 	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, health_api_path, commands, liveProbeType)
-	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType)
+	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType, spec.ReadinessProbePolicy)
 
 	// When TLS is enabled, replace HTTPGet readiness probe with Exec curl that carries client certs.
 	// In mTLS mode (tls_verify_mode=verify_fail_if_no_peer_cert), the HTTPS endpoint requires
@@ -558,7 +558,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 			"curl --fail --silent --output /dev/null --cacert %s --cert %s --key %s https://localhost:%d%s",
 			caCert, clientCert, clientKey, readnessPort, health_api_path,
 		)
-		c.ReadinessProbe = &corev1.Probe{
+		tlsProbe := &corev1.Probe{
 			PeriodSeconds:    5,
 			FailureThreshold: 3,
 			ProbeHandler: corev1.ProbeHandler{
@@ -567,6 +567,10 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 				},
 			},
 		}
+		if spec.ReadinessProbePolicy != nil {
+			applyReadinessProbePolicy(tlsProbe, spec.ReadinessProbePolicy.TimeoutSeconds, spec.ReadinessProbePolicy.FailureThreshold, spec.ReadinessProbePolicy.PeriodSeconds)
+		}
+		c.ReadinessProbe = tlsProbe
 	}
 
 	c.Lifecycle = lifeCycle(prestopScript)
@@ -1022,8 +1026,8 @@ func LivenessProbe(port, timeout int32, path string, commands []string, pt Probe
 	return livenessProbe(port, timeout, path, commands, pt)
 }
 
-func ReadinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
-	return readinessProbe(port, path, commands, pt)
+func ReadinessProbe(port int32, path string, commands []string, pt ProbeType, policy *v1.ReadinessProbePolicy) *corev1.Probe {
+	return readinessProbe(port, path, commands, pt, policy)
 }
 
 // StartupProbe returns a startup probe.
@@ -1056,13 +1060,31 @@ func livenessProbe(port, timeout int32, path string, commands []string, pt Probe
 	}
 }
 
-// ReadinessProbe returns a readiness probe.
-func readinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
-	return &corev1.Probe{
+// applyReadinessProbePolicy applies policy overrides to a readiness probe.
+// For each field, only overrides when the policy value > 0, otherwise keeps the probe's existing value.
+func applyReadinessProbePolicy(probe *corev1.Probe, timeoutSeconds, failureThreshold, periodSeconds int32) {
+	if periodSeconds > 0 {
+		probe.PeriodSeconds = periodSeconds
+	}
+	if failureThreshold > 0 {
+		probe.FailureThreshold = failureThreshold
+	}
+	if timeoutSeconds > 0 {
+		probe.TimeoutSeconds = timeoutSeconds
+	}
+}
+
+// readinessProbe returns a readiness probe with optional policy overrides.
+func readinessProbe(port int32, path string, commands []string, pt ProbeType, policy *v1.ReadinessProbePolicy) *corev1.Probe {
+	probe := &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		ProbeHandler:     getProbe(port, path, commands, pt),
 	}
+	if policy != nil {
+		applyReadinessProbePolicy(probe, policy.TimeoutSeconds, policy.FailureThreshold, policy.PeriodSeconds)
+	}
+	return probe
 }
 
 // LifeCycle returns a lifecycle.
@@ -1149,6 +1171,10 @@ func getExecProbe(commands []string) corev1.ProbeHandler {
 }
 
 func BuildDisaggregatedProbe(container *corev1.Container, cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) {
+	if cs == nil {
+		return
+	}
+
 	var failurethreshold int32
 	startTimeout := int32(300)
 	liveTimeout := cs.LiveTimeout
@@ -1204,6 +1230,9 @@ func BuildDisaggregatedProbe(container *corev1.Container, cs *dv1.CommonSpec, co
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		ProbeHandler:     ready,
+	}
+	if cs.ReadinessProbePolicy != nil {
+		applyReadinessProbePolicy(container.ReadinessProbe, cs.ReadinessProbePolicy.TimeoutSeconds, cs.ReadinessProbePolicy.FailureThreshold, cs.ReadinessProbePolicy.PeriodSeconds)
 	}
 }
 
