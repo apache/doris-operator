@@ -1938,6 +1938,29 @@ spec:
                             type: string
                         type: object
                       type: array
+                    readinessProbePolicy:
+                      description: ReadinessProbePolicy defines the timing policy
+                        for readiness probe.
+                      properties:
+                        failureThreshold:
+                          description: |-
+                            Minimum consecutive failures for the readiness probe to be considered failed.
+                            Defaults to 3.
+                          format: int32
+                          type: integer
+                        periodSeconds:
+                          description: |-
+                            How often (in seconds) to perform the readiness probe.
+                            Defaults to 5.
+                          format: int32
+                          type: integer
+                        timeoutSeconds:
+                          description: |-
+                            Number of seconds after which the readiness probe times out.
+                            Defaults to 1 (Kubernetes default).
+                          format: int32
+                          type: integer
+                      type: object
                     replicas:
                       description: |-
                         Replicas represent the number of desired Pod.
@@ -4236,6 +4259,29 @@ spec:
                           type: string
                       type: object
                     type: array
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
+                    type: object
                   replicas:
                     description: |-
                       Replicas represent the number of desired Pod.
@@ -6545,6 +6591,29 @@ spec:
                           type: string
                       type: object
                     type: array
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
+                    type: object
                   replicas:
                     description: |-
                       Replicas represent the number of desired Pod.

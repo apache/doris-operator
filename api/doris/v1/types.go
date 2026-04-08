@@ -184,6 +184,26 @@ type BrokerSpec struct {
 	KickOffAffinityBe bool `json:"kickOffAffinityBe,omitempty"`
 }
 
+// ReadinessProbePolicy defines the timing policy for readiness probe.
+// This allows users to tune readiness probe behavior to avoid unnecessary endpoint removal
+// during transient resource pressure (e.g. large queries causing temporary health check timeouts).
+type ReadinessProbePolicy struct {
+	// Number of seconds after which the readiness probe times out.
+	// Defaults to 1 (Kubernetes default).
+	// +optional
+	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
+
+	// Minimum consecutive failures for the readiness probe to be considered failed.
+	// Defaults to 3.
+	// +optional
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+
+	// How often (in seconds) to perform the readiness probe.
+	// Defaults to 5.
+	// +optional
+	PeriodSeconds int32 `json:"periodSeconds,omitempty"`
+}
+
 // BaseSpec describe the foundation spec of pod about doris components.
 type BaseSpec struct {
 
@@ -192,6 +212,10 @@ type BaseSpec struct {
 
 	//Number of seconds after which the probe times out. Defaults to 180 second.
 	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
+	// ReadinessProbePolicy defines the timing policy for readiness probe.
+	// +optional
+	ReadinessProbePolicy *ReadinessProbePolicy `json:"readinessProbePolicy,omitempty"`
 
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
 	Annotations map[string]string `json:"annotations,omitempty"`
