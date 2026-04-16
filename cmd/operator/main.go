@@ -122,7 +122,21 @@ func main() {
 		defaultNamespaces[f.Namespace] = cache.Config{}
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	// Increase Kubernetes API client rate limits.
+	// Default QPS=5, Burst=10 is too low for operators managing 26+ pods,
+	// causing API call queueing that starves leader election lease renewal.
+	restConfig := ctrl.GetConfigOrDie()
+	restConfig.QPS = 50
+	restConfig.Burst = 100
+
+	// Increase leader election timeouts to prevent lease loss during
+	// API server pressure or high reconciliation load.
+	// Defaults: LeaseDuration=15s, RenewDeadline=10s, RetryPeriod=2s
+	leaseDuration := 30 * time.Second
+	renewDeadline := 20 * time.Second
+	retryPeriod := 5 * time.Second
+
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: f.MetricsAddr,
@@ -134,6 +148,11 @@ func main() {
 		WebhookServer:    webhookServer,
 		LeaderElection:   f.EnableLeaderElection,
 		LeaderElectionID: "e1370669.selectdb.com",
+
+		LeaseDuration: &leaseDuration,
+		RenewDeadline: &renewDeadline,
+		RetryPeriod:   &retryPeriod,
+
 		//if one reconcile failed, others will not be affected.
 		Controller: controllerconfig.Controller{
 			RecoverPanic: pointer.Bool(true),
