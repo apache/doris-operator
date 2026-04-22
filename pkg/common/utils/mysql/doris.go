@@ -81,6 +81,8 @@ type Backend struct {
 	NodeRole                string  `json:"node_role" db:"NodeRole"`
 	CpuCores                string  `json:"cpu_cores" db:"CpuCores"`
 	Memory                  string  `json:"memory" db:"Memory"`
+	LiveSince               *string `json:"live_since" db:"LiveSince"`
+	RunningTasks            int     `json:"running_tasks" db:"RunningTasks"`
 }
 
 // BuildSeqNumberToFrontendMap
