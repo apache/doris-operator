@@ -895,3 +895,12 @@ func (d *DisaggregatedSubDefaultController) FindSecretTLSConfig(feConfMap map[st
 
 	return tlsConfig, secretName
 }
+
+// Only configure the TerminationGracePeriodSeconds when grace_shutdown_wait_seconds configured in be.conf
+func (dcgs *DisaggregatedSubDefaultController) AddTerminationGracePeriodSeconds(cg *v1.ComputeGroup, ddc *v1.DorisDisaggregatedCluster, pts *corev1.PodTemplateSpec) {
+	config := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
+	seconds := resource.GetTerminationGracePeriodSeconds(config)
+	if seconds > 0 {
+		pts.Spec.TerminationGracePeriodSeconds = &seconds
+	}
+}
