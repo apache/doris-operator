@@ -153,13 +153,7 @@ func (be *Controller) beContainer(dcr *v1.DorisCluster) corev1.Container {
 	return c
 }
 
-// Only configure the TerminationGracePeriodSeconds when grace_shutdown_wait_seconds configured in be.conf
 func (be *Controller) addTerminationGracePeriodSeconds(dcr *v1.DorisCluster, tplSpec *corev1.PodTemplateSpec) {
 	config, _ := be.GetConfig(context.Background(), &dcr.Spec.BeSpec.ConfigMapInfo, dcr.Namespace, v1.Component_BE)
-	seconds := resource.GetTerminationGracePeriodSeconds(config)
-	if seconds > 0 {
-		tplSpec.Spec.TerminationGracePeriodSeconds = &seconds
-		return
-	}
-	return
+	resource.AddTerminationGracePeriodSeconds(tplSpec, config, resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
 }

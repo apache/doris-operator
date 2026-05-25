@@ -85,6 +85,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisD
 
 func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, selector map[string]string, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.PodTemplateSpec {
 	pts := resource.NewPodTemplateSpecWithCommonSpec(cg.SkipDefaultSystemInit, &cg.CommonSpec, dv1.DisaggregatedBE)
+	resource.AddTerminationGracePeriodSeconds(&pts, cvs, resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
 	//pod template metadata.
 	func() {
 		l := (resource.Labels)(selector)
@@ -143,7 +144,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	c.Ports = resource.GetDisaggregatedContainerPorts(cvs, dv1.DisaggregatedBE)
 	c.Env = cg.CommonSpec.EnvVars
 	c.Env = append(c.Env, resource.GetPodDefaultEnv()...)
-	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg)...)
+	c.Env = append(c.Env, dcgs.newSpecificEnvs(ddc, cg, cvs)...)
 
 	if cg.SkipDefaultSystemInit {
 		// Only works when the doris version is higher than 2.1.8 or 3.0.4
@@ -182,7 +183,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 }
 
 // add specific envs for be, the env will used by be_disaggregated_entrypoint script.
-func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) []corev1.EnvVar {
+func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) []corev1.EnvVar {
 	var cgEnvs []corev1.EnvVar
 	stsName := ddc.GetCGStatefulsetName(cg)
 
@@ -195,6 +196,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},
+		corev1.EnvVar{Name: "HOST_TYPE", Value: resource.GetStartMode(cvs)},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
 		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
 
