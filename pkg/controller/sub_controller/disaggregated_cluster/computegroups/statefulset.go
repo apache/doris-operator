@@ -196,7 +196,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},
-		corev1.EnvVar{Name: "HOST_TYPE", Value: resource.GetStartMode(cvs)},
+		corev1.EnvVar{Name: "HOST_TYPE", Value: resource.START_MODEL_FQDN},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
 		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
 
