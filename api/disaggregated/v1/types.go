@@ -404,13 +404,13 @@ const (
 type GracefulActionPhase string
 
 const (
-	GracefulPhaseTriggerDrain  GracefulActionPhase = "TriggerDrain"
-	GracefulPhaseWaitDrain     GracefulActionPhase = "WaitDrain"
-	GracefulPhaseDeletePod     GracefulActionPhase = "DeletePod"
-	GracefulPhaseWaitPodReady  GracefulActionPhase = "WaitPodReady"
-	GracefulPhaseWaitBEAlive   GracefulActionPhase = "WaitBEAlive"
-	GracefulPhaseDone          GracefulActionPhase = "Done"
-	GracefulPhaseFailed        GracefulActionPhase = "Failed"
+	GracefulPhaseTriggerDrain GracefulActionPhase = "TriggerDrain"
+	GracefulPhaseWaitDrain    GracefulActionPhase = "WaitDrain"
+	GracefulPhaseDeletePod    GracefulActionPhase = "DeletePod"
+	GracefulPhaseWaitPodReady GracefulActionPhase = "WaitPodReady"
+	GracefulPhaseWaitBEAlive  GracefulActionPhase = "WaitBEAlive"
+	GracefulPhaseDone         GracefulActionPhase = "Done"
+	GracefulPhaseFailed       GracefulActionPhase = "Failed"
 )
 
 // GracefulAction tracks the state of an in-progress graceful two-phase restart/shutdown operation.
