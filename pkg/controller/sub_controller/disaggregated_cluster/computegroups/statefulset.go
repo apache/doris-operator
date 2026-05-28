@@ -85,6 +85,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisD
 
 func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.DorisDisaggregatedCluster, selector map[string]string, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.PodTemplateSpec {
 	pts := resource.NewPodTemplateSpecWithCommonSpec(cg.SkipDefaultSystemInit, &cg.CommonSpec, dv1.DisaggregatedBE)
+	resource.AddTerminationGracePeriodSeconds(&pts, cvs, resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
 	//pod template metadata.
 	func() {
 		l := (resource.Labels)(selector)
@@ -195,6 +196,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 	cgEnvs = append(cgEnvs,
 		corev1.EnvVar{Name: resource.STATEFULSET_NAME, Value: stsName},
 		corev1.EnvVar{Name: resource.COMPUTE_GROUP_NAME, Value: ddc.GetCGName(cg)},
+		corev1.EnvVar{Name: "HOST_TYPE", Value: resource.START_MODEL_FQDN},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
 		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
 

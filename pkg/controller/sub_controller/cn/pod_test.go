@@ -14,63 +14,47 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package fe
+package cn
 
 import (
 	"encoding/json"
+	"testing"
+
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
-	"testing"
 )
 
-func Test_buildFEPodTemplateSpec(t *testing.T) {
+func Test_buildCnPodTemplateSpec(t *testing.T) {
 	dcrJsonStr := `{
     "apiVersion": "doris.selectdb.com/v1",
-        "kind": "DorisCluster",
-        "metadata": {
+    "kind": "DorisCluster",
+    "metadata": {
         "name": "doriscluster-sample",
         "namespace": "default"
     },
     "spec": {
-        "beSpec": {
-			"baseSpec": {
-            	"image": "selectdb/doris.be-ubuntu:2.1.6",
-				"replicas": 3
-			},
-			"enableWorkloadGroup": true
+        "cnSpec": {
+            "image": "selectdb/doris.be-ubuntu:2.1.6",
+            "replicas": 3
         },
         "feSpec": {
             "image": "selectdb/doris.fe-ubuntu:2.1.6",
-                "replicas": 3,
-                "service": {
-                "type": "NodePort"
-            }
-        }
-    },
-    "status": {
-        "feStatus": {
-            "componentCondition": {
-                "phase": "Available"
-            }
-        },
-        "beStatus": {
-            "componentCondition": {
-                "phase": "Available"
-            }
+            "replicas": 3
         }
     }
 }`
 
 	dcr := &v1.DorisCluster{}
 	if err := json.Unmarshal([]byte(dcrJsonStr), dcr); err != nil {
-		t.Errorf("Test_buildBEStatefulSet unmarshal failed, err=%s", err.Error())
+		t.Errorf("the buildCnPodTemplateSpec unmarshal failed, err=%s", err.Error())
 	}
-	fc := &Controller{}
-	pts := fc.buildFEPodTemplateSpec(dcr, map[string]interface{}{})
+
+	cn := &Controller{}
+	pts := cn.buildCnPodTemplateSpec(dcr, map[string]interface{}{})
 	if pts.Spec.TerminationGracePeriodSeconds == nil {
-		t.Fatalf("expected FE terminationGracePeriodSeconds")
+		t.Fatalf("expected CN terminationGracePeriodSeconds")
 	}
-	if *pts.Spec.TerminationGracePeriodSeconds != resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS {
-		t.Errorf("expected FE terminationGracePeriodSeconds=%d, got %d", resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
+	if *pts.Spec.TerminationGracePeriodSeconds != resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS {
+		t.Errorf("expected CN terminationGracePeriodSeconds=%d, got %d", resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
 	}
 }
