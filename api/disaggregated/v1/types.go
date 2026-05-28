@@ -384,7 +384,70 @@ const (
 	ResumeFailed    Phase = "ResumeFailed"
 	SuspendFailed   Phase = "SuspendFailed"
 	Suspended       Phase = "Suspended"
+
+	// Graceful two-phase restart/shutdown phases
+	GracefulRolling  Phase = "GracefulRolling"
+	GracefulScaling  Phase = "GracefulScaling"
+	GracefulDeleting Phase = "GracefulDeleting"
 )
+
+// GracefulActionType describes the type of graceful action being performed.
+type GracefulActionType string
+
+const (
+	GracefulActionRollingUpdate GracefulActionType = "RollingUpdate"
+	GracefulActionScaleDown     GracefulActionType = "ScaleDown"
+	GracefulActionDelete        GracefulActionType = "Delete"
+)
+
+// GracefulActionPhase describes the current phase of a graceful action on a single pod.
+type GracefulActionPhase string
+
+const (
+	GracefulPhaseTriggerDrain  GracefulActionPhase = "TriggerDrain"
+	GracefulPhaseWaitDrain     GracefulActionPhase = "WaitDrain"
+	GracefulPhaseDeletePod     GracefulActionPhase = "DeletePod"
+	GracefulPhaseWaitPodReady  GracefulActionPhase = "WaitPodReady"
+	GracefulPhaseWaitBEAlive   GracefulActionPhase = "WaitBEAlive"
+	GracefulPhaseDone          GracefulActionPhase = "Done"
+	GracefulPhaseFailed        GracefulActionPhase = "Failed"
+)
+
+// GracefulAction tracks the state of an in-progress graceful two-phase restart/shutdown operation.
+type GracefulAction struct {
+	// Type is the kind of graceful action: RollingUpdate, ScaleDown, or Delete.
+	Type GracefulActionType `json:"type,omitempty"`
+
+	// Phase is the current step in the graceful action state machine.
+	Phase GracefulActionPhase `json:"phase,omitempty"`
+
+	// CurrentPod is the name of the pod currently being processed.
+	CurrentPod string `json:"currentPod,omitempty"`
+
+	// CurrentOrdinal is the ordinal index of the pod currently being processed.
+	CurrentOrdinal int32 `json:"currentOrdinal,omitempty"`
+
+	// TargetRevision is the StatefulSet updateRevision being rolled out to (for RollingUpdate).
+	TargetRevision string `json:"targetRevision,omitempty"`
+
+	// DesiredReplicas is the target replica count (for ScaleDown).
+	DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
+
+	// StartedAt is when the current pod's graceful action began.
+	StartedAt metav1.Time `json:"startedAt,omitempty"`
+
+	// DeadlineAt is when the current pod's drain timeout expires.
+	DeadlineAt metav1.Time `json:"deadlineAt,omitempty"`
+
+	// LastMessage is a human-readable message about the current action state.
+	LastMessage string `json:"lastMessage,omitempty"`
+
+	// DrainTriggered indicates whether the drain exec has been triggered for the current pod.
+	DrainTriggered bool `json:"drainTriggered,omitempty"`
+
+	// InitialRestartCount records the BE container's restart count before drain, to detect kubelet restarts.
+	InitialRestartCount int32 `json:"initialRestartCount,omitempty"`
+}
 
 type AvailableStatus string
 
@@ -424,6 +487,10 @@ type ComputeGroupStatus struct {
 	// Total number of available pods (ready for at least minReadySeconds) targeted by this statefulset.
 	// +optional
 	AvailableReplicas int32 `json:"availableReplicas,omitempty"`
+
+	// GracefulAction tracks the state of an in-progress graceful two-phase restart/shutdown action.
+	// +optional
+	GracefulAction *GracefulAction `json:"gracefulAction,omitempty"`
 }
 
 type FEStatus struct {

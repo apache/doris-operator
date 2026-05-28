@@ -38,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,15 +52,17 @@ var (
 
 type DisaggregatedComputeGroupsController struct {
 	sc.DisaggregatedSubDefaultController
+	RestConfig *rest.Config
 }
 
 func New(mgr ctrl.Manager) *DisaggregatedComputeGroupsController {
 	return &DisaggregatedComputeGroupsController{
-		sc.DisaggregatedSubDefaultController{
+		DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
 			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedComputeGroupsController),
 			ControllerName: disaggregatedComputeGroupsController,
 		},
+		RestConfig: mgr.GetConfig(),
 	}
 }
 
@@ -212,6 +215,32 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	// be decimmission processing, skip apply statefulset.
 	if skipApplyStatefulset(cluster, cg) {
 		return nil, nil
+	}
+
+	// Graceful two-phase restart/shutdown: check if we need to perform a graceful action.
+	// This must happen after preApply but before the actual StatefulSet apply.
+	if dcgs.RestConfig != nil {
+		var cgStatus *dv1.ComputeGroupStatus
+		for i := range cluster.Status.ComputeGroupStatuses {
+			if cluster.Status.ComputeGroupStatuses[i].UniqueId == cg.UniqueId {
+				cgStatus = &cluster.Status.ComputeGroupStatuses[i]
+				break
+			}
+		}
+		if cgStatus != nil {
+			// If a graceful action is already in progress or needs to start,
+			// ensure OnDelete strategy to prevent K8s from auto-deleting pods.
+			skipApply, gracefulErr := dcgs.gracefulRolloutReconcile(ctx, dcgs.RestConfig, st, &est, cluster, cg, cgStatus)
+			if gracefulErr != nil {
+				klog.Errorf("reconcileStatefulset gracefulRolloutReconcile failed: %v", gracefulErr)
+				// Continue with normal reconcile on error, don't block.
+			}
+			if skipApply {
+				// Graceful action is in progress. Apply StatefulSet with OnDelete strategy
+				// so K8s won't auto-delete pods, but still update the template.
+				ensureOnDeleteStrategy(st)
+			}
+		}
 	}
 
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(new, est *appv1.StatefulSet) bool {

@@ -76,6 +76,14 @@ var (
 	FDBAddressNotConfiged           EventReason = "FDBAddressNotConfiged"
 	RestartTimeInvalid              EventReason = "RestartTimeInvalid"
 	ConfigMapGetFailed              EventReason = "ConfigMapGetFailed"
+	GracefulDrainStarted            EventReason = "GracefulDrainStarted"
+	GracefulDrainCompleted          EventReason = "GracefulDrainCompleted"
+	GracefulDrainTimeout            EventReason = "GracefulDrainTimeout"
+	GracefulDrainExecFailed         EventReason = "GracefulDrainExecFailed"
+	GracefulPodDeleted              EventReason = "GracefulPodDeleted"
+	GracefulReplacementReady        EventReason = "GracefulReplacementReady"
+	GracefulActionCompleted         EventReason = "GracefulActionCompleted"
+	GracefulActionFailed            EventReason = "GracefulActionFailed"
 )
 
 type Event struct {

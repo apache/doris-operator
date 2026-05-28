@@ -154,6 +154,13 @@ rules:
       - list
       - watch
       - update
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - pods/exec
+    verbs:
+      - create
   - apiGroups:
       - ""
     resources:
