@@ -319,14 +319,6 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 
 	for i := range cgss {
 		if cgss[i].UniqueId == uniqueId {
-			/*if cgss[i].Phase != dv1.Ready {
-				defaultStatus.Phase = cgss[i].Phase
-			}
-			defaultStatus.SuspendReplicas = cgss[i].SuspendReplicas
-			cgss[i] = defaultStatus*/
-			if cgss[i].Phase == dv1.Ready {
-				cgss[i].Phase = defaultStatus.Phase
-			}
 			cgss[i].Replicas = *cg.Replicas
 
 			return

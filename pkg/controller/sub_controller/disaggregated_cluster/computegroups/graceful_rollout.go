@@ -22,10 +22,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
@@ -116,6 +118,10 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 		return false, nil
 	}
 
+	if ga.Type == dv1.GracefulActionRollingUpdate {
+		dcgs.refreshRollingUpdateTargetRevision(est, ga)
+	}
+
 	// Run the state machine.
 	err = dcgs.runGracefulStateMachine(ctx, restConfig, cluster, cg, cgStatus, est, ga)
 	if err != nil {
@@ -199,7 +205,6 @@ func (dcgs *DisaggregatedComputeGroupsController) runGracefulStateMachine(
 	case dv1.GracefulPhaseWaitPodReady:
 		return dcgs.handleWaitPodReady(ctx, cluster, cg, cgStatus, est, ga)
 	case dv1.GracefulPhaseWaitBEAlive:
-		// For first version, treat WaitBEAlive same as Done after WaitPodReady.
 		return dcgs.handleWaitBEAlive(ctx, cluster, cg, cgStatus, ga)
 	case dv1.GracefulPhaseDone, dv1.GracefulPhaseFailed:
 		return nil
@@ -218,6 +223,10 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 	est *appv1.StatefulSet,
 	ga *dv1.GracefulAction,
 ) error {
+	if ga.Type == dv1.GracefulActionRollingUpdate {
+		dcgs.refreshRollingUpdateTargetRevision(est, ga)
+	}
+
 	// If no current pod selected, pick the next one.
 	if ga.CurrentPod == "" {
 		if ga.Type == dv1.GracefulActionRollingUpdate && ga.TargetRevision == "" {
@@ -454,8 +463,7 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
 			"Replacement pod %s is ready", ga.CurrentPod)
 
-		// For first version, skip WaitBEAlive and advance directly.
-		dcgs.advanceToNextPod(ga)
+		ga.Phase = dv1.GracefulPhaseWaitBEAlive
 		return nil
 	}
 
@@ -463,8 +471,21 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 	return nil
 }
 
-// handleWaitBEAlive checks FE SHOW BACKENDS for BE alive status.
-// First version: just advance to next pod after WaitPodReady.
+func (dcgs *DisaggregatedComputeGroupsController) refreshRollingUpdateTargetRevision(est *appv1.StatefulSet, ga *dv1.GracefulAction) {
+	if ga == nil || ga.Type != dv1.GracefulActionRollingUpdate {
+		return
+	}
+	if est == nil || est.Status.UpdateRevision == "" {
+		return
+	}
+	if ga.TargetRevision != "" && ga.TargetRevision != est.Status.UpdateRevision {
+		klog.Infof("refreshRollingUpdateTargetRevision: statefulset %s/%s target revision changed from %s to %s",
+			est.Namespace, est.Name, ga.TargetRevision, est.Status.UpdateRevision)
+	}
+	ga.TargetRevision = est.Status.UpdateRevision
+}
+
+// handleWaitBEAlive waits until FE reports the replacement backend as alive.
 func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 	ctx context.Context,
 	cluster *dv1.DorisDisaggregatedCluster,
@@ -472,9 +493,80 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 	cgStatus *dv1.ComputeGroupStatus,
 	ga *dv1.GracefulAction,
 ) error {
-	// For the first version, just advance.
-	dcgs.advanceToNextPod(ga)
+	backend, err := dcgs.getBackendByPodName(ctx, cluster, cgStatus, ga.CurrentPod)
+	if err != nil {
+		ga.LastMessage = fmt.Sprintf("Waiting for backend %s to appear in FE: %v", ga.CurrentPod, err)
+		return nil
+	}
+
+	shutdown, err := backendIsShutdown(backend)
+	if err != nil {
+		ga.LastMessage = fmt.Sprintf("Waiting for backend %s status to be parseable: %v", ga.CurrentPod, err)
+		return nil
+	}
+
+	if backend.Alive && !shutdown {
+		klog.Infof("handleWaitBEAlive: backend %s is alive in FE", ga.CurrentPod)
+		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
+			"Backend %s is alive in FE", ga.CurrentPod)
+		dcgs.advanceToNextPod(ga)
+		return nil
+	}
+
+	ga.LastMessage = fmt.Sprintf(
+		"Waiting for backend %s to become alive in FE (alive=%t shutdown=%t heartbeatFailures=%d err=%s)",
+		ga.CurrentPod, backend.Alive, shutdown, backend.HeartbeatFailureCounter, backend.ErrMsg)
 	return nil
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) getBackendByPodName(
+	ctx context.Context,
+	cluster *dv1.DorisDisaggregatedCluster,
+	cgStatus *dv1.ComputeGroupStatus,
+	podName string,
+) (*mysql.Backend, error) {
+	sqlClient, err := dcgs.getMasterSqlClient(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	defer sqlClient.Close()
+
+	backends, err := sqlClient.GetBackendsByComputeGroupId(cgStatus.ComputeGroupId)
+	if err != nil {
+		return nil, err
+	}
+	for _, backend := range backends {
+		if backendMatchesPod(backend, podName) {
+			return backend, nil
+		}
+	}
+	return nil, fmt.Errorf("backend for pod %s not found", podName)
+}
+
+func backendIsShutdown(backend *mysql.Backend) (bool, error) {
+	if backend == nil || backend.Status == "" {
+		return false, nil
+	}
+	var status map[string]interface{}
+	if err := json.Unmarshal([]byte(backend.Status), &status); err != nil {
+		return false, err
+	}
+	raw, ok := status["isShutdown"]
+	if !ok {
+		return false, nil
+	}
+	shutdown, ok := raw.(bool)
+	if !ok {
+		return false, fmt.Errorf("backend status isShutdown has unexpected type %T", raw)
+	}
+	return shutdown, nil
+}
+
+func backendMatchesPod(backend *mysql.Backend, podName string) bool {
+	if backend == nil {
+		return false
+	}
+	return strings.HasPrefix(backend.Host, podName+".") || backend.Host == podName
 }
 
 // selectNextPod finds the next pod to process for the current graceful action.
