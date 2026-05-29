@@ -64,6 +64,10 @@ func (ddc *DorisDisaggregatedCluster) GetCGServiceName(cg *ComputeGroup) string 
 	return svcName
 }
 
+func (ddc *DorisDisaggregatedCluster) GetCGExternalServiceName(cg *ComputeGroup) string {
+	return ddc.GetCGServiceName(cg) + "-external"
+}
+
 func (ddc *DorisDisaggregatedCluster) GetFEServiceName() string {
 	return ddc.Name + "-" + "fe"
 }
