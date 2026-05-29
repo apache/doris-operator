@@ -19,6 +19,7 @@ package computegroups
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -51,6 +52,10 @@ const (
 
 	// beMainContainerName is the name of the disaggregated BE main container.
 	beMainContainerName = "compute"
+
+	// gracefulActionAnnotation stores the rollout state on the StatefulSet.
+	// CR status alone is not safe here because old CRDs prune unknown status fields.
+	gracefulActionAnnotation = "doris.disaggregated.cluster/graceful-action"
 )
 
 // gracefulRolloutReconcile is the entry point for graceful two-phase restart/shutdown.
@@ -64,17 +69,23 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
 ) (skipApply bool, err error) {
+	cgStatus.GracefulAction = nil
 
 	// Determine what graceful action is needed.
 	action := dcgs.detectGracefulAction(st, est, cgStatus)
-	if action == nil && cgStatus.GracefulAction == nil {
+	storedAction, err := getGracefulAction(est)
+	if err != nil {
+		return true, err
+	}
+	if action == nil && storedAction == nil {
 		// No graceful action needed or in progress.
 		return false, nil
 	}
 
-	// If we have a new action and no existing action, start it.
-	if action != nil && cgStatus.GracefulAction == nil {
-		cgStatus.GracefulAction = action
+	// If we have a new action and no existing action, store the action first.
+	// For rolling updates this lets the new StatefulSet template be applied with
+	// OnDelete before any pod is deleted.
+	if action != nil && storedAction == nil {
 		switch action.Type {
 		case dv1.GracefulActionRollingUpdate:
 			cgStatus.Phase = dv1.GracefulRolling
@@ -86,24 +97,27 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 		klog.Infof("gracefulRolloutReconcile: starting graceful action type=%s for cg=%s", action.Type, cg.UniqueId)
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulDrainStarted),
 			"Starting graceful %s for compute group %s", action.Type, cg.UniqueId)
+		prepareGracefulStatefulSet(st, est, action)
+		setGracefulAction(st, action)
+		return true, nil
 	}
 
 	// If there's a higher-priority action pending, abort current.
-	if action != nil && cgStatus.GracefulAction != nil && action.Type != cgStatus.GracefulAction.Type {
-		if gracefulActionPriority(action.Type) > gracefulActionPriority(cgStatus.GracefulAction.Type) {
+	if action != nil && storedAction != nil && action.Type != storedAction.Type {
+		if gracefulActionPriority(action.Type) > gracefulActionPriority(storedAction.Type) {
 			klog.Infof("gracefulRolloutReconcile: aborting %s in favor of higher-priority %s for cg=%s",
-				cgStatus.GracefulAction.Type, action.Type, cg.UniqueId)
-			cgStatus.GracefulAction = action
+				storedAction.Type, action.Type, cg.UniqueId)
+			storedAction = action
 		}
 	}
 
-	ga := cgStatus.GracefulAction
+	ga := storedAction
 	if ga == nil {
 		return false, nil
 	}
 
 	// Run the state machine.
-	err = dcgs.runGracefulStateMachine(ctx, restConfig, cluster, cg, cgStatus, est)
+	err = dcgs.runGracefulStateMachine(ctx, restConfig, cluster, cg, cgStatus, est, ga)
 	if err != nil {
 		ga.LastMessage = err.Error()
 		klog.Errorf("gracefulRolloutReconcile: state machine error for cg=%s pod=%s phase=%s: %v",
@@ -116,12 +130,14 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 		klog.Infof("gracefulRolloutReconcile: graceful action completed for cg=%s", cg.UniqueId)
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulActionCompleted),
 			"Graceful %s completed for compute group %s", ga.Type, cg.UniqueId)
-		cgStatus.GracefulAction = nil
 		cgStatus.Phase = dv1.Reconciling
+		clearGracefulAction(st)
 		return false, nil
 	}
 
 	// Still in progress, skip normal apply.
+	prepareGracefulStatefulSet(st, est, ga)
+	setGracefulAction(st, ga)
 	return true, nil
 }
 
@@ -141,8 +157,17 @@ func (dcgs *DisaggregatedComputeGroupsController) detectGracefulAction(
 		}
 	}
 
-	// Check for rolling update: revision mismatch.
-	// We detect this by comparing the spec hash annotation.
+	// Check for rolling update before applying the new template. Waiting for
+	// UpdateRevision != CurrentRevision is too late because native RollingUpdate
+	// may have already started deleting pods.
+	if dcgs.statefulSetSpecChanged(st, est) {
+		return &dv1.GracefulAction{
+			Type:  dv1.GracefulActionRollingUpdate,
+			Phase: dv1.GracefulPhaseTriggerDrain,
+		}
+	}
+
+	// Recover an already-applied OnDelete update.
 	if est.Status.UpdateRevision != "" && est.Status.UpdateRevision != est.Status.CurrentRevision {
 		return &dv1.GracefulAction{
 			Type:           dv1.GracefulActionRollingUpdate,
@@ -162,21 +187,20 @@ func (dcgs *DisaggregatedComputeGroupsController) runGracefulStateMachine(
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
 	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
 ) error {
-	ga := cgStatus.GracefulAction
-
 	switch ga.Phase {
 	case dv1.GracefulPhaseTriggerDrain:
-		return dcgs.handleTriggerDrain(ctx, restConfig, cluster, cg, cgStatus, est)
+		return dcgs.handleTriggerDrain(ctx, restConfig, cluster, cg, cgStatus, est, ga)
 	case dv1.GracefulPhaseWaitDrain:
-		return dcgs.handleWaitDrain(ctx, cluster, cg, cgStatus)
+		return dcgs.handleWaitDrain(ctx, cluster, cg, cgStatus, ga)
 	case dv1.GracefulPhaseDeletePod:
-		return dcgs.handleDeletePod(ctx, cluster, cg, cgStatus, est)
+		return dcgs.handleDeletePod(ctx, cluster, cg, cgStatus, est, ga)
 	case dv1.GracefulPhaseWaitPodReady:
-		return dcgs.handleWaitPodReady(ctx, cluster, cg, cgStatus, est)
+		return dcgs.handleWaitPodReady(ctx, cluster, cg, cgStatus, est, ga)
 	case dv1.GracefulPhaseWaitBEAlive:
 		// For first version, treat WaitBEAlive same as Done after WaitPodReady.
-		return dcgs.handleWaitBEAlive(ctx, cluster, cg, cgStatus)
+		return dcgs.handleWaitBEAlive(ctx, cluster, cg, cgStatus, ga)
 	case dv1.GracefulPhaseDone, dv1.GracefulPhaseFailed:
 		return nil
 	default:
@@ -192,12 +216,19 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
 	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
 ) error {
-	ga := cgStatus.GracefulAction
-
 	// If no current pod selected, pick the next one.
 	if ga.CurrentPod == "" {
-		podName, ordinal, found := dcgs.selectNextPod(ctx, cluster, cg, cgStatus, est)
+		if ga.Type == dv1.GracefulActionRollingUpdate && ga.TargetRevision == "" {
+			if est.Status.UpdateRevision == "" || est.Status.UpdateRevision == est.Status.CurrentRevision {
+				ga.LastMessage = fmt.Sprintf("Waiting for StatefulSet %s/%s update revision to be ready", est.Namespace, est.Name)
+				return nil
+			}
+			ga.TargetRevision = est.Status.UpdateRevision
+		}
+
+		podName, ordinal, found := dcgs.selectNextPod(ctx, cluster, cg, cgStatus, est, ga)
 		if !found {
 			// No more pods to process.
 			ga.Phase = dv1.GracefulPhaseDone
@@ -267,9 +298,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitDrain(
 	cluster *dv1.DorisDisaggregatedCluster,
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
+	ga *dv1.GracefulAction,
 ) error {
-	ga := cgStatus.GracefulAction
-
 	pod, err := dcgs.getPod(ctx, cluster.Namespace, ga.CurrentPod)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -328,9 +358,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleDeletePod(
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
 	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
 ) error {
-	ga := cgStatus.GracefulAction
-
 	pod, err := dcgs.getPod(ctx, cluster.Namespace, ga.CurrentPod)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -408,9 +437,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
 	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
 ) error {
-	ga := cgStatus.GracefulAction
-
 	pod, err := dcgs.getPod(ctx, cluster.Namespace, ga.CurrentPod)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -442,9 +470,10 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 	cluster *dv1.DorisDisaggregatedCluster,
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
+	ga *dv1.GracefulAction,
 ) error {
 	// For the first version, just advance.
-	dcgs.advanceToNextPod(cgStatus.GracefulAction)
+	dcgs.advanceToNextPod(ga)
 	return nil
 }
 
@@ -455,14 +484,14 @@ func (dcgs *DisaggregatedComputeGroupsController) selectNextPod(
 	cg *dv1.ComputeGroup,
 	cgStatus *dv1.ComputeGroupStatus,
 	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
 ) (podName string, ordinal int32, found bool) {
-	ga := cgStatus.GracefulAction
 	stsName := cgStatus.StatefulsetName
 
 	switch ga.Type {
 	case dv1.GracefulActionRollingUpdate:
 		// Find pods that don't match the target revision, process from highest ordinal.
-		return dcgs.selectNextRollingUpdatePod(ctx, cluster, cg, cgStatus, est)
+		return dcgs.selectNextRollingUpdatePod(ctx, cluster, cg, est, ga)
 
 	case dv1.GracefulActionScaleDown:
 		// Process from highest ordinal down to desired replicas.
@@ -498,10 +527,9 @@ func (dcgs *DisaggregatedComputeGroupsController) selectNextRollingUpdatePod(
 	ctx context.Context,
 	cluster *dv1.DorisDisaggregatedCluster,
 	cg *dv1.ComputeGroup,
-	cgStatus *dv1.ComputeGroupStatus,
 	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
 ) (string, int32, bool) {
-	ga := cgStatus.GracefulAction
 	targetRevision := ga.TargetRevision
 	if targetRevision == "" {
 		targetRevision = est.Status.UpdateRevision
@@ -611,6 +639,79 @@ func gracefulActionPriority(t dv1.GracefulActionType) int {
 // This prevents K8s from auto-deleting pods when the template changes.
 func ensureOnDeleteStrategy(st *appv1.StatefulSet) {
 	st.Spec.UpdateStrategy = appv1.StatefulSetUpdateStrategy{
-		Type: appv1.OnDeleteStatefulSetStrategyType,
+		Type:          appv1.OnDeleteStatefulSetStrategyType,
+		RollingUpdate: nil,
 	}
+}
+
+func prepareGracefulStatefulSet(st, est *appv1.StatefulSet, ga *dv1.GracefulAction) {
+	ensureOnDeleteStrategy(st)
+	if ga.Type == dv1.GracefulActionScaleDown || ga.Type == dv1.GracefulActionDelete {
+		st.Spec.Replicas = est.Spec.Replicas
+	}
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) statefulSetSpecChanged(st, est *appv1.StatefulSet) bool {
+	nst := st.DeepCopy()
+	eSt := est.DeepCopy()
+	dcgs.RestrictConditionsEqual(nst, eSt)
+	normalizeGracefulStatefulSetForCompare(nst)
+	normalizeGracefulStatefulSetForCompare(eSt)
+	return !resource.StatefulsetDeepEqualWithKey(nst, eSt, dv1.DisaggregatedSpecHashValueAnnotation, false)
+}
+
+func normalizeGracefulStatefulSetForCompare(st *appv1.StatefulSet) {
+	st.Spec.UpdateStrategy = appv1.StatefulSetUpdateStrategy{}
+	clearGracefulAction(st)
+}
+
+func getGracefulAction(st *appv1.StatefulSet) (*dv1.GracefulAction, error) {
+	if st.Annotations == nil {
+		return nil, nil
+	}
+	raw := st.Annotations[gracefulActionAnnotation]
+	if raw == "" {
+		return nil, nil
+	}
+	var ga dv1.GracefulAction
+	if err := json.Unmarshal([]byte(raw), &ga); err != nil {
+		return nil, fmt.Errorf("failed to decode graceful action annotation on statefulset %s/%s: %w", st.Namespace, st.Name, err)
+	}
+	return &ga, nil
+}
+
+func setGracefulAction(st *appv1.StatefulSet, ga *dv1.GracefulAction) {
+	if st.Annotations == nil {
+		st.Annotations = map[string]string{}
+	}
+	bs, err := json.Marshal(ga)
+	if err != nil {
+		klog.Errorf("setGracefulAction: failed to marshal graceful action for statefulset %s/%s: %v", st.Namespace, st.Name, err)
+		return
+	}
+	st.Annotations[gracefulActionAnnotation] = string(bs)
+}
+
+func clearGracefulAction(st *appv1.StatefulSet) {
+	if st.Annotations == nil {
+		return
+	}
+	delete(st.Annotations, gracefulActionAnnotation)
+}
+
+func gracefulStatefulSetControlEqual(new, old *appv1.StatefulSet) bool {
+	if new.Spec.UpdateStrategy.Type != old.Spec.UpdateStrategy.Type {
+		return false
+	}
+	if gracefulAnnotationValue(new) != gracefulAnnotationValue(old) {
+		return false
+	}
+	return true
+}
+
+func gracefulAnnotationValue(st *appv1.StatefulSet) string {
+	if st.Annotations == nil {
+		return ""
+	}
+	return st.Annotations[gracefulActionAnnotation]
 }

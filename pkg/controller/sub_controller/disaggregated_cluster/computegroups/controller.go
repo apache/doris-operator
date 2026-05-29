@@ -243,12 +243,15 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		}
 	}
 
+	if st.Spec.UpdateStrategy.Type == appv1.OnDeleteStatefulSetStrategyType {
+		dcgs.clearStatefulSetRollingUpdate(ctx, st.Namespace, st.Name)
+	}
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
 		dcgs.RestrictConditionsEqual(new, est)
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
-		equal := resource.StatefulsetDeepEqualWithKey(new, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
-		if !equal {
+		businessEqual := dcgs.businessStatefulSetEqual(new, est)
+		if !businessEqual {
 			if len(new.Annotations) == 0 {
 				new.Annotations = map[string]string{}
 			}
@@ -262,13 +265,12 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 			ddc_annos.Add(msUniqueIdKey, "true")
 			dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(new)
 		}
-		return equal
+		return businessEqual && gracefulStatefulSetControlEqual(new, est)
 
 	}, ndf); err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
 	}
-
 	return nil, nil
 }
 
@@ -304,6 +306,31 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 
 	// Need to adjust by pointer
 	(&ddc.Status).ComputeGroupStatuses = append((&ddc.Status).ComputeGroupStatuses, defaultStatus)
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) businessStatefulSetEqual(new, est *appv1.StatefulSet) bool {
+	nst := new.DeepCopy()
+	eSt := est.DeepCopy()
+	normalizeGracefulStatefulSetForCompare(nst)
+	normalizeGracefulStatefulSetForCompare(eSt)
+	equal := resource.StatefulsetDeepEqualWithKey(nst, eSt, dv1.DisaggregatedSpecHashValueAnnotation, false)
+	if hashValue := nst.Annotations[dv1.DisaggregatedSpecHashValueAnnotation]; hashValue != "" {
+		if new.Annotations == nil {
+			new.Annotations = map[string]string{}
+		}
+		new.Annotations[dv1.DisaggregatedSpecHashValueAnnotation] = hashValue
+	}
+	return equal
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) clearStatefulSetRollingUpdate(ctx context.Context, namespace, name string) {
+	patch := []byte(`{"spec":{"updateStrategy":{"rollingUpdate":null}}}`)
+	st := &appv1.StatefulSet{}
+	st.Namespace = namespace
+	st.Name = name
+	if err := dcgs.K8sclient.Patch(ctx, st, client.RawPatch(types.MergePatchType, patch)); err != nil {
+		klog.Errorf("clearStatefulSetRollingUpdate: failed to clear rollingUpdate for StatefulSet %s/%s: %v", namespace, name, err)
+	}
 }
 
 // check compute groups unique identifier duplicated or not. return duplicated key.
