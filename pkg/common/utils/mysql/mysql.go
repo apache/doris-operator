@@ -181,19 +181,6 @@ func (db *DB) DecommissionBE(nodes []*Backend) error {
 	return err
 }
 
-func (db *DB) ModifyBackendQueryDisabled(node *Backend, disabled bool) error {
-	if node == nil {
-		return fmt.Errorf("mysql ModifyBackendQueryDisabled backend is nil")
-	}
-
-	alter := fmt.Sprintf(
-		"ALTER SYSTEM MODIFY BACKEND \"%s:%d\" SET (\"disable_query\" = \"%t\");",
-		node.Host, node.HeartbeatPort, disabled,
-	)
-	_, err := db.Exec(alter)
-	return err
-}
-
 func (db *DB) DropBE(nodes []*Backend) error {
 	if len(nodes) == 0 {
 		klog.Infoln("mysql DropBE BE node is empty")

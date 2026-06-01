@@ -445,9 +445,6 @@ type GracefulAction struct {
 	// DrainTriggered indicates whether the drain exec has been triggered for the current pod.
 	DrainTriggered bool `json:"drainTriggered,omitempty"`
 
-	// QueryDisabledTriggered indicates whether disable_query=true has been requested for the current pod.
-	QueryDisabledTriggered bool `json:"queryDisabledTriggered,omitempty"`
-
 	// InitialRestartCount records the BE container's restart count before drain, to detect kubelet restarts.
 	InitialRestartCount int32 `json:"initialRestartCount,omitempty"`
 }

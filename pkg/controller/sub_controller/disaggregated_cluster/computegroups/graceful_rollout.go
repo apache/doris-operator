@@ -279,34 +279,6 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 		return fmt.Errorf("failed to get pod %s: %w", ga.CurrentPod, err)
 	}
 
-	if !ga.DrainTriggered {
-		backend, err := dcgs.getBackendByPodName(ctx, cluster, cgStatus, ga.CurrentPod)
-		if err != nil {
-			ga.LastMessage = fmt.Sprintf("Waiting for backend %s before disabling query: %v", ga.CurrentPod, err)
-			return nil
-		}
-
-		queryDisabled, err := backendIsQueryDisabled(backend)
-		if err != nil {
-			ga.LastMessage = fmt.Sprintf("Waiting for backend %s disable_query status to be parseable: %v", ga.CurrentPod, err)
-			return nil
-		}
-
-		if !ga.QueryDisabledTriggered {
-			if err := dcgs.setBackendQueryDisabled(ctx, cluster, cgStatus, ga.CurrentPod, true); err != nil {
-				return err
-			}
-			ga.QueryDisabledTriggered = true
-			ga.LastMessage = fmt.Sprintf("Requested disable_query=true for backend %s", ga.CurrentPod)
-			return nil
-		}
-
-		if !queryDisabled {
-			ga.LastMessage = fmt.Sprintf("Waiting for backend %s disable_query=true before drain", ga.CurrentPod)
-			return nil
-		}
-	}
-
 	// Record the initial restart count of the BE container.
 	ga.InitialRestartCount = getContainerRestartCount(pod, beMainContainerName)
 
@@ -548,21 +520,7 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 		return nil
 	}
 
-	queryDisabled, err := backendIsQueryDisabled(backend)
-	if err != nil {
-		ga.LastMessage = fmt.Sprintf("Waiting for backend %s query status to be parseable: %v", ga.CurrentPod, err)
-		return nil
-	}
-
-	if backend.Alive && !shutdown && queryDisabled {
-		if err := dcgs.setBackendQueryDisabled(ctx, cluster, cgStatus, ga.CurrentPod, false); err != nil {
-			return err
-		}
-		ga.LastMessage = fmt.Sprintf("Requested disable_query=false for backend %s", ga.CurrentPod)
-		return nil
-	}
-
-	if backend.Alive && !shutdown && !queryDisabled {
+	if backend.Alive && !shutdown {
 		klog.Infof("handleWaitBEAlive: backend %s is alive in FE", ga.CurrentPod)
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
 			"Backend %s is alive in FE", ga.CurrentPod)
@@ -571,8 +529,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 	}
 
 	ga.LastMessage = fmt.Sprintf(
-		"Waiting for backend %s to become ready in FE (alive=%t shutdown=%t queryDisabled=%t heartbeatFailures=%d err=%s)",
-		ga.CurrentPod, backend.Alive, shutdown, queryDisabled, backend.HeartbeatFailureCounter, backend.ErrMsg)
+		"Waiting for backend %s to become alive in FE (alive=%t shutdown=%t heartbeatFailures=%d err=%s)",
+		ga.CurrentPod, backend.Alive, shutdown, backend.HeartbeatFailureCounter, backend.ErrMsg)
 	return nil
 }
 
@@ -601,12 +559,12 @@ func (dcgs *DisaggregatedComputeGroupsController) getBackendByPodName(
 }
 
 func backendIsShutdown(backend *mysql.Backend) (bool, error) {
-	status, err := backendStatusMap(backend)
-	if err != nil {
-		return false, err
-	}
-	if status == nil {
+	if backend == nil || backend.Status == "" {
 		return false, nil
+	}
+	var status map[string]interface{}
+	if err := json.Unmarshal([]byte(backend.Status), &status); err != nil {
+		return false, err
 	}
 	raw, ok := status["isShutdown"]
 	if !ok {
@@ -617,36 +575,6 @@ func backendIsShutdown(backend *mysql.Backend) (bool, error) {
 		return false, fmt.Errorf("backend status isShutdown has unexpected type %T", raw)
 	}
 	return shutdown, nil
-}
-
-func backendIsQueryDisabled(backend *mysql.Backend) (bool, error) {
-	status, err := backendStatusMap(backend)
-	if err != nil {
-		return false, err
-	}
-	if status == nil {
-		return false, nil
-	}
-	raw, ok := status["isQueryDisabled"]
-	if !ok {
-		return false, nil
-	}
-	queryDisabled, ok := raw.(bool)
-	if !ok {
-		return false, fmt.Errorf("backend status isQueryDisabled has unexpected type %T", raw)
-	}
-	return queryDisabled, nil
-}
-
-func backendStatusMap(backend *mysql.Backend) (map[string]interface{}, error) {
-	if backend == nil || backend.Status == "" {
-		return nil, nil
-	}
-	var status map[string]interface{}
-	if err := json.Unmarshal([]byte(backend.Status), &status); err != nil {
-		return nil, err
-	}
-	return status, nil
 }
 
 func backendMatchesPod(backend *mysql.Backend, podName string) bool {
@@ -755,7 +683,6 @@ func (dcgs *DisaggregatedComputeGroupsController) advanceToNextPod(ga *dv1.Grace
 	ga.CurrentPod = ""
 	ga.CurrentOrdinal = 0
 	ga.DrainTriggered = false
-	ga.QueryDisabledTriggered = false
 	ga.InitialRestartCount = 0
 	ga.StartedAt = metav1.Time{}
 	ga.DeadlineAt = metav1.Time{}
@@ -791,47 +718,6 @@ func getContainerRestartCount(pod *corev1.Pod, containerName string) int32 {
 		}
 	}
 	return 0
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) setBackendQueryDisabled(
-	ctx context.Context,
-	cluster *dv1.DorisDisaggregatedCluster,
-	cgStatus *dv1.ComputeGroupStatus,
-	podName string,
-	disabled bool,
-) error {
-	sqlClient, err := dcgs.getMasterSqlClient(ctx, cluster)
-	if err != nil {
-		return err
-	}
-	defer sqlClient.Close()
-
-	backend, err := dcgs.getBackendByPodNameWithClient(sqlClient, cgStatus, podName)
-	if err != nil {
-		return err
-	}
-	if err := sqlClient.ModifyBackendQueryDisabled(backend, disabled); err != nil {
-		return fmt.Errorf("failed to set disable_query=%t for backend %s: %w", disabled, podName, err)
-	}
-	klog.Infof("setBackendQueryDisabled: set disable_query=%t for backend %s", disabled, podName)
-	return nil
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) getBackendByPodNameWithClient(
-	sqlClient *mysql.DB,
-	cgStatus *dv1.ComputeGroupStatus,
-	podName string,
-) (*mysql.Backend, error) {
-	backends, err := sqlClient.GetBackendsByComputeGroupId(cgStatus.ComputeGroupId)
-	if err != nil {
-		return nil, err
-	}
-	for _, backend := range backends {
-		if backendMatchesPod(backend, podName) {
-			return backend, nil
-		}
-	}
-	return nil, fmt.Errorf("backend for pod %s not found", podName)
 }
 
 // extractOrdinal extracts the ordinal number from a StatefulSet pod name (e.g., "sts-name-2" -> 2).
