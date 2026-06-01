@@ -175,11 +175,15 @@ func (dcgs *DisaggregatedComputeGroupsController) detectGracefulAction(
 
 	// Recover an already-applied OnDelete update.
 	if est.Status.UpdateRevision != "" && est.Status.UpdateRevision != est.Status.CurrentRevision {
-		return &dv1.GracefulAction{
+		recoverAction := &dv1.GracefulAction{
 			Type:           dv1.GracefulActionRollingUpdate,
 			Phase:          dv1.GracefulPhaseTriggerDrain,
 			TargetRevision: est.Status.UpdateRevision,
 		}
+		if _, _, found := dcgs.selectNextRollingUpdatePod(context.Background(), cgStatus.StatefulsetName, est, recoverAction); found {
+			return recoverAction
+		}
+		klog.Infof("detectGracefulAction: skip recovering rolling update for statefulset %s because no outdated pods remain", est.Name)
 	}
 
 	return nil
@@ -583,7 +587,7 @@ func (dcgs *DisaggregatedComputeGroupsController) selectNextPod(
 	switch ga.Type {
 	case dv1.GracefulActionRollingUpdate:
 		// Find pods that don't match the target revision, process from highest ordinal.
-		return dcgs.selectNextRollingUpdatePod(ctx, cluster, cg, est, ga)
+		return dcgs.selectNextRollingUpdatePod(ctx, stsName, est, ga)
 
 	case dv1.GracefulActionScaleDown:
 		// Process from highest ordinal down to desired replicas.
@@ -617,8 +621,7 @@ func (dcgs *DisaggregatedComputeGroupsController) selectNextPod(
 // selectNextRollingUpdatePod finds the next pod that needs updating (not using the target revision).
 func (dcgs *DisaggregatedComputeGroupsController) selectNextRollingUpdatePod(
 	ctx context.Context,
-	cluster *dv1.DorisDisaggregatedCluster,
-	cg *dv1.ComputeGroup,
+	_ string,
 	est *appv1.StatefulSet,
 	ga *dv1.GracefulAction,
 ) (string, int32, bool) {
@@ -627,9 +630,13 @@ func (dcgs *DisaggregatedComputeGroupsController) selectNextRollingUpdatePod(
 		targetRevision = est.Status.UpdateRevision
 	}
 
-	selector := dcgs.newCGPodsSelector(cluster.Name, cg.UniqueId)
+	selector, err := metav1.LabelSelectorAsSelector(est.Spec.Selector)
+	if err != nil {
+		klog.Errorf("selectNextRollingUpdatePod: failed to build selector for statefulset %s/%s: %v", est.Namespace, est.Name, err)
+		return "", 0, false
+	}
 	var podList corev1.PodList
-	if err := dcgs.K8sclient.List(ctx, &podList, client.InNamespace(cluster.Namespace), client.MatchingLabels(selector)); err != nil {
+	if err := dcgs.K8sclient.List(ctx, &podList, client.InNamespace(est.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		klog.Errorf("selectNextRollingUpdatePod: failed to list pods: %v", err)
 		return "", 0, false
 	}
