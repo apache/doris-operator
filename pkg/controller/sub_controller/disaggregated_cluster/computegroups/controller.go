@@ -787,8 +787,25 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 	}
 
 	cgs.AvailableReplicas = availableReplicas
+	if hasGracefulAction(sts) {
+		switch cgs.Phase {
+		case dv1.Ready:
+			cgs.Phase = dv1.GracefulRolling
+		case dv1.Reconciling, dv1.GracefulRolling, dv1.GracefulScaling, dv1.GracefulDeleting:
+			// Keep the phase in a reconciling/graceful state while the StatefulSet
+			// still carries graceful-action annotation.
+		}
+		return nil
+	}
 	if allUpdated && availableReplicas == cgs.Replicas {
 		cgs.Phase = dv1.Ready
 	}
 	return nil
+}
+
+func hasGracefulAction(sts *appv1.StatefulSet) bool {
+	if sts == nil || sts.Annotations == nil {
+		return false
+	}
+	return sts.Annotations[gracefulActionAnnotation] != ""
 }
