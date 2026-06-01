@@ -58,8 +58,6 @@ const (
 	// gracefulActionAnnotation stores the rollout state on the StatefulSet.
 	// CR status alone is not safe here because old CRDs prune unknown status fields.
 	gracefulActionAnnotation = "doris.disaggregated.cluster/graceful-action"
-
-	cloudModeModifyBackendUnsupported = "Modifying backends is not supported in cloud mode"
 )
 
 // gracefulRolloutReconcile is the entry point for graceful two-phase restart/shutdown.
@@ -296,20 +294,14 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 
 		if !ga.QueryDisabledTriggered {
 			if err := dcgs.setBackendQueryDisabled(ctx, cluster, cgStatus, ga.CurrentPod, true); err != nil {
-				if isCloudModeModifyBackendUnsupported(err) {
-					klog.Infof("handleTriggerDrain: skip disable_query for pod %s because cloud mode does not support MODIFY BACKEND", ga.CurrentPod)
-					ga.QueryDisabledTriggered = true
-				} else {
-					return err
-				}
-			} else {
-				ga.QueryDisabledTriggered = true
-				ga.LastMessage = fmt.Sprintf("Requested disable_query=true for backend %s", ga.CurrentPod)
-				return nil
+				return err
 			}
+			ga.QueryDisabledTriggered = true
+			ga.LastMessage = fmt.Sprintf("Requested disable_query=true for backend %s", ga.CurrentPod)
+			return nil
 		}
 
-		if !queryDisabled && !isCloudModeBackend(backend) {
+		if !queryDisabled {
 			ga.LastMessage = fmt.Sprintf("Waiting for backend %s disable_query=true before drain", ga.CurrentPod)
 			return nil
 		}
@@ -564,18 +556,13 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 
 	if backend.Alive && !shutdown && queryDisabled {
 		if err := dcgs.setBackendQueryDisabled(ctx, cluster, cgStatus, ga.CurrentPod, false); err != nil {
-			if isCloudModeModifyBackendUnsupported(err) {
-				klog.Infof("handleWaitBEAlive: skip clearing disable_query for pod %s because cloud mode does not support MODIFY BACKEND", ga.CurrentPod)
-			} else {
-				return err
-			}
-		} else {
-			ga.LastMessage = fmt.Sprintf("Requested disable_query=false for backend %s", ga.CurrentPod)
-			return nil
+			return err
 		}
+		ga.LastMessage = fmt.Sprintf("Requested disable_query=false for backend %s", ga.CurrentPod)
+		return nil
 	}
 
-	if backend.Alive && !shutdown && (!queryDisabled || isCloudModeBackend(backend)) {
+	if backend.Alive && !shutdown && !queryDisabled {
 		klog.Infof("handleWaitBEAlive: backend %s is alive in FE", ga.CurrentPod)
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
 			"Backend %s is alive in FE", ga.CurrentPod)
@@ -667,20 +654,6 @@ func backendMatchesPod(backend *mysql.Backend, podName string) bool {
 		return false
 	}
 	return strings.HasPrefix(backend.Host, podName+".") || backend.Host == podName
-}
-
-func isCloudModeModifyBackendUnsupported(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), cloudModeModifyBackendUnsupported)
-}
-
-func isCloudModeBackend(backend *mysql.Backend) bool {
-	if backend == nil {
-		return false
-	}
-	return strings.Contains(backend.Tag, "compute_group_id")
 }
 
 // selectNextPod finds the next pod to process for the current graceful action.
