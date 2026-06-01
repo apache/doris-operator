@@ -146,7 +146,9 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulActionCompleted),
 			"Graceful %s completed for compute group %s", ga.Type, cg.UniqueId)
 		cgStatus.Phase = dv1.Reconciling
-		clearGracefulAction(st)
+		if err := dcgs.finalizeGracefulAction(ctx, st); err != nil {
+			return true, err
+		}
 		return false, nil
 	}
 
@@ -808,6 +810,27 @@ func clearGracefulAction(st *appv1.StatefulSet) {
 		return
 	}
 	delete(st.Annotations, gracefulActionAnnotation)
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) finalizeGracefulAction(ctx context.Context, st *appv1.StatefulSet) error {
+	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}},"spec":{"updateStrategy":{"type":"RollingUpdate","rollingUpdate":{"partition":0}}}}`, gracefulActionAnnotation))
+	live := &appv1.StatefulSet{}
+	live.Namespace = st.Namespace
+	live.Name = st.Name
+	if err := dcgs.K8sclient.Patch(ctx, live, client.RawPatch(types.MergePatchType, patch)); err != nil {
+		return fmt.Errorf("failed to finalize graceful action for statefulset %s/%s: %w", st.Namespace, st.Name, err)
+	}
+	st.Spec.UpdateStrategy = appv1.StatefulSetUpdateStrategy{
+		Type: appv1.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &appv1.RollingUpdateStatefulSetStrategy{
+			Partition: func() *int32 {
+				var partition int32
+				return &partition
+			}(),
+		},
+	}
+	clearGracefulAction(st)
+	return nil
 }
 
 func gracefulStatefulSetControlEqual(new, old *appv1.StatefulSet) bool {
