@@ -118,6 +118,15 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 		return false, nil
 	}
 
+	switch ga.Type {
+	case dv1.GracefulActionRollingUpdate:
+		cgStatus.Phase = dv1.GracefulRolling
+	case dv1.GracefulActionScaleDown:
+		cgStatus.Phase = dv1.GracefulScaling
+	case dv1.GracefulActionDelete:
+		cgStatus.Phase = dv1.GracefulDeleting
+	}
+
 	if ga.Type == dv1.GracefulActionRollingUpdate {
 		dcgs.refreshRollingUpdateTargetRevision(est, ga)
 	}
@@ -673,6 +682,9 @@ func (dcgs *DisaggregatedComputeGroupsController) advanceToNextPod(ga *dv1.Grace
 	ga.CurrentOrdinal = 0
 	ga.DrainTriggered = false
 	ga.InitialRestartCount = 0
+	ga.StartedAt = metav1.Time{}
+	ga.DeadlineAt = metav1.Time{}
+	ga.LastMessage = ""
 	ga.Phase = dv1.GracefulPhaseTriggerDrain
 	// The next reconcile loop will call selectNextPod; if none found, phase becomes Done.
 }
