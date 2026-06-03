@@ -18,6 +18,7 @@
 package computegroups
 
 import (
+	"context"
 	"testing"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
@@ -27,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -196,5 +198,78 @@ func TestUpdateCGStatus_KeepGracefulPhaseWhenAnnotationExists(t *testing.T) {
 	}
 	if cgs.AvailableReplicas != replicas {
 		t.Fatalf("expected available replicas %d, got %d", replicas, cgs.AvailableReplicas)
+	}
+}
+
+func TestNewStatefulset_UsesOnDeleteStrategyForComputeGroup(t *testing.T) {
+	ddc := &dv1.DorisDisaggregatedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris",
+			Namespace: "default",
+		},
+	}
+	replicas := int32(3)
+	cg := &dv1.ComputeGroup{
+		UniqueId: "cg1",
+		CommonSpec: dv1.CommonSpec{
+			Replicas: &replicas,
+			Image:    "selectdb/doris.be-ubuntu:latest",
+		},
+	}
+
+	dcgs := &DisaggregatedComputeGroupsController{}
+	st := dcgs.NewStatefulset(ddc, cg, map[string]interface{}{})
+
+	if st.Spec.UpdateStrategy.Type != appv1.OnDeleteStatefulSetStrategyType {
+		t.Fatalf("expected update strategy %s, got %s", appv1.OnDeleteStatefulSetStrategyType, st.Spec.UpdateStrategy.Type)
+	}
+	if st.Spec.UpdateStrategy.RollingUpdate != nil {
+		t.Fatalf("expected rollingUpdate to be nil, got %#v", st.Spec.UpdateStrategy.RollingUpdate)
+	}
+}
+
+func TestFinalizeGracefulAction_KeepsOnDeleteStrategy(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add appv1 scheme: %v", err)
+	}
+
+	sts := &appv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris-cg1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				gracefulActionAnnotation: `{"type":"RollingUpdate","phase":"Done"}`,
+			},
+		},
+		Spec: appv1.StatefulSetSpec{
+			UpdateStrategy: appv1.StatefulSetUpdateStrategy{
+				Type: appv1.OnDeleteStatefulSetStrategyType,
+			},
+		},
+	}
+
+	dcgs := &DisaggregatedComputeGroupsController{}
+	dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(sts.DeepCopy()).Build()
+
+	if err := dcgs.finalizeGracefulAction(context.Background(), sts); err != nil {
+		t.Fatalf("finalizeGracefulAction failed: %v", err)
+	}
+
+	if sts.Spec.UpdateStrategy.Type != appv1.OnDeleteStatefulSetStrategyType {
+		t.Fatalf("expected in-memory update strategy %s, got %s", appv1.OnDeleteStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type)
+	}
+
+	live := &appv1.StatefulSet{}
+	live.Namespace = sts.Namespace
+	live.Name = sts.Name
+	if err := dcgs.K8sclient.Get(context.Background(), client.ObjectKeyFromObject(live), live); err != nil {
+		t.Fatalf("get live statefulset failed: %v", err)
+	}
+	if live.Spec.UpdateStrategy.Type != appv1.OnDeleteStatefulSetStrategyType {
+		t.Fatalf("expected live update strategy %s, got %s", appv1.OnDeleteStatefulSetStrategyType, live.Spec.UpdateStrategy.Type)
+	}
+	if live.Annotations[gracefulActionAnnotation] != "" {
+		t.Fatalf("expected graceful action annotation cleared, got %q", live.Annotations[gracefulActionAnnotation])
 	}
 }

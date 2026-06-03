@@ -58,6 +58,10 @@ func (dcgs *DisaggregatedComputeGroupsController) newCGPodsSelector(ddcName /*Di
 
 func (dcgs *DisaggregatedComputeGroupsController) NewStatefulset(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *appv1.StatefulSet {
 	st := dcgs.NewDefaultStatefulset(ddc)
+	// DDC compute group BE is operator-managed. Keep StatefulSet on OnDelete
+	// so rollout restart / template updates only produce a new revision and the
+	// operator exclusively drives pod drain/delete/recovery.
+	ensureOnDeleteStrategy(st)
 	uniqueId := cg.UniqueId
 	matchLabels := dcgs.newCGPodsSelector(ddc.Name, uniqueId)
 

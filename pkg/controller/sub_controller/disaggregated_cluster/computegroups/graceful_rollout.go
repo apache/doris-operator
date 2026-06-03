@@ -813,22 +813,14 @@ func clearGracefulAction(st *appv1.StatefulSet) {
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) finalizeGracefulAction(ctx context.Context, st *appv1.StatefulSet) error {
-	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}},"spec":{"updateStrategy":{"type":"RollingUpdate","rollingUpdate":{"partition":0}}}}`, gracefulActionAnnotation))
+	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}}}`, gracefulActionAnnotation))
 	live := &appv1.StatefulSet{}
 	live.Namespace = st.Namespace
 	live.Name = st.Name
 	if err := dcgs.K8sclient.Patch(ctx, live, client.RawPatch(types.MergePatchType, patch)); err != nil {
 		return fmt.Errorf("failed to finalize graceful action for statefulset %s/%s: %w", st.Namespace, st.Name, err)
 	}
-	st.Spec.UpdateStrategy = appv1.StatefulSetUpdateStrategy{
-		Type: appv1.RollingUpdateStatefulSetStrategyType,
-		RollingUpdate: &appv1.RollingUpdateStatefulSetStrategy{
-			Partition: func() *int32 {
-				var partition int32
-				return &partition
-			}(),
-		},
-	}
+	ensureOnDeleteStrategy(st)
 	clearGracefulAction(st)
 	return nil
 }
