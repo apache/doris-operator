@@ -447,6 +447,42 @@ type GracefulAction struct {
 
 	// InitialRestartCount records the BE container's restart count before drain, to detect kubelet restarts.
 	InitialRestartCount int32 `json:"initialRestartCount,omitempty"`
+
+	// SentinelWritten indicates whether the operator has written the terminating sentinel
+	// into the current pod before triggering graceful drain.
+	SentinelWritten bool `json:"sentinelWritten,omitempty"`
+
+	// RestartAnomalyDetected indicates that kubelet restarted the main container
+	// after the graceful drain was triggered.
+	RestartAnomalyDetected bool `json:"restartAnomalyDetected,omitempty"`
+
+	// InitialPodUID is the UID of the pod generation being drained.
+	InitialPodUID string `json:"initialPodUID,omitempty"`
+
+	// InitialContainerID is the main container ID of the pod generation being drained.
+	InitialContainerID string `json:"initialContainerID,omitempty"`
+
+	// InitialBackendStartTime is the FE-observed LastStartTime for the backend generation
+	// being drained. It is used to reject stale alive=true views during replacement.
+	InitialBackendStartTime string `json:"initialBackendStartTime,omitempty"`
+
+	// InitialBackendEpoch is reserved for FE-observed backend process epoch when available.
+	InitialBackendEpoch string `json:"initialBackendEpoch,omitempty"`
+
+	// ReplacementPodUID tracks the replacement pod generation once it is observed ready.
+	ReplacementPodUID string `json:"replacementPodUID,omitempty"`
+
+	// ReplacementContainerID tracks the replacement pod's main container ID.
+	ReplacementContainerID string `json:"replacementContainerID,omitempty"`
+
+	// ReplacementBackendStartTime records the FE-observed LastStartTime accepted for the replacement generation.
+	ReplacementBackendStartTime string `json:"replacementBackendStartTime,omitempty"`
+
+	// ReplacementBackendEpoch records the FE-observed backend process epoch accepted for the replacement generation.
+	ReplacementBackendEpoch string `json:"replacementBackendEpoch,omitempty"`
+
+	// StableBackendObservations counts consecutive WaitBEAlive polls that observed the same accepted replacement generation.
+	StableBackendObservations int32 `json:"stableBackendObservations,omitempty"`
 }
 
 type AvailableStatus string

@@ -66,6 +66,14 @@ const (
 	// waitBEAliveTimeoutFactor bounds how long we wait for FE to observe a replacement BE
 	// after the replacement pod is already Ready.
 	waitBEAliveTimeoutFactor = 2
+
+	// beTerminatingSentinelPath is written into the current pod before graceful drain so
+	// a kubelet-triggered container restart inside the same terminating pod exits immediately.
+	beTerminatingSentinelPath = gracefulRuntimeMountPath + "/terminating"
+
+	// requiredStableBackendObservations is the minimum number of consecutive WaitBEAlive
+	// polls that must observe the same new backend generation before rollout advances.
+	requiredStableBackendObservations int32 = 2
 )
 
 // gracefulRolloutReconcile is the entry point for graceful two-phase restart/shutdown.
@@ -301,6 +309,25 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 
 	// Record the initial restart count of the BE container.
 	ga.InitialRestartCount = getContainerRestartCount(pod, beMainContainerName)
+	ga.InitialPodUID = string(pod.UID)
+	ga.InitialContainerID = getContainerID(pod, beMainContainerName)
+	ga.RestartAnomalyDetected = false
+	ga.SentinelWritten = false
+	ga.ReplacementPodUID = ""
+	ga.ReplacementContainerID = ""
+	ga.ReplacementBackendStartTime = ""
+	ga.ReplacementBackendEpoch = ""
+	ga.StableBackendObservations = 0
+
+	if backend, backendErr := dcgs.getBackendByPodName(ctx, cluster, cgStatus, ga.CurrentPod); backendErr == nil {
+		ga.InitialBackendStartTime = backendLastStartTime(backend)
+		if epoch, ok := backendProcessEpoch(backend); ok {
+			ga.InitialBackendEpoch = epoch
+		}
+	} else {
+		ga.InitialBackendStartTime = ""
+		ga.InitialBackendEpoch = ""
+	}
 
 	// Set drain timeout based on terminationGracePeriodSeconds.
 	drainTimeout := int64(resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
@@ -311,17 +338,32 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 	ga.StartedAt = now
 	ga.DeadlineAt = metav1.NewTime(now.Add(time.Duration(drainTimeout) * time.Second))
 
-	// Exec stop_be.sh --grace.
+	// Write the terminating sentinel first, so a kubelet-triggered restart inside the same
+	// terminating pod exits before starting a new BE generation.
 	if !ga.DrainTriggered {
-		klog.Infof("handleTriggerDrain: executing stop_be.sh --grace on pod %s", ga.CurrentPod)
+		sentinelStdout, sentinelStderr, sentinelErr := k8s.ExecInPod(ctx, restConfig,
+			cluster.Namespace, ga.CurrentPod, beMainContainerName,
+			[]string{"sh", "-c", fmt.Sprintf("mkdir -p %s && touch %s", gracefulRuntimeMountPath, beTerminatingSentinelPath)},
+			execTimeout)
+		if sentinelErr != nil {
+			klog.Warningf("handleTriggerDrain: failed to write terminating sentinel on pod %s uid=%s containerID=%s: %v, stdout=%s, stderr=%s",
+				ga.CurrentPod, ga.InitialPodUID, ga.InitialContainerID, sentinelErr, sentinelStdout, sentinelStderr)
+		} else {
+			ga.SentinelWritten = true
+			klog.Infof("handleTriggerDrain: wrote terminating sentinel on pod %s uid=%s containerID=%s path=%s",
+				ga.CurrentPod, ga.InitialPodUID, ga.InitialContainerID, beTerminatingSentinelPath)
+		}
+
+		klog.Infof("handleTriggerDrain: executing stop_be.sh --grace on pod %s uid=%s containerID=%s oldStartTime=%s oldEpoch=%s sentinelWritten=%t",
+			ga.CurrentPod, ga.InitialPodUID, ga.InitialContainerID, ga.InitialBackendStartTime, ga.InitialBackendEpoch, ga.SentinelWritten)
 		stdout, stderr, execErr := k8s.ExecInPod(ctx, restConfig,
 			cluster.Namespace, ga.CurrentPod, beMainContainerName,
 			[]string{stopBEGraceCommand, stopBEGraceArg},
 			execTimeout)
 
 		if execErr != nil {
-			klog.Warningf("handleTriggerDrain: exec failed on pod %s: %v, stdout=%s, stderr=%s",
-				ga.CurrentPod, execErr, stdout, stderr)
+			klog.Warningf("handleTriggerDrain: exec failed on pod %s uid=%s containerID=%s: %v, stdout=%s, stderr=%s",
+				ga.CurrentPod, ga.InitialPodUID, ga.InitialContainerID, execErr, stdout, stderr)
 			dcgs.K8srecorder.Eventf(cluster, string(sc.EventWarning), string(sc.GracefulDrainExecFailed),
 				"Failed to exec stop_be.sh --grace on pod %s: %v", ga.CurrentPod, execErr)
 			// Even if exec fails, proceed to WaitDrain to handle timeout or already-exiting BE.
@@ -361,7 +403,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitDrain(
 
 	// Check if main container has terminated.
 	if isContainerTerminated(pod, beMainContainerName) {
-		klog.Infof("handleWaitDrain: BE container terminated on pod %s", ga.CurrentPod)
+		klog.Infof("handleWaitDrain: BE container terminated on pod %s uid=%s restartCount=%d lastState=%s",
+			ga.CurrentPod, string(pod.UID), getContainerRestartCount(pod, beMainContainerName), describeLastTerminatedState(pod, beMainContainerName))
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulDrainCompleted),
 			"Graceful drain completed on pod %s (container exited)", ga.CurrentPod)
 		ga.Phase = dv1.GracefulPhaseDeletePod
@@ -371,8 +414,9 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitDrain(
 	// Check if restartCount increased (kubelet restarted the container after BE exited).
 	currentRestartCount := getContainerRestartCount(pod, beMainContainerName)
 	if currentRestartCount > ga.InitialRestartCount {
-		klog.Infof("handleWaitDrain: restart count increased for pod %s (%d -> %d), container was restarted by kubelet",
-			ga.CurrentPod, ga.InitialRestartCount, currentRestartCount)
+		ga.RestartAnomalyDetected = true
+		klog.Infof("handleWaitDrain: restart anomaly on pod %s uid=%s (%d -> %d), oldContainerID=%s currentContainerID=%s lastState=%s",
+			ga.CurrentPod, string(pod.UID), ga.InitialRestartCount, currentRestartCount, ga.InitialContainerID, getContainerID(pod, beMainContainerName), describeLastTerminatedState(pod, beMainContainerName))
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulDrainCompleted),
 			"Graceful drain completed on pod %s (container restarted by kubelet, restartCount %d -> %d)",
 			ga.CurrentPod, ga.InitialRestartCount, currentRestartCount)
@@ -416,7 +460,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleDeletePod(
 	}
 
 	// Delete the pod.
-	klog.Infof("handleDeletePod: deleting pod %s", ga.CurrentPod)
+	klog.Infof("handleDeletePod: deleting pod %s uid=%s containerID=%s restartCount=%d deletionTimestamp=%v",
+		ga.CurrentPod, string(pod.UID), getContainerID(pod, beMainContainerName), getContainerRestartCount(pod, beMainContainerName), pod.DeletionTimestamp)
 	if err := dcgs.K8sclient.Delete(ctx, pod); err != nil {
 		if apierrors.IsNotFound(err) {
 			dcgs.afterPodDeleted(ga, cluster, cg, cgStatus, est)
@@ -512,7 +557,10 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 	}
 
 	if k8s.PodIsReady(&pod.Status) {
-		klog.Infof("handleWaitPodReady: replacement pod %s is ready", ga.CurrentPod)
+		ga.ReplacementPodUID = string(pod.UID)
+		ga.ReplacementContainerID = getContainerID(pod, beMainContainerName)
+		klog.Infof("handleWaitPodReady: replacement pod %s is ready uid=%s containerID=%s podIP=%s restartCount=%d",
+			ga.CurrentPod, ga.ReplacementPodUID, ga.ReplacementContainerID, pod.Status.PodIP, getContainerRestartCount(pod, beMainContainerName))
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
 			"Replacement pod %s is ready", ga.CurrentPod)
 
@@ -588,11 +636,33 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 		return nil
 	}
 
-	if backend.Alive && !shutdown {
-		klog.Infof("handleWaitBEAlive: backend %s is alive in FE", ga.CurrentPod)
-		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
-			"Backend %s is alive in FE", ga.CurrentPod)
-		dcgs.advanceToNextPod(ga)
+	currentStartTime := backendLastStartTime(backend)
+	currentEpoch, currentEpochKnown := backendProcessEpoch(backend)
+	acceptStartTime := currentStartTime != "" && currentStartTime != ga.InitialBackendStartTime
+	acceptEpoch := true
+	if ga.InitialBackendEpoch != "" && currentEpochKnown {
+		acceptEpoch = currentEpoch != ga.InitialBackendEpoch
+	}
+
+	if backend.Alive && !shutdown && acceptStartTime && acceptEpoch {
+		if ga.ReplacementBackendStartTime != currentStartTime || ga.ReplacementBackendEpoch != currentEpoch {
+			ga.ReplacementBackendStartTime = currentStartTime
+			ga.ReplacementBackendEpoch = currentEpoch
+			ga.StableBackendObservations = 1
+		} else {
+			ga.StableBackendObservations++
+		}
+		if ga.StableBackendObservations >= requiredStableBackendObservations {
+			klog.Infof("handleWaitBEAlive: backend %s accepted new generation oldStartTime=%s newStartTime=%s oldEpoch=%s newEpoch=%s stableObservations=%d restartAnomaly=%t",
+				ga.CurrentPod, ga.InitialBackendStartTime, ga.ReplacementBackendStartTime, ga.InitialBackendEpoch, ga.ReplacementBackendEpoch, ga.StableBackendObservations, ga.RestartAnomalyDetected)
+			dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
+				"Backend %s is alive in FE with new generation", ga.CurrentPod)
+			dcgs.advanceToNextPod(ga)
+			return nil
+		}
+		ga.LastMessage = fmt.Sprintf(
+			"Waiting for backend %s new generation to stabilize in FE (alive=%t shutdown=%t oldStartTime=%s newStartTime=%s oldEpoch=%s newEpoch=%s stableObservations=%d/%d)",
+			ga.CurrentPod, backend.Alive, shutdown, ga.InitialBackendStartTime, currentStartTime, ga.InitialBackendEpoch, currentEpoch, ga.StableBackendObservations, requiredStableBackendObservations)
 		return nil
 	}
 
@@ -606,8 +676,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 	}
 
 	ga.LastMessage = fmt.Sprintf(
-		"Waiting for backend %s to become alive in FE (alive=%t shutdown=%t heartbeatFailures=%d err=%s)",
-		ga.CurrentPod, backend.Alive, shutdown, backend.HeartbeatFailureCounter, backend.ErrMsg)
+		"Waiting for backend %s to become alive in FE with new generation (alive=%t shutdown=%t oldStartTime=%s currentStartTime=%s oldEpoch=%s currentEpoch=%s heartbeatFailures=%d err=%s)",
+		ga.CurrentPod, backend.Alive, shutdown, ga.InitialBackendStartTime, currentStartTime, ga.InitialBackendEpoch, currentEpoch, backend.HeartbeatFailureCounter, backend.ErrMsg)
 	return nil
 }
 
@@ -782,6 +852,17 @@ func (dcgs *DisaggregatedComputeGroupsController) advanceToNextPod(ga *dv1.Grace
 	ga.CurrentOrdinal = 0
 	ga.DrainTriggered = false
 	ga.InitialRestartCount = 0
+	ga.SentinelWritten = false
+	ga.RestartAnomalyDetected = false
+	ga.InitialPodUID = ""
+	ga.InitialContainerID = ""
+	ga.InitialBackendStartTime = ""
+	ga.InitialBackendEpoch = ""
+	ga.ReplacementPodUID = ""
+	ga.ReplacementContainerID = ""
+	ga.ReplacementBackendStartTime = ""
+	ga.ReplacementBackendEpoch = ""
+	ga.StableBackendObservations = 0
 	resetGracefulPhaseTimer(ga)
 	ga.LastMessage = ""
 	ga.Phase = dv1.GracefulPhaseTriggerDrain
@@ -823,6 +904,48 @@ func getContainerRestartCount(pod *corev1.Pod, containerName string) int32 {
 		}
 	}
 	return 0
+}
+
+func getContainerID(pod *corev1.Pod, containerName string) string {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == containerName {
+			return cs.ContainerID
+		}
+	}
+	return ""
+}
+
+func describeLastTerminatedState(pod *corev1.Pod, containerName string) string {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == containerName && cs.LastTerminationState.Terminated != nil {
+			t := cs.LastTerminationState.Terminated
+			return fmt.Sprintf("reason=%s exitCode=%d startedAt=%s finishedAt=%s", t.Reason, t.ExitCode, t.StartedAt.Format(time.RFC3339), t.FinishedAt.Format(time.RFC3339))
+		}
+	}
+	return ""
+}
+
+func backendLastStartTime(backend *mysql.Backend) string {
+	if backend == nil || backend.LastStartTime == nil {
+		return ""
+	}
+	return strings.TrimSpace(*backend.LastStartTime)
+}
+
+func backendProcessEpoch(backend *mysql.Backend) (string, bool) {
+	if backend == nil || backend.Status == "" {
+		return "", false
+	}
+	var status map[string]interface{}
+	if err := json.Unmarshal([]byte(backend.Status), &status); err != nil {
+		return "", false
+	}
+	for _, key := range []string{"processEpoch", "process_epoch", "beStartTime", "be_start_time"} {
+		if raw, ok := status[key]; ok {
+			return fmt.Sprintf("%v", raw), true
+		}
+	}
+	return "", false
 }
 
 // extractOrdinal extracts the ordinal number from a StatefulSet pod name (e.g., "sts-name-2" -> 2).

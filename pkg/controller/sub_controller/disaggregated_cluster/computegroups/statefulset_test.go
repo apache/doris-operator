@@ -24,6 +24,7 @@ import (
 	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,6 +58,31 @@ func Test_NewPodTemplateSpec_TerminationGracePeriodSeconds(t *testing.T) {
 	}
 	if *pts.Spec.TerminationGracePeriodSeconds != resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS {
 		t.Errorf("expected BE terminationGracePeriodSeconds=%d, got %d", resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
+	}
+	foundRuntimeVolume := false
+	for _, v := range pts.Spec.Volumes {
+		if v.Name == gracefulRuntimeVolumeName && v.EmptyDir != nil {
+			foundRuntimeVolume = true
+			break
+		}
+	}
+	if !foundRuntimeVolume {
+		t.Fatalf("expected pod template to include emptyDir volume %q", gracefulRuntimeVolumeName)
+	}
+	foundRuntimeMount := false
+	for _, c := range pts.Spec.Containers {
+		if c.Name != resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME {
+			continue
+		}
+		for _, vm := range c.VolumeMounts {
+			if vm.Name == gracefulRuntimeVolumeName && vm.MountPath == gracefulRuntimeMountPath {
+				foundRuntimeMount = true
+				break
+			}
+		}
+	}
+	if !foundRuntimeMount {
+		t.Fatalf("expected compute container to mount %q at %q", gracefulRuntimeVolumeName, gracefulRuntimeMountPath)
 	}
 }
 
@@ -400,5 +426,18 @@ func TestHandleWaitPodReadyTimeoutExtendsDeadline(t *testing.T) {
 	}
 	if ga.Phase != dv1.GracefulPhaseWaitPodReady {
 		t.Fatalf("expected phase to stay WaitPodReady, got %s", ga.Phase)
+	}
+}
+
+func TestBackendProcessEpoch(t *testing.T) {
+	be := &mysql.Backend{
+		Status: `{"isShutdown":false,"processEpoch":"177","be_start_time":"177"}`,
+	}
+	epoch, ok := backendProcessEpoch(be)
+	if !ok {
+		t.Fatalf("expected process epoch to be parsed")
+	}
+	if epoch != "177" {
+		t.Fatalf("expected epoch 177, got %q", epoch)
 	}
 }

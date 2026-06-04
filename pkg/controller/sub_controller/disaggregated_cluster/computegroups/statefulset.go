@@ -33,6 +33,9 @@ import (
 const (
 	basic_auth_path  = "/etc/basic_auth"
 	auth_volume_name = "basic-auth"
+
+	gracefulRuntimeVolumeName = "doris-graceful-runtime"
+	gracefulRuntimeMountPath  = "/var/run/doris-operator"
 )
 
 // generate statefulset or service labels
@@ -104,6 +107,12 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	configVolumes, _ := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
+	pts.Spec.Volumes = append(pts.Spec.Volumes, corev1.Volume{
+		Name: gracefulRuntimeVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
 
 	if ddc.Spec.AuthSecret != "" {
 		pts.Spec.Volumes = append(pts.Spec.Volumes, corev1.Volume{
@@ -169,6 +178,10 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	} else {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
+	c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+		Name:      gracefulRuntimeVolumeName,
+		MountPath: gracefulRuntimeMountPath,
+	})
 
 	// add basic auth secret volumeMount
 	if ddc.Spec.AuthSecret != "" {
