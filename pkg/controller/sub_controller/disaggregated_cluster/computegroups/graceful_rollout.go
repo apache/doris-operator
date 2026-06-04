@@ -325,6 +325,8 @@ func (dcgs *DisaggregatedComputeGroupsController) handleTriggerDrain(
 			ga.InitialBackendEpoch = epoch
 		}
 	} else {
+		klog.Warningf("handleTriggerDrain: failed to capture initial backend generation for pod %s uid=%s containerID=%s: %v",
+			ga.CurrentPod, ga.InitialPodUID, ga.InitialContainerID, backendErr)
 		ga.InitialBackendStartTime = ""
 		ga.InitialBackendEpoch = ""
 	}
@@ -426,7 +428,9 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitDrain(
 
 	// Check timeout.
 	if time.Now().After(ga.DeadlineAt.Time) {
-		klog.Warningf("handleWaitDrain: drain timeout reached for pod %s", ga.CurrentPod)
+		klog.Warningf("handleWaitDrain: drain timeout reached for pod %s uid=%s containerID=%s restartCount=%d stateTerminated=%t lastState=%s deadline=%s now=%s sentinelWritten=%t",
+			ga.CurrentPod, string(pod.UID), getContainerID(pod, beMainContainerName), getContainerRestartCount(pod, beMainContainerName),
+			isContainerTerminated(pod, beMainContainerName), describeTerminationState(pod, beMainContainerName), ga.DeadlineAt.Format(time.RFC3339), time.Now().Format(time.RFC3339), ga.SentinelWritten)
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventWarning), string(sc.GracefulDrainTimeout),
 			"Graceful drain timeout on pod %s, continuing with deletion", ga.CurrentPod)
 		ga.Phase = dv1.GracefulPhaseDeletePod
@@ -464,11 +468,13 @@ func (dcgs *DisaggregatedComputeGroupsController) handleDeletePod(
 		ga.CurrentPod, string(pod.UID), getContainerID(pod, beMainContainerName), getContainerRestartCount(pod, beMainContainerName), pod.DeletionTimestamp)
 	if err := dcgs.K8sclient.Delete(ctx, pod); err != nil {
 		if apierrors.IsNotFound(err) {
+			klog.Infof("handleDeletePod: pod %s uid=%s already deleted before delete call completed", ga.CurrentPod, string(pod.UID))
 			dcgs.afterPodDeleted(ga, cluster, cg, cgStatus, est)
 			return nil
 		}
 		return fmt.Errorf("failed to delete pod %s: %w", ga.CurrentPod, err)
 	}
+	klog.Infof("handleDeletePod: delete accepted for pod %s uid=%s resourceVersion=%s", ga.CurrentPod, string(pod.UID), pod.ResourceVersion)
 
 	dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulPodDeleted),
 		"Deleted pod %s during graceful %s", ga.CurrentPod, ga.Type)
@@ -559,8 +565,9 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 	if k8s.PodIsReady(&pod.Status) {
 		ga.ReplacementPodUID = string(pod.UID)
 		ga.ReplacementContainerID = getContainerID(pod, beMainContainerName)
-		klog.Infof("handleWaitPodReady: replacement pod %s is ready uid=%s containerID=%s podIP=%s restartCount=%d",
-			ga.CurrentPod, ga.ReplacementPodUID, ga.ReplacementContainerID, pod.Status.PodIP, getContainerRestartCount(pod, beMainContainerName))
+		klog.Infof("handleWaitPodReady: replacement pod %s is ready uid=%s containerID=%s podIP=%s restartCount=%d creationTimestamp=%s nodeName=%s revisionHash=%s",
+			ga.CurrentPod, ga.ReplacementPodUID, ga.ReplacementContainerID, pod.Status.PodIP, getContainerRestartCount(pod, beMainContainerName),
+			pod.CreationTimestamp.Format(time.RFC3339), pod.Spec.NodeName, pod.Labels[resource.POD_CONTROLLER_REVISION_HASH_KEY])
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
 			"Replacement pod %s is ready", ga.CurrentPod)
 
@@ -663,11 +670,31 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 		ga.LastMessage = fmt.Sprintf(
 			"Waiting for backend %s new generation to stabilize in FE (alive=%t shutdown=%t oldStartTime=%s newStartTime=%s oldEpoch=%s newEpoch=%s stableObservations=%d/%d)",
 			ga.CurrentPod, backend.Alive, shutdown, ga.InitialBackendStartTime, currentStartTime, ga.InitialBackendEpoch, currentEpoch, ga.StableBackendObservations, requiredStableBackendObservations)
+		klog.Infof("handleWaitBEAlive: backend %s observed candidate new generation alive=%t shutdown=%t oldStartTime=%s newStartTime=%s oldEpoch=%s newEpoch=%s epochKnown=%t stableObservations=%d/%d",
+			ga.CurrentPod, backend.Alive, shutdown, ga.InitialBackendStartTime, currentStartTime, ga.InitialBackendEpoch, currentEpoch, currentEpochKnown, ga.StableBackendObservations, requiredStableBackendObservations)
 		return nil
 	}
 
+	rejectReason := "unknown"
+	switch {
+	case !backend.Alive:
+		rejectReason = "alive=false"
+	case shutdown:
+		rejectReason = "shutdown=true"
+	case currentStartTime == "":
+		rejectReason = "startTime empty"
+	case currentStartTime == ga.InitialBackendStartTime:
+		rejectReason = "startTime unchanged"
+	case ga.InitialBackendEpoch != "" && currentEpochKnown && currentEpoch == ga.InitialBackendEpoch:
+		rejectReason = "epoch unchanged"
+	case ga.InitialBackendEpoch != "" && !currentEpochKnown:
+		rejectReason = "epoch unknown"
+	}
+	klog.Infof("handleWaitBEAlive: backend %s rejected current generation reason=%s alive=%t shutdown=%t oldStartTime=%s currentStartTime=%s oldEpoch=%s currentEpoch=%s epochKnown=%t heartbeatFailures=%d err=%s",
+		ga.CurrentPod, rejectReason, backend.Alive, shutdown, ga.InitialBackendStartTime, currentStartTime, ga.InitialBackendEpoch, currentEpoch, currentEpochKnown, backend.HeartbeatFailureCounter, backend.ErrMsg)
+
 	if !ga.DeadlineAt.IsZero() && time.Now().After(ga.DeadlineAt.Time) {
-		klog.Warningf("handleWaitBEAlive: timeout waiting for backend %s to become alive in FE, advancing rollout", ga.CurrentPod)
+		klog.Warningf("handleWaitBEAlive: timeout waiting for backend %s to become alive in FE with new generation, lastRejectReason=%s", ga.CurrentPod, rejectReason)
 		ga.LastMessage = fmt.Sprintf(
 			"Timed out waiting for backend %s to become alive in FE (alive=%t shutdown=%t heartbeatFailures=%d err=%s), forcing advance",
 			ga.CurrentPod, backend.Alive, shutdown, backend.HeartbeatFailureCounter, backend.ErrMsg)
@@ -921,6 +948,25 @@ func describeLastTerminatedState(pod *corev1.Pod, containerName string) string {
 			t := cs.LastTerminationState.Terminated
 			return fmt.Sprintf("reason=%s exitCode=%d startedAt=%s finishedAt=%s", t.Reason, t.ExitCode, t.StartedAt.Format(time.RFC3339), t.FinishedAt.Format(time.RFC3339))
 		}
+	}
+	return ""
+}
+
+func describeTerminationState(pod *corev1.Pod, containerName string) string {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name != containerName {
+			continue
+		}
+		parts := make([]string, 0, 2)
+		if cs.State.Terminated != nil {
+			t := cs.State.Terminated
+			parts = append(parts, fmt.Sprintf("stateTerminated(reason=%s exitCode=%d startedAt=%s finishedAt=%s)", t.Reason, t.ExitCode, t.StartedAt.Format(time.RFC3339), t.FinishedAt.Format(time.RFC3339)))
+		}
+		if cs.LastTerminationState.Terminated != nil {
+			t := cs.LastTerminationState.Terminated
+			parts = append(parts, fmt.Sprintf("lastTerminated(reason=%s exitCode=%d startedAt=%s finishedAt=%s)", t.Reason, t.ExitCode, t.StartedAt.Format(time.RFC3339), t.FinishedAt.Format(time.RFC3339)))
+		}
+		return strings.Join(parts, " ")
 	}
 	return ""
 }
