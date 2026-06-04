@@ -19,7 +19,9 @@ package computegroups
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
@@ -27,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -271,5 +274,131 @@ func TestFinalizeGracefulAction_KeepsOnDeleteStrategy(t *testing.T) {
 	}
 	if live.Annotations[gracefulActionAnnotation] != "" {
 		t.Fatalf("expected graceful action annotation cleared, got %q", live.Annotations[gracefulActionAnnotation])
+	}
+}
+
+func TestShouldFinalizeGracefulActionForOnDeleteRollingUpdate(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add appv1 scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add corev1 scheme: %v", err)
+	}
+
+	replicas := int32(2)
+	selector := map[string]string{
+		dv1.DorisDisaggregatedClusterName:          "doris",
+		dv1.DorisDisaggregatedComputeGroupUniqueId: "cg1",
+		dv1.DorisDisaggregatedPodType:              "compute",
+	}
+	sts := &appv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris-cg1",
+			Namespace: "default",
+		},
+		Spec: appv1.StatefulSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: selector},
+		},
+		Status: appv1.StatefulSetStatus{
+			CurrentRevision: "rev-old",
+			UpdateRevision:  "rev-new",
+		},
+	}
+
+	pod0 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris-cg1-0",
+			Namespace: "default",
+			Labels: map[string]string{
+				dv1.DorisDisaggregatedClusterName:          "doris",
+				dv1.DorisDisaggregatedComputeGroupUniqueId: "cg1",
+				dv1.DorisDisaggregatedPodType:              "compute",
+				resource.POD_CONTROLLER_REVISION_HASH_KEY:  "rev-old",
+			},
+		},
+	}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris-cg1-1",
+			Namespace: "default",
+			Labels: map[string]string{
+				dv1.DorisDisaggregatedClusterName:          "doris",
+				dv1.DorisDisaggregatedComputeGroupUniqueId: "cg1",
+				dv1.DorisDisaggregatedPodType:              "compute",
+				resource.POD_CONTROLLER_REVISION_HASH_KEY:  "rev-new",
+			},
+		},
+	}
+
+	dcgs := &DisaggregatedComputeGroupsController{}
+	dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(sts, pod0, pod1).Build()
+
+	ga := &dv1.GracefulAction{
+		Type:           dv1.GracefulActionRollingUpdate,
+		Phase:          dv1.GracefulPhaseDone,
+		TargetRevision: "rev-new",
+	}
+
+	finished, err := dcgs.shouldFinalizeGracefulAction(context.Background(), sts, ga)
+	if err != nil {
+		t.Fatalf("shouldFinalizeGracefulAction failed: %v", err)
+	}
+	if finished {
+		t.Fatalf("expected finalize gate blocked while outdated pod exists")
+	}
+
+	pod0.Labels[resource.POD_CONTROLLER_REVISION_HASH_KEY] = "rev-new"
+	dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(sts, pod0, pod1).Build()
+
+	finished, err = dcgs.shouldFinalizeGracefulAction(context.Background(), sts, ga)
+	if err != nil {
+		t.Fatalf("shouldFinalizeGracefulAction failed after revision update: %v", err)
+	}
+	if !finished {
+		t.Fatalf("expected finalize gate pass once no outdated pod remains, even if currentRevision still lags")
+	}
+}
+
+func TestHandleWaitPodReadyTimeoutExtendsDeadline(t *testing.T) {
+	dcgs := &DisaggregatedComputeGroupsController{}
+	cluster := &dv1.DorisDisaggregatedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris",
+			Namespace: "default",
+		},
+	}
+	cg := &dv1.ComputeGroup{UniqueId: "cg1"}
+	cgStatus := &dv1.ComputeGroupStatus{StatefulsetName: "doris-cg1"}
+	est := &appv1.StatefulSet{}
+	past := metav1.NewTime(time.Now().Add(-time.Minute))
+	ga := &dv1.GracefulAction{
+		Type:       dv1.GracefulActionRollingUpdate,
+		Phase:      dv1.GracefulPhaseWaitPodReady,
+		CurrentPod: "doris-cg1-0",
+		StartedAt:  past,
+		DeadlineAt: past,
+	}
+
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add corev1 scheme: %v", err)
+	}
+	dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).Build()
+	dcgs.K8srecorder = record.NewFakeRecorder(10)
+
+	before := ga.DeadlineAt
+	if err := dcgs.handleWaitPodReady(context.Background(), cluster, cg, cgStatus, est, ga); err != nil {
+		t.Fatalf("handleWaitPodReady failed: %v", err)
+	}
+	if !strings.Contains(ga.LastMessage, "Timed out waiting for replacement pod") {
+		t.Fatalf("expected timeout message, got %q", ga.LastMessage)
+	}
+	if !ga.DeadlineAt.After(before.Time) {
+		t.Fatalf("expected deadline extended, before=%s after=%s", before.Time, ga.DeadlineAt.Time)
+	}
+	if ga.Phase != dv1.GracefulPhaseWaitPodReady {
+		t.Fatalf("expected phase to stay WaitPodReady, got %s", ga.Phase)
 	}
 }

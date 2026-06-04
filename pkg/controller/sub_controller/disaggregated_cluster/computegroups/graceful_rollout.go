@@ -58,6 +58,14 @@ const (
 	// gracefulActionAnnotation stores the rollout state on the StatefulSet.
 	// CR status alone is not safe here because old CRDs prune unknown status fields.
 	gracefulActionAnnotation = "doris.disaggregated.cluster/graceful-action"
+
+	// waitPodReadyTimeoutFactor bounds how long we wait for the replacement pod
+	// to show up as Ready before surfacing a timeout warning and extending the wait.
+	waitPodReadyTimeoutFactor = 2
+
+	// waitBEAliveTimeoutFactor bounds how long we wait for FE to observe a replacement BE
+	// after the replacement pod is already Ready.
+	waitBEAliveTimeoutFactor = 2
 )
 
 // gracefulRolloutReconcile is the entry point for graceful two-phase restart/shutdown.
@@ -142,6 +150,18 @@ func (dcgs *DisaggregatedComputeGroupsController) gracefulRolloutReconcile(
 
 	// Check if done.
 	if ga.Phase == dv1.GracefulPhaseDone {
+		finished, finalizeErr := dcgs.shouldFinalizeGracefulAction(ctx, est, ga)
+		if finalizeErr != nil {
+			return true, finalizeErr
+		}
+		if !finished {
+			ga.LastMessage = fmt.Sprintf(
+				"Waiting for StatefulSet %s/%s outdated pods to be fully drained before finalizing graceful action (currentRevision=%s updateRevision=%s)",
+				est.Namespace, est.Name, est.Status.CurrentRevision, est.Status.UpdateRevision)
+			prepareGracefulStatefulSet(st, est, ga)
+			setGracefulAction(st, ga)
+			return true, nil
+		}
 		klog.Infof("gracefulRolloutReconcile: graceful action completed for cg=%s", cg.UniqueId)
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulActionCompleted),
 			"Graceful %s completed for compute group %s", ga.Type, cg.UniqueId)
@@ -329,6 +349,7 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitDrain(
 		if apierrors.IsNotFound(err) {
 			klog.Infof("handleWaitDrain: pod %s already gone", ga.CurrentPod)
 			if ga.Type == dv1.GracefulActionRollingUpdate {
+				resetGracefulPhaseTimer(ga)
 				ga.Phase = dv1.GracefulPhaseWaitPodReady
 			} else {
 				dcgs.advanceToNextPod(ga)
@@ -421,6 +442,7 @@ func (dcgs *DisaggregatedComputeGroupsController) afterPodDeleted(
 	switch ga.Type {
 	case dv1.GracefulActionRollingUpdate:
 		// Wait for replacement pod to become ready.
+		resetGracefulPhaseTimer(ga)
 		ga.Phase = dv1.GracefulPhaseWaitPodReady
 	case dv1.GracefulActionScaleDown:
 		// For scale down, update StatefulSet replicas after pod is deleted.
@@ -463,10 +485,26 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 	est *appv1.StatefulSet,
 	ga *dv1.GracefulAction,
 ) error {
+	if ga.DeadlineAt.IsZero() {
+		now := metav1.Now()
+		ga.StartedAt = now
+		ga.DeadlineAt = metav1.NewTime(now.Add(time.Duration(waitPodReadyTimeoutFactor*resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS) * time.Second))
+	}
+
 	pod, err := dcgs.getPod(ctx, cluster.Namespace, ga.CurrentPod)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Pod hasn't been recreated yet, wait.
+			if time.Now().After(ga.DeadlineAt.Time) {
+				klog.Warningf("handleWaitPodReady: timeout waiting for replacement pod %s to be created, extending deadline", ga.CurrentPod)
+				dcgs.K8srecorder.Eventf(cluster, string(sc.EventWarning), string(sc.GracefulReplacementReady),
+					"Timed out waiting for replacement pod %s to be created, continuing to wait", ga.CurrentPod)
+				now := metav1.Now()
+				ga.StartedAt = now
+				ga.DeadlineAt = metav1.NewTime(now.Add(time.Duration(waitPodReadyTimeoutFactor*resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS) * time.Second))
+				ga.LastMessage = fmt.Sprintf("Timed out waiting for replacement pod %s to be created, continuing to wait", ga.CurrentPod)
+				return nil
+			}
 			ga.LastMessage = fmt.Sprintf("Waiting for replacement pod %s to be created", ga.CurrentPod)
 			return nil
 		}
@@ -478,7 +516,19 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitPodReady(
 		dcgs.K8srecorder.Eventf(cluster, string(sc.EventNormal), string(sc.GracefulReplacementReady),
 			"Replacement pod %s is ready", ga.CurrentPod)
 
+		resetGracefulPhaseTimer(ga)
 		ga.Phase = dv1.GracefulPhaseWaitBEAlive
+		return nil
+	}
+
+	if time.Now().After(ga.DeadlineAt.Time) {
+		klog.Warningf("handleWaitPodReady: timeout waiting for replacement pod %s to become ready, extending deadline", ga.CurrentPod)
+		dcgs.K8srecorder.Eventf(cluster, string(sc.EventWarning), string(sc.GracefulReplacementReady),
+			"Timed out waiting for replacement pod %s to become ready, continuing to wait", ga.CurrentPod)
+		now := metav1.Now()
+		ga.StartedAt = now
+		ga.DeadlineAt = metav1.NewTime(now.Add(time.Duration(waitPodReadyTimeoutFactor*resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS) * time.Second))
+		ga.LastMessage = fmt.Sprintf("Timed out waiting for replacement pod %s to become ready, continuing to wait", ga.CurrentPod)
 		return nil
 	}
 
@@ -508,14 +558,32 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 	cgStatus *dv1.ComputeGroupStatus,
 	ga *dv1.GracefulAction,
 ) error {
+	if ga.DeadlineAt.IsZero() {
+		now := metav1.Now()
+		ga.StartedAt = now
+		ga.DeadlineAt = metav1.NewTime(now.Add(time.Duration(waitBEAliveTimeoutFactor*resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS) * time.Second))
+	}
+
 	backend, err := dcgs.getBackendByPodName(ctx, cluster, cgStatus, ga.CurrentPod)
 	if err != nil {
+		if !ga.DeadlineAt.IsZero() && time.Now().After(ga.DeadlineAt.Time) {
+			klog.Warningf("handleWaitBEAlive: timeout waiting for backend %s to appear in FE, advancing rollout", ga.CurrentPod)
+			ga.LastMessage = fmt.Sprintf("Timed out waiting for backend %s to appear in FE, forcing advance", ga.CurrentPod)
+			dcgs.advanceToNextPod(ga)
+			return nil
+		}
 		ga.LastMessage = fmt.Sprintf("Waiting for backend %s to appear in FE: %v", ga.CurrentPod, err)
 		return nil
 	}
 
 	shutdown, err := backendIsShutdown(backend)
 	if err != nil {
+		if !ga.DeadlineAt.IsZero() && time.Now().After(ga.DeadlineAt.Time) {
+			klog.Warningf("handleWaitBEAlive: timeout waiting for parseable backend status on %s, advancing rollout", ga.CurrentPod)
+			ga.LastMessage = fmt.Sprintf("Timed out waiting for backend %s status to become parseable, forcing advance", ga.CurrentPod)
+			dcgs.advanceToNextPod(ga)
+			return nil
+		}
 		ga.LastMessage = fmt.Sprintf("Waiting for backend %s status to be parseable: %v", ga.CurrentPod, err)
 		return nil
 	}
@@ -528,10 +596,40 @@ func (dcgs *DisaggregatedComputeGroupsController) handleWaitBEAlive(
 		return nil
 	}
 
+	if !ga.DeadlineAt.IsZero() && time.Now().After(ga.DeadlineAt.Time) {
+		klog.Warningf("handleWaitBEAlive: timeout waiting for backend %s to become alive in FE, advancing rollout", ga.CurrentPod)
+		ga.LastMessage = fmt.Sprintf(
+			"Timed out waiting for backend %s to become alive in FE (alive=%t shutdown=%t heartbeatFailures=%d err=%s), forcing advance",
+			ga.CurrentPod, backend.Alive, shutdown, backend.HeartbeatFailureCounter, backend.ErrMsg)
+		dcgs.advanceToNextPod(ga)
+		return nil
+	}
+
 	ga.LastMessage = fmt.Sprintf(
 		"Waiting for backend %s to become alive in FE (alive=%t shutdown=%t heartbeatFailures=%d err=%s)",
 		ga.CurrentPod, backend.Alive, shutdown, backend.HeartbeatFailureCounter, backend.ErrMsg)
 	return nil
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) shouldFinalizeGracefulAction(
+	ctx context.Context,
+	est *appv1.StatefulSet,
+	ga *dv1.GracefulAction,
+) (bool, error) {
+	if ga == nil {
+		return true, nil
+	}
+	switch ga.Type {
+	case dv1.GracefulActionRollingUpdate:
+		if est == nil {
+			return false, nil
+		}
+		_, _, found := dcgs.selectNextRollingUpdatePod(ctx, est.Name, est, ga)
+		if found {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) getBackendByPodName(
@@ -684,11 +782,18 @@ func (dcgs *DisaggregatedComputeGroupsController) advanceToNextPod(ga *dv1.Grace
 	ga.CurrentOrdinal = 0
 	ga.DrainTriggered = false
 	ga.InitialRestartCount = 0
-	ga.StartedAt = metav1.Time{}
-	ga.DeadlineAt = metav1.Time{}
+	resetGracefulPhaseTimer(ga)
 	ga.LastMessage = ""
 	ga.Phase = dv1.GracefulPhaseTriggerDrain
 	// The next reconcile loop will call selectNextPod; if none found, phase becomes Done.
+}
+
+func resetGracefulPhaseTimer(ga *dv1.GracefulAction) {
+	if ga == nil {
+		return
+	}
+	ga.StartedAt = metav1.Time{}
+	ga.DeadlineAt = metav1.Time{}
 }
 
 // getPod gets a specific pod by namespace and name.
