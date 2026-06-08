@@ -38,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,15 +52,17 @@ var (
 
 type DisaggregatedComputeGroupsController struct {
 	sc.DisaggregatedSubDefaultController
+	RestConfig *rest.Config
 }
 
 func New(mgr ctrl.Manager) *DisaggregatedComputeGroupsController {
 	return &DisaggregatedComputeGroupsController{
-		sc.DisaggregatedSubDefaultController{
+		DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
 			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedComputeGroupsController),
 			ControllerName: disaggregatedComputeGroupsController,
 		},
+		RestConfig: mgr.GetConfig(),
 	}
 }
 
@@ -146,15 +149,21 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 	cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 	st := dcgs.NewStatefulset(ddc, cg, cvs)
-	svc := dcgs.newService(ddc, cg, cvs)
+	internalSvc := dcgs.newInternalService(ddc, cg, cvs)
+	externalSvc := dcgs.newExternalService(ddc, cg, cvs)
 	dcgs.initialCGStatus(ddc, cg)
 
 	dcgs.CheckSecretMountPath(ddc, cg.Secrets)
 	dcgs.CheckSecretExist(ctx, ddc, cg.Secrets)
 
-	event, err := dcgs.DefaultReconcileService(ctx, svc)
+	if err := dcgs.reconcileInternalService(ctx, internalSvc); err != nil {
+		klog.Errorf("disaggregatedComputeGroupsController reconcile internal service namespace %s name %s failed, err=%s", internalSvc.Namespace, internalSvc.Name, err.Error())
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.ServiceApplyedFailed, Message: err.Error()}, err
+	}
+
+	event, err := dcgs.DefaultReconcileService(ctx, externalSvc)
 	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
+		klog.Errorf("disaggregatedComputeGroupsController reconcile external service namespace %s name %s failed, err=%s", externalSvc.Namespace, externalSvc.Name, err.Error())
 		return event, err
 	}
 	event, err = dcgs.reconcileStatefulset(ctx, st, ddc, cg)
@@ -169,6 +178,29 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 
 	return event, err
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) reconcileInternalService(ctx context.Context, svc *corev1.Service) error {
+	var existingSvc corev1.Service
+	err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, &existingSvc)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return k8s.CreateClientObject(ctx, dcgs.K8sclient, svc)
+		}
+		return err
+	}
+
+	if existingSvc.Spec.ClusterIP == "None" {
+		_, err = dcgs.DefaultReconcileService(ctx, svc)
+		return err
+	}
+
+	klog.Infof("reconcileInternalService existing service %s/%s is not headless (clusterIP=%s), deleting and recreating as headless.",
+		existingSvc.Namespace, existingSvc.Name, existingSvc.Spec.ClusterIP)
+	if err = k8s.DeleteService(ctx, dcgs.K8sclient, svc.Namespace, svc.Name); err != nil {
+		return err
+	}
+	return k8s.CreateClientObject(ctx, dcgs.K8sclient, svc)
 }
 
 // reconcileStatefulset return bool means reconcile print error message.
@@ -214,12 +246,41 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, nil
 	}
 
+	// Graceful two-phase restart/shutdown: check if we need to perform a graceful action.
+	// This must happen after preApply but before the actual StatefulSet apply.
+	if dcgs.RestConfig != nil {
+		var cgStatus *dv1.ComputeGroupStatus
+		for i := range cluster.Status.ComputeGroupStatuses {
+			if cluster.Status.ComputeGroupStatuses[i].UniqueId == cg.UniqueId {
+				cgStatus = &cluster.Status.ComputeGroupStatuses[i]
+				break
+			}
+		}
+		if cgStatus != nil {
+			// If a graceful action is already in progress or needs to start,
+			// ensure OnDelete strategy to prevent K8s from auto-deleting pods.
+			skipApply, gracefulErr := dcgs.gracefulRolloutReconcile(ctx, dcgs.RestConfig, st, &est, cluster, cg, cgStatus)
+			if gracefulErr != nil {
+				klog.Errorf("reconcileStatefulset gracefulRolloutReconcile failed: %v", gracefulErr)
+				// Continue with normal reconcile on error, don't block.
+			}
+			if skipApply {
+				// Graceful action is in progress. Apply StatefulSet with OnDelete strategy
+				// so K8s won't auto-delete pods, but still update the template.
+				ensureOnDeleteStrategy(st)
+			}
+		}
+	}
+
+	if st.Spec.UpdateStrategy.Type == appv1.OnDeleteStatefulSetStrategyType {
+		dcgs.clearStatefulSetRollingUpdate(ctx, st.Namespace, st.Name)
+	}
 	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
 		dcgs.RestrictConditionsEqual(new, est)
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
-		equal := resource.StatefulsetDeepEqualWithKey(new, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
-		if !equal {
+		businessEqual := dcgs.businessStatefulSetEqual(new, est)
+		if !businessEqual {
 			if len(new.Annotations) == 0 {
 				new.Annotations = map[string]string{}
 			}
@@ -233,13 +294,12 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 			ddc_annos.Add(msUniqueIdKey, "true")
 			dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(new)
 		}
-		return equal
+		return businessEqual && gracefulStatefulSetControlEqual(new, est)
 
 	}, ndf); err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
 	}
-
 	return nil, nil
 }
 
@@ -259,14 +319,6 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 
 	for i := range cgss {
 		if cgss[i].UniqueId == uniqueId {
-			/*if cgss[i].Phase != dv1.Ready {
-				defaultStatus.Phase = cgss[i].Phase
-			}
-			defaultStatus.SuspendReplicas = cgss[i].SuspendReplicas
-			cgss[i] = defaultStatus*/
-			if cgss[i].Phase == dv1.Ready {
-				cgss[i].Phase = defaultStatus.Phase
-			}
 			cgss[i].Replicas = *cg.Replicas
 
 			return
@@ -275,6 +327,31 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 
 	// Need to adjust by pointer
 	(&ddc.Status).ComputeGroupStatuses = append((&ddc.Status).ComputeGroupStatuses, defaultStatus)
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) businessStatefulSetEqual(new, est *appv1.StatefulSet) bool {
+	nst := new.DeepCopy()
+	eSt := est.DeepCopy()
+	normalizeGracefulStatefulSetForCompare(nst)
+	normalizeGracefulStatefulSetForCompare(eSt)
+	equal := resource.StatefulsetDeepEqualWithKey(nst, eSt, dv1.DisaggregatedSpecHashValueAnnotation, false)
+	if hashValue := nst.Annotations[dv1.DisaggregatedSpecHashValueAnnotation]; hashValue != "" {
+		if new.Annotations == nil {
+			new.Annotations = map[string]string{}
+		}
+		new.Annotations[dv1.DisaggregatedSpecHashValueAnnotation] = hashValue
+	}
+	return equal
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) clearStatefulSetRollingUpdate(ctx context.Context, namespace, name string) {
+	patch := []byte(`{"spec":{"updateStrategy":{"rollingUpdate":null}}}`)
+	st := &appv1.StatefulSet{}
+	st.Namespace = namespace
+	st.Name = name
+	if err := dcgs.K8sclient.Patch(ctx, st, client.RawPatch(types.MergePatchType, patch)); err != nil {
+		klog.Errorf("clearStatefulSetRollingUpdate: failed to clear rollingUpdate for StatefulSet %s/%s: %v", namespace, name, err)
+	}
 }
 
 // check compute groups unique identifier duplicated or not. return duplicated key.
@@ -710,8 +787,25 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 	}
 
 	cgs.AvailableReplicas = availableReplicas
+	if hasGracefulAction(sts) {
+		switch cgs.Phase {
+		case dv1.Ready:
+			cgs.Phase = dv1.GracefulRolling
+		case dv1.Reconciling, dv1.GracefulRolling, dv1.GracefulScaling, dv1.GracefulDeleting:
+			// Keep the phase in a reconciling/graceful state while the StatefulSet
+			// still carries graceful-action annotation.
+		}
+		return nil
+	}
 	if allUpdated && availableReplicas == cgs.Replicas {
 		cgs.Phase = dv1.Ready
 	}
 	return nil
+}
+
+func hasGracefulAction(sts *appv1.StatefulSet) bool {
+	if sts == nil || sts.Annotations == nil {
+		return false
+	}
+	return sts.Annotations[gracefulActionAnnotation] != ""
 }

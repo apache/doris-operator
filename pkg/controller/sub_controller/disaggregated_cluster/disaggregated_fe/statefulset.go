@@ -90,6 +90,7 @@ func (dfc *DisaggregatedFEController) getFEPodLabels(ddc *v1.DorisDisaggregatedC
 
 func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) corev1.PodTemplateSpec {
 	pts := resource.NewPodTemplateSpecWithCommonSpec(false, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
+	resource.AddTerminationGracePeriodSeconds(&pts, confMap, resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS)
 	//pod template metadata.
 	labels := dfc.getFEPodLabels(ddc)
 	pts.Labels = labels
@@ -173,6 +174,8 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: MS_ENDPOINT, Value: msEndpoint},
 		corev1.EnvVar{Name: CLUSTER_ID, Value: fmt.Sprintf("%d", ddc.GetInstanceHashId())},
 		corev1.EnvVar{Name: STATEFULSET_NAME, Value: stsName},
+		corev1.EnvVar{Name: resource.DNS_READY_TIMEOUT, Value: resource.DEFAULT_DNS_READY_TIMEOUT},
+		corev1.EnvVar{Name: resource.DNS_READY_INTERVAL, Value: resource.DEFAULT_DNS_READY_INTERVAL},
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: ddc.GetFEVIPAddresss()},
 		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(ddc.GetElectionNumber()), 10)},
 	)

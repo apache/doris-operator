@@ -6,7 +6,7 @@
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
 //
-//   http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
@@ -19,16 +19,15 @@ package templates
 import "github.com/spf13/cobra"
 
 type CommandGroup struct {
-    //describe the command class function.
-    Message string
-    Commands []*cobra.Command
+	//describe the command class function.
+	Message  string
+	Commands []*cobra.Command
 }
 
 type CommandGroups []CommandGroup
 
-func(g CommandGroups) Add(c *cobra.Command) {
-    for _, group := range g {
-        c.AddCommand(group.Commands...)
-    }
+func (g CommandGroups) Add(c *cobra.Command) {
+	for _, group := range g {
+		c.AddCommand(group.Commands...)
+	}
 }
-

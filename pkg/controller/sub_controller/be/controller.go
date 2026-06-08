@@ -106,7 +106,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	//use new default value before apply new statefulset.
-	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet){
+	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
 		be.useNewDefaultValuesInStatefulset(st)
 	}
 
