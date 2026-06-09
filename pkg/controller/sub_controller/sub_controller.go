@@ -754,7 +754,10 @@ func (d *SubDefaultController) CompareConfigmapAndTriggerRestart(dcr *dorisv1.Do
 
 	// configmap changed , restart sts
 	if oldStatus.ComponentCondition.Phase == dorisv1.Available {
-		klog.Infof("CompareConfigmapAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Namespace, dcr.Namespace)
+		klog.Infof("CompareConfigmapAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Name, dcr.Namespace)
+		if dcr.Annotations == nil {
+			dcr.Annotations = make(map[string]string)
+		}
 		dcr.Annotations[dorisv1.GetRestartAnnotationKey(componentType)] = time.Now().Format(time.RFC3339)
 		status := dcr.GetComponentStatus(componentType)
 		status.ComponentCondition.Phase = dorisv1.Restarting
