@@ -84,6 +84,21 @@ func Test_NewPodTemplateSpec_TerminationGracePeriodSeconds(t *testing.T) {
 	if !foundRuntimeMount {
 		t.Fatalf("expected compute container to mount %q at %q", gracefulRuntimeVolumeName, gracefulRuntimeMountPath)
 	}
+	foundPodInfoMount := false
+	for _, c := range pts.Spec.Containers {
+		if c.Name != resource.DISAGGREGATED_BE_MAIN_CONTAINER_NAME {
+			continue
+		}
+		for _, vm := range c.VolumeMounts {
+			if vm.Name == resource.POD_INFO_VOLUME_NAME && vm.MountPath == resource.POD_INFO_PATH {
+				foundPodInfoMount = true
+				break
+			}
+		}
+	}
+	if !foundPodInfoMount {
+		t.Fatalf("expected compute container to keep podinfo mount %q at %q", resource.POD_INFO_VOLUME_NAME, resource.POD_INFO_PATH)
+	}
 }
 
 func Test_newSpecificEnvs_AlwaysUseFQDNHostType(t *testing.T) {

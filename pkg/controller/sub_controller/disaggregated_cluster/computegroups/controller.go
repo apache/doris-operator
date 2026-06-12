@@ -212,8 +212,6 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 
 	var est appv1.StatefulSet
 	if err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
-		// add downlaodAPI volume Mounts
-		dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(st)
 		//if err = k8s.CreateClientObject(ctx, dcgs.K8sclient, st); err != nil {
 		//	klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		//	return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
@@ -292,7 +290,6 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 			ddc_annos := (resource.Annotations)(cluster.Annotations)
 			msUniqueIdKey := strings.ToLower(fmt.Sprintf(dv1.UpdateStatefulsetName, cluster.GetCGStatefulsetName(cg)))
 			ddc_annos.Add(msUniqueIdKey, "true")
-			dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(new)
 		}
 		return businessEqual && gracefulStatefulSetControlEqual(new, est)
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package disaggregated_fe
+package metaservice
 
 import (
 	"testing"
@@ -26,33 +26,31 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-func Test_NewPodTemplateSpec_TerminationGracePeriodSeconds(t *testing.T) {
+func TestNewPodTemplateSpec_KeepsPodInfoMount(t *testing.T) {
 	ddc := &dv1.DorisDisaggregatedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-ddc",
 			Namespace: "default",
 		},
 		Spec: dv1.DorisDisaggregatedClusterSpec{
-			FeSpec: dv1.FeSpec{
+			MetaService: dv1.MetaService{
 				CommonSpec: dv1.CommonSpec{
 					Replicas: pointer.Int32(1),
-					Image:    "selectdb/doris.fe-ubuntu:latest",
+					Image:    "selectdb/doris.ms-ubuntu:latest",
+				},
+				FDB: dv1.FDB{
+					Address: "127.0.0.1:4500",
 				},
 			},
 		},
 	}
 
-	dfc := &DisaggregatedFEController{}
-	pts := dfc.NewPodTemplateSpec(ddc, map[string]interface{}{})
-	if pts.Spec.TerminationGracePeriodSeconds == nil {
-		t.Fatalf("expected FE terminationGracePeriodSeconds")
-	}
-	if *pts.Spec.TerminationGracePeriodSeconds != resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS {
-		t.Errorf("expected FE terminationGracePeriodSeconds=%d, got %d", resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
-	}
+	dms := &DisaggregatedMSController{}
+	pts := dms.NewPodTemplateSpec(ddc, map[string]string{}, map[string]interface{}{})
+
 	foundPodInfoMount := false
 	for _, c := range pts.Spec.Containers {
-		if c.Name != resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME {
+		if c.Name != resource.DISAGGREGATED_MS_MAIN_CONTAINER_NAME {
 			continue
 		}
 		for _, vm := range c.VolumeMounts {
@@ -63,6 +61,6 @@ func Test_NewPodTemplateSpec_TerminationGracePeriodSeconds(t *testing.T) {
 		}
 	}
 	if !foundPodInfoMount {
-		t.Fatalf("expected FE container to keep podinfo mount %q at %q", resource.POD_INFO_VOLUME_NAME, resource.POD_INFO_PATH)
+		t.Fatalf("expected metaservice container to keep podinfo mount %q at %q", resource.POD_INFO_VOLUME_NAME, resource.POD_INFO_PATH)
 	}
 }

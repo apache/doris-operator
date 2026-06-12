@@ -138,10 +138,10 @@ func (dfc *DisaggregatedFEController) NewFEContainer(ddc *v1.DorisDisaggregatedC
 	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.FeSpec.CommonSpec, v1.DisaggregatedFE)
 	_, vms, _ := dfc.BuildVolumesVolumeMountsAndPVCs(cvs, v1.DisaggregatedFE, &ddc.Spec.FeSpec.CommonSpec)
 	_, cmvms := dfc.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.FeSpec.ConfigMaps)
-	c.VolumeMounts = vms
-	if c.VolumeMounts == nil {
-		c.VolumeMounts = cmvms
-	} else {
+	if len(vms) != 0 {
+		c.VolumeMounts = append(c.VolumeMounts, vms...)
+	}
+	if len(cmvms) != 0 {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
 

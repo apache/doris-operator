@@ -172,10 +172,10 @@ func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisD
 	resource.BuildDisaggregatedProbe(&c, &cg.CommonSpec, dv1.DisaggregatedBE)
 	_, vms, _ := dcgs.BuildVolumesVolumeMountsAndPVCs(cvs, dv1.DisaggregatedBE, &cg.CommonSpec)
 	_, cmvms := dcgs.BuildDefaultConfigMapVolumesVolumeMounts(cg.ConfigMaps)
-	c.VolumeMounts = vms
-	if c.VolumeMounts == nil {
-		c.VolumeMounts = cmvms
-	} else {
+	if len(vms) != 0 {
+		c.VolumeMounts = append(c.VolumeMounts, vms...)
+	}
+	if len(cmvms) != 0 {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
 	c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
