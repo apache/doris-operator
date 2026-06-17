@@ -22,10 +22,12 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"strings"
 )
 
 // log is for logging in this package.
@@ -53,14 +55,22 @@ var _ webhook.CustomValidator = &DorisDisaggregatedCluster{}
 func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate create", "name", ddc.Name)
 
-	return nil, ddc.validateFEReplicas()
+	if errs := ddc.validate(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (ddc *DorisDisaggregatedCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", ddc.Name)
 
-	return nil, ddc.validateFEReplicas()
+	if errs := ddc.validate(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a unnamedwatches will be registered for the type
@@ -69,6 +79,23 @@ func (ddc *DorisDisaggregatedCluster) ValidateDelete(ctx context.Context, obj ru
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
+}
+
+func (ddc *DorisDisaggregatedCluster) validate() []error {
+	var errs []error
+	errs = append(errs, ddc.validateManagementUser()...)
+	if err := ddc.validateFEReplicas(); err != nil {
+		errs = append(errs, err)
+	}
+	return errs
+}
+
+func (ddc *DorisDisaggregatedCluster) validateManagementUser() []error {
+	if ddc.Spec.AdminUser == nil || !strings.EqualFold(ddc.Spec.AdminUser.Name, "admin") {
+		return nil
+	}
+
+	return []error{fmt.Errorf("'adminUser.name' error: admin is not supported as management user, use root or a dedicated user with NODE_PRIV")}
 }
 
 func (ddc *DorisDisaggregatedCluster) validateFEReplicas() error {

@@ -42,6 +42,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"strings"
 )
 
 // log is for logging in this package.
@@ -71,7 +72,10 @@ var _ webhook.CustomValidator = &DorisCluster{}
 func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	if errs := r.validateManagementUser(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+
 	return nil, nil
 }
 
@@ -79,6 +83,7 @@ func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (
 func (r *DorisCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", r.Name)
 	var errors []error
+	errors = append(errors, r.validateManagementUser()...)
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
 	if *r.Spec.FeSpec.Replicas < r.GetElectionNumber() {
 		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))
@@ -97,4 +102,12 @@ func (r *DorisCluster) ValidateDelete(ctx context.Context, obj runtime.Object) (
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
+}
+
+func (r *DorisCluster) validateManagementUser() []error {
+	if r.Spec.AdminUser == nil || !strings.EqualFold(r.Spec.AdminUser.Name, "admin") {
+		return nil
+	}
+
+	return []error{fmt.Errorf("'adminUser.name' error: admin is not supported as management user, use root or a dedicated user with NODE_PRIV")}
 }
