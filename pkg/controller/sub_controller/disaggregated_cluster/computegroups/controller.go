@@ -36,7 +36,9 @@ import (
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -242,6 +244,12 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, err
 	}
 
+	if !volumeClaimTemplatesEqual(st.Spec.VolumeClaimTemplates, est.Spec.VolumeClaimTemplates) {
+		msg := fmt.Sprintf("compute group %s storage template is immutable after creation; modifying BE file_cache_path or persistent volume settings requires recreating the compute group", cg.UniqueId)
+		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset immutable storage template changed, namespace=%s name=%s, err=%s", st.Namespace, st.Name, msg)
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGStorageTemplateImmutable, Message: msg}, errors.New(msg)
+	}
+
 	err := dcgs.preApplyStatefulSet(ctx, st, &est, cluster, cg)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset preApplyStatefulSet namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
@@ -280,6 +288,45 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 
 	return nil, nil
+}
+
+func volumeClaimTemplatesEqual(new, old []corev1.PersistentVolumeClaim) bool {
+	if len(new) != len(old) {
+		return false
+	}
+
+	normalizedNew := make([]corev1.PersistentVolumeClaim, len(new))
+	normalizedOld := make([]corev1.PersistentVolumeClaim, len(old))
+	for i := range new {
+		normalizedNew[i] = normalizeVolumeClaimTemplate(new[i])
+		normalizedOld[i] = normalizeVolumeClaimTemplate(old[i])
+	}
+
+	return equality.Semantic.DeepEqual(normalizedNew, normalizedOld)
+}
+
+func normalizeVolumeClaimTemplate(pvc corev1.PersistentVolumeClaim) corev1.PersistentVolumeClaim {
+	pvc.ObjectMeta = metav1.ObjectMeta{
+		Name:        pvc.Name,
+		Labels:      normalizeStringMap(pvc.Labels),
+		Annotations: normalizeStringMap(pvc.Annotations),
+	}
+	if pvc.Spec.VolumeMode == nil {
+		volumeMode := corev1.PersistentVolumeFilesystem
+		pvc.Spec.VolumeMode = &volumeMode
+	}
+	return pvc
+}
+
+func normalizeStringMap(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	normalized := make(map[string]string, len(m))
+	for k, v := range m {
+		normalized[k] = v
+	}
+	return normalized
 }
 
 // initial compute group status before sync resources. status changing with sync steps, and generate the last status by classify pods.
