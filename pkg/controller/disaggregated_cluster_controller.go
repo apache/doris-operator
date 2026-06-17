@@ -271,9 +271,9 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 
 	ddc.Status.ObservedGeneration = ddc.Generation
 	ddc.Status.ClusterHealth.Health = dv1.Green
-	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
+	if ddc.Status.MetaServiceStatus.AvailableStatus != dv1.Available || ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
 		ddc.Status.ClusterHealth.Health = dv1.Red
-	} else if ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
+	} else if ddc.Status.MetaServiceStatus.Phase != dv1.Ready || ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
 		ddc.Status.ClusterHealth.Health = dv1.Yellow
 	}
 
