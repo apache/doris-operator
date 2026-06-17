@@ -62,6 +62,9 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Build operator
+        run: go build -o /tmp/dorisoperator ./cmd/operator
+
   generated-artifacts:
     name: Generated Artifacts Check
     runs-on: ubuntu-latest
