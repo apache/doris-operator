@@ -19,6 +19,8 @@ package v1
 
 import (
 	"context"
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,16 +53,14 @@ var _ webhook.CustomValidator = &DorisDisaggregatedCluster{}
 func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate create", "name", ddc.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil, nil
+	return nil, ddc.validateFEReplicas()
 }
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (ddc *DorisDisaggregatedCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", ddc.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
-	return nil, nil
+	return nil, ddc.validateFEReplicas()
 }
 
 // ValidateDelete implements webhook.Validator so a unnamedwatches will be registered for the type
@@ -69,4 +69,14 @@ func (ddc *DorisDisaggregatedCluster) ValidateDelete(ctx context.Context, obj ru
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
+}
+
+func (ddc *DorisDisaggregatedCluster) validateFEReplicas() error {
+	if ddc.Spec.FeSpec.Replicas == nil {
+		return nil
+	}
+	if *ddc.Spec.FeSpec.Replicas < ddc.GetElectionNumber() {
+		return fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber")
+	}
+	return nil
 }
