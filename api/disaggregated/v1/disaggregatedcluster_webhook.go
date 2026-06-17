@@ -19,11 +19,14 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"strings"
 )
 
 // log is for logging in this package.
@@ -51,7 +54,10 @@ var _ webhook.CustomValidator = &DorisDisaggregatedCluster{}
 func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate create", "name", ddc.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	if errs := ddc.validateManagementUser(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+
 	return nil, nil
 }
 
@@ -59,7 +65,10 @@ func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj ru
 func (ddc *DorisDisaggregatedCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", ddc.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	if errs := ddc.validateManagementUser(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+
 	return nil, nil
 }
 
@@ -69,4 +78,12 @@ func (ddc *DorisDisaggregatedCluster) ValidateDelete(ctx context.Context, obj ru
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
+}
+
+func (ddc *DorisDisaggregatedCluster) validateManagementUser() []error {
+	if ddc.Spec.AdminUser == nil || !strings.EqualFold(ddc.Spec.AdminUser.Name, "admin") {
+		return nil
+	}
+
+	return []error{fmt.Errorf("'adminUser.name' error: admin is not supported as management user, use root or a dedicated user with NODE_PRIV")}
 }
