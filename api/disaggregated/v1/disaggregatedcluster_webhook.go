@@ -20,6 +20,7 @@ package v1
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -54,7 +55,7 @@ var _ webhook.CustomValidator = &DorisDisaggregatedCluster{}
 func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate create", "name", ddc.Name)
 
-	if errs := ddc.validateManagementUser(); len(errs) != 0 {
+	if errs := ddc.validate(); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 
@@ -65,7 +66,7 @@ func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj ru
 func (ddc *DorisDisaggregatedCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	klog.Info("validate update", "name", ddc.Name)
 
-	if errs := ddc.validateManagementUser(); len(errs) != 0 {
+	if errs := ddc.validate(); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 
@@ -80,10 +81,29 @@ func (ddc *DorisDisaggregatedCluster) ValidateDelete(ctx context.Context, obj ru
 	return nil, nil
 }
 
+func (ddc *DorisDisaggregatedCluster) validate() []error {
+	var errs []error
+	errs = append(errs, ddc.validateManagementUser()...)
+	if err := ddc.validateFEReplicas(); err != nil {
+		errs = append(errs, err)
+	}
+	return errs
+}
+
 func (ddc *DorisDisaggregatedCluster) validateManagementUser() []error {
 	if ddc.Spec.AdminUser == nil || !strings.EqualFold(ddc.Spec.AdminUser.Name, "admin") {
 		return nil
 	}
 
 	return []error{fmt.Errorf("'adminUser.name' error: admin is not supported as management user, use root or a dedicated user with NODE_PRIV")}
+}
+
+func (ddc *DorisDisaggregatedCluster) validateFEReplicas() error {
+	if ddc.Spec.FeSpec.Replicas == nil {
+		return nil
+	}
+	if *ddc.Spec.FeSpec.Replicas < ddc.GetElectionNumber() {
+		return fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber")
+	}
+	return nil
 }

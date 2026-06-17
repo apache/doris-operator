@@ -53,3 +53,33 @@ func TestDorisDisaggregatedClusterAllowsNonAdminManagementUser(t *testing.T) {
 		t.Fatalf("expected non-admin management user to be allowed on update: %v", err)
 	}
 }
+
+func TestDorisDisaggregatedClusterValidateFEReplicas(t *testing.T) {
+	replicas := int32(1)
+	electionNumber := int32(2)
+	ddc := &DorisDisaggregatedCluster{
+		Spec: DorisDisaggregatedClusterSpec{
+			FeSpec: FeSpec{
+				ElectionNumber: &electionNumber,
+				CommonSpec: CommonSpec{
+					Replicas: &replicas,
+				},
+			},
+		},
+	}
+
+	if _, err := ddc.ValidateCreate(context.Background(), ddc); err == nil {
+		t.Fatal("expected create validation to reject replicas smaller than electionNumber")
+	}
+	if _, err := ddc.ValidateUpdate(context.Background(), ddc, ddc); err == nil {
+		t.Fatal("expected update validation to reject replicas smaller than electionNumber")
+	}
+
+	replicas = 2
+	if _, err := ddc.ValidateCreate(context.Background(), ddc); err != nil {
+		t.Fatalf("expected valid create to pass, got %v", err)
+	}
+	if _, err := ddc.ValidateUpdate(context.Background(), ddc, ddc); err != nil {
+		t.Fatalf("expected valid update to pass, got %v", err)
+	}
+}

@@ -135,6 +135,8 @@ func (dms *DisaggregatedMSController) UpdateComponentStatus(obj client.Object) e
 	}
 	if availableReplicas == msReplicas && allUpdated {
 		ddc.Status.MetaServiceStatus.Phase = v1.Ready
+	} else {
+		ddc.Status.MetaServiceStatus.Phase = v1.Reconciling
 	}
 
 	return nil
