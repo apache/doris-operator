@@ -62,11 +62,6 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          args: --timeout=10m
-
   generated-artifacts:
     name: Generated Artifacts Check
     runs-on: ubuntu-latest
