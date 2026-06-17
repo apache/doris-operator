@@ -149,7 +149,7 @@ type FeAddress struct {
 // Endpoints describe the address outside k8s.
 type Endpoints struct {
 	//the ip or domain array.
-	Address []string `json:":address,omitempty"`
+	Address []string `json:"address,omitempty"`
 
 	// the fe port that for query. the field `query_port` defines in fe config.
 	Port int `json:"port,omitempty"`
