@@ -62,6 +62,7 @@ var (
 	CGUniqueIdentifierNotMatchRegex EventReason = "CGUniqueIdentifierNotMatchRegex"
 	CGCreateResourceFailed          EventReason = "CGCreateResourceFailed"
 	CGApplyResourceFailed           EventReason = "CGApplyResourceFailed"
+	CGStorageTemplateImmutable      EventReason = "CGStorageTemplateImmutable"
 	CGStatefulsetDeleteFailed       EventReason = "CGStatefulsetDeleteFailed"
 	CGServiceDeleteFailed           EventReason = "CGServiceDeleteFailed"
 	ConfigMapPathRepeated           EventReason = "ConfigMapPathRepeated"
