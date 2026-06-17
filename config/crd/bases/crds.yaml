@@ -1417,7 +1417,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -3531,7 +3531,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -6274,7 +6274,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -8394,7 +8394,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
