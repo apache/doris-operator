@@ -96,7 +96,7 @@ func Test_safeScaleDown(t *testing.T) {
 		},
 	}
 
-	res := []int32{3, 3, 4,2}
+	res := []int32{3, 3, 4, 2}
 	for i := 0; i < len(dcrs); i++ {
 		fc.safeScaleDown(dcrs[i], osts[i])
 		if *dcrs[i].Spec.FeSpec.Replicas != res[i] {

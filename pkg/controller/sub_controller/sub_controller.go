@@ -397,7 +397,7 @@ func (d *SubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, e
 	//in webhook should intercept the volume spec updated when use statefulset pvc.
 	// TODO: updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden
 	//if create est vct is empty, should not assign to new st.
-	if len(est.Spec.VolumeClaimTemplates) !=0 {
+	if len(est.Spec.VolumeClaimTemplates) != 0 {
 		nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
 	}
 }

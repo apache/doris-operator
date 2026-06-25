@@ -121,10 +121,10 @@ func (dms *DisaggregatedMSController) NewMSContainer(ddc *v1.DorisDisaggregatedC
 	resource.BuildDisaggregatedProbe(&c, &ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 	_, vms, _ := dms.BuildVolumesVolumeMountsAndPVCs(cvs, v1.DisaggregatedMS, &ddc.Spec.MetaService.CommonSpec)
 	_, cmvms := dms.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.MetaService.ConfigMaps)
-	c.VolumeMounts = vms
-	if c.VolumeMounts == nil {
-		c.VolumeMounts = cmvms
-	} else {
+	if len(vms) != 0 {
+		c.VolumeMounts = append(c.VolumeMounts, vms...)
+	}
+	if len(cmvms) != 0 {
 		c.VolumeMounts = append(c.VolumeMounts, cmvms...)
 	}
 

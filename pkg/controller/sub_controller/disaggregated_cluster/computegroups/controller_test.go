@@ -21,6 +21,7 @@ import (
 	"context"
 	"testing"
 
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,6 +53,21 @@ func TestReconcileStatefulsetRejectsStorageTemplateChange(t *testing.T) {
 	}
 	if event.Reason != sc.CGStorageTemplateImmutable {
 		t.Fatalf("event reason = %s, want %s", event.Reason, sc.CGStorageTemplateImmutable)
+	}
+}
+
+func newTestDDC() *dv1.DorisDisaggregatedCluster {
+	return &dv1.DorisDisaggregatedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "doris",
+			Namespace: "default",
+		},
+	}
+}
+
+func newTestCG(uniqueID string) *dv1.ComputeGroup {
+	return &dv1.ComputeGroup{
+		UniqueId: uniqueID,
 	}
 }
 
