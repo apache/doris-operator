@@ -144,6 +144,28 @@ func Test_LifeCycleWithPreStopScript(t *testing.T) {
 	}
 }
 
+func Test_AddTerminationGracePeriodSeconds_Default(t *testing.T) {
+	pts := &corev1.PodTemplateSpec{}
+	AddTerminationGracePeriodSeconds(pts, map[string]interface{}{}, DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
+	if pts.Spec.TerminationGracePeriodSeconds == nil {
+		t.Fatalf("expected terminationGracePeriodSeconds")
+	}
+	if *pts.Spec.TerminationGracePeriodSeconds != DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS {
+		t.Errorf("expected default terminationGracePeriodSeconds=%d, got %d", DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
+	}
+}
+
+func Test_AddTerminationGracePeriodSeconds_ConfigOverride(t *testing.T) {
+	pts := &corev1.PodTemplateSpec{}
+	AddTerminationGracePeriodSeconds(pts, map[string]interface{}{GRACE_SHUTDOWN_WAIT_SECONDS: "60"}, DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
+	if pts.Spec.TerminationGracePeriodSeconds == nil {
+		t.Fatalf("expected terminationGracePeriodSeconds")
+	}
+	if *pts.Spec.TerminationGracePeriodSeconds != 60 {
+		t.Errorf("expected configured terminationGracePeriodSeconds=60, got %d", *pts.Spec.TerminationGracePeriodSeconds)
+	}
+}
+
 func Test_BuildDisaggregatedProbe(t *testing.T) {
 	c := &corev1.Container{}
 	cs := &dv1.CommonSpec{

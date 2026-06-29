@@ -88,11 +88,11 @@ func (fc *Controller) safeScaleDown(cluster *v1.DorisCluster, ost *appv1.Statefu
 	if or >= ele {
 		// if the scale down nodes have observer and follower roles, scale down observers.
 		*cluster.Spec.FeSpec.Replicas = ele
-		fc.K8srecorder.Event(cluster,string(sc.EventWarning), sc.FollowerScaleDownFailed,"Replicas is not allowed less than ElectionNumber, because of the bdbje (like raft) consistency protocol, if want do that please set ElectionNumber less than replicas. like that \"spec:{feSpec:{electionNumber}}\"")
+		fc.K8srecorder.Event(cluster, string(sc.EventWarning), sc.FollowerScaleDownFailed, "Replicas is not allowed less than ElectionNumber, because of the bdbje (like raft) consistency protocol, if want do that please set ElectionNumber less than replicas. like that \"spec:{feSpec:{electionNumber}}\"")
 	} else {
 		//if the scale down nodes only have followers, not be allowed.
-		*cluster.Spec.FeSpec.Replicas =or
-		fc.K8srecorder.Event(cluster,string(sc.EventWarning), sc.FollowerScaleDownFailed,"Replicas less than electionNumber, so not allowed scale down. This is because the bdbje(like raft) consistency protocol, if want do that please set ElectionNumber less than replicas. like that \"spec:{feSpec:{electionNumber}}\"")
+		*cluster.Spec.FeSpec.Replicas = or
+		fc.K8srecorder.Event(cluster, string(sc.EventWarning), sc.FollowerScaleDownFailed, "Replicas less than electionNumber, so not allowed scale down. This is because the bdbje(like raft) consistency protocol, if want do that please set ElectionNumber less than replicas. like that \"spec:{feSpec:{electionNumber}}\"")
 	}
 
 	return
