@@ -23,3 +23,21 @@ The foundationdb cluster is a practice for doris.
    ```Bash
    $ helm install doris-foundationdb selectdb/doris-foundationdb
    ```
+
+## Data safety notes
+
+- Keep FoundationDB in a dedicated Helm or Flux release. Doris configMap or compute-group changes should not rebuild the FoundationDB release.
+- This chart keeps the `FoundationDBCluster` resource by default with `helm.sh/resource-policy: keep` to reduce accidental metadata loss during Helm uninstall or release replacement.
+- Use a `StorageClass` with `reclaimPolicy=Retain` for FoundationDB metadata volumes. The PVC template controls claim shape, but the `StorageClass` controls PV retention behavior.
+
+Example values:
+
+```yaml
+keepClusterResource: true
+volumeClaimTemplate:
+  spec:
+    storageClassName: retain-sc
+    resources:
+      requests:
+        storage: 50G
+```
