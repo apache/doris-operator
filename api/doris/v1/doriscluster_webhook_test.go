@@ -23,37 +23,39 @@ import (
 )
 
 func TestDorisClusterRejectsAdminManagementUser(t *testing.T) {
+	validator := &DorisCluster{}
 	cluster := &DorisCluster{
 		Spec: DorisClusterSpec{
 			AdminUser: &AdminUser{Name: "admin"},
 		},
 	}
 
-	if _, err := cluster.ValidateCreate(context.Background(), cluster); err == nil {
+	if _, err := validator.ValidateCreate(context.Background(), cluster); err == nil {
 		t.Fatal("expected admin management user to be rejected on create")
 	}
 
 	replicas := int32(3)
 	cluster.Spec.FeSpec = &FeSpec{BaseSpec: BaseSpec{Replicas: &replicas}}
-	if _, err := cluster.ValidateUpdate(context.Background(), cluster, cluster); err == nil {
+	if _, err := validator.ValidateUpdate(context.Background(), cluster, cluster); err == nil {
 		t.Fatal("expected admin management user to be rejected on update")
 	}
 }
 
 func TestDorisClusterAllowsNonAdminManagementUser(t *testing.T) {
+	validator := &DorisCluster{}
 	cluster := &DorisCluster{
 		Spec: DorisClusterSpec{
 			AdminUser: &AdminUser{Name: "doris_operator"},
 		},
 	}
 
-	if _, err := cluster.ValidateCreate(context.Background(), cluster); err != nil {
+	if _, err := validator.ValidateCreate(context.Background(), cluster); err != nil {
 		t.Fatalf("expected non-admin management user to be allowed on create: %v", err)
 	}
 
 	replicas := int32(3)
 	cluster.Spec.FeSpec = &FeSpec{BaseSpec: BaseSpec{Replicas: &replicas}}
-	if _, err := cluster.ValidateUpdate(context.Background(), cluster, cluster); err != nil {
+	if _, err := validator.ValidateUpdate(context.Background(), cluster, cluster); err != nil {
 		t.Fatalf("expected non-admin management user to be allowed on update: %v", err)
 	}
 }

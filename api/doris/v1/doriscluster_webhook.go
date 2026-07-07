@@ -50,6 +50,8 @@ import (
 func (r *DorisCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(r).
+		WithValidator(r).
 		Complete()
 }
 
@@ -70,9 +72,13 @@ var _ webhook.CustomValidator = &DorisCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	klog.Info("validate create", "name", r.Name)
+	cluster, ok := obj.(*DorisCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DorisCluster but got %T", obj)
+	}
+	klog.Info("validate create", "name", cluster.Name)
 
-	if errs := r.validateManagementUser(); len(errs) != 0 {
+	if errs := cluster.validateManagementUser(); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 
@@ -81,11 +87,15 @@ func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (r *DorisCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	klog.Info("validate update", "name", r.Name)
+	cluster, ok := newObj.(*DorisCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DorisCluster but got %T", newObj)
+	}
+	klog.Info("validate update", "name", cluster.Name)
 	var errors []error
-	errors = append(errors, r.validateManagementUser()...)
+	errors = append(errors, cluster.validateManagementUser()...)
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
-	if *r.Spec.FeSpec.Replicas < r.GetElectionNumber() {
+	if cluster.Spec.FeSpec.Replicas != nil && *cluster.Spec.FeSpec.Replicas < cluster.GetElectionNumber() {
 		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))
 	}
 
