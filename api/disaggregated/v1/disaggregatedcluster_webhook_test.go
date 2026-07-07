@@ -23,38 +23,41 @@ import (
 )
 
 func TestDorisDisaggregatedClusterRejectsAdminManagementUser(t *testing.T) {
+	validator := &DorisDisaggregatedCluster{}
 	cluster := &DorisDisaggregatedCluster{
 		Spec: DorisDisaggregatedClusterSpec{
 			AdminUser: &AdminUser{Name: "admin"},
 		},
 	}
 
-	if _, err := cluster.ValidateCreate(context.Background(), cluster); err == nil {
+	if _, err := validator.ValidateCreate(context.Background(), cluster); err == nil {
 		t.Fatal("expected admin management user to be rejected on create")
 	}
 
-	if _, err := cluster.ValidateUpdate(context.Background(), cluster, cluster); err == nil {
+	if _, err := validator.ValidateUpdate(context.Background(), cluster, cluster); err == nil {
 		t.Fatal("expected admin management user to be rejected on update")
 	}
 }
 
 func TestDorisDisaggregatedClusterAllowsNonAdminManagementUser(t *testing.T) {
+	validator := &DorisDisaggregatedCluster{}
 	cluster := &DorisDisaggregatedCluster{
 		Spec: DorisDisaggregatedClusterSpec{
 			AdminUser: &AdminUser{Name: "doris_operator"},
 		},
 	}
 
-	if _, err := cluster.ValidateCreate(context.Background(), cluster); err != nil {
+	if _, err := validator.ValidateCreate(context.Background(), cluster); err != nil {
 		t.Fatalf("expected non-admin management user to be allowed on create: %v", err)
 	}
 
-	if _, err := cluster.ValidateUpdate(context.Background(), cluster, cluster); err != nil {
+	if _, err := validator.ValidateUpdate(context.Background(), cluster, cluster); err != nil {
 		t.Fatalf("expected non-admin management user to be allowed on update: %v", err)
 	}
 }
 
 func TestDorisDisaggregatedClusterValidateFEReplicas(t *testing.T) {
+	validator := &DorisDisaggregatedCluster{}
 	replicas := int32(1)
 	electionNumber := int32(2)
 	ddc := &DorisDisaggregatedCluster{
@@ -68,18 +71,18 @@ func TestDorisDisaggregatedClusterValidateFEReplicas(t *testing.T) {
 		},
 	}
 
-	if _, err := ddc.ValidateCreate(context.Background(), ddc); err == nil {
+	if _, err := validator.ValidateCreate(context.Background(), ddc); err == nil {
 		t.Fatal("expected create validation to reject replicas smaller than electionNumber")
 	}
-	if _, err := ddc.ValidateUpdate(context.Background(), ddc, ddc); err == nil {
+	if _, err := validator.ValidateUpdate(context.Background(), ddc, ddc); err == nil {
 		t.Fatal("expected update validation to reject replicas smaller than electionNumber")
 	}
 
 	replicas = 2
-	if _, err := ddc.ValidateCreate(context.Background(), ddc); err != nil {
+	if _, err := validator.ValidateCreate(context.Background(), ddc); err != nil {
 		t.Fatalf("expected valid create to pass, got %v", err)
 	}
-	if _, err := ddc.ValidateUpdate(context.Background(), ddc, ddc); err != nil {
+	if _, err := validator.ValidateUpdate(context.Background(), ddc, ddc); err != nil {
 		t.Fatalf("expected valid update to pass, got %v", err)
 	}
 }

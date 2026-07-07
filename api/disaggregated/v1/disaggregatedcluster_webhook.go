@@ -34,6 +34,8 @@ import (
 func (ddc *DorisDisaggregatedCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(ddc).
+		WithDefaulter(ddc).
+		WithValidator(ddc).
 		Complete()
 }
 
@@ -53,9 +55,13 @@ var _ webhook.CustomValidator = &DorisDisaggregatedCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	klog.Info("validate create", "name", ddc.Name)
+	cluster, ok := obj.(*DorisDisaggregatedCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DorisDisaggregatedCluster but got %T", obj)
+	}
+	klog.Info("validate create", "name", cluster.Name)
 
-	if errs := ddc.validate(); len(errs) != 0 {
+	if errs := cluster.validate(); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 
@@ -64,9 +70,13 @@ func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj ru
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (ddc *DorisDisaggregatedCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	klog.Info("validate update", "name", ddc.Name)
+	cluster, ok := newObj.(*DorisDisaggregatedCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DorisDisaggregatedCluster but got %T", newObj)
+	}
+	klog.Info("validate update", "name", cluster.Name)
 
-	if errs := ddc.validate(); len(errs) != 0 {
+	if errs := cluster.validate(); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 
