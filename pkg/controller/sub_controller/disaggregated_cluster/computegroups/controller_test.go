@@ -82,6 +82,21 @@ func TestVolumeClaimTemplatesEqualIgnoresDefaultVolumeMode(t *testing.T) {
 	}
 }
 
+func TestVolumeClaimTemplatesEqualIgnoresRuntimeFields(t *testing.T) {
+	desired := newTestStatefulSet("default", "doris-cg1", "100Gi").Spec.VolumeClaimTemplates
+	existing := newTestStatefulSet("default", "doris-cg1", "100Gi").Spec.VolumeClaimTemplates
+
+	existing[0].TypeMeta = metav1.TypeMeta{
+		APIVersion: "v1",
+		Kind:       "PersistentVolumeClaim",
+	}
+	existing[0].Status.Phase = corev1.ClaimPending
+
+	if !volumeClaimTemplatesEqual(desired, existing) {
+		t.Fatal("volumeClaimTemplatesEqual should ignore runtime-only pvc template fields")
+	}
+}
+
 func newTestStatefulSet(namespace, name, storage string) *appv1.StatefulSet {
 	return &appv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{

@@ -334,11 +334,13 @@ func volumeClaimTemplatesEqual(new, old []corev1.PersistentVolumeClaim) bool {
 }
 
 func normalizeVolumeClaimTemplate(pvc corev1.PersistentVolumeClaim) corev1.PersistentVolumeClaim {
+	pvc.TypeMeta = metav1.TypeMeta{}
 	pvc.ObjectMeta = metav1.ObjectMeta{
 		Name:        pvc.Name,
 		Labels:      normalizeStringMap(pvc.Labels),
 		Annotations: normalizeStringMap(pvc.Annotations),
 	}
+	pvc.Status = corev1.PersistentVolumeClaimStatus{}
 	if pvc.Spec.VolumeMode == nil {
 		volumeMode := corev1.PersistentVolumeFilesystem
 		pvc.Spec.VolumeMode = &volumeMode
