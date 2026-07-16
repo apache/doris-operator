@@ -84,7 +84,7 @@ assert_file_contains "${tmp}/vote-output" "Subject: [VOTE] Release Apache Doris 
 assert_file_contains "${tmp}/vote-output" "No email was sent."
 
 : > "$COMMAND_LOG"
-PATH="${tmp}/fake-bin:${PATH}" "${tool_copy}/04-release-complete.sh" --mail-only > "${tmp}/announce-output"
+PATH="${tmp}/fake-bin:${PATH}" "${tool_copy}/05-release-complete.sh" --mail-only > "${tmp}/announce-output"
 announce_body="${tmp}/work/announce-email.txt"
 announce_eml="${tmp}/work/announce-email.eml"
 assert_exists "$announce_body"
@@ -94,11 +94,11 @@ assert_file_contains "$announce_eml" "Subject: [ANNOUNCE] Apache Doris Operator 
 assert_file_contains "$announce_body" "automates the deployment and management"
 assert_file_contains "$announce_body" "https://dist.example.test/release/doris/doris-operator/9.9.9/apache-doris-operator-9.9.9-src.tar.gz"
 assert_file_contains "$announce_body" "Thank you to everyone"
-assert_file_contains "${tmp}/announce-output" "mail-only mode: skipping tag, package, signing, and SVN operations"
+assert_file_contains "${tmp}/announce-output" "mail-only mode: skipping the SVN promotion"
 [[ ! -s "$COMMAND_LOG" ]] || fail "--mail-only invoked an external release command"
 
-if PATH="${tmp}/fake-bin:${PATH}" "${tool_copy}/04-release-complete.sh" --unknown >/dev/null 2>&1; then
-  fail "04-release-complete.sh accepted an unknown argument"
+if PATH="${tmp}/fake-bin:${PATH}" "${tool_copy}/05-release-complete.sh" --unknown >/dev/null 2>&1; then
+  fail "05-release-complete.sh accepted an unknown argument"
 fi
 
 pass

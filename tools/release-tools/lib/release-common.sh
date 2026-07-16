@@ -75,9 +75,12 @@ validate_release_config() {
     VERIFY_GUIDE_URL DOWNLOAD_PAGE_URL VOTE_TO ANNOUNCE_TO WORK_DIR
   )
 
-  if [[ "$mode" != "mail" ]]; then
-    required+=(REPO_DIR GIT_REMOTE)
-  fi
+  case "$mode" in
+    full) required+=(REPO_DIR GIT_REMOTE) ;;
+    image) required+=(REPO_DIR GIT_REMOTE DOCKER_IMAGE_REPOSITORY DOCKER_PLATFORMS) ;;
+    mail|release) ;;
+    *) die "unknown release configuration validation mode: ${mode}" ;;
+  esac
 
   for name in "${required[@]}"; do
     require_config_value "$name"
@@ -94,7 +97,7 @@ validate_release_config() {
     die "release.env: RELEASE_SVN_DIR must be ${RELEASE_SVN_BASE}/${VERSION}"
   [[ "$WORK_DIR" == /* ]] || die "release.env: WORK_DIR must be an absolute path"
 
-  if [[ "$mode" != "mail" ]]; then
+  if [[ "$mode" == "full" || "$mode" == "image" ]]; then
     [[ "$REPO_DIR" == /* ]] || die "release.env: REPO_DIR must be an absolute path"
   fi
 }
@@ -281,6 +284,41 @@ stage_and_commit_version_dir() {
   svn commit "${SVN_AUTH_ARGS[@]}" -m "$commit_message" "$working_copy"
   SVN_COMMITTED=1
   ok "committed release files: ${svn_dir}/"
+}
+
+move_svn_version_dir() {
+  local source_base="$1" source_dir="$2" target_base="$3" target_dir="$4" commit_message="$5"
+  local source_relative target_relative
+
+  [[ "$source_dir" == "${source_base}/"* ]] ||
+    die "SVN source is not below configured base: ${source_dir}"
+  source_relative="${source_dir#${source_base}/}"
+  [[ -n "$source_relative" && "$source_relative" != */* ]] ||
+    die "SVN source must be one version directory: ${source_dir}"
+
+  [[ "$target_dir" == "${target_base}/"* ]] ||
+    die "SVN target is not below configured base: ${target_dir}"
+  target_relative="${target_dir#${target_base}/}"
+  [[ -n "$target_relative" && "$target_relative" != */* ]] ||
+    die "SVN target must be one version directory: ${target_dir}"
+
+  SVN_COMMITTED=0
+  build_svn_auth_args
+  svn_url_exists "$source_dir" || die "dev SVN version directory does not exist: ${source_dir}"
+  if svn_url_exists "$target_dir"; then
+    die "release SVN version directory already exists; refusing to overwrite: ${target_dir}"
+  fi
+
+  printf 'SVN move source: %s/\n' "$source_dir"
+  printf 'SVN move target: %s/\n' "$target_dir"
+  if ! confirm "FINAL confirmation: move the voted release from dev SVN to release SVN?"; then
+    warn "stopped before modifying SVN"
+    return 0
+  fi
+
+  svnmucc "${SVN_AUTH_ARGS[@]}" -m "$commit_message" mv "$source_dir" "$target_dir"
+  SVN_COMMITTED=1
+  ok "moved release from ${source_dir}/ to ${target_dir}/"
 }
 
 gpg_config_file() {
