@@ -26,7 +26,6 @@ The toolkit must provide the selected capabilities:
 - C: GPG signing key and Doris `KEYS` management
 - D: local and remote Git tag consistency checks
 - E: source packaging from a tag
-- G: optional signing of prebuilt binary files
 - H: upload of a release candidate to dev SVN
 - I: generation of the vote email draft
 - K: generation of the announcement email draft
@@ -47,7 +46,6 @@ The toolkit will not:
 - Count votes or generate the vote result email.
 - Validate ASF release policy.
 - Reuse, compare, move, or delete the dev SVN artifacts during formal release.
-- Upload optional binary files. It only signs and checksums them locally.
 
 ## Chosen Structure
 
@@ -98,9 +96,9 @@ DEV_KEYS_SVN_BASE="https://dist.apache.org/repos/dist/dev/doris"
 RELEASE_KEYS_SVN_BASE="https://dist.apache.org/repos/dist/release/doris"
 ```
 
-The file also defines the Apache ID, Apache email, signer display name, optional
+The file also defines the Apache ID, Apache email, signer display name, required
 signing-key fingerprint, release notes URL, verification guide URL, download URL,
-mailing-list addresses, work directory, and optional `BIN_FILES` array.
+mailing-list addresses, and work directory.
 
 The scripts read SVN credentials only from `ASF_USERNAME` and `ASF_PASSWORD` in
 the environment. They never store credentials in `release.env` or generated
@@ -119,7 +117,6 @@ files.
 - Create the source archive from the selected tag.
 - Create and verify detached ASCII-armored GPG signatures.
 - Create and verify SHA-512 checksum files.
-- Sign and checksum optional binary files next to their source files.
 - Stage and commit one version directory to a configured SVN root.
 
 The source package command will use `git archive` with the prefix
@@ -135,17 +132,17 @@ This script prepares and validates the local signing environment.
 
 It will:
 
-1. Validate `release.env`.
-2. Check for `git`, `gpg`, `svn`, `svnmucc`, `sha512sum`, `curl`, and `gzip`.
-3. Set `GPG_TTY` so GPG can request a passphrase.
-4. Check the recommended SHA-512 GPG settings and offer to append them.
-5. Resolve the configured signing key.
-6. Offer to import an existing secret key when no usable key exists.
-7. Offer to generate an RSA-4096 signing key when requested.
-8. Check whether the public key appears in the shared Doris `KEYS` file.
-9. Offer to append the public key to both Doris dev and release `KEYS` files.
-10. Run a local sign-and-verify test.
-11. Report whether SVN credentials are present.
+1. Require `SIGNING_KEY` in `release.env` and explain how to find the full
+   fingerprint when it is missing.
+2. Validate `release.env`.
+3. Check for `git`, `gpg`, `svn`, `svnmucc`, `sha512sum`, `curl`, and `gzip`.
+4. Set `GPG_TTY` so GPG can request a passphrase.
+5. Check the recommended SHA-512 GPG settings and offer to append them.
+6. Resolve the configured signing key.
+7. Check whether the public key appears in the shared Doris `KEYS` file.
+8. Offer to append the public key to both Doris dev and release `KEYS` files.
+9. Run a local sign-and-verify test.
+10. Report whether SVN credentials are present.
 
 Every state-changing key operation requires confirmation.
 
@@ -161,15 +158,13 @@ It will:
 3. Create `apache-doris-operator-<VERSION>-src.tar.gz` from the tag.
 4. Create and verify its `.asc` signature.
 5. Create and verify its `.sha512` checksum.
-6. Sign and checksum every configured `BIN_FILES` item next to that file.
-7. Check whether `DEV_SVN_DIR` already exists.
-8. Stop without modifying SVN if the directory exists.
-9. Display the target URL and files.
-10. Require two confirmations before committing the source archive and sidecars
+6. Check whether `DEV_SVN_DIR` already exists.
+7. Stop without modifying SVN if the directory exists.
+8. Display the target URL and files.
+9. Require two confirmations before committing the source archive and sidecars
     to dev SVN.
 
-The initial `26.0.0` flow will normally skip this script because the dev SVN
-directory already exists. The script remains available for later releases.
+The script refuses to overwrite an existing dev SVN version directory.
 
 ### 03-vote-mail.sh
 
@@ -186,10 +181,9 @@ The message will include:
 - The shared Doris `KEYS` URL.
 - The Doris verification guide.
 - The standard 72-hour vote choices.
-- Optional binary download URLs when `BIN_FILES` is configured.
 
 The script writes `vote-email.txt` and `vote-email.eml` to `WORK_DIR`, prints the
-body for review, and tells the release manager to send it manually.
+subject and body for review, and tells the release manager to send it manually.
 
 ### 04-release-complete.sh
 
@@ -202,13 +196,12 @@ It will:
 3. Package the tag again into a new source tarball.
 4. Create and verify a new detached signature.
 5. Create and verify a new SHA-512 checksum.
-6. Sign and checksum configured binary files again when present.
-7. Check whether `RELEASE_SVN_DIR` already exists.
-8. Stop without modifying SVN if the release directory exists.
-9. Display the release SVN target and staged files.
-10. Require two confirmations before committing the new source archive and
+6. Check whether `RELEASE_SVN_DIR` already exists.
+7. Stop without modifying SVN if the release directory exists.
+8. Display the release SVN target and staged files.
+9. Require two confirmations before committing the new source archive and
     sidecars to release SVN.
-11. Generate `announce-email.txt` and `announce-email.eml` after a successful
+10. Generate `announce-email.txt` and `announce-email.eml` after a successful
     commit.
 
 The formal release flow does not inspect or modify `DEV_SVN_DIR`.
@@ -259,7 +252,6 @@ The suite will cover:
 - Local and remote tag commit comparison.
 - Source archive creation from the configured tag.
 - Signature and checksum creation and verification.
-- Optional binary signing without binary upload.
 - Exact dev and release SVN targets.
 - Refusal to overwrite an existing SVN version directory.
 - Vote email fields and Operator-specific wording.
