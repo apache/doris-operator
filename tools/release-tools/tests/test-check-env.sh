@@ -27,10 +27,11 @@ source "${TOOLS_ROOT}/lib/release-common.sh"
 script="${TOOLS_ROOT}/01-check-env.sh"
 common="${TOOLS_ROOT}/lib/release-common.sh"
 
-for tool in git gpg svn svnmucc sha512sum curl gzip; do
+for tool in git gpg svn svnmucc sha512sum curl gzip tar docker; do
   grep -qw "$tool" "$script" || fail "environment check omits required tool: $tool"
 done
 
+assert_file_contains "$script" 'docker buildx version'
 assert_file_contains "$script" 'export GPG_TTY='
 assert_file_contains "$script" 'Append the recommended SHA-512 settings?'
 assert_file_contains "$script" 'require_configured_signing_key'

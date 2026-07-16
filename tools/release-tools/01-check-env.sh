@@ -24,12 +24,12 @@ source "${HERE}/release.env"
 source "${HERE}/lib/release-common.sh"
 
 require_configured_signing_key
-validate_release_config
+validate_release_config image
 
 printf '== Apache Doris Operator %s signing environment ==\n' "$VERSION"
 
 problems=0
-for tool in git gpg svn svnmucc sha512sum curl gzip; do
+for tool in git gpg svn svnmucc sha512sum curl gzip tar docker; do
   if command -v "$tool" >/dev/null 2>&1; then
     ok "tool available: ${tool}"
   else
@@ -40,6 +40,12 @@ done
 
 if [[ "$problems" -gt 0 ]]; then
   die "${problems} required tool(s) missing"
+fi
+
+if docker buildx version >/dev/null 2>&1; then
+  ok "Docker Buildx is available"
+else
+  die "Docker Buildx is required to publish the operator image"
 fi
 
 export GPG_TTY="$(tty 2>/dev/null || true)"

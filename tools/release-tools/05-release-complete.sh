@@ -25,7 +25,7 @@ source "${HERE}/lib/release-common.sh"
 
 usage() {
   printf 'Usage: %s [--mail-only]\n' "$0"
-  printf '  --mail-only  regenerate announcement drafts without packaging or SVN\n'
+  printf '  --mail-only  regenerate announcement drafts without SVN promotion\n'
 }
 
 mail_only=0
@@ -87,26 +87,17 @@ EOF
 
 if [[ "$mail_only" -eq 1 ]]; then
   validate_release_config mail
-  ok "mail-only mode: skipping tag, package, signing, and SVN operations"
+  ok "mail-only mode: skipping the SVN promotion"
   write_announce_email
   exit 0
 fi
 
-validate_release_config
-require_tools git gpg svn sha512sum gzip || die "install the missing release prerequisites"
-export GPG_TTY="$(tty 2>/dev/null || true)"
-
-SIGNER="$(resolve_signing_key)"
-ok "signer: ${SIGNER}"
-verify_tag_consistency
-prepare_source_artifacts "$SIGNER"
-
-stage_and_commit_version_dir \
-  "$RELEASE_SVN_BASE" \
-  "$RELEASE_SVN_DIR" \
-  "release-svn" \
-  "Release Apache Doris Operator ${VERSION}" \
-  "${SOURCE_ARTIFACTS[@]}"
+validate_release_config release
+require_tools svn svnmucc || die "install the missing release prerequisites"
+move_svn_version_dir \
+  "$DEV_SVN_BASE" "$DEV_SVN_DIR" \
+  "$RELEASE_SVN_BASE" "$RELEASE_SVN_DIR" \
+  "Release Apache Doris Operator ${VERSION}"
 
 if [[ "$SVN_COMMITTED" -eq 1 ]]; then
   write_announce_email

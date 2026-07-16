@@ -69,8 +69,10 @@ EOF
 
 export FAKE_GPG_LOG="${tmp}/gpg.log"
 export FAKE_SVN_LOG="${tmp}/svn.log"
+export FAKE_SVNMUCC_LOG="${tmp}/svnmucc.log"
 : > "$FAKE_GPG_LOG"
 : > "$FAKE_SVN_LOG"
+: > "$FAKE_SVNMUCC_LOG"
 
 cat > "${fake_bin}/gpg" <<'EOF'
 #!/usr/bin/env bash
@@ -106,7 +108,12 @@ shift
 case "$command" in
   info)
     url="${@: -1}"
-    [[ -n "${FAKE_EXISTING_URL:-}" && "$url" == "$FAKE_EXISTING_URL" ]]
+    while IFS= read -r existing_url; do
+      if [[ -n "$existing_url" && "$url" == "$existing_url" ]]; then
+        exit 0
+      fi
+    done <<< "${FAKE_EXISTING_URLS:-}"
+    exit 1
     ;;
   checkout)
     destination="${@: -1}"
@@ -118,8 +125,16 @@ esac
 EOF
 chmod +x "${fake_bin}/svn"
 
+cat > "${fake_bin}/svnmucc" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FAKE_SVNMUCC_LOG"
+exit "${FAKE_SVNMUCC_EXIT_CODE:-0}"
+EOF
+chmod +x "${fake_bin}/svnmucc"
+
 test_path="${fake_bin}:${PATH}"
-unset FAKE_EXISTING_URL || true
+unset ASF_USERNAME ASF_PASSWORD FAKE_EXISTING_URLS FAKE_SVNMUCC_EXIT_CODE || true
 if ! printf 'y\ny\n' | PATH="$test_path" "${tool_copy}/02-package-sign-upload.sh" > "${tmp}/dev-output" 2>&1; then
   cat "${tmp}/dev-output" >&2
   fail "candidate workflow failed"
@@ -139,21 +154,58 @@ assert_eq "3" "$staged_dev_count"
 
 : > "$FAKE_SVN_LOG"
 : > "$FAKE_GPG_LOG"
-if ! printf 'y\ny\n' | PATH="$test_path" "${tool_copy}/04-release-complete.sh" > "${tmp}/release-output" 2>&1; then
+: > "$FAKE_SVNMUCC_LOG"
+printf 'existing local source archive\n' > "$source_archive"
+cp "$source_archive" "${tmp}/source-archive.before"
+export FAKE_EXISTING_URLS="https://dist.example.test/dev/doris/doris-operator/9.9.9"
+if ! printf 'y\ny\n' | PATH="$test_path" "${tool_copy}/05-release-complete.sh" > "${tmp}/release-output" 2>&1; then
   cat "${tmp}/release-output" >&2
   fail "formal release workflow failed"
 fi
-assert_file_contains "$FAKE_SVN_LOG" "https://dist.example.test/release/doris/doris-operator/9.9.9"
-assert_file_not_contains "$FAKE_SVN_LOG" "https://dist.example.test/dev/doris/doris-operator"
-assert_file_contains "$FAKE_GPG_LOG" "apache-doris-operator-9.9.9-src.tar.gz"
-staged_release="${tmp}/work/release-svn/9.9.9"
-staged_release_count="$(find "$staged_release" -maxdepth 1 -type f | wc -l | tr -d ' ')"
-assert_eq "3" "$staged_release_count"
+assert_file_contains "$FAKE_SVN_LOG" "info --non-interactive --no-auth-cache https://dist.example.test/dev/doris/doris-operator/9.9.9"
+assert_file_contains "$FAKE_SVN_LOG" "info --non-interactive --no-auth-cache https://dist.example.test/release/doris/doris-operator/9.9.9"
+assert_file_contains "$FAKE_SVNMUCC_LOG" "mv https://dist.example.test/dev/doris/doris-operator/9.9.9 https://dist.example.test/release/doris/doris-operator/9.9.9"
+[[ ! -s "$FAKE_GPG_LOG" ]] || fail "formal release workflow invoked GPG"
+cmp -s "$source_archive" "${tmp}/source-archive.before" ||
+  fail "formal release workflow modified the existing local source archive"
 assert_exists "${tmp}/work/announce-email.txt"
 assert_exists "${tmp}/work/announce-email.eml"
 
+: > "$FAKE_SVNMUCC_LOG"
+rm -f "${tmp}/work/announce-email.txt" "${tmp}/work/announce-email.eml"
+export FAKE_SVNMUCC_EXIT_CODE=1
+if printf 'y\n' | PATH="$test_path" "${tool_copy}/05-release-complete.sh" >/dev/null 2>&1; then
+  fail "formal release workflow succeeded when the SVN move failed"
+fi
+unset FAKE_SVNMUCC_EXIT_CODE
+assert_file_contains "$FAKE_SVNMUCC_LOG" "mv https://dist.example.test/dev/doris/doris-operator/9.9.9 https://dist.example.test/release/doris/doris-operator/9.9.9"
+assert_not_exists "${tmp}/work/announce-email.txt"
+assert_not_exists "${tmp}/work/announce-email.eml"
+
 : > "$FAKE_SVN_LOG"
-export FAKE_EXISTING_URL="https://dist.example.test/dev/doris/doris-operator/9.9.9"
+: > "$FAKE_SVNMUCC_LOG"
+unset FAKE_EXISTING_URLS
+if printf 'y\n' | PATH="$test_path" "${tool_copy}/05-release-complete.sh" >/dev/null 2>&1; then
+  fail "formal release workflow accepted a missing dev SVN version directory"
+fi
+assert_file_not_contains "$FAKE_SVNMUCC_LOG" "mv"
+assert_not_exists "${tmp}/work/announce-email.txt"
+assert_not_exists "${tmp}/work/announce-email.eml"
+
+: > "$FAKE_SVN_LOG"
+: > "$FAKE_SVNMUCC_LOG"
+export FAKE_EXISTING_URLS="$(printf '%s\n%s\n' \
+  'https://dist.example.test/dev/doris/doris-operator/9.9.9' \
+  'https://dist.example.test/release/doris/doris-operator/9.9.9')"
+if printf 'y\n' | PATH="$test_path" "${tool_copy}/05-release-complete.sh" >/dev/null 2>&1; then
+  fail "formal release workflow accepted an existing release SVN version directory"
+fi
+assert_file_not_contains "$FAKE_SVNMUCC_LOG" "mv"
+assert_not_exists "${tmp}/work/announce-email.txt"
+assert_not_exists "${tmp}/work/announce-email.eml"
+
+: > "$FAKE_SVN_LOG"
+export FAKE_EXISTING_URLS="https://dist.example.test/dev/doris/doris-operator/9.9.9"
 if printf 'y\ny\n' | PATH="$test_path" "${tool_copy}/02-package-sign-upload.sh" >/dev/null 2>&1; then
   fail "candidate workflow overwrote an existing SVN version directory"
 fi

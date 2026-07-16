@@ -35,18 +35,32 @@ for text in \
   './01-check-env.sh' \
   './02-package-sign-upload.sh' \
   './03-vote-mail.sh' \
-  './04-release-complete.sh' \
+  './04-build-image-push.sh' \
+  './05-release-complete.sh' \
+  'docker login' \
+  'apache/doris:operator-<version>' \
   '--mail-only' \
   'refuses to overwrite' \
-  'does not inspect, compare, promote, move, or delete anything under dev SVN' \
+  'atomic `svnmucc mv`' \
+  'from dev SVN to release SVN' \
   'prints the subject and body' \
-  'independently from dev SVN' \
-  'freshly packages the selected Git tag' \
   'No email was sent' \
   './tests/run.sh'; do
   assert_file_contains "$readme" "$text"
 done
 
 assert_file_not_contains "$readme" 'initial `26.0.0` dev directory'
+
+image_release="${TOOLS_ROOT}/04-build-image-push.sh"
+assert_file_contains "$image_release" 'docker buildx build'
+assert_file_contains "$image_release" '--platform="$DOCKER_PLATFORMS"'
+assert_file_contains "$image_release" 'git -C "$REPO_DIR" archive "$TAG"'
+assert_file_contains "$image_release" 'operator-latest'
+
+release_complete="${TOOLS_ROOT}/05-release-complete.sh"
+assert_file_contains "$release_complete" 'move_svn_version_dir'
+assert_file_not_contains "$release_complete" 'resolve_signing_key'
+assert_file_not_contains "$release_complete" 'verify_tag_consistency'
+assert_file_not_contains "$release_complete" 'prepare_source_artifacts'
 
 pass

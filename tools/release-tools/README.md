@@ -19,21 +19,22 @@ under the License.
 
 # Doris Operator release tools
 
-These scripts package, sign, and publish Apache Doris Operator source releases.
-They publish source artifacts only and generate vote and announcement email
-drafts. They do not create Git tags or send email.
+These scripts package, sign, and publish Apache Doris Operator source releases,
+publish the multi-platform operator image, and generate vote and announcement
+email drafts. They do not create Git tags or send email.
 
 The checked-in defaults target version and Git tag `26.0.0`.
 
 ## Prerequisites
 
-Install `git`, `gpg`, `svn`, `svnmucc`, `sha512sum`, `curl`, and `gzip`. The
-selected Git tag must already exist locally and on the remote configured by
-`GIT_REMOTE`.
+Install `git`, `gpg`, `svn`, `svnmucc`, `sha512sum`, `curl`, `gzip`, `tar`, and
+Docker with the Buildx plugin. The selected Git tag must already exist locally
+and on the remote configured by `GIT_REMOTE`.
 
 Edit `release.env` before each release. In particular, verify:
 
 - `VERSION`, `TAG`, `GIT_REMOTE`, and all derived artifact/SVN paths.
+- `DOCKER_IMAGE_REPOSITORY` and `DOCKER_PLATFORMS`.
 - `APACHE_ID`, `APACHE_EMAIL`, and `SIGNER_NAME`.
 - `SIGNING_KEY`: required full fingerprint of a locally available secret key.
 - release notes, verification, download, and mailing-list URLs.
@@ -112,51 +113,78 @@ asks for confirmation both before staging and before commit.
 This writes `vote-email.txt` and `vote-email.eml` under `WORK_DIR`.
 It prints the subject and body, then leaves sending to the release manager.
 
-### 4. Complete a passed release
+### 4. Build and push the operator image
 
 ```bash
-./04-release-complete.sh
+docker login
+./04-build-image-push.sh
 ```
 
-The formal release is created independently from dev SVN. The script re-checks
-the local and remote tag, freshly packages the selected Git tag, signs the new
-archive, creates a fresh checksum, and uploads those newly generated source
-files to:
+Run this only after the source-release vote passes. The script verifies that
+the local and remote Git tags resolve to the same commit, extracts that tag into
+a temporary clean build context, and displays the platforms and both image tags:
 
 ```text
-https://dist.apache.org/repos/dist/release/doris/doris-operator/<version>/
+apache/doris:operator-<version>
+apache/doris:operator-latest
 ```
 
-It does not inspect, compare, promote, move, or delete anything under dev SVN.
-It refuses to overwrite an existing release directory and requires two
-confirmations. Only after a successful commit does it create
-`announce-email.txt` and `announce-email.eml`.
+After one final confirmation, it runs one multi-platform Docker Buildx build for
+`linux/amd64` and `linux/arm64` and pushes both tags. Docker Hub credentials are
+read from Docker's configured credential store; this toolkit does not accept or
+store the password.
+
+### 5. Complete a passed release
+
+```bash
+./05-release-complete.sh
+```
+
+This step requires `svn` and `svnmucc`. The script verifies that the voted
+version directory exists in dev SVN and that the matching release SVN directory
+does not exist. After one final confirmation, it performs an atomic `svnmucc mv`
+from dev SVN to release SVN:
+
+```text
+https://dist.apache.org/repos/dist/dev/doris/doris-operator/<version>/
+  -> https://dist.apache.org/repos/dist/release/doris/doris-operator/<version>/
+```
+
+The repository-side move preserves the exact artifacts that passed the vote and
+removes the version directory from dev SVN as part of the same commit. It does
+not rebuild, re-sign, or checksum the source package. Only after a successful
+move does it create `announce-email.txt` and `announce-email.eml`.
 
 To regenerate only the announcement drafts:
 
 ```bash
-./04-release-complete.sh --mail-only
+./05-release-complete.sh --mail-only
 ```
 
-`--mail-only` skips Git, packaging, GPG, checksums, and SVN.
+`--mail-only` skips the SVN promotion.
 
 ## Safety boundaries
 
 - No script creates, updates, or pushes a Git tag.
 - Local and remote tags are compared by peeled commit ID.
 - Generated signatures and checksums are verified immediately.
-- Dev and release uploads stop before checkout if the version directory exists.
+- Operator images are built from the verified Git tag, not the current working
+  tree, and are pushed only after a final confirmation showing both tags.
+- Docker credentials remain in Docker's credential store.
+- Dev uploads stop before checkout if the version directory exists.
+- Formal releases stop unless the dev version exists and the release version
+  does not, then use one confirmed atomic SVN move.
 - SVN target URLs and staged files are shown before both confirmations.
 - SVN uploads contain only the source archive, signature, and checksum.
 - Public emails are drafts only.
 - No email was sent by any script; the release manager sends drafts manually.
-- Formal release packaging is independent from dev SVN.
+- Formal release completion preserves the artifacts that passed the vote.
 
 ## Tests
 
-The suite uses temporary Git repositories and fake GPG/SVN commands. It does
-not modify a real keyring, remote Git repository, SVN repository, or mail
-system.
+The suite uses temporary Git repositories and fake GPG, Docker, and SVN
+commands. It does not modify a real keyring, container registry, remote Git
+repository, SVN repository, or mail system.
 
 ```bash
 ./tests/run.sh
