@@ -71,7 +71,7 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *v1.DorisDisaggregatedC
 		st.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: matchLabels,
 		}
-		st.Spec.Template = dms.NewPodTemplateSpec(ddc, matchLabels, confMap)
+		st.Spec.Template = dms.NewPodTemplateSpec(ddc, confMap)
 		st.Spec.ServiceName = ddc.GetMSServiceName()
 		st.Spec.VolumeClaimTemplates = vcts
 	}()
@@ -79,22 +79,25 @@ func (dms *DisaggregatedMSController) newStatefulset(ddc *v1.DorisDisaggregatedC
 	return st
 }
 
-func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, selector map[string]string, confMap map[string]interface{}) corev1.PodTemplateSpec {
+func (dms *DisaggregatedMSController) getMSPodLabels(ddc *v1.DorisDisaggregatedCluster) resource.Labels {
+	selector := dms.newMSPodsSelector(ddc.Name)
+	labels := (resource.Labels)(selector)
+	labels.AddLabel(ddc.Spec.MetaService.Labels)
+	return labels
+}
+
+func (dms *DisaggregatedMSController) NewPodTemplateSpec(ddc *v1.DorisDisaggregatedCluster, confMap map[string]interface{}) corev1.PodTemplateSpec {
 	pts := resource.NewPodTemplateSpecWithCommonSpec(false, &ddc.Spec.MetaService.CommonSpec, v1.DisaggregatedMS)
 	//pod template metadata.
-	func() {
-		l := (resource.Labels)(selector)
-		l.AddLabel(pts.Labels)
-		pts.Labels = l
-	}()
-
+	labels := dms.getMSPodLabels(ddc)
+	pts.Labels = labels
 	c := dms.NewMSContainer(ddc, confMap)
 	pts.Spec.Containers = append(pts.Spec.Containers, c)
 	vs, _, _ := dms.BuildVolumesVolumeMountsAndPVCs(confMap, v1.DisaggregatedMS, &ddc.Spec.MetaService.CommonSpec)
 	configVolumes, _ := dms.BuildDefaultConfigMapVolumesVolumeMounts(ddc.Spec.MetaService.ConfigMaps)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, vs...)
 	pts.Spec.Volumes = append(pts.Spec.Volumes, configVolumes...)
-	pts.Spec.Affinity = dms.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, selector[v1.DorisDisaggregatedClusterName], ddc.Spec.MetaService.Affinity)
+	pts.Spec.Affinity = dms.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, labels[v1.DorisDisaggregatedClusterName], ddc.Spec.MetaService.Affinity)
 
 	if len(ddc.Spec.MetaService.Secrets) != 0 {
 		secretVolumes, _ := resource.GetMultiSecretVolumeAndVolumeMountWithCommonSpec(&ddc.Spec.MetaService.CommonSpec)

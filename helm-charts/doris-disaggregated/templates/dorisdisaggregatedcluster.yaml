@@ -21,7 +21,7 @@ metadata:
   name: {{ include "doris-disaggregated.name" . }}
   {{- if .Values.Labels }}
   labels:
-  {{- .Values.Labels | nindent 4 }}
+  {{- toYaml .Values.Labels | nindent 4 }}
   {{- end }}
 spec:
   {{- if .Values.adminUser }}
