@@ -102,12 +102,29 @@ feSpec:
         requests:
           storage: 200Gi
 
-# specify the names of compute groups. this is required. if config
-computeGroupNames:
-- test-cg
-- test-cg1
+# specify the compute groups to deploy. each entry must have a `name` field (used as uniqueId).
+# per-group `replicas`, `image`, and `resources` are optional and override the global computeSpec defaults.
+# example with per-group overrides:
+# computeGroups:
+# - name: test-cg
+# - name: test-cg1
+#   replicas: 3
+#   image:
+#     repository: apache/doris
+#     tag: be-3.1.0
+#   resources:
+#     requests:
+#       cpu: 16
+#       memory: 32Gi
+#     limits:
+#       cpu: 16
+#       memory: 32Gi
+computeGroups:
+- name: test-cg
+- name: test-cg1
 
-# describe the compute group spec to deploy.
+# describe the default compute group spec. values here apply to all groups
+# unless overridden per-group via computeGroups[*].replicas / computeGroups[*].image / computeGroups[*].resources.
 computeSpec:
   replicas: 2
   image:
