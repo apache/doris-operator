@@ -76,6 +76,10 @@ spec:
     persistentVolumes:
     {{- toYaml .Values.feSpec.persistentVolumes | nindent 4 }}
     {{- end }}
+    {{- if .Values.feSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml .Values.feSpec.nodeSelector | nindent 6 }}
+    {{- end }}
   computeGroups:
   {{- $originalContext := . -}}
   {{- range $index, $cgName := .Values.computeGroupNames }}
@@ -96,5 +100,9 @@ spec:
     {{- if $originalContext.Values.computeSpec.persistentVolumes }}
     persistentVolumes:
     {{- toYaml $originalContext.Values.computeSpec.persistentVolumes | nindent 4 }}
+    {{- end }}
+    {{- if $originalContext.Values.computeSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml $originalContext.Values.computeSpec.nodeSelector | nindent 6 }}
     {{- end }}
   {{- end }}
