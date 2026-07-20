@@ -30,6 +30,10 @@ spec:
     password: {{ .Values.adminUser.password }}
   {{- end }}
   metaService:
+    {{- if .Values.msSpec.labels }}
+    labels:
+      {{- toYaml .Values.msSpec.labels | nindent 6 }}
+    {{- end }}
     image: {{ .Values.msSpec.image.repository }}:{{ .Values.msSpec.image.tag }}
     {{- if .Values.msSpec.imagePullSecrets }}
     imagePullSecrets:
@@ -55,6 +59,10 @@ spec:
     {{- toYaml .Values.msSpec.nodeSelector | nindent 6 }}
     {{- end }}
   feSpec:
+    {{- if .Values.feSpec.labels }}
+    labels:
+      {{- toYaml .Values.feSpec.labels | nindent 6 }}
+    {{- end }}
     replicas: {{ .Values.feSpec.replicas }}
     electionNumber: {{ include "fe.electionnumber" . }}
     image: {{ .Values.feSpec.image.repository }}:{{ .Values.feSpec.image.tag }}
@@ -80,6 +88,10 @@ spec:
   {{- $originalContext := . -}}
   {{- range $index, $cgName := .Values.computeGroupNames }}
   - uniqueId: {{ $cgName }}
+    {{- if $originalContext.Values.computeSpec.labels }}
+    labels:
+    {{- toYaml $originalContext.Values.computeSpec.labels | nindent 6 }}
+    {{- end }}
     replicas: {{ $originalContext.Values.computeSpec.replicas }}
     image: {{ $originalContext.Values.computeSpec.image.repository }}:{{ $originalContext.Values.computeSpec.image.tag }}
     {{- if $originalContext.Values.computeSpec.imagePullSecrets }}
