@@ -24,8 +24,8 @@ import (
 
 var (
 	AnnotationDebugKey      = "selectdb.com.doris/runmode"
+	AnnotationDebugDorisKey = "apache.org.doris/runmode"
 	AnnotationDebugValue    = "debug"
-	AnnotationDebugDorisKey = "apache.com.doris/runmode"
 )
 
 // DorisClusterSpec defines the desired state of DorisCluster
@@ -149,7 +149,7 @@ type FeAddress struct {
 // Endpoints describe the address outside k8s.
 type Endpoints struct {
 	//the ip or domain array.
-	Address []string `json:":address,omitempty"`
+	Address []string `json:"address,omitempty"`
 
 	// the fe port that for query. the field `query_port` defines in fe config.
 	Port int `json:"port,omitempty"`
@@ -184,6 +184,26 @@ type BrokerSpec struct {
 	KickOffAffinityBe bool `json:"kickOffAffinityBe,omitempty"`
 }
 
+// ReadinessProbePolicy defines the timing policy for readiness probe.
+// This allows users to tune readiness probe behavior to avoid unnecessary endpoint removal
+// during transient resource pressure (e.g. large queries causing temporary health check timeouts).
+type ReadinessProbePolicy struct {
+	// Number of seconds after which the readiness probe times out.
+	// Defaults to 1 (Kubernetes default).
+	// +optional
+	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
+
+	// Minimum consecutive failures for the readiness probe to be considered failed.
+	// Defaults to 3.
+	// +optional
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+
+	// How often (in seconds) to perform the readiness probe.
+	// Defaults to 5.
+	// +optional
+	PeriodSeconds int32 `json:"periodSeconds,omitempty"`
+}
+
 // BaseSpec describe the foundation spec of pod about doris components.
 type BaseSpec struct {
 
@@ -192,6 +212,10 @@ type BaseSpec struct {
 
 	//Number of seconds after which the probe times out. Defaults to 180 second.
 	LiveTimeout int32 `json:"liveTimeout,omitempty"`
+
+	// ReadinessProbePolicy defines the timing policy for readiness probe.
+	// +optional
+	ReadinessProbePolicy *ReadinessProbePolicy `json:"readinessProbePolicy,omitempty"`
 
 	//annotation for fe pods. user can config monitor annotation for collect to monitor system.
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -281,6 +305,11 @@ type SystemInitialization struct {
 
 	// Arguments to the entrypoint.
 	Args []string `json:"args,omitempty"`
+
+	// defines the specification of resource cpu and mem for Custom initContainer.
+	// the default behavior of the operator `initContainer` does not require resource constraints.
+	// ep: {"requests":{"cpu": 4, "memory": "16Gi"},"limits":{"cpu":4,"memory":"16Gi"}}
+	corev1.ResourceRequirements `json:",inline"`
 }
 
 // PersistentVolume defines volume information and container mount information.

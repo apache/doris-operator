@@ -19,6 +19,7 @@ package fe
 import (
 	"encoding/json"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"testing"
 )
 
@@ -65,5 +66,11 @@ func Test_buildFEPodTemplateSpec(t *testing.T) {
 		t.Errorf("Test_buildBEStatefulSet unmarshal failed, err=%s", err.Error())
 	}
 	fc := &Controller{}
-	fc.buildFEPodTemplateSpec(dcr, map[string]interface{}{})
+	pts := fc.buildFEPodTemplateSpec(dcr, map[string]interface{}{})
+	if pts.Spec.TerminationGracePeriodSeconds == nil {
+		t.Fatalf("expected FE terminationGracePeriodSeconds")
+	}
+	if *pts.Spec.TerminationGracePeriodSeconds != resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS {
+		t.Errorf("expected FE terminationGracePeriodSeconds=%d, got %d", resource.DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
+	}
 }

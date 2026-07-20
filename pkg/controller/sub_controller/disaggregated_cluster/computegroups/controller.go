@@ -18,29 +18,32 @@
 package computegroups
 
 import (
-    "context"
-    "encoding/json"
-    "errors"
-    "fmt"
-    "regexp"
-    "strconv"
-    "strings"
-    "sync"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
 
-    dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-    "github.com/apache/doris-operator/pkg/common/utils"
-    "github.com/apache/doris-operator/pkg/common/utils/k8s"
-    "github.com/apache/doris-operator/pkg/common/utils/mysql"
-    "github.com/apache/doris-operator/pkg/common/utils/resource"
-    "github.com/apache/doris-operator/pkg/common/utils/set"
-    sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
-    appv1 "k8s.io/api/apps/v1"
-    corev1 "k8s.io/api/core/v1"
-    apierrors "k8s.io/apimachinery/pkg/api/errors"
-    "k8s.io/apimachinery/pkg/types"
-    "k8s.io/klog/v2"
-    ctrl "sigs.k8s.io/controller-runtime"
-    "sigs.k8s.io/controller-runtime/pkg/client"
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils"
+	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/set"
+	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ sc.DisaggregatedSubController = &DisaggregatedComputeGroupsController{}
@@ -51,15 +54,17 @@ var (
 
 type DisaggregatedComputeGroupsController struct {
 	sc.DisaggregatedSubDefaultController
+	RestConfig *rest.Config
 }
 
 func New(mgr ctrl.Manager) *DisaggregatedComputeGroupsController {
 	return &DisaggregatedComputeGroupsController{
-		sc.DisaggregatedSubDefaultController{
+		DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
 			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedComputeGroupsController),
 			ControllerName: disaggregatedComputeGroupsController,
 		},
+		RestConfig: mgr.GetConfig(),
 	}
 }
 
@@ -146,49 +151,93 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 	cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 	st := dcgs.NewStatefulset(ddc, cg, cvs)
-	svc := dcgs.newService(ddc, cg, cvs)
+	internalSvc := dcgs.newInternalService(ddc, cg, cvs)
+	externalSvc := dcgs.newExternalService(ddc, cg, cvs)
 	dcgs.initialCGStatus(ddc, cg)
 
 	dcgs.CheckSecretMountPath(ddc, cg.Secrets)
 	dcgs.CheckSecretExist(ctx, ddc, cg.Secrets)
 
-	event, err := dcgs.DefaultReconcileService(ctx, svc)
+	// Reconcile internal headless service.
+	// During upgrade from older versions, the existing service may not be headless (has a ClusterIP assigned).
+	// Since K8s does not allow changing spec.clusterIP on an existing service, we must delete and recreate it.
+	if err := dcgs.reconcileInternalService(ctx, internalSvc); err != nil {
+		klog.Errorf("disaggregatedComputeGroupsController reconcile internal service namespace %s name %s failed, err=%s", internalSvc.Namespace, internalSvc.Name, err.Error())
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.ServiceApplyedFailed, Message: err.Error()}, err
+	}
+
+	// Reconcile external service for load-balanced access.
+	event, err := dcgs.DefaultReconcileService(ctx, externalSvc)
 	if err != nil {
-		klog.Errorf("disaggregatedComputeGroupsController reconcile service namespace %s name %s failed, err=%s", svc.Namespace, svc.Name, err.Error())
+		klog.Errorf("disaggregatedComputeGroupsController reconcile external service namespace %s name %s failed, err=%s", externalSvc.Namespace, externalSvc.Name, err.Error())
 		return event, err
 	}
+
 	event, err = dcgs.reconcileStatefulset(ctx, st, ddc, cg)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcile statefulset namespace %s name %s failed, err=%s", st.Namespace, st.Name, err.Error())
+		return event, err
+	}
+
+	event, err = dcgs.ReconcilePVC(ctx, ddc, cvs, dv1.DisaggregatedBE, st, cg)
+	if err != nil {
+		klog.Errorf("computeGroupSync ReconcilePVC failed, namespace: %s, ddc name %s, cgName: %s, error=%s!", ddc.Namespace, ddc.Name, cg.UniqueId, err.Error())
 	}
 
 	return event, err
 }
 
+// reconcileInternalService reconciles the internal headless service for a compute group.
+// If the existing service is not headless (upgrade scenario), it deletes and recreates it,
+// because K8s does not allow mutating spec.clusterIP from a valid IP to "None".
+func (dcgs *DisaggregatedComputeGroupsController) reconcileInternalService(ctx context.Context, svc *corev1.Service) error {
+	var existingSvc corev1.Service
+	err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, &existingSvc)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return k8s.CreateClientObject(ctx, dcgs.K8sclient, svc)
+		}
+		return err
+	}
+
+	// If the existing service is already headless, use normal reconcile path.
+	if existingSvc.Spec.ClusterIP == "None" {
+		_, err = dcgs.DefaultReconcileService(ctx, svc)
+		return err
+	}
+
+	// Existing service is not headless — delete and recreate.
+	klog.Infof("reconcileInternalService existing service %s/%s is not headless (clusterIP=%s), deleting and recreating as headless.",
+		existingSvc.Namespace, existingSvc.Name, existingSvc.Spec.ClusterIP)
+	if err = k8s.DeleteService(ctx, dcgs.K8sclient, svc.Namespace, svc.Name); err != nil {
+		return err
+	}
+	return k8s.CreateClientObject(ctx, dcgs.K8sclient, svc)
+}
+
 // reconcileStatefulset return bool means reconcile print error message.
 func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) (*sc.Event, error) {
-    //use new default value before apply new statefulset, when creating and apply spec change.
-    ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
-        dcgs.useNewDefaultValuesInStatefulset(st)
-    }
+	//use new default value before apply new statefulset, when creating and apply spec change.
+	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
+		dcgs.useNewDefaultValuesInStatefulset(st)
+	}
 
-    var est appv1.StatefulSet
-    if err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
-		// add downlaodAPI volume Mounts
-		dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(st)
+	var est appv1.StatefulSet
+	if err := dcgs.K8sclient.Get(ctx, types.NamespacedName{Namespace: st.Namespace, Name: st.Name}, &est); apierrors.IsNotFound(err) {
 		//if err = k8s.CreateClientObject(ctx, dcgs.K8sclient, st); err != nil {
 		//	klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		//	return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
 		//}
 
-        //use apply replace create, if use create the default image not replace with be image and annotation for equal not assign.
-        if err = k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
-            //creating use the function to assign equal annotation.
-            return resource.StatefulsetDeepEqualWithKey(st ,est, dv1.DisaggregatedSpecHashValueAnnotation, false)
-        }, ndf); err != nil {
-            klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
-            return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
-        }
+		//use apply replace create, if use create the default image not replace with be image and annotation for equal not assign.
+		if err = k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
+			dcgs.RestrictConditionsEqual(new, est)
+			//creating use the function to assign equal annotation.
+			return resource.StatefulsetDeepEqualWithKey(new, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
+		}, ndf); err != nil {
+			klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset create statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGCreateResourceFailed, Message: err.Error()}, err
+		}
 
 		return nil, nil
 	} else if err != nil {
@@ -196,25 +245,62 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, err
 	}
 
+	if !volumeClaimTemplatesEqual(st.Spec.VolumeClaimTemplates, est.Spec.VolumeClaimTemplates) {
+		msg := fmt.Sprintf("compute group %s storage template is immutable after creation; modifying BE file_cache_path or persistent volume settings requires recreating the compute group", cg.UniqueId)
+		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset immutable storage template changed, namespace=%s name=%s, err=%s", st.Namespace, st.Name, msg)
+		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGStorageTemplateImmutable, Message: msg}, errors.New(msg)
+	}
+
 	err := dcgs.preApplyStatefulSet(ctx, st, &est, cluster, cg)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset preApplyStatefulSet namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
 	}
+
+	// be decimmission processing, skip apply statefulset.
 	if skipApplyStatefulset(cluster, cg) {
 		return nil, nil
 	}
 
+	// Graceful two-phase restart/shutdown: check if we need to perform a graceful action.
+	// This must happen after preApply but before the actual StatefulSet apply.
+	if dcgs.RestConfig != nil {
+		var cgStatus *dv1.ComputeGroupStatus
+		for i := range cluster.Status.ComputeGroupStatuses {
+			if cluster.Status.ComputeGroupStatuses[i].UniqueId == cg.UniqueId {
+				cgStatus = &cluster.Status.ComputeGroupStatuses[i]
+				break
+			}
+		}
+		if cgStatus != nil {
+			// If a graceful action is already in progress or needs to start,
+			// ensure OnDelete strategy to prevent K8s from auto-deleting pods.
+			skipApply, gracefulErr := dcgs.gracefulRolloutReconcile(ctx, dcgs.RestConfig, st, &est, cluster, cg, cgStatus)
+			if gracefulErr != nil {
+				klog.Errorf("reconcileStatefulset gracefulRolloutReconcile failed: %v", gracefulErr)
+				// Continue with normal reconcile on error, don't block.
+			}
+			if skipApply {
+				// Graceful action is in progress. Apply StatefulSet with OnDelete strategy
+				// so K8s won't auto-delete pods, but still update the template.
+				ensureOnDeleteStrategy(st)
+			}
+		}
+	}
 
-	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
+	if st.Spec.UpdateStrategy.Type == appv1.OnDeleteStatefulSetStrategyType {
+		dcgs.clearStatefulSetRollingUpdate(ctx, st.Namespace, st.Name)
+	}
+	if err := k8s.ApplyStatefulSet(ctx, dcgs.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
+		dcgs.RestrictConditionsEqual(new, est)
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
-		equal := resource.StatefulsetDeepEqualWithKey(st, est, dv1.DisaggregatedSpecHashValueAnnotation, false)
-		if !equal {
-			if len(st.Annotations) == 0 {
-				st.Annotations = map[string]string{}
+		businessEqual := dcgs.businessStatefulSetEqual(new, est)
+		if !businessEqual {
+			if len(new.Annotations) == 0 {
+				new.Annotations = map[string]string{}
 			}
-			st_annos := (resource.Annotations)(st.Annotations)
+			st_annos := (resource.Annotations)(new.Annotations)
 			st_annos.Add(dv1.UpdateStatefulsetGeneration, strconv.FormatInt(cluster.Generation, 10))
 			if len(cluster.Annotations) == 0 {
 				cluster.Annotations = map[string]string{}
@@ -222,16 +308,55 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 			ddc_annos := (resource.Annotations)(cluster.Annotations)
 			msUniqueIdKey := strings.ToLower(fmt.Sprintf(dv1.UpdateStatefulsetName, cluster.GetCGStatefulsetName(cg)))
 			ddc_annos.Add(msUniqueIdKey, "true")
-			dcgs.DisaggregatedSubDefaultController.AddDownwardAPI(st)
 		}
-		return equal
+		return businessEqual && gracefulStatefulSetControlEqual(new, est)
 
 	}, ndf); err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGApplyResourceFailed, Message: err.Error()}, err
 	}
-
 	return nil, nil
+}
+
+func volumeClaimTemplatesEqual(new, old []corev1.PersistentVolumeClaim) bool {
+	if len(new) != len(old) {
+		return false
+	}
+
+	normalizedNew := make([]corev1.PersistentVolumeClaim, len(new))
+	normalizedOld := make([]corev1.PersistentVolumeClaim, len(old))
+	for i := range new {
+		normalizedNew[i] = normalizeVolumeClaimTemplate(new[i])
+		normalizedOld[i] = normalizeVolumeClaimTemplate(old[i])
+	}
+
+	return equality.Semantic.DeepEqual(normalizedNew, normalizedOld)
+}
+
+func normalizeVolumeClaimTemplate(pvc corev1.PersistentVolumeClaim) corev1.PersistentVolumeClaim {
+	pvc.TypeMeta = metav1.TypeMeta{}
+	pvc.ObjectMeta = metav1.ObjectMeta{
+		Name:        pvc.Name,
+		Labels:      normalizeStringMap(pvc.Labels),
+		Annotations: normalizeStringMap(pvc.Annotations),
+	}
+	pvc.Status = corev1.PersistentVolumeClaimStatus{}
+	if pvc.Spec.VolumeMode == nil {
+		volumeMode := corev1.PersistentVolumeFilesystem
+		pvc.Spec.VolumeMode = &volumeMode
+	}
+	return pvc
+}
+
+func normalizeStringMap(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	normalized := make(map[string]string, len(m))
+	for k, v := range m {
+		normalized[k] = v
+	}
+	return normalized
 }
 
 // initial compute group status before sync resources. status changing with sync steps, and generate the last status by classify pods.
@@ -250,14 +375,6 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 
 	for i := range cgss {
 		if cgss[i].UniqueId == uniqueId {
-			/*if cgss[i].Phase != dv1.Ready {
-				defaultStatus.Phase = cgss[i].Phase
-			}
-			defaultStatus.SuspendReplicas = cgss[i].SuspendReplicas
-			cgss[i] = defaultStatus*/
-			if cgss[i].Phase == dv1.Ready {
-				cgss[i].Phase = defaultStatus.Phase
-			}
 			cgss[i].Replicas = *cg.Replicas
 
 			return
@@ -266,6 +383,31 @@ func (dcgs *DisaggregatedComputeGroupsController) initialCGStatus(ddc *dv1.Doris
 
 	// Need to adjust by pointer
 	(&ddc.Status).ComputeGroupStatuses = append((&ddc.Status).ComputeGroupStatuses, defaultStatus)
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) businessStatefulSetEqual(new, est *appv1.StatefulSet) bool {
+	nst := new.DeepCopy()
+	eSt := est.DeepCopy()
+	normalizeGracefulStatefulSetForCompare(nst)
+	normalizeGracefulStatefulSetForCompare(eSt)
+	equal := resource.StatefulsetDeepEqualWithKey(nst, eSt, dv1.DisaggregatedSpecHashValueAnnotation, false)
+	if hashValue := nst.Annotations[dv1.DisaggregatedSpecHashValueAnnotation]; hashValue != "" {
+		if new.Annotations == nil {
+			new.Annotations = map[string]string{}
+		}
+		new.Annotations[dv1.DisaggregatedSpecHashValueAnnotation] = hashValue
+	}
+	return equal
+}
+
+func (dcgs *DisaggregatedComputeGroupsController) clearStatefulSetRollingUpdate(ctx context.Context, namespace, name string) {
+	patch := []byte(`{"spec":{"updateStrategy":{"rollingUpdate":null}}}`)
+	st := &appv1.StatefulSet{}
+	st.Namespace = namespace
+	st.Name = name
+	if err := dcgs.K8sclient.Patch(ctx, st, client.RawPatch(types.MergePatchType, patch)); err != nil {
+		klog.Errorf("clearStatefulSetRollingUpdate: failed to clear rollingUpdate for StatefulSet %s/%s: %v", namespace, name, err)
+	}
 }
 
 // check compute groups unique identifier duplicated or not. return duplicated key.
@@ -574,9 +716,8 @@ func (dcgs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 		}
 	}
 
-
 	for _, cgs := range ddc.Status.ComputeGroupStatuses {
-		if cgs.ComputeGroupId  == "" {
+		if cgs.ComputeGroupId == "" {
 			dcgs.recordComputeGroupIds(ddc)
 			break
 		}
@@ -601,7 +742,7 @@ func (dcgs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 	return errors.New(errMs)
 }
 
-func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.DorisDisaggregatedCluster) error {
+func (dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.DorisDisaggregatedCluster) error {
 	// get user and password
 	adminUserName, password := dcgs.GetManagementAdminUserAndPWD(context.Background(), ddc)
 
@@ -624,7 +765,7 @@ func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.
 		klog.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds new doris client failed,err=%s", err.Error())
 		return err
 	}
-    defer db.Close()
+	defer db.Close()
 
 	backends, err := db.ShowBackends()
 	if err != nil {
@@ -634,7 +775,7 @@ func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.
 
 	m := map[string]string{} //statefulsetname:computegroupid
 	for _, backend := range backends {
-		tags :=map[string]string{}
+		tags := map[string]string{}
 		err = json.Unmarshal([]byte(backend.Tag), &tags)
 		if err != nil {
 			klog.Errorf("DisaggregatedComputeGroupsController recordComputeGroupIds backend tag stirng to map failed, tag: %s, err: %s", backend.Tag, err.Error())
@@ -647,18 +788,17 @@ func(dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.
 		}
 
 		podName := strings.Split(backend.Host, ".")[0]
-		re,_ := regexp.Compile("(.*)-[0-9]+$")
+		re, _ := regexp.Compile("(.*)-[0-9]+$")
 		matchs := re.FindStringSubmatch(podName)
 		stsName := matchs[len(matchs)-1]
 		m[stsName] = tags[mysql.COMPUTE_GROUP_ID]
 	}
 
-	for i,cgs := range ddc.Status.ComputeGroupStatuses {
+	for i, cgs := range ddc.Status.ComputeGroupStatuses {
 		ddc.Status.ComputeGroupStatuses[i].ComputeGroupId = m[cgs.StatefulsetName]
 	}
 	return nil
 }
-
 
 func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisDisaggregatedCluster, cgs *dv1.ComputeGroupStatus) error {
 	stfName := cgs.StatefulsetName
@@ -684,7 +824,6 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 		return err
 	}
 
-
 	updateRevision := sts.Status.UpdateRevision
 	//check all pods controlled by new statefulset.
 	allUpdated := dcgs.DisaggregatedSubDefaultController.StatefulsetControlledPodsAllUseNewUpdateRevision(updateRevision, podList.Items)
@@ -704,8 +843,25 @@ func (dcgs *DisaggregatedComputeGroupsController) updateCGStatus(ddc *dv1.DorisD
 	}
 
 	cgs.AvailableReplicas = availableReplicas
+	if hasGracefulAction(sts) {
+		switch cgs.Phase {
+		case dv1.Ready:
+			cgs.Phase = dv1.GracefulRolling
+		case dv1.Reconciling, dv1.GracefulRolling, dv1.GracefulScaling, dv1.GracefulDeleting:
+			// Keep the phase in a reconciling/graceful state while the StatefulSet
+			// still carries graceful-action annotation.
+		}
+		return nil
+	}
 	if allUpdated && availableReplicas == cgs.Replicas {
 		cgs.Phase = dv1.Ready
 	}
 	return nil
+}
+
+func hasGracefulAction(sts *appv1.StatefulSet) bool {
+	if sts == nil || sts.Annotations == nil {
+		return false
+	}
+	return sts.Annotations[gracefulActionAnnotation] != ""
 }

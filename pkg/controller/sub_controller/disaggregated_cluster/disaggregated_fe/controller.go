@@ -117,6 +117,11 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return err
 	}
 
+	event, err = dfc.ReconcilePVC(ctx, ddc, confMap, v1.DisaggregatedFE, st, nil)
+	if err != nil {
+		klog.Errorf("FE Sync ReconcilePVC failed, namespace: %s, ddc name %s, error=%s!", ddc.Namespace, ddc.Name, err.Error())
+	}
+
 	return nil
 }
 
@@ -308,15 +313,16 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	}
 
 	// apply fe StatefulSet
-	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(st, est *appv1.StatefulSet) bool {
+	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
+		dfc.RestrictConditionsEqual(new, est)
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset
 		//store annotations "doris.disaggregated.cluster/update-{uniqueid}=true/false" on DorisDisaggregatedCluster
-		equal := resource.StatefulsetDeepEqualWithKey(st, est, v1.DisaggregatedSpecHashValueAnnotation, false)
+		equal := resource.StatefulsetDeepEqualWithKey(new, est, v1.DisaggregatedSpecHashValueAnnotation, false)
 		if !equal {
-			if len(st.Annotations) == 0 {
-				st.Annotations = map[string]string{}
+			if len(new.Annotations) == 0 {
+				new.Annotations = map[string]string{}
 			}
-			st_annos := (resource.Annotations)(st.Annotations)
+			st_annos := (resource.Annotations)(new.Annotations)
 			st_annos.Add(v1.UpdateStatefulsetGeneration, strconv.FormatInt(cluster.Generation, 10))
 			if len(cluster.Annotations) == 0 {
 				cluster.Annotations = map[string]string{}
@@ -335,7 +341,7 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 
 // RecycleResources pvc resource for fe recycle
 func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) error {
-	if ddc.Spec.FeSpec.PersistentVolume != nil || len(ddc.Spec.FeSpec.PersistentVolumes) != 0{
+	if ddc.Spec.FeSpec.PersistentVolume != nil || len(ddc.Spec.FeSpec.PersistentVolumes) != 0 {
 		return dfc.listAndDeletePersistentVolumeClaim(ctx, ddc)
 	}
 	return nil

@@ -23,6 +23,7 @@ import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	utils "github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
+	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
 	appv1 "k8s.io/api/apps/v1"
@@ -32,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"path"
+	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
@@ -280,6 +283,41 @@ func (d *SubDefaultController) CheckSecretExist(ctx context.Context, dcr *dorisv
 	}
 }
 
+// FindSecretTLSConfig reads TLS configuration from FE config map and returns
+// the TLS config and secret name for establishing TLS-enabled MySQL connections.
+func (d *SubDefaultController) FindSecretTLSConfig(feConfMap map[string]interface{}, dcr *dorisv1.DorisCluster) (*mysql.TLSConfig, string) {
+	enableTLS := resource.GetString(feConfMap, resource.ENABLE_TLS_KEY)
+	if enableTLS == "" {
+		return nil, ""
+	}
+
+	caCertFile := resource.GetString(feConfMap, resource.TLS_CA_CERTIFICATE_PATH_KEY)
+	clientCertFile := resource.GetString(feConfMap, resource.TLS_CERTIFICATE_PATH_KEY)
+	clientKeyFile := resource.GetString(feConfMap, resource.TLS_PRIVATE_KEY_PATH_KEY)
+	caFileName := path.Base(caCertFile)
+	clientCertFileName := path.Base(clientCertFile)
+	clientKeyFileName := path.Base(clientKeyFile)
+
+	caCertDir := filepath.Dir(caCertFile)
+	secretName := ""
+	if dcr.Spec.FeSpec != nil {
+		for _, sn := range dcr.Spec.FeSpec.Secrets {
+			if sn.MountPath == caCertDir {
+				secretName = sn.SecretName
+				break
+			}
+		}
+	}
+
+	tlsConfig := &mysql.TLSConfig{
+		CAFileName:         caFileName,
+		ClientCertFileName: clientCertFileName,
+		ClientKeyFileName:  clientKeyFileName,
+	}
+
+	return tlsConfig, secretName
+}
+
 // CheckSharedPVC verifies two points:
 //  1. Whether the SharePVC exists
 //  2. Whether the AccessMode of the SharePVC is ReadWriteMany
@@ -359,7 +397,7 @@ func (d *SubDefaultController) RestrictConditionsEqual(nst *appv1.StatefulSet, e
 	//in webhook should intercept the volume spec updated when use statefulset pvc.
 	// TODO: updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden
 	//if create est vct is empty, should not assign to new st.
-	if len(est.Spec.VolumeClaimTemplates) !=0 {
+	if len(est.Spec.VolumeClaimTemplates) != 0 {
 		nst.Spec.VolumeClaimTemplates = est.Spec.VolumeClaimTemplates
 	}
 }
@@ -716,7 +754,10 @@ func (d *SubDefaultController) CompareConfigmapAndTriggerRestart(dcr *dorisv1.Do
 
 	// configmap changed , restart sts
 	if oldStatus.ComponentCondition.Phase == dorisv1.Available {
-		klog.Infof("CompareConfigmapAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Namespace, dcr.Namespace)
+		klog.Infof("CompareConfigmapAndTriggerRestart TriggerRestart %s for CRD %s , namespace: %s", componentType, dcr.Name, dcr.Namespace)
+		if dcr.Annotations == nil {
+			dcr.Annotations = make(map[string]string)
+		}
 		dcr.Annotations[dorisv1.GetRestartAnnotationKey(componentType)] = time.Now().Format(time.RFC3339)
 		status := dcr.GetComponentStatus(componentType)
 		status.ComponentCondition.Phase = dorisv1.Restarting

@@ -19,6 +19,7 @@ package be
 import (
 	"encoding/json"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"testing"
 )
 
@@ -57,7 +58,13 @@ func Test_buildBEPodTemplateSpec(t *testing.T) {
 	}
 
 	be := &Controller{}
-	be.buildBEPodTemplateSpec(dcr, map[string]interface{}{})
+	pts := be.buildBEPodTemplateSpec(dcr, map[string]interface{}{})
+	if pts.Spec.TerminationGracePeriodSeconds == nil {
+		t.Fatalf("expected BE terminationGracePeriodSeconds")
+	}
+	if *pts.Spec.TerminationGracePeriodSeconds != resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS {
+		t.Errorf("expected BE terminationGracePeriodSeconds=%d, got %d", resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
+	}
 }
 
 func Test_buildBEPodTemplateSpecWithFEAffinity(t *testing.T) {

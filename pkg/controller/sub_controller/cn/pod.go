@@ -28,6 +28,7 @@ import (
 
 func (cn *Controller) buildCnPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}) corev1.PodTemplateSpec {
 	podTemplateSpec := resource.NewPodTemplateSpec(dcr, config, v1.Component_CN)
+	resource.AddTerminationGracePeriodSeconds(&podTemplateSpec, config, resource.DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
 	var containers []corev1.Container
 	containers = append(containers, podTemplateSpec.Spec.Containers...)
 	cnContainer := cn.cnContainer(dcr)

@@ -18,6 +18,9 @@
 package resource
 
 import (
+	"strings"
+
+	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/doris"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
@@ -25,12 +28,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
-	"strings"
 )
 
 var (
 	pvc_finalizer          = "selectdb.doris.com/pvc-finalizer"
 	pvc_manager_annotation = "selectdb.doris.com/pvc-manager"
+)
+
+const (
+	pvcFinalizerApache         = "apache.doris.org/pvc-finalizer"
+	PVCManagerAnnotationApache = "apache.doris.org/pvc-manager"
 )
 
 func BuildPVCName(stsName, ordinal, volumeName string) string {
@@ -57,11 +64,43 @@ func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespa
 	return pvc
 }
 
+func BuildDisaggregatedPVC(
+	pvcTemplate corev1.PersistentVolumeClaim,
+	labels map[string]string,
+	namespace, stsName, ordinal string) corev1.PersistentVolumeClaim {
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        BuildPVCName(stsName, ordinal, pvcTemplate.Name),
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: pvcTemplate.Annotations,
+			Finalizers:  []string{pvcFinalizerApache},
+		},
+		Spec: pvcTemplate.Spec,
+	}
+	return pvc
+}
+
 // finalAnnotations is a combination of user annotations and operator default annotations
 func buildPVCAnnotations(volume dorisv1.PersistentVolume) Annotations {
 	annotations := Annotations{}
 	if volume.PVCProvisioner == dorisv1.PVCProvisionerOperator {
 		annotations.Add(pvc_manager_annotation, "operator")
+		annotations.Add(dorisv1.ComponentResourceHash, hash.HashObject(volume.PersistentVolumeClaimSpec))
+	}
+
+	if volume.Annotations != nil && len(volume.Annotations) > 0 {
+		annotations.AddAnnotation(volume.Annotations)
+	}
+	return annotations
+}
+
+// BuildDisaggregatedPVCAnnotations finalAnnotations is a combination of user annotations and operator default annotations
+func BuildDisaggregatedPVCAnnotations(volume dv1.PersistentVolume) Annotations {
+	annotations := Annotations{}
+	if volume.PVCProvisioner == dv1.PVCProvisionerOperator {
+		annotations.Add(PVCManagerAnnotationApache, "operator")
 		annotations.Add(dorisv1.ComponentResourceHash, hash.HashObject(volume.PersistentVolumeClaimSpec))
 	}
 

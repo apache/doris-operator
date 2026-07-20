@@ -42,6 +42,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"strings"
 )
 
 // log is for logging in this package.
@@ -49,6 +50,8 @@ import (
 func (r *DorisCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(r).
+		WithValidator(r).
 		Complete()
 }
 
@@ -69,18 +72,30 @@ var _ webhook.CustomValidator = &DorisCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	klog.Info("validate create", "name", r.Name)
+	cluster, ok := obj.(*DorisCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DorisCluster but got %T", obj)
+	}
+	klog.Info("validate create", "name", cluster.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	if errs := cluster.validateManagementUser(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a unnamedwatches will be registered for the type
 func (r *DorisCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	klog.Info("validate update", "name", r.Name)
+	cluster, ok := newObj.(*DorisCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DorisCluster but got %T", newObj)
+	}
+	klog.Info("validate update", "name", cluster.Name)
 	var errors []error
+	errors = append(errors, cluster.validateManagementUser()...)
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
-	if *r.Spec.FeSpec.Replicas < r.GetElectionNumber() {
+	if cluster.Spec.FeSpec.Replicas != nil && *cluster.Spec.FeSpec.Replicas < cluster.GetElectionNumber() {
 		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))
 	}
 
@@ -97,4 +112,12 @@ func (r *DorisCluster) ValidateDelete(ctx context.Context, obj runtime.Object) (
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
+}
+
+func (r *DorisCluster) validateManagementUser() []error {
+	if r.Spec.AdminUser == nil || !strings.EqualFold(r.Spec.AdminUser.Name, "admin") {
+		return nil
+	}
+
+	return []error{fmt.Errorf("'adminUser.name' error: admin is not supported as management user, use root or a dedicated user with NODE_PRIV")}
 }

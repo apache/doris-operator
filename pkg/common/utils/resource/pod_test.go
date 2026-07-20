@@ -144,6 +144,28 @@ func Test_LifeCycleWithPreStopScript(t *testing.T) {
 	}
 }
 
+func Test_AddTerminationGracePeriodSeconds_Default(t *testing.T) {
+	pts := &corev1.PodTemplateSpec{}
+	AddTerminationGracePeriodSeconds(pts, map[string]interface{}{}, DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
+	if pts.Spec.TerminationGracePeriodSeconds == nil {
+		t.Fatalf("expected terminationGracePeriodSeconds")
+	}
+	if *pts.Spec.TerminationGracePeriodSeconds != DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS {
+		t.Errorf("expected default terminationGracePeriodSeconds=%d, got %d", DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS, *pts.Spec.TerminationGracePeriodSeconds)
+	}
+}
+
+func Test_AddTerminationGracePeriodSeconds_ConfigOverride(t *testing.T) {
+	pts := &corev1.PodTemplateSpec{}
+	AddTerminationGracePeriodSeconds(pts, map[string]interface{}{GRACE_SHUTDOWN_WAIT_SECONDS: "60"}, DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS)
+	if pts.Spec.TerminationGracePeriodSeconds == nil {
+		t.Fatalf("expected terminationGracePeriodSeconds")
+	}
+	if *pts.Spec.TerminationGracePeriodSeconds != 60 {
+		t.Errorf("expected configured terminationGracePeriodSeconds=60, got %d", *pts.Spec.TerminationGracePeriodSeconds)
+	}
+}
+
 func Test_BuildDisaggregatedProbe(t *testing.T) {
 	c := &corev1.Container{}
 	cs := &dv1.CommonSpec{
@@ -160,5 +182,121 @@ func Test_BuildDisaggregatedProbe(t *testing.T) {
 	}
 	if c.LivenessProbe.TimeoutSeconds != int32(30) {
 		t.Errorf("livenessProbe TimeoutSeconds build failed.")
+	}
+}
+
+func Test_ReadinessProbePolicy_NilPolicy(t *testing.T) {
+	// nil policy should produce original defaults
+	probe := readinessProbe(8040, HEALTH_API_PATH, nil, HttpGet, nil)
+	if probe.PeriodSeconds != 5 {
+		t.Errorf("expected PeriodSeconds=5, got %d", probe.PeriodSeconds)
+	}
+	if probe.FailureThreshold != 3 {
+		t.Errorf("expected FailureThreshold=3, got %d", probe.FailureThreshold)
+	}
+	if probe.TimeoutSeconds != 0 {
+		t.Errorf("expected TimeoutSeconds=0 (k8s default), got %d", probe.TimeoutSeconds)
+	}
+}
+
+func Test_ReadinessProbePolicy_WithPolicy(t *testing.T) {
+	policy := &v1.ReadinessProbePolicy{
+		TimeoutSeconds:   5,
+		FailureThreshold: 5,
+		PeriodSeconds:    10,
+	}
+	probe := readinessProbe(8040, HEALTH_API_PATH, nil, HttpGet, policy)
+	if probe.PeriodSeconds != 10 {
+		t.Errorf("expected PeriodSeconds=10, got %d", probe.PeriodSeconds)
+	}
+	if probe.FailureThreshold != 5 {
+		t.Errorf("expected FailureThreshold=5, got %d", probe.FailureThreshold)
+	}
+	if probe.TimeoutSeconds != 5 {
+		t.Errorf("expected TimeoutSeconds=5, got %d", probe.TimeoutSeconds)
+	}
+}
+
+func Test_ReadinessProbePolicy_PartialOverride(t *testing.T) {
+	// only set TimeoutSeconds, others should keep defaults
+	policy := &v1.ReadinessProbePolicy{
+		TimeoutSeconds: 5,
+	}
+	probe := readinessProbe(8040, HEALTH_API_PATH, nil, HttpGet, policy)
+	if probe.PeriodSeconds != 5 {
+		t.Errorf("expected default PeriodSeconds=5, got %d", probe.PeriodSeconds)
+	}
+	if probe.FailureThreshold != 3 {
+		t.Errorf("expected default FailureThreshold=3, got %d", probe.FailureThreshold)
+	}
+	if probe.TimeoutSeconds != 5 {
+		t.Errorf("expected TimeoutSeconds=5, got %d", probe.TimeoutSeconds)
+	}
+}
+
+func Test_BuildDisaggregatedProbe_NilCommonSpec(t *testing.T) {
+	c := &corev1.Container{}
+	BuildDisaggregatedProbe(c, nil, dv1.DisaggregatedBE)
+	if c.ReadinessProbe != nil {
+		t.Errorf("expected nil ReadinessProbe when cs is nil")
+	}
+}
+
+func Test_BuildDisaggregatedProbe_ReadinessProbePolicy_PartialOverride(t *testing.T) {
+	c := &corev1.Container{}
+	cs := &dv1.CommonSpec{
+		StartTimeout: 600,
+		LiveTimeout:  30,
+		ReadinessProbePolicy: &dv1.ReadinessProbePolicy{
+			TimeoutSeconds: 8,
+		},
+	}
+	BuildDisaggregatedProbe(c, cs, dv1.DisaggregatedBE)
+	if c.ReadinessProbe.PeriodSeconds != 5 {
+		t.Errorf("expected default PeriodSeconds=5, got %d", c.ReadinessProbe.PeriodSeconds)
+	}
+	if c.ReadinessProbe.FailureThreshold != 3 {
+		t.Errorf("expected default FailureThreshold=3, got %d", c.ReadinessProbe.FailureThreshold)
+	}
+	if c.ReadinessProbe.TimeoutSeconds != 8 {
+		t.Errorf("expected TimeoutSeconds=8, got %d", c.ReadinessProbe.TimeoutSeconds)
+	}
+}
+
+func Test_BuildDisaggregatedProbe_ReadinessProbePolicy_Nil(t *testing.T) {
+	c := &corev1.Container{}
+	cs := &dv1.CommonSpec{
+		StartTimeout: 600,
+		LiveTimeout:  30,
+	}
+	BuildDisaggregatedProbe(c, cs, dv1.DisaggregatedBE)
+	if c.ReadinessProbe.PeriodSeconds != 5 {
+		t.Errorf("expected default PeriodSeconds=5, got %d", c.ReadinessProbe.PeriodSeconds)
+	}
+	if c.ReadinessProbe.FailureThreshold != 3 {
+		t.Errorf("expected default FailureThreshold=3, got %d", c.ReadinessProbe.FailureThreshold)
+	}
+}
+
+func Test_BuildDisaggregatedProbe_ReadinessProbePolicy_WithPolicy(t *testing.T) {
+	c := &corev1.Container{}
+	cs := &dv1.CommonSpec{
+		StartTimeout: 600,
+		LiveTimeout:  30,
+		ReadinessProbePolicy: &dv1.ReadinessProbePolicy{
+			TimeoutSeconds:   10,
+			FailureThreshold: 6,
+			PeriodSeconds:    15,
+		},
+	}
+	BuildDisaggregatedProbe(c, cs, dv1.DisaggregatedBE)
+	if c.ReadinessProbe.PeriodSeconds != 15 {
+		t.Errorf("expected PeriodSeconds=15, got %d", c.ReadinessProbe.PeriodSeconds)
+	}
+	if c.ReadinessProbe.FailureThreshold != 6 {
+		t.Errorf("expected FailureThreshold=6, got %d", c.ReadinessProbe.FailureThreshold)
+	}
+	if c.ReadinessProbe.TimeoutSeconds != 10 {
+		t.Errorf("expected TimeoutSeconds=10, got %d", c.ReadinessProbe.TimeoutSeconds)
 	}
 }

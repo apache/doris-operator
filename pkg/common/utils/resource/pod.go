@@ -18,6 +18,7 @@
 package resource
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -55,23 +56,27 @@ const (
 	BROKER_PRESTOP             = "/opt/apache-doris/broker_prestop.sh"
 
 	//keys for pod env variables
-	POD_NAME       = "POD_NAME"
-	POD_IP         = "POD_IP"
-	HOST_IP        = "HOST_IP"
-	POD_NAMESPACE  = "POD_NAMESPACE"
-	ADMIN_USER     = "USER"
-	ADMIN_PASSWD   = "PASSWD"
-	DORIS_ROOT_KEY = "DORIS_ROOT"
+	POD_NAME           = "POD_NAME"
+	POD_IP             = "POD_IP"
+	HOST_IP            = "HOST_IP"
+	POD_NAMESPACE      = "POD_NAMESPACE"
+	ADMIN_USER         = "USER"
+	ADMIN_PASSWD       = "PASSWD"
+	DORIS_ROOT_KEY     = "DORIS_ROOT"
+	DNS_READY_TIMEOUT  = "DNS_READY_TIMEOUT"
+	DNS_READY_INTERVAL = "DNS_READY_INTERVAL"
 
 	KRB5_MOUNT_PATH        = "KRB5_MOUNT_PATH"
 	KRB5_CONFIG            = "KRB5_CONFIG"
 	KEYTAB_MOUNT_PATH      = "KEYTAB_MOUNT_PATH"
 	KEYTAB_FINAL_USED_PATH = "KEYTAB_FINAL_USED_PATH"
 
-	DEFAULT_ADMIN_USER   = "root"
-	DEFAULT_ROOT_PATH    = "/opt/apache-doris"
-	POD_INFO_PATH        = "/etc/podinfo"
-	POD_INFO_VOLUME_NAME = "podinfo"
+	DEFAULT_ADMIN_USER         = "root"
+	DEFAULT_ROOT_PATH          = "/opt/apache-doris"
+	DEFAULT_DNS_READY_TIMEOUT  = "120"
+	DEFAULT_DNS_READY_INTERVAL = "2"
+	POD_INFO_PATH              = "/etc/podinfo"
+	POD_INFO_VOLUME_NAME       = "podinfo"
 
 	NODE_TOPOLOGYKEY = "kubernetes.io/hostname"
 
@@ -89,6 +94,9 @@ const (
 	DISAGGREGATED_FE_MAIN_CONTAINER_NAME = "fe"
 	DISAGGREGATED_BE_MAIN_CONTAINER_NAME = "compute"
 	DISAGGREGATED_MS_MAIN_CONTAINER_NAME = "metaservice"
+
+	DEFAULT_FE_TERMINATION_GRACE_PERIOD_SECONDS int64 = 330
+	DEFAULT_BE_TERMINATION_GRACE_PERIOD_SECONDS int64 = 200
 )
 
 type ProbeType string
@@ -98,6 +106,54 @@ var (
 	TcpSocket ProbeType = "tcpSocket"
 	Exec      ProbeType = "exec"
 )
+
+func buildFQDNReadinessExecProbe(enableTLS string, config map[string]interface{}, port int32, path string) *corev1.Probe {
+	host := "$(hostname -f)"
+	var curlCmd string
+	if enableTLS == "true" {
+		caCert := GetString(config, TLS_CA_CERTIFICATE_PATH_KEY)
+		clientCert := GetString(config, TLS_CERTIFICATE_PATH_KEY)
+		clientKey := GetString(config, TLS_PRIVATE_KEY_PATH_KEY)
+		curlCmd = fmt.Sprintf(
+			"host=%s; (getent hosts \"$host\" >/dev/null 2>&1 || nslookup \"$host\" >/dev/null 2>&1) && curl --fail --silent --output /dev/null --cacert %s --cert %s --key %s https://$host:%d%s",
+			host, caCert, clientCert, clientKey, port, path,
+		)
+	} else {
+		curlCmd = fmt.Sprintf(
+			"host=%s; (getent hosts \"$host\" >/dev/null 2>&1 || nslookup \"$host\" >/dev/null 2>&1) && curl --fail --silent --output /dev/null http://$host:%d%s",
+			host, port, path,
+		)
+	}
+
+	return &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"bash", "-c", curlCmd},
+			},
+		},
+	}
+}
+
+func buildTLSReadinessExecProbe(config map[string]interface{}, port int32, path string) *corev1.Probe {
+	caCert := GetString(config, TLS_CA_CERTIFICATE_PATH_KEY)
+	clientCert := GetString(config, TLS_CERTIFICATE_PATH_KEY)
+	clientKey := GetString(config, TLS_PRIVATE_KEY_PATH_KEY)
+	curlCmd := fmt.Sprintf(
+		"curl --fail --silent --output /dev/null --cacert %s --cert %s --key %s https://localhost:%d%s",
+		caCert, clientCert, clientKey, port, path,
+	)
+	return &corev1.Probe{
+		PeriodSeconds:    5,
+		FailureThreshold: 3,
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"bash", "-c", curlCmd},
+			},
+		},
+	}
+}
 
 func NewPodTemplateSpec(dcr *v1.DorisCluster, config map[string]interface{}, componentType v1.ComponentType) corev1.PodTemplateSpec {
 	spec := getBaseSpecFromCluster(dcr, componentType)
@@ -285,6 +341,7 @@ func constructDisaggregatedInitContainers(skipDefaultInit bool, componentType dv
 			Command:         si.Command,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Args:            si.Args,
+			Resources:       si.ResourceRequirements,
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &enablePrivileged,
 			},
@@ -404,6 +461,7 @@ func mergeEnvs(src []corev1.EnvVar, dst []corev1.EnvVar) []corev1.EnvVar {
 	return dst
 }
 
+// for DCR
 func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Container {
 	enablePrivileged := true
 	initImage := si.InitImage
@@ -416,6 +474,7 @@ func newBaseInitContainer(name string, si *v1.SystemInitialization) corev1.Conta
 		Command:         si.Command,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Args:            si.Args,
+		Resources:       si.ResourceRequirements,
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: &enablePrivileged,
 		},
@@ -435,7 +494,7 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 		skipInit = dcr.Spec.BeSpec.SkipDefaultSystemInit
 	case v1.Component_CN:
 		spec = dcr.Spec.CnSpec.BaseSpec
-		skipInit = dcr.Spec.BeSpec.SkipDefaultSystemInit
+		skipInit = dcr.Spec.CnSpec.SkipDefaultSystemInit
 	case v1.Component_Broker:
 		spec = dcr.Spec.BrokerSpec.BaseSpec
 	default:
@@ -539,7 +598,26 @@ func NewBaseMainContainer(dcr *v1.DorisCluster, config map[string]interface{}, c
 	c.LivenessProbe = livenessProbe(livenessPort, spec.LiveTimeout, health_api_path, commands, liveProbeType)
 	// use liveness as startup, when in debugging mode will not be killed
 	c.StartupProbe = startupProbe(livenessPort, spec.StartTimeout, health_api_path, commands, liveProbeType)
-	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType)
+	c.ReadinessProbe = readinessProbe(readnessPort, health_api_path, commands, readinessProbeType, spec.ReadinessProbePolicy)
+
+	// When TLS is enabled, replace HTTPGet readiness probe with Exec curl that carries client certs.
+	// In mTLS mode (tls_verify_mode=verify_fail_if_no_peer_cert), the HTTPS endpoint requires
+	// client certificates. Kubernetes HTTPGet probes cannot provide client certs, so we use
+	// an Exec probe with curl instead. This is compatible with both TLS and mTLS modes.
+	enableTLS := GetString(config, ENABLE_TLS_KEY)
+	if c.ReadinessProbe != nil && c.ReadinessProbe.HTTPGet != nil &&
+		GetStartMode(config) == START_MODEL_FQDN &&
+		(componentType == v1.Component_FE || componentType == v1.Component_BE || componentType == v1.Component_CN) {
+		c.ReadinessProbe = buildFQDNReadinessExecProbe(enableTLS, config, readnessPort, health_api_path)
+		if spec.ReadinessProbePolicy != nil {
+			applyReadinessProbePolicy(c.ReadinessProbe, spec.ReadinessProbePolicy.TimeoutSeconds, spec.ReadinessProbePolicy.FailureThreshold, spec.ReadinessProbePolicy.PeriodSeconds)
+		}
+	} else if enableTLS == "true" && c.ReadinessProbe != nil && c.ReadinessProbe.HTTPGet != nil {
+		c.ReadinessProbe = buildTLSReadinessExecProbe(config, readnessPort, health_api_path)
+		if spec.ReadinessProbePolicy != nil {
+			applyReadinessProbePolicy(c.ReadinessProbe, spec.ReadinessProbePolicy.TimeoutSeconds, spec.ReadinessProbePolicy.FailureThreshold, spec.ReadinessProbePolicy.PeriodSeconds)
+		}
+	}
 	c.Lifecycle = lifeCycle(prestopScript)
 
 	return c
@@ -660,6 +738,14 @@ func buildEnvFromPod() []corev1.EnvVar {
 		{
 			Name:  config_env_name,
 			Value: config_env_path,
+		},
+		{
+			Name:  DNS_READY_TIMEOUT,
+			Value: DEFAULT_DNS_READY_TIMEOUT,
+		},
+		{
+			Name:  DNS_READY_INTERVAL,
+			Value: DEFAULT_DNS_READY_INTERVAL,
 		},
 	}
 }
@@ -993,15 +1079,15 @@ func LivenessProbe(port, timeout int32, path string, commands []string, pt Probe
 	return livenessProbe(port, timeout, path, commands, pt)
 }
 
-func ReadinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
-	return readinessProbe(port, path, commands, pt)
+func ReadinessProbe(port int32, path string, commands []string, pt ProbeType, policy *v1.ReadinessProbePolicy) *corev1.Probe {
+	return readinessProbe(port, path, commands, pt, policy)
 }
 
 // StartupProbe returns a startup probe.
 func startupProbe(port, timeout int32, path string, commands []string, pt ProbeType) *corev1.Probe {
 	var failurethreshold int32
-	if timeout < 300 {
-		timeout = 300
+	if timeout < 360 {
+		timeout = 360
 	}
 
 	failurethreshold = timeout / 5
@@ -1027,13 +1113,31 @@ func livenessProbe(port, timeout int32, path string, commands []string, pt Probe
 	}
 }
 
-// ReadinessProbe returns a readiness probe.
-func readinessProbe(port int32, path string, commands []string, pt ProbeType) *corev1.Probe {
-	return &corev1.Probe{
+// applyReadinessProbePolicy applies policy overrides to a readiness probe.
+// For each field, only overrides when the policy value > 0, otherwise keeps the probe's existing value.
+func applyReadinessProbePolicy(probe *corev1.Probe, timeoutSeconds, failureThreshold, periodSeconds int32) {
+	if periodSeconds > 0 {
+		probe.PeriodSeconds = periodSeconds
+	}
+	if failureThreshold > 0 {
+		probe.FailureThreshold = failureThreshold
+	}
+	if timeoutSeconds > 0 {
+		probe.TimeoutSeconds = timeoutSeconds
+	}
+}
+
+// readinessProbe returns a readiness probe with optional policy overrides.
+func readinessProbe(port int32, path string, commands []string, pt ProbeType, policy *v1.ReadinessProbePolicy) *corev1.Probe {
+	probe := &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		ProbeHandler:     getProbe(port, path, commands, pt),
 	}
+	if policy != nil {
+		applyReadinessProbePolicy(probe, policy.TimeoutSeconds, policy.FailureThreshold, policy.PeriodSeconds)
+	}
+	return probe
 }
 
 // LifeCycle returns a lifecycle.
@@ -1066,6 +1170,16 @@ func LifeCycleWithPreStopScript(lc *corev1.Lifecycle, preStopScript string) *cor
 		},
 	}
 	return lc
+}
+
+func AddTerminationGracePeriodSeconds(tplSpec *corev1.PodTemplateSpec, config map[string]interface{}, defaultSeconds int64) {
+	seconds := GetTerminationGracePeriodSeconds(config)
+	if seconds <= 0 {
+		seconds = defaultSeconds
+	}
+	if seconds > 0 {
+		tplSpec.Spec.TerminationGracePeriodSeconds = &seconds
+	}
 }
 
 // getProbe describe a health check.
@@ -1120,10 +1234,14 @@ func getExecProbe(commands []string) corev1.ProbeHandler {
 }
 
 func BuildDisaggregatedProbe(container *corev1.Container, cs *dv1.CommonSpec, componentType dv1.DisaggregatedComponentType) {
+	if cs == nil {
+		return
+	}
+
 	var failurethreshold int32
-	startTimeout := int32(300)
+	startTimeout := int32(360)
 	liveTimeout := cs.LiveTimeout
-	if cs.StartTimeout >= 300 {
+	if cs.StartTimeout >= 360 {
 		startTimeout = cs.StartTimeout
 	}
 	failurethreshold = startTimeout / 5
@@ -1176,6 +1294,9 @@ func BuildDisaggregatedProbe(container *corev1.Container, cs *dv1.CommonSpec, co
 		FailureThreshold: 3,
 		ProbeHandler:     ready,
 	}
+	if cs.ReadinessProbePolicy != nil {
+		applyReadinessProbePolicy(container.ReadinessProbe, cs.ReadinessProbePolicy.TimeoutSeconds, cs.ReadinessProbePolicy.FailureThreshold, cs.ReadinessProbePolicy.PeriodSeconds)
+	}
 }
 
 func getDefaultAffinity(componentType v1.ComponentType) *corev1.Affinity {
@@ -1219,6 +1340,7 @@ func constructAffinity(dcrAffinity *corev1.Affinity, componentType v1.ComponentT
 	return affinity
 }
 
+// for DDC and DCR
 func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 	return newBaseInitContainer(
 		"default-init",

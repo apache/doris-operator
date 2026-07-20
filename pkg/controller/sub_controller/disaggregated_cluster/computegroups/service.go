@@ -21,17 +21,59 @@ import (
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (dcgs *DisaggregatedComputeGroupsController) newService(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *corev1.Service {
+// newInternalService builds a headless service for internal cluster communication.
+// This service is used as the StatefulSet's serviceName for DNS-based pod discovery.
+func (dcgs *DisaggregatedComputeGroupsController) newInternalService(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *corev1.Service {
+	uniqueId := cg.UniqueId
+	labels := dcgs.newCG2LayerSchedulerLabels(ddc.Name, uniqueId)
+	labels[dv1.ServiceRoleForCluster] = string(dv1.Service_Role_Internal)
+	selector := dcgs.newCGPodsSelector(ddc.Name, uniqueId)
+
+	heartbeatPort := resource.GetPort(cvs, resource.HEARTBEAT_SERVICE_PORT)
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ddc.GetCGServiceName(cg),
+			Namespace: ddc.Namespace,
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: ddc.APIVersion,
+					Kind:       ddc.Kind,
+					Name:       ddc.Name,
+					UID:        ddc.UID,
+				},
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Ports: []corev1.ServicePort{
+				{
+					Name:       resource.GetPortKey(resource.HEARTBEAT_SERVICE_PORT),
+					Port:       heartbeatPort,
+					TargetPort: intstr.FromInt32(heartbeatPort),
+				},
+			},
+			Selector:                 selector,
+			PublishNotReadyAddresses: true,
+		},
+	}
+}
+
+// newExternalService builds the external service for load-balanced access.
+// User ExportService configuration (Type, Annotations, PortMaps) is applied to this service.
+func (dcgs *DisaggregatedComputeGroupsController) newExternalService(ddc *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup, cvs map[string]interface{}) *corev1.Service {
 	uniqueId := cg.UniqueId
 	svcConf := cg.CommonSpec.Service
 	sps := newComputeServicePorts(cvs, svcConf)
 	svc := dcgs.NewDefaultService(ddc)
 
 	ob := &svc.ObjectMeta
-	ob.Name = ddc.GetCGServiceName(cg)
+	ob.Name = ddc.GetCGExternalServiceName(cg)
 	ob.Labels = dcgs.newCG2LayerSchedulerLabels(ddc.Name, uniqueId)
 
 	spec := &svc.Spec

@@ -6,7 +6,7 @@
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
 //
-//   http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
@@ -17,13 +17,12 @@
 package cmdutil
 
 import (
-    "fmt"
-    "github.com/apache/doris-operator/pkg/common/cmd/templates"
+	"fmt"
+	"github.com/apache/doris-operator/pkg/common/cmd/templates"
 )
 
 // SuggestAPIResources returns a suggestion to use the "api-resources" command
 // to retrieve a supported list of resources
 func SuggestAPIResources(parent string) string {
-    return templates.LongDesc(fmt.Sprintf("Use \"%s api-resources\" for a complete list of supported resources.", parent))
+	return templates.LongDesc(fmt.Sprintf("Use \"%s api-resources\" for a complete list of supported resources.", parent))
 }
-

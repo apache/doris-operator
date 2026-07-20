@@ -116,6 +116,10 @@ spec:
     hostAliases:
     {{- toYaml .Values.feSpec.hostAliases | nindent 4 }}
     {{- end }}
+    {{- if .Values.feSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.feSpec.secrets | nindent 4 }}
+    {{- end }}
     {{- if .Values.feSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.fe.pvc" . }}
@@ -128,6 +132,9 @@ spec:
     {{- if .Values.feSpec.systemInitialization.command }}
       command: {{ .Values.feSpec.systemInitialization.command }}
     {{- end }}
+    {{- end }}
+    {{- if .Values.feSpec.serviceAccount }}
+    serviceAccount: {{ .Values.feSpec.serviceAccount }}
     {{- end }}
   beSpec:
     {{- if .Values.beSpec.annotations }}
@@ -201,6 +208,10 @@ spec:
     hostAliases:
     {{- toYaml .Values.beSpec.hostAliases | nindent 4 }}
     {{- end }}
+    {{- if .Values.beSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.beSpec.secrets | nindent 4 }}
+    {{- end }}
     {{- if .Values.beSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.be.pvc" . }}
@@ -214,6 +225,9 @@ spec:
     {{- if .Values.beSpec.systemInitialization.command }}
       command: {{ .Values.beSpec.systemInitialization.command }}
     {{- end }}
+    {{- end }}
+    {{- if .Values.beSpec.serviceAccount }}
+    serviceAccount: {{ .Values.beSpec.serviceAccount }}
     {{- end }}
   {{- if .Values.dorisCluster.enabledCn }}
   cnSpec:
@@ -289,7 +303,10 @@ spec:
     hostAliases:
     {{- toYaml .Values.cnSpec.hostAliases | nindent 4 }}
     {{- end }}
-
+    {{- if .Values.cnSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.cnSpec.secrets | nindent 4 }}
+    {{- end }}
     {{- if .Values.cnSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.cn.pvc" . }}
@@ -302,6 +319,9 @@ spec:
     {{- if .Values.cnSpec.systemInitialization.command }}
       command: {{ .Values.cnSpec.systemInitialization.command }}
     {{- end }}
+    {{- end }}
+    {{- if .Values.cnSpec.serviceAccount }}
+    serviceAccount: {{ .Values.cnSpec.serviceAccount }}
     {{- end }}
     {{- if .Values.cnSpec.autoScalingPolicy.enable }}
     autoScalingPolicy:
@@ -371,6 +391,10 @@ spec:
     hostAliases:
     {{- toYaml .Values.brokerSpec.hostAliases | nindent 4 }}
     {{- end }}
+    {{- if .Values.brokerSpec.secrets }}
+    secrets:
+    {{- toYaml .Values.brokerSpec.secrets | nindent 4 }}
+    {{- end }}
     {{- if .Values.brokerSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.broker.pvc" . }}
@@ -383,5 +407,8 @@ spec:
     {{- if .Values.brokerSpec.systemInitialization.command }}
       command: {{ .Values.brokerSpec.systemInitialization.command }}
     {{- end }}
+    {{- end }}
+    {{- if .Values.brokerSpec.serviceAccount }}
+    serviceAccount: {{ .Values.brokerSpec.serviceAccount }}
     {{- end }}
   {{- end }}

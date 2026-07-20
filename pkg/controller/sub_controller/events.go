@@ -62,6 +62,7 @@ var (
 	CGUniqueIdentifierNotMatchRegex EventReason = "CGUniqueIdentifierNotMatchRegex"
 	CGCreateResourceFailed          EventReason = "CGCreateResourceFailed"
 	CGApplyResourceFailed           EventReason = "CGApplyResourceFailed"
+	CGStorageTemplateImmutable      EventReason = "CGStorageTemplateImmutable"
 	CGStatefulsetDeleteFailed       EventReason = "CGStatefulsetDeleteFailed"
 	CGServiceDeleteFailed           EventReason = "CGServiceDeleteFailed"
 	ConfigMapPathRepeated           EventReason = "ConfigMapPathRepeated"
@@ -76,6 +77,15 @@ var (
 	FDBAddressNotConfiged           EventReason = "FDBAddressNotConfiged"
 	RestartTimeInvalid              EventReason = "RestartTimeInvalid"
 	ConfigMapGetFailed              EventReason = "ConfigMapGetFailed"
+	GracefulDrainStarted            EventReason = "GracefulDrainStarted"
+	GracefulDrainCompleted          EventReason = "GracefulDrainCompleted"
+	GracefulDrainTimeout            EventReason = "GracefulDrainTimeout"
+	GracefulDrainExecFailed         EventReason = "GracefulDrainExecFailed"
+	GracefulPodDeleted              EventReason = "GracefulPodDeleted"
+	GracefulReplacementReady        EventReason = "GracefulReplacementReady"
+	GracefulActionCompleted         EventReason = "GracefulActionCompleted"
+	GracefulActionFailed            EventReason = "GracefulActionFailed"
+	GracefulActionDisabled          EventReason = "GracefulActionDisabled"
 )
 
 type Event struct {

@@ -1417,7 +1417,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -1726,6 +1726,29 @@ spec:
                     additionalProperties:
                       type: string
                     description: podLabels for user selector or classify pods
+                    type: object
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
                     type: object
                   replicas:
                     description: Replicas is the number of desired cn Pod.
@@ -2076,6 +2099,37 @@ spec:
                         items:
                           type: string
                         type: array
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       command:
                         description: Entrypoint array. Not executed within a shell.
                         items:
@@ -2084,6 +2138,30 @@ spec:
                       initImage:
                         description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -3453,7 +3531,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -3768,6 +3846,29 @@ spec:
                     additionalProperties:
                       type: string
                     description: podLabels for user selector or classify pods
+                    type: object
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
                     type: object
                   replicas:
                     description: Replicas is the number of desired cn Pod.
@@ -4111,6 +4212,37 @@ spec:
                         items:
                           type: string
                         type: array
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       command:
                         description: Entrypoint array. Not executed within a shell.
                         items:
@@ -4119,6 +4251,30 @@ spec:
                       initImage:
                         description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -6118,7 +6274,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -6427,6 +6583,29 @@ spec:
                     additionalProperties:
                       type: string
                     description: podLabels for user selector or classify pods
+                    type: object
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
                     type: object
                   replicas:
                     description: Replicas is the number of desired cn Pod.
@@ -6772,6 +6951,37 @@ spec:
                         items:
                           type: string
                         type: array
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       command:
                         description: Entrypoint array. Not executed within a shell.
                         items:
@@ -6780,6 +6990,30 @@ spec:
                       initImage:
                         description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -8160,7 +8394,7 @@ spec:
                         description: the fe addresses if not deploy by crd, user can
                           use k8s deploy fe observer.
                         properties:
-                          :address:
+                          address:
                             description: the ip or domain array.
                             items:
                               type: string
@@ -8469,6 +8703,29 @@ spec:
                     additionalProperties:
                       type: string
                     description: podLabels for user selector or classify pods
+                    type: object
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
                     type: object
                   replicas:
                     description: Replicas is the number of desired cn Pod.
@@ -8812,6 +9069,37 @@ spec:
                         items:
                           type: string
                         type: array
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       command:
                         description: Entrypoint array. Not executed within a shell.
                         items:
@@ -8820,6 +9108,30 @@ spec:
                       initImage:
                         description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -10841,6 +11153,9 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner, default is ''.
+                          type: string
                       type: object
                     persistentVolumes:
                       description: volume template for mountPath
@@ -11071,8 +11386,34 @@ spec:
                                   the PersistentVolume backing this claim.
                                 type: string
                             type: object
+                          provisioner:
+                            description: defines pvc provisioner, default is ''.
+                            type: string
                         type: object
                       type: array
+                    readinessProbePolicy:
+                      description: ReadinessProbePolicy defines the timing policy
+                        for readiness probe.
+                      properties:
+                        failureThreshold:
+                          description: |-
+                            Minimum consecutive failures for the readiness probe to be considered failed.
+                            Defaults to 3.
+                          format: int32
+                          type: integer
+                        periodSeconds:
+                          description: |-
+                            How often (in seconds) to perform the readiness probe.
+                            Defaults to 5.
+                          format: int32
+                          type: integer
+                        timeoutSeconds:
+                          description: |-
+                            Number of seconds after which the readiness probe times out.
+                            Defaults to 1 (Kubernetes default).
+                          format: int32
+                          type: integer
+                      type: object
                     replicas:
                       description: |-
                         Replicas represent the number of desired Pod.
@@ -11410,6 +11751,37 @@ spec:
                           items:
                             type: string
                           type: array
+                        claims:
+                          description: |-
+                            Claims lists the names of resources, defined in spec.resourceClaims,
+                            that are used by this container.
+
+                            This is an alpha field and requires enabling the
+                            DynamicResourceAllocation feature gate.
+
+                            This field is immutable. It can only be set for containers.
+                          items:
+                            description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                            properties:
+                              name:
+                                description: |-
+                                  Name must match the name of one entry in pod.spec.resourceClaims of
+                                  the Pod where this field is used. It makes that resource available
+                                  inside a container.
+                                type: string
+                              request:
+                                description: |-
+                                  Request is the name chosen for a request in the referenced claim.
+                                  If empty, everything from the claim is made available, otherwise
+                                  only the result of this request.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         command:
                           description: Entrypoint array. Not executed within a shell.
                           items:
@@ -11419,6 +11791,30 @@ spec:
                           description: Image for doris initialization, default is
                             selectdb/alpine:latest.
                           type: string
+                        limits:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Limits describes the maximum amount of compute resources allowed.
+                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                          type: object
+                        requests:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Requests describes the minimum amount of compute resources required.
+                            If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                            otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                          type: object
                       type: object
                     tolerations:
                       description: (Optional) Tolerations for scheduling pods onto
@@ -13079,6 +13475,9 @@ spec:
                               PersistentVolume backing this claim.
                             type: string
                         type: object
+                      provisioner:
+                        description: defines pvc provisioner, default is ''.
+                        type: string
                     type: object
                   persistentVolumes:
                     description: volume template for mountPath
@@ -13308,8 +13707,34 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner, default is ''.
+                          type: string
                       type: object
                     type: array
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
+                    type: object
                   replicas:
                     description: |-
                       Replicas represent the number of desired Pod.
@@ -13638,6 +14063,37 @@ spec:
                         items:
                           type: string
                         type: array
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       command:
                         description: Entrypoint array. Not executed within a shell.
                         items:
@@ -13646,6 +14102,30 @@ spec:
                       initImage:
                         description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -15327,6 +15807,9 @@ spec:
                               PersistentVolume backing this claim.
                             type: string
                         type: object
+                      provisioner:
+                        description: defines pvc provisioner, default is ''.
+                        type: string
                     type: object
                   persistentVolumes:
                     description: volume template for mountPath
@@ -15556,8 +16039,34 @@ spec:
                                 the PersistentVolume backing this claim.
                               type: string
                           type: object
+                        provisioner:
+                          description: defines pvc provisioner, default is ''.
+                          type: string
                       type: object
                     type: array
+                  readinessProbePolicy:
+                    description: ReadinessProbePolicy defines the timing policy for
+                      readiness probe.
+                    properties:
+                      failureThreshold:
+                        description: |-
+                          Minimum consecutive failures for the readiness probe to be considered failed.
+                          Defaults to 3.
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        description: |-
+                          How often (in seconds) to perform the readiness probe.
+                          Defaults to 5.
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        description: |-
+                          Number of seconds after which the readiness probe times out.
+                          Defaults to 1 (Kubernetes default).
+                        format: int32
+                        type: integer
+                    type: object
                   replicas:
                     description: |-
                       Replicas represent the number of desired Pod.
@@ -15886,6 +16395,37 @@ spec:
                         items:
                           type: string
                         type: array
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       command:
                         description: Entrypoint array. Not executed within a shell.
                         items:
@@ -15894,6 +16434,30 @@ spec:
                       initImage:
                         description: Image for doris initialization, default is selectdb/alpine:latest.
                         type: string
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
                     type: object
                   tolerations:
                     description: (Optional) Tolerations for scheduling pods onto some
@@ -15978,6 +16542,109 @@ spec:
                       description: the compute group id in doris meta, this response
                         to the backend's tag "compute_group_id";
                       type: string
+                    gracefulAction:
+                      description: GracefulAction tracks the state of an in-progress
+                        graceful two-phase restart/shutdown action.
+                      properties:
+                        currentOrdinal:
+                          description: CurrentOrdinal is the ordinal index of the
+                            pod currently being processed.
+                          format: int32
+                          type: integer
+                        currentPod:
+                          description: CurrentPod is the name of the pod currently
+                            being processed.
+                          type: string
+                        deadlineAt:
+                          description: DeadlineAt is when the current pod's drain
+                            timeout expires.
+                          format: date-time
+                          type: string
+                        desiredReplicas:
+                          description: DesiredReplicas is the target replica count
+                            (for ScaleDown).
+                          format: int32
+                          type: integer
+                        drainTriggered:
+                          description: DrainTriggered indicates whether the drain
+                            exec has been triggered for the current pod.
+                          type: boolean
+                        initialBackendEpoch:
+                          description: InitialBackendEpoch is reserved for FE-observed
+                            backend process epoch when available.
+                          type: string
+                        initialBackendStartTime:
+                          description: |-
+                            InitialBackendStartTime is the FE-observed LastStartTime for the backend generation
+                            being drained. It is used to reject stale alive=true views during replacement.
+                          type: string
+                        initialContainerID:
+                          description: InitialContainerID is the main container ID
+                            of the pod generation being drained.
+                          type: string
+                        initialPodUID:
+                          description: InitialPodUID is the UID of the pod generation
+                            being drained.
+                          type: string
+                        initialRestartCount:
+                          description: InitialRestartCount records the BE container's
+                            restart count before drain, to detect kubelet restarts.
+                          format: int32
+                          type: integer
+                        lastMessage:
+                          description: LastMessage is a human-readable message about
+                            the current action state.
+                          type: string
+                        phase:
+                          description: Phase is the current step in the graceful action
+                            state machine.
+                          type: string
+                        replacementBackendEpoch:
+                          description: ReplacementBackendEpoch records the FE-observed
+                            backend process epoch accepted for the replacement generation.
+                          type: string
+                        replacementBackendStartTime:
+                          description: ReplacementBackendStartTime records the FE-observed
+                            LastStartTime accepted for the replacement generation.
+                          type: string
+                        replacementContainerID:
+                          description: ReplacementContainerID tracks the replacement
+                            pod's main container ID.
+                          type: string
+                        replacementPodUID:
+                          description: ReplacementPodUID tracks the replacement pod
+                            generation once it is observed ready.
+                          type: string
+                        restartAnomalyDetected:
+                          description: |-
+                            RestartAnomalyDetected indicates that kubelet restarted the main container
+                            after the graceful drain was triggered.
+                          type: boolean
+                        sentinelWritten:
+                          description: |-
+                            SentinelWritten indicates whether the operator has written the terminating sentinel
+                            into the current pod before triggering graceful drain.
+                          type: boolean
+                        stableBackendObservations:
+                          description: StableBackendObservations counts consecutive
+                            WaitBEAlive polls that observed the same accepted replacement
+                            generation.
+                          format: int32
+                          type: integer
+                        startedAt:
+                          description: StartedAt is when the current pod's graceful
+                            action began.
+                          format: date-time
+                          type: string
+                        targetRevision:
+                          description: TargetRevision is the StatefulSet updateRevision
+                            being rolled out to (for RollingUpdate).
+                          type: string
+                        type:
+                          description: 'Type is the kind of graceful action: RollingUpdate,
+                            ScaleDown, or Delete.'
+                          type: string
+                      type: object
                     phase:
                       description: Phase represent the stage of reconciling.
                       type: string

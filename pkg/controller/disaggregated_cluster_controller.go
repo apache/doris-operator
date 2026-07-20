@@ -271,9 +271,9 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 
 	ddc.Status.ObservedGeneration = ddc.Generation
 	ddc.Status.ClusterHealth.Health = dv1.Green
-	if ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
+	if ddc.Status.MetaServiceStatus.AvailableStatus != dv1.Available || ddc.Status.FEStatus.AvailableStatus != dv1.Available || ddc.Status.ClusterHealth.CGAvailableCount <= (ddc.Status.ClusterHealth.CGCount/2) {
 		ddc.Status.ClusterHealth.Health = dv1.Red
-	} else if ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
+	} else if ddc.Status.MetaServiceStatus.Phase != dv1.Ready || ddc.Status.FEStatus.Phase != dv1.Ready || ddc.Status.ClusterHealth.CGAvailableCount < ddc.Status.ClusterHealth.CGCount {
 		ddc.Status.ClusterHealth.Health = dv1.Yellow
 	}
 
@@ -334,6 +334,9 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 		if cgs.Phase == dv1.Decommissioning {
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
+		if shouldRequeueComputeGroupPhase(cgs.Phase) {
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
 	}
 
 	// If the cluster status is abnormal(Health is not Green), reconciling is required.
@@ -343,6 +346,22 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 
 	return res, nil
 
+}
+
+func shouldRequeueComputeGroupPhase(phase dv1.Phase) bool {
+	switch phase {
+	case dv1.Reconciling,
+		dv1.Scaling,
+		dv1.ScaleDownFailed,
+		dv1.ResumeFailed,
+		dv1.SuspendFailed,
+		dv1.GracefulRolling,
+		dv1.GracefulScaling,
+		dv1.GracefulDeleting:
+		return true
+	default:
+		return false
+	}
 }
 
 func (dc *DisaggregatedClusterReconciler) clearReconcileAnnotations(ddc *dv1.DorisDisaggregatedCluster) {

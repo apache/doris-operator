@@ -1,0 +1,428 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# permissions to do leader election.
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: doris-operator
+    app.kubernetes.io/name: namespace
+    app.kubernetes.io/instance: doris
+    app.kubernetes.io/component: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+  name: doris
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: role
+    app.kubernetes.io/instance: leader-election-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leader-election-role
+  namespace: doris
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/instance: leader-election-rolebinding
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leader-election-rolebinding
+  namespace: doris
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: leader-election-role
+subjects:
+  - kind: ServiceAccount
+    name: doris-operator
+    namespace: doris
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: role
+    app.kubernetes.io/instance: doris-operator
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: doris-operator
+  namespace: doris
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - statefulsets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - statefulsets/status
+    verbs:
+      - get
+  - apiGroups:
+      - autoscaling
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - update
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - doris.selectdb.com
+    resources:
+      - dorisclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - disaggregated.cluster.doris.com
+    resources:
+      - dorisdisaggregatedclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps.foundationdb.org
+    resources:
+      - foundationdbclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - doris.selectdb.com
+    resources:
+      - dorisclusters/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - doris.selectdb.com
+    resources:
+      - dorisclusters/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - disaggregated.cluster.doris.com
+    resources:
+      - dorisdisaggregatedclusters/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/instance: doris-operator-rolebinding
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: doris-operator-rolebinding
+  namespace: doris
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: doris-operator
+subjects:
+  - kind: ServiceAccount
+    name: doris-operator
+    namespace: doris
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: serviceaccount
+    app.kubernetes.io/instance: controller-doris-operator-sa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: doris-operator
+  namespace: doris
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: doris-operator-secret-cert
+  namespace: doris
+  labels:
+    control-plane: doris-operator
+    app.kubernetes.io/instance: doris-operator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+  name: doris-operator-service
+  namespace: doris
+spec:
+  ports:
+    - name: https
+      port: 443
+      targetPort: 9443
+  selector:
+    control-plane: doris-operator
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/instance: doris-operator
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doris-operator
+  namespace: doris
+  labels:
+    control-plane: doris-operator
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/instance: doris-operator
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/part-of: doris-operator
+spec:
+  selector:
+    matchLabels:
+      control-plane: doris-operator
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: doris-operator
+      labels:
+        control-plane: doris-operator
+        app.kubernetes.io/name: deployment
+        app.kubernetes.io/instance: doris-operator
+        app.kubernetes.io/created-by: doris-operator
+        app.kubernetes.io/part-of: doris-operator
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - command:
+            - /dorisoperator
+          args:
+            - --leader-elect
+            - -namespace=doris
+          image: apache/doris:operator-latest
+          imagePullPolicy: Always
+          name: dorisoperator
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
+          env:
+            - name: ENABLE_WEBHOOK
+              value: "false"
+            - name: START_DISAGGREGATED_OPERATOR
+              value: "true"
+            - name: OPERATOR_NAMESPACE
+              value: "doris"
+            - name: OPERATOR_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SERVICE_NAME
+              value: doris-operator-service
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - mountPath:  /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: doris-operator-secret-cert
+      serviceAccountName: doris-operator
+      terminationGracePeriodSeconds: 10
