@@ -18,12 +18,15 @@
 package resource
 
 import (
+	"reflect"
+	"strings"
+	"testing"
+
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	corev1 "k8s.io/api/core/v1"
 	kr "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
-	"testing"
 )
 
 func Test_NewPodTemplateSpec(t *testing.T) {
@@ -148,6 +151,70 @@ func Test_NewBaseMainContainer_ImagePullPolicy(t *testing.T) {
 	c := NewBaseMainContainer(always, cm, v1.Component_FE)
 	if c.ImagePullPolicy != corev1.PullAlways {
 		t.Errorf("imagePullPolicy = %q, want %q", c.ImagePullPolicy, corev1.PullAlways)
+	}
+}
+
+func TestBuildTLSReadinessExecProbeUsesCommandArguments(t *testing.T) {
+	config := map[string]interface{}{
+		TLS_CA_CERTIFICATE_PATH_KEY: "/etc/doris/tls/ca cert.pem",
+		TLS_CERTIFICATE_PATH_KEY:    "/etc/doris/tls/client;cert.pem",
+		TLS_PRIVATE_KEY_PATH_KEY:    "/etc/doris/tls/client$key.pem",
+	}
+
+	probe := buildTLSReadinessExecProbe(config, 8030, HEALTH_API_PATH)
+	want := []string{
+		"curl",
+		"--fail", "--silent", "--output", "/dev/null",
+		"--cacert", config[TLS_CA_CERTIFICATE_PATH_KEY].(string),
+		"--cert", config[TLS_CERTIFICATE_PATH_KEY].(string),
+		"--key", config[TLS_PRIVATE_KEY_PATH_KEY].(string),
+		"https://localhost:8030/api/health",
+	}
+
+	if !reflect.DeepEqual(probe.Exec.Command, want) {
+		t.Fatalf("unexpected command: got %#v, want %#v", probe.Exec.Command, want)
+	}
+}
+
+func TestBuildFQDNReadinessExecProbePassesTLSPathsAsArguments(t *testing.T) {
+	config := map[string]interface{}{
+		TLS_CA_CERTIFICATE_PATH_KEY: "/etc/doris/tls/ca cert.pem",
+		TLS_CERTIFICATE_PATH_KEY:    "/etc/doris/tls/client;cert.pem",
+		TLS_PRIVATE_KEY_PATH_KEY:    "/etc/doris/tls/client$key.pem",
+	}
+
+	probe := buildFQDNReadinessExecProbe("true", config, 8030, HEALTH_API_PATH)
+	command := probe.Exec.Command
+	if len(command) != 9 {
+		t.Fatalf("unexpected command length: got %d, command %#v", len(command), command)
+	}
+	if command[0] != "bash" || command[1] != "-c" {
+		t.Fatalf("unexpected command prefix: %#v", command[:2])
+	}
+	for _, key := range []string{TLS_CA_CERTIFICATE_PATH_KEY, TLS_CERTIFICATE_PATH_KEY, TLS_PRIVATE_KEY_PATH_KEY} {
+		if strings.Contains(command[2], config[key].(string)) {
+			t.Fatalf("script contains the value for %s: %q", key, command[2])
+		}
+	}
+	wantArgs := []string{
+		"doris-readiness-probe",
+		config[TLS_CA_CERTIFICATE_PATH_KEY].(string),
+		config[TLS_CERTIFICATE_PATH_KEY].(string),
+		config[TLS_PRIVATE_KEY_PATH_KEY].(string),
+		"8030",
+		HEALTH_API_PATH,
+	}
+	if !reflect.DeepEqual(command[3:], wantArgs) {
+		t.Fatalf("unexpected script arguments: got %#v, want %#v", command[3:], wantArgs)
+	}
+}
+
+func TestBuildFQDNReadinessExecProbeWithoutTLSUsesArguments(t *testing.T) {
+	probe := buildFQDNReadinessExecProbe("false", nil, 8040, HEALTH_API_PATH)
+	wantArgs := []string{"doris-readiness-probe", "8040", HEALTH_API_PATH}
+
+	if !reflect.DeepEqual(probe.Exec.Command[3:], wantArgs) {
+		t.Fatalf("unexpected script arguments: got %#v, want %#v", probe.Exec.Command[3:], wantArgs)
 	}
 }
 
