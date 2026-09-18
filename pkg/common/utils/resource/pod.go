@@ -108,48 +108,59 @@ var (
 )
 
 func buildFQDNReadinessExecProbe(enableTLS string, config map[string]interface{}, port int32, path string) *corev1.Probe {
-	host := "$(hostname -f)"
-	var curlCmd string
+	const dnsCheck = `host="$(hostname -f)"; (getent hosts "$host" >/dev/null 2>&1 || nslookup "$host" >/dev/null 2>&1) && `
+
+	var command []string
 	if enableTLS == "true" {
 		caCert := GetString(config, TLS_CA_CERTIFICATE_PATH_KEY)
 		clientCert := GetString(config, TLS_CERTIFICATE_PATH_KEY)
 		clientKey := GetString(config, TLS_PRIVATE_KEY_PATH_KEY)
-		curlCmd = fmt.Sprintf(
-			"host=%s; (getent hosts \"$host\" >/dev/null 2>&1 || nslookup \"$host\" >/dev/null 2>&1) && curl --fail --silent --output /dev/null --cacert %s --cert %s --key %s https://$host:%d%s",
-			host, caCert, clientCert, clientKey, port, path,
-		)
+		command = []string{
+			"bash", "-c",
+			dnsCheck + `curl --fail --silent --output /dev/null --cacert "$1" --cert "$2" --key "$3" "https://${host}:${4}${5}"`,
+			"doris-readiness-probe",
+			caCert,
+			clientCert,
+			clientKey,
+			strconv.Itoa(int(port)),
+			path,
+		}
 	} else {
-		curlCmd = fmt.Sprintf(
-			"host=%s; (getent hosts \"$host\" >/dev/null 2>&1 || nslookup \"$host\" >/dev/null 2>&1) && curl --fail --silent --output /dev/null http://$host:%d%s",
-			host, port, path,
-		)
+		command = []string{
+			"bash", "-c",
+			dnsCheck + `curl --fail --silent --output /dev/null "http://${host}:${1}${2}"`,
+			"doris-readiness-probe",
+			strconv.Itoa(int(port)),
+			path,
+		}
 	}
 
-	return &corev1.Probe{
-		PeriodSeconds:    5,
-		FailureThreshold: 3,
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"bash", "-c", curlCmd},
-			},
-		},
-	}
+	return newReadinessExecProbe(command)
 }
 
 func buildTLSReadinessExecProbe(config map[string]interface{}, port int32, path string) *corev1.Probe {
 	caCert := GetString(config, TLS_CA_CERTIFICATE_PATH_KEY)
 	clientCert := GetString(config, TLS_CERTIFICATE_PATH_KEY)
 	clientKey := GetString(config, TLS_PRIVATE_KEY_PATH_KEY)
-	curlCmd := fmt.Sprintf(
-		"curl --fail --silent --output /dev/null --cacert %s --cert %s --key %s https://localhost:%d%s",
-		caCert, clientCert, clientKey, port, path,
-	)
+	command := []string{
+		"curl",
+		"--fail", "--silent", "--output", "/dev/null",
+		"--cacert", caCert,
+		"--cert", clientCert,
+		"--key", clientKey,
+		fmt.Sprintf("https://localhost:%d%s", port, path),
+	}
+
+	return newReadinessExecProbe(command)
+}
+
+func newReadinessExecProbe(command []string) *corev1.Probe {
 	return &corev1.Probe{
 		PeriodSeconds:    5,
 		FailureThreshold: 3,
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"bash", "-c", curlCmd},
+				Command: command,
 			},
 		},
 	}
