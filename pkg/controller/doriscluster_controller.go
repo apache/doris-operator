@@ -135,6 +135,12 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
+	if dcr.Annotations[dorisv1.AnnotationReconcilePaused] == "true" ||
+		dcr.Annotations[dorisv1.AnnotationReconcilePausedLegacy] == "true" {
+		klog.Infof("DorisClusterReconciler skip paused DorisCluster namespace=%s name=%s", dcr.Namespace, dcr.Name)
+		return ctrl.Result{}, nil
+	}
+
 	if dcr.Spec.EnableRestartWhenConfigChange {
 		coreConfigMaps := resource.GetDorisCoreConfigMapNames(dcr)
 		for componentType := range coreConfigMaps {

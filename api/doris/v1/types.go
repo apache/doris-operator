@@ -28,6 +28,13 @@ var (
 	AnnotationDebugValue    = "debug"
 )
 
+const (
+	// AnnotationReconcilePaused pauses DorisCluster reconciliation.
+	AnnotationReconcilePaused = "apache.org.doris/reconcile-paused"
+	// AnnotationReconcilePausedLegacy preserves compatibility with older SelectDB releases.
+	AnnotationReconcilePausedLegacy = "selectdb.com.doris/reconcile-paused"
+)
+
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
 	//defines the fe cluster state that will be created by operator.
