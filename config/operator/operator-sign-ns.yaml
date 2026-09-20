@@ -374,6 +374,7 @@ spec:
             - /dorisoperator
           args:
             - --leader-elect
+            - --leader-election-id=e1370669.selectdb.com
             - -namespace=doris
           image: apache/doris:operator-latest
           imagePullPolicy: Always

@@ -133,7 +133,7 @@ func main() {
 		},
 		WebhookServer:    webhookServer,
 		LeaderElection:   f.EnableLeaderElection,
-		LeaderElectionID: "e1370669.selectdb.com",
+		LeaderElectionID: f.LeaderElectionID,
 		//if one reconcile failed, others will not be affected.
 		Controller: controllerconfig.Controller{
 			RecoverPanic: pointer.Bool(true),
