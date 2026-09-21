@@ -1,6 +1,11 @@
 # specify the foundationdb cluster name
 name: test-cluster
 
+# Keep the FoundationDBCluster object during Helm uninstall or release
+# replacement so that unrelated Doris chart changes do not implicitly tear
+# down the metadata cluster.
+keepClusterResource: true
+
 #specify the data replicas. enum: single, double, triple
 redundancy_mode: "double"
 
@@ -34,8 +39,11 @@ resources:
 
 # VolumeClaimTemplate allows customizing the persistent volume claim for the pod.
 # this config reference the kubernetes doc about statefulset volumeClaimTemplate: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+# Production metadata volumes should use a StorageClass with
+# reclaimPolicy=Retain. PVC template fields alone do not control PV retention.
 volumeClaimTemplate:
   spec:
+    # storageClassName: retain-sc
     resources:
       requests:
         storage: 50G

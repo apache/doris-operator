@@ -19,6 +19,10 @@ apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: {{ include "foundationdb.clusterName" . }}
+  {{- if .Values.keepClusterResource }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
 spec:
   databaseConfiguration:
     redundancy_mode: {{ template "foundationdb.redundancyMode" }}
