@@ -29,6 +29,8 @@ adminUser: {}
 
 # describe the ms specification for deploying.
 msSpec:
+  # labels to be added to the ms pod
+  labels: {}
   # fdb is required config, the last is example to config, not available to use.
   fdb:
     # specify the fdb cluster deployed namespace.
@@ -59,6 +61,8 @@ msSpec:
 feSpec:
   # the electionNumber denotes the FE followers number.
   electionNumber: 3
+  # labels to be added to the FE pod
+  labels: {}
   # the number of fe, the number contains the number of follower and observer.
   replicas: 3
   image:
@@ -110,6 +114,8 @@ computeGroupNames:
 # describe the compute group spec to deploy.
 computeSpec:
   replicas: 2
+  # labels to be added to the BE pod
+  labels: {}
   image:
     repository: apache/doris
     tag: be-3.0.5
