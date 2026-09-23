@@ -30,6 +30,7 @@ import (
 	dcgs "github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/computegroups"
 	dfe "github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/disaggregated_fe"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/metaservice"
+	"github.com/apache/doris-operator/pkg/tde"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +95,23 @@ func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) err
 	builder := dc.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = dc.watchPodBuilder(builder)
 	builder = dc.watchFDBConfigMapBuilder(builder)
+	builder = builder.Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(dc.mapSecretToDDCs))
 	return builder.Complete(dc)
+}
+
+func (dc *DisaggregatedClusterReconciler) mapSecretToDDCs(ctx context.Context, object client.Object) []reconcile.Request {
+	var clusters dv1.DorisDisaggregatedClusterList
+	if err := dc.List(ctx, &clusters, client.InNamespace(object.GetNamespace())); err != nil {
+		return nil
+	}
+	requests := make([]reconcile.Request, 0)
+	for i := range clusters.Items {
+		cluster := &clusters.Items[i]
+		if tdeReferencesSecret(cluster.Spec.TDE, cluster.Status.TDE, object.GetName()) {
+			requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(cluster)})
+		}
+	}
+	return requests
 }
 
 func (dc *DisaggregatedClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
@@ -220,6 +237,13 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 		klog.Warningf("disaggreatedClusterReconciler not find resource DorisDisaggregatedCluster namespaceName %s", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
+	if ddc.DeletionTimestamp.IsZero() {
+		if blocked, gateErr := tde.EnforceDDCFELifecycleGate(ctx, dc.Client, &ddc); gateErr != nil {
+			return ctrl.Result{}, gateErr
+		} else if blocked {
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+	}
 	hv := hash.HashObject(ddc.Spec)
 
 	var res ctrl.Result
@@ -250,10 +274,21 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 		if stsRes, stsErr = dc.reorganizeStatus(&ddc); stsErr != nil {
 			return stsRes, stsErr
 		}
+		tdeRes, tdeErr := tde.ReconcileDDC(ctx, dc.Client, &ddc)
+		if tdeErr != nil {
+			return tdeRes, tdeErr
+		}
+		if !tdeRes.IsZero() {
+			stsRes = tdeRes
+		}
 
 		//update cr or status
-		if stsRes, stsErr = dc.updateObjectORStatus(ctx, &ddc, hv); stsErr != nil {
-			return stsRes, stsErr
+		updateRes, updateErr := dc.updateObjectORStatus(ctx, &ddc, hv)
+		if updateErr != nil {
+			return updateRes, updateErr
+		}
+		if !updateRes.IsZero() {
+			stsRes = updateRes
 		}
 
 		return stsRes, stsErr

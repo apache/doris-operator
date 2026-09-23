@@ -18,11 +18,15 @@
 package v1
 
 import (
+	tdev1 "github.com/apache/doris-operator/api/tde"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type DorisDisaggregatedClusterSpec struct {
+	// TDE declares cluster-wide transparent data encryption management.
+	TDE *tdev1.TDEConfig `json:"tde,omitempty"`
+
 	//VaultConfigmap specify the configmap that have configuration of file object information. example S3.
 	//configmap have to config, please reference the doc.
 	//InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
@@ -344,6 +348,9 @@ type PortMap struct {
 }
 
 type DorisDisaggregatedClusterStatus struct {
+	// TDE reports the observed encryption configuration and operation state.
+	TDE *tdev1.TDEStatus `json:"tde,omitempty"`
+
 	//describe the metaservice status now.
 	MetaServiceStatus MetaServiceStatus `json:"metaServiceStatus,omitempty"`
 

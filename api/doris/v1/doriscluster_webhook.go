@@ -36,9 +36,11 @@ package v1
 import (
 	"context"
 	"fmt"
+	tdev1 "github.com/apache/doris-operator/api/tde"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -81,6 +83,9 @@ func (r *DorisCluster) ValidateCreate(ctx context.Context, obj runtime.Object) (
 	if errs := cluster.validateManagementUser(); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
+	if errs := tdev1.ValidateCreate(cluster.Spec.TDE); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
 
 	return nil, nil
 }
@@ -94,6 +99,18 @@ func (r *DorisCluster) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 	klog.Info("validate update", "name", cluster.Name)
 	var errors []error
 	errors = append(errors, cluster.validateManagementUser()...)
+	oldCluster, ok := oldObj.(*DorisCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected an old DorisCluster but got %T", oldObj)
+	}
+	errors = append(errors, tdev1.ValidateUpdate(oldCluster.Spec.TDE, cluster.Spec.TDE, oldCluster.Status.TDE)...)
+	if tdev1.BlocksFELifecycle(oldCluster.Status.TDE) &&
+		!reflect.DeepEqual(oldCluster.Spec.FeSpec, cluster.Spec.FeSpec) {
+		errors = append(errors, fmt.Errorf("spec.feSpec cannot change while a TDE operation or configuration sync is pending"))
+	}
+	if !reflect.DeepEqual(oldCluster.Spec.TDE, cluster.Spec.TDE) && !reflect.DeepEqual(oldCluster.Spec.FeSpec, cluster.Spec.FeSpec) {
+		errors = append(errors, fmt.Errorf("spec.tde and spec.feSpec cannot change in the same update"))
+	}
 	// fe FeSpec.Replicas must greater than or equal to FeSpec.ElectionNumber
 	if cluster.Spec.FeSpec.Replicas != nil && *cluster.Spec.FeSpec.Replicas < cluster.GetElectionNumber() {
 		errors = append(errors, fmt.Errorf("'FeSpec.Replicas' error: the number of FeSpec.Replicas should greater than or equal to FeSpec.ElectionNumber"))

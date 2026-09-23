@@ -346,7 +346,7 @@ webhooks:
         name: doris-operator-service
         namespace: doris
         path: /validate-doris-selectdb-com-v1-doriscluster
-    failurePolicy: Ignore
+    failurePolicy: Fail
     name: vdoriscluster.kb.io
     rules:
       - apiGroups:
@@ -366,7 +366,7 @@ webhooks:
         name: doris-operator-service
         namespace: doris
         path: /validate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster
-    failurePolicy: Ignore
+    failurePolicy: Fail
     name: vdorisdisaggregatedcluster.kb.io
     rules:
       - apiGroups:

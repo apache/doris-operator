@@ -24,6 +24,7 @@ import (
 	v1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sub "github.com/apache/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/pkg/tde"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -118,6 +119,7 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 	}
 
 	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, labels[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
+	tde.ApplyPodOverlay(&pts, resource.DISAGGREGATED_FE_MAIN_CONTAINER_NAME, ddc.Spec.TDE, ddc.Status.TDE)
 
 	return pts
 }

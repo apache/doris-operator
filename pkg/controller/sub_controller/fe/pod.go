@@ -22,6 +22,7 @@ import (
 
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/tde"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -34,6 +35,7 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster, config map[st
 	containers = append(containers, feContainer)
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.FeSpec.ContainerSecurityContext)
 	podTemplateSpec.Spec.Containers = containers
+	tde.ApplyPodOverlay(&podTemplateSpec, "fe", dcr.Spec.TDE, dcr.Status.TDE)
 	return podTemplateSpec
 }
 

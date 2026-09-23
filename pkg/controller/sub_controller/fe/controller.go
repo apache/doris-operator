@@ -23,6 +23,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/pkg/tde"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -88,12 +89,16 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		oldStatus = *(cluster.Status.FEStatus.DeepCopy())
 	}
 	fc.InitStatus(cluster, v1.Component_FE)
+	workCluster, err := tde.PrepareDCRConfig(ctx, fc.K8sclient, cluster)
+	if err != nil {
+		return err
+	}
 
 	if cluster.Spec.EnableRestartWhenConfigChange {
 		fc.CompareConfigmapAndTriggerRestart(cluster, oldStatus, v1.Component_FE)
 	}
 
-	feSpec := cluster.Spec.FeSpec
+	feSpec := workCluster.Spec.FeSpec
 	//get the fe configMap for resolve ports.
 	config, err := fc.GetConfig(ctx, &feSpec.BaseSpec.ConfigMapInfo, cluster.Namespace, v1.Component_FE)
 	if err != nil {
@@ -106,9 +111,9 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	fc.CheckSharedPVC(ctx, cluster)
 
 	//generate new fe service.
-	svc := resource.BuildExternalService(cluster, v1.Component_FE, config)
+	svc := resource.BuildExternalService(workCluster, v1.Component_FE, config)
 	//create or update fe external and domain search service, update the status of fe on src.
-	internalService := resource.BuildInternalService(cluster, v1.Component_FE, config)
+	internalService := resource.BuildInternalService(workCluster, v1.Component_FE, config)
 	if err := k8s.ApplyService(ctx, fc.K8sclient, &internalService, resource.ServiceDeepEqual); err != nil {
 		klog.Errorf("fe controller sync apply internalService name=%s, namespace=%s, clusterName=%s failed.message=%s.",
 			internalService.Name, internalService.Namespace, cluster.Name, err.Error())
@@ -129,7 +134,7 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return err
 	}
 
-	st := fc.buildFEStatefulSet(cluster, config)
+	st := fc.buildFEStatefulSet(workCluster, config)
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {
 		fc.RestrictConditionsEqual(new, old)
 		return resource.StatefulSetDeepEqual(new, old, false)

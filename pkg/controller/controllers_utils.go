@@ -32,7 +32,8 @@ func inconsistentStatus(status *v1.DorisClusterStatus, dcr *v1.DorisCluster) boo
 	return inconsistentFEStatus(status.FEStatus, dcr.Status.FEStatus) ||
 		inconsistentBEStatus(status.BEStatus, dcr.Status.BEStatus) ||
 		inconsistentCnStatus(status.CnStatus, dcr.Status.CnStatus) ||
-		inconsistentBrokerStatus(status.BrokerStatus, dcr.Status.BrokerStatus)
+		inconsistentBrokerStatus(status.BrokerStatus, dcr.Status.BrokerStatus) ||
+		!reflect.DeepEqual(status.TDE, dcr.Status.TDE)
 }
 
 func inconsistentCnStatus(eStatus *v1.CnStatus, nStatus *v1.CnStatus) bool {

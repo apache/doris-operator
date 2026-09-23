@@ -18,6 +18,7 @@
 package v1
 
 import (
+	tdev1 "github.com/apache/doris-operator/api/tde"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,6 +31,9 @@ var (
 
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
+	// TDE declares cluster-wide transparent data encryption management.
+	TDE *tdev1.TDEConfig `json:"tde,omitempty"`
+
 	//defines the fe cluster state that will be created by operator.
 	FeSpec *FeSpec `json:"feSpec,omitempty"`
 
@@ -444,6 +448,9 @@ type DorisServicePort struct {
 
 // DorisClusterStatus defines the observed state of DorisCluster
 type DorisClusterStatus struct {
+	// TDE reports the observed encryption configuration and operation state.
+	TDE *tdev1.TDEStatus `json:"tde,omitempty"`
+
 	//describe fe cluster status, record running, creating and failed pods.
 	FEStatus *ComponentStatus `json:"feStatus,omitempty"`
 
