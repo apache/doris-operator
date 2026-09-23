@@ -43,6 +43,7 @@ import (
 	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
 	cn "github.com/apache/doris-operator/pkg/controller/sub_controller/cn"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/fe"
+	"github.com/apache/doris-operator/pkg/tde"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,7 +102,7 @@ var (
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="core",resources=endpoints,verbs=get;watch;list
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;update;watch
 //+kubebuilder:rbac:groups=admissionregistration,resources=validatingwebhookconfigurations,verbs=get;list;update;watch
 
@@ -134,6 +135,11 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
 	}
+	if blocked, gateErr := tde.EnforceDCRFELifecycleGate(ctx, r.Client, dcr); gateErr != nil {
+		return requeueIfError(gateErr)
+	} else if blocked {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
 
 	if dcr.Spec.EnableRestartWhenConfigChange {
 		coreConfigMaps := resource.GetDorisCoreConfigMapNames(dcr)
@@ -150,6 +156,10 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace: ", dcr.Namespace, " name: ", dcr.Name, " controller: ", rc.GetControllerName(), " error: ", err)
 			return requeueIfError(err)
 		}
+	}
+	tdeResult, err := tde.ReconcileDCR(ctx, r.Client, dcr)
+	if err != nil {
+		return requeueIfError(err)
 	}
 
 	//generate the dcr status.
@@ -169,7 +179,14 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return requeueIfError(err)
 	}
 
-	return r.updateDorisClusterStatus(ctx, dcr)
+	statusResult, err := r.updateDorisClusterStatus(ctx, dcr)
+	if err != nil {
+		return statusResult, err
+	}
+	if !tdeResult.IsZero() {
+		return tdeResult, nil
+	}
+	return statusResult, nil
 }
 
 // if cluster spec be reverted, doris operator should revert to old.
@@ -352,7 +369,23 @@ func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = r.watchPodBuilder(builder)
 	builder = r.watchConfigMapBuilder(builder)
+	builder = builder.Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.mapSecretToDCRs))
 	return builder.Complete(r)
+}
+
+func (r *DorisClusterReconciler) mapSecretToDCRs(ctx context.Context, object client.Object) []reconcile.Request {
+	var clusters dorisv1.DorisClusterList
+	if err := r.List(ctx, &clusters, client.InNamespace(object.GetNamespace())); err != nil {
+		return nil
+	}
+	requests := make([]reconcile.Request, 0)
+	for i := range clusters.Items {
+		cluster := &clusters.Items[i]
+		if tdeReferencesSecret(cluster.Spec.TDE, cluster.Status.TDE, object.GetName()) {
+			requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(cluster)})
+		}
+	}
+	return requests
 }
 
 // Init initial the DorisClusterReconciler for reconcile.

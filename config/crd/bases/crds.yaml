@@ -9263,6 +9263,137 @@ spec:
                       type: array
                   type: object
                 type: array
+              tde:
+                description: TDE declares cluster-wide transparent data encryption
+                  management.
+                properties:
+                  credentialRotation:
+                    properties:
+                      requestId:
+                        minLength: 1
+                        type: string
+                    required:
+                    - requestId
+                    type: object
+                  defaultAlgorithm:
+                    enum:
+                    - PLAINTEXT
+                    - AES256
+                    - SM4
+                    type: string
+                  managementPolicy:
+                    enum:
+                    - Managed
+                    - ObserveOnly
+                    type: string
+                  masterKeyRotation:
+                    properties:
+                      checkIntervalMs:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      rotateIntervalMs:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                    required:
+                    - checkIntervalMs
+                    - rotateIntervalMs
+                    type: object
+                  provider:
+                    properties:
+                      kms:
+                        properties:
+                          auth:
+                            properties:
+                              credentialSecretRef:
+                                properties:
+                                  accessKeyKey:
+                                    type: string
+                                  name:
+                                    type: string
+                                  secretKeyKey:
+                                    type: string
+                                required:
+                                - accessKeyKey
+                                - name
+                                - secretKeyKey
+                                type: object
+                              type:
+                                enum:
+                                - EnvironmentSecret
+                                - InstanceRole
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          endpoint:
+                            type: string
+                          keyId:
+                            type: string
+                          region:
+                            type: string
+                        required:
+                        - auth
+                        - endpoint
+                        - keyId
+                        - region
+                        type: object
+                      local:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                        required:
+                        - secretKeyRef
+                        type: object
+                      type:
+                        enum:
+                        - Local
+                        - AwsKms
+                        - AliyunKms
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  recovery:
+                    properties:
+                      decision:
+                        enum:
+                        - ConfirmApplied
+                        - ConfirmNotApplied
+                        type: string
+                      requestId:
+                        minLength: 1
+                        type: string
+                      rotationRequestId:
+                        minLength: 1
+                        type: string
+                    required:
+                    - decision
+                    - requestId
+                    - rotationRequestId
+                    type: object
+                  rootKeyRotation:
+                    properties:
+                      requestId:
+                        minLength: 1
+                        type: string
+                    required:
+                    - requestId
+                    type: object
+                required:
+                - defaultAlgorithm
+                - managementPolicy
+                - provider
+                type: object
             type: object
           status:
             description: DorisClusterStatus defines the observed state of DorisCluster
@@ -9488,6 +9619,305 @@ spec:
                     type: array
                 required:
                 - componentCondition
+                type: object
+              tde:
+                description: TDE reports the observed encryption configuration and
+                  operation state.
+                properties:
+                  activeConfigHash:
+                    type: string
+                  activeFeSpecHash:
+                    type: string
+                  conditions:
+                    items:
+                      description: Condition contains details for one aspect of the
+                        current state of this API Resource.
+                      properties:
+                        lastTransitionTime:
+                          description: |-
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
+                            This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: |-
+                            message is a human readable message indicating details about the transition.
+                            This may be an empty string.
+                          maxLength: 32768
+                          type: string
+                        observedGeneration:
+                          description: |-
+                            observedGeneration represents the .metadata.generation that the condition was set based upon.
+                            For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                            with respect to the current state of the instance.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        reason:
+                          description: |-
+                            reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                            Producers of specific condition types may define expected values and meanings for this field,
+                            and whether the values are considered a guaranteed API.
+                            The value should be a CamelCase string.
+                            This field may not be empty.
+                          maxLength: 1024
+                          minLength: 1
+                          pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                          type: string
+                        status:
+                          description: status of the condition, one of True, False,
+                            Unknown.
+                          enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                          type: string
+                        type:
+                          description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  current:
+                    properties:
+                      defaultAlgorithm:
+                        type: string
+                      kms:
+                        properties:
+                          auth:
+                            properties:
+                              accessKeyKey:
+                                type: string
+                              credentialSecretName:
+                                type: string
+                              credentialSecretUid:
+                                type: string
+                              secretKeyKey:
+                                type: string
+                              type:
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          endpoint:
+                            type: string
+                          keyId:
+                            type: string
+                          region:
+                            type: string
+                        required:
+                        - auth
+                        - endpoint
+                        - keyId
+                        - region
+                        type: object
+                      provider:
+                        type: string
+                      rootKeyRef:
+                        properties:
+                          key:
+                            type: string
+                          resolvedPath:
+                            type: string
+                          secretName:
+                            type: string
+                          secretUid:
+                            type: string
+                        required:
+                        - key
+                        - resolvedPath
+                        - secretName
+                        - secretUid
+                        type: object
+                    required:
+                    - provider
+                    type: object
+                  feChecks:
+                    items:
+                      properties:
+                        configConsistent:
+                          type: boolean
+                        materialReady:
+                          type: boolean
+                        podName:
+                          type: string
+                        podReady:
+                          type: boolean
+                      required:
+                      - configConsistent
+                      - materialReady
+                      - podName
+                      - podReady
+                      type: object
+                    type: array
+                  metadataInitialized:
+                    type: boolean
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  operation:
+                    properties:
+                      commitJournalId:
+                        type: string
+                      lastTransitionTime:
+                        format: date-time
+                        type: string
+                      recovery:
+                        properties:
+                          decision:
+                            type: string
+                          requestId:
+                            type: string
+                          resolvedAt:
+                            format: date-time
+                            type: string
+                        required:
+                        - decision
+                        - requestId
+                        - resolvedAt
+                        type: object
+                      requestId:
+                        type: string
+                      source:
+                        properties:
+                          defaultAlgorithm:
+                            type: string
+                          kms:
+                            properties:
+                              auth:
+                                properties:
+                                  accessKeyKey:
+                                    type: string
+                                  credentialSecretName:
+                                    type: string
+                                  credentialSecretUid:
+                                    type: string
+                                  secretKeyKey:
+                                    type: string
+                                  type:
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                              endpoint:
+                                type: string
+                              keyId:
+                                type: string
+                              region:
+                                type: string
+                            required:
+                            - auth
+                            - endpoint
+                            - keyId
+                            - region
+                            type: object
+                          provider:
+                            type: string
+                          rootKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              resolvedPath:
+                                type: string
+                              secretName:
+                                type: string
+                              secretUid:
+                                type: string
+                            required:
+                            - key
+                            - resolvedPath
+                            - secretName
+                            - secretUid
+                            type: object
+                        required:
+                        - provider
+                        type: object
+                      specGeneration:
+                        format: int64
+                        type: integer
+                      sqlState:
+                        type: string
+                      stage:
+                        type: string
+                      startedAt:
+                        format: date-time
+                        type: string
+                      target:
+                        properties:
+                          defaultAlgorithm:
+                            type: string
+                          kms:
+                            properties:
+                              auth:
+                                properties:
+                                  accessKeyKey:
+                                    type: string
+                                  credentialSecretName:
+                                    type: string
+                                  credentialSecretUid:
+                                    type: string
+                                  secretKeyKey:
+                                    type: string
+                                  type:
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                              endpoint:
+                                type: string
+                              keyId:
+                                type: string
+                              region:
+                                type: string
+                            required:
+                            - auth
+                            - endpoint
+                            - keyId
+                            - region
+                            type: object
+                          provider:
+                            type: string
+                          rootKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              resolvedPath:
+                                type: string
+                              secretName:
+                                type: string
+                              secretUid:
+                                type: string
+                            required:
+                            - key
+                            - resolvedPath
+                            - secretName
+                            - secretUid
+                            type: object
+                        required:
+                        - provider
+                        type: object
+                      type:
+                        type: string
+                    required:
+                    - lastTransitionTime
+                    - specGeneration
+                    - stage
+                    - startedAt
+                    - type
+                    type: object
+                  state:
+                    type: string
+                  usedRequestIds:
+                    items:
+                      type: string
+                    type: array
                 type: object
             type: object
         type: object
@@ -16544,6 +16974,137 @@ spec:
                       type: object
                     type: array
                 type: object
+              tde:
+                description: TDE declares cluster-wide transparent data encryption
+                  management.
+                properties:
+                  credentialRotation:
+                    properties:
+                      requestId:
+                        minLength: 1
+                        type: string
+                    required:
+                    - requestId
+                    type: object
+                  defaultAlgorithm:
+                    enum:
+                    - PLAINTEXT
+                    - AES256
+                    - SM4
+                    type: string
+                  managementPolicy:
+                    enum:
+                    - Managed
+                    - ObserveOnly
+                    type: string
+                  masterKeyRotation:
+                    properties:
+                      checkIntervalMs:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      rotateIntervalMs:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                    required:
+                    - checkIntervalMs
+                    - rotateIntervalMs
+                    type: object
+                  provider:
+                    properties:
+                      kms:
+                        properties:
+                          auth:
+                            properties:
+                              credentialSecretRef:
+                                properties:
+                                  accessKeyKey:
+                                    type: string
+                                  name:
+                                    type: string
+                                  secretKeyKey:
+                                    type: string
+                                required:
+                                - accessKeyKey
+                                - name
+                                - secretKeyKey
+                                type: object
+                              type:
+                                enum:
+                                - EnvironmentSecret
+                                - InstanceRole
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          endpoint:
+                            type: string
+                          keyId:
+                            type: string
+                          region:
+                            type: string
+                        required:
+                        - auth
+                        - endpoint
+                        - keyId
+                        - region
+                        type: object
+                      local:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                        required:
+                        - secretKeyRef
+                        type: object
+                      type:
+                        enum:
+                        - Local
+                        - AwsKms
+                        - AliyunKms
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  recovery:
+                    properties:
+                      decision:
+                        enum:
+                        - ConfirmApplied
+                        - ConfirmNotApplied
+                        type: string
+                      requestId:
+                        minLength: 1
+                        type: string
+                      rotationRequestId:
+                        minLength: 1
+                        type: string
+                    required:
+                    - decision
+                    - requestId
+                    - rotationRequestId
+                    type: object
+                  rootKeyRotation:
+                    properties:
+                      requestId:
+                        minLength: 1
+                        type: string
+                    required:
+                    - requestId
+                    type: object
+                required:
+                - defaultAlgorithm
+                - managementPolicy
+                - provider
+                type: object
             type: object
           status:
             properties:
@@ -16751,6 +17312,305 @@ spec:
                 description: is the most recent generation observed for DorisDisaggregatedCluster
                 format: int64
                 type: integer
+              tde:
+                description: TDE reports the observed encryption configuration and
+                  operation state.
+                properties:
+                  activeConfigHash:
+                    type: string
+                  activeFeSpecHash:
+                    type: string
+                  conditions:
+                    items:
+                      description: Condition contains details for one aspect of the
+                        current state of this API Resource.
+                      properties:
+                        lastTransitionTime:
+                          description: |-
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
+                            This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: |-
+                            message is a human readable message indicating details about the transition.
+                            This may be an empty string.
+                          maxLength: 32768
+                          type: string
+                        observedGeneration:
+                          description: |-
+                            observedGeneration represents the .metadata.generation that the condition was set based upon.
+                            For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                            with respect to the current state of the instance.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        reason:
+                          description: |-
+                            reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                            Producers of specific condition types may define expected values and meanings for this field,
+                            and whether the values are considered a guaranteed API.
+                            The value should be a CamelCase string.
+                            This field may not be empty.
+                          maxLength: 1024
+                          minLength: 1
+                          pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                          type: string
+                        status:
+                          description: status of the condition, one of True, False,
+                            Unknown.
+                          enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                          type: string
+                        type:
+                          description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  current:
+                    properties:
+                      defaultAlgorithm:
+                        type: string
+                      kms:
+                        properties:
+                          auth:
+                            properties:
+                              accessKeyKey:
+                                type: string
+                              credentialSecretName:
+                                type: string
+                              credentialSecretUid:
+                                type: string
+                              secretKeyKey:
+                                type: string
+                              type:
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          endpoint:
+                            type: string
+                          keyId:
+                            type: string
+                          region:
+                            type: string
+                        required:
+                        - auth
+                        - endpoint
+                        - keyId
+                        - region
+                        type: object
+                      provider:
+                        type: string
+                      rootKeyRef:
+                        properties:
+                          key:
+                            type: string
+                          resolvedPath:
+                            type: string
+                          secretName:
+                            type: string
+                          secretUid:
+                            type: string
+                        required:
+                        - key
+                        - resolvedPath
+                        - secretName
+                        - secretUid
+                        type: object
+                    required:
+                    - provider
+                    type: object
+                  feChecks:
+                    items:
+                      properties:
+                        configConsistent:
+                          type: boolean
+                        materialReady:
+                          type: boolean
+                        podName:
+                          type: string
+                        podReady:
+                          type: boolean
+                      required:
+                      - configConsistent
+                      - materialReady
+                      - podName
+                      - podReady
+                      type: object
+                    type: array
+                  metadataInitialized:
+                    type: boolean
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  operation:
+                    properties:
+                      commitJournalId:
+                        type: string
+                      lastTransitionTime:
+                        format: date-time
+                        type: string
+                      recovery:
+                        properties:
+                          decision:
+                            type: string
+                          requestId:
+                            type: string
+                          resolvedAt:
+                            format: date-time
+                            type: string
+                        required:
+                        - decision
+                        - requestId
+                        - resolvedAt
+                        type: object
+                      requestId:
+                        type: string
+                      source:
+                        properties:
+                          defaultAlgorithm:
+                            type: string
+                          kms:
+                            properties:
+                              auth:
+                                properties:
+                                  accessKeyKey:
+                                    type: string
+                                  credentialSecretName:
+                                    type: string
+                                  credentialSecretUid:
+                                    type: string
+                                  secretKeyKey:
+                                    type: string
+                                  type:
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                              endpoint:
+                                type: string
+                              keyId:
+                                type: string
+                              region:
+                                type: string
+                            required:
+                            - auth
+                            - endpoint
+                            - keyId
+                            - region
+                            type: object
+                          provider:
+                            type: string
+                          rootKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              resolvedPath:
+                                type: string
+                              secretName:
+                                type: string
+                              secretUid:
+                                type: string
+                            required:
+                            - key
+                            - resolvedPath
+                            - secretName
+                            - secretUid
+                            type: object
+                        required:
+                        - provider
+                        type: object
+                      specGeneration:
+                        format: int64
+                        type: integer
+                      sqlState:
+                        type: string
+                      stage:
+                        type: string
+                      startedAt:
+                        format: date-time
+                        type: string
+                      target:
+                        properties:
+                          defaultAlgorithm:
+                            type: string
+                          kms:
+                            properties:
+                              auth:
+                                properties:
+                                  accessKeyKey:
+                                    type: string
+                                  credentialSecretName:
+                                    type: string
+                                  credentialSecretUid:
+                                    type: string
+                                  secretKeyKey:
+                                    type: string
+                                  type:
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                              endpoint:
+                                type: string
+                              keyId:
+                                type: string
+                              region:
+                                type: string
+                            required:
+                            - auth
+                            - endpoint
+                            - keyId
+                            - region
+                            type: object
+                          provider:
+                            type: string
+                          rootKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              resolvedPath:
+                                type: string
+                              secretName:
+                                type: string
+                              secretUid:
+                                type: string
+                            required:
+                            - key
+                            - resolvedPath
+                            - secretName
+                            - secretUid
+                            type: object
+                        required:
+                        - provider
+                        type: object
+                      type:
+                        type: string
+                    required:
+                    - lastTransitionTime
+                    - specGeneration
+                    - stage
+                    - startedAt
+                    - type
+                    type: object
+                  state:
+                    type: string
+                  usedRequestIds:
+                    items:
+                      type: string
+                    type: array
+                type: object
             type: object
         type: object
     served: true

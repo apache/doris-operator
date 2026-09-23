@@ -20,6 +20,8 @@ package v1
 import (
 	"context"
 	"fmt"
+	tdev1 "github.com/apache/doris-operator/api/tde"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -50,7 +52,7 @@ func (ddc *DorisDisaggregatedCluster) Default(ctx context.Context, obj runtime.O
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:unnamedwatches:path=/validate-disaggregated-doris-com-v1-dorisdisaggregatedcluster,mutating=false,failurePolicy=ignore,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update,versions=v1,name=vdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
+// +kubebuilder:unnamedwatches:path=/validate-disaggregated-cluster-doris-com-v1-dorisdisaggregatedcluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=disaggregated.cluster.doris.com,resources=dorisdisaggregatedclusters,verbs=create;update,versions=v1,name=vdorisdisaggregatedcluster.kb.io,admissionReviewVersions=v1
 var _ webhook.CustomValidator = &DorisDisaggregatedCluster{}
 
 // ValidateCreate implements webhook.Validator so a unnamedwatches will be registered for the type
@@ -62,6 +64,9 @@ func (ddc *DorisDisaggregatedCluster) ValidateCreate(ctx context.Context, obj ru
 	klog.Info("validate create", "name", cluster.Name)
 
 	if errs := cluster.validate(); len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+	if errs := tdev1.ValidateCreate(cluster.Spec.TDE); len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 
@@ -76,7 +81,20 @@ func (ddc *DorisDisaggregatedCluster) ValidateUpdate(ctx context.Context, oldObj
 	}
 	klog.Info("validate update", "name", cluster.Name)
 
-	if errs := cluster.validate(); len(errs) != 0 {
+	oldCluster, ok := oldObj.(*DorisDisaggregatedCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected an old DorisDisaggregatedCluster but got %T", oldObj)
+	}
+	errs := cluster.validate()
+	errs = append(errs, tdev1.ValidateUpdate(oldCluster.Spec.TDE, cluster.Spec.TDE, oldCluster.Status.TDE)...)
+	if tdev1.BlocksFELifecycle(oldCluster.Status.TDE) &&
+		!reflect.DeepEqual(oldCluster.Spec.FeSpec, cluster.Spec.FeSpec) {
+		errs = append(errs, fmt.Errorf("spec.feSpec cannot change while a TDE operation or configuration sync is pending"))
+	}
+	if !reflect.DeepEqual(oldCluster.Spec.TDE, cluster.Spec.TDE) && !reflect.DeepEqual(oldCluster.Spec.FeSpec, cluster.Spec.FeSpec) {
+		errs = append(errs, fmt.Errorf("spec.tde and spec.feSpec cannot change in the same update"))
+	}
+	if len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 

@@ -29,6 +29,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
+	"github.com/apache/doris-operator/pkg/tde"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -81,12 +82,16 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		klog.Errorf("disaggregatedFEController Sync disaggregatedDorisCluster namespace=%s,name=%s ,The number of disaggregated fe ElectionNumber(%d) is large than Replicas(%d), Replicas has been corrected to the correct minimum value", ddc.Namespace, ddc.Name, electionNumber, *(ddc.Spec.FeSpec.Replicas))
 		ddc.Spec.FeSpec.Replicas = &electionNumber
 	}
+	workDDC, err := tde.PrepareDDCConfig(ctx, dfc.K8sclient, ddc)
+	if err != nil {
+		return err
+	}
 
-	confMap := dfc.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, ddc.Spec.FeSpec.ConfigMaps)
-	svcInternal := dfc.newInternalService(ddc, confMap)
-	svc := dfc.newService(ddc, confMap)
+	confMap := dfc.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, workDDC.Spec.FeSpec.ConfigMaps)
+	svcInternal := dfc.newInternalService(workDDC, confMap)
+	svc := dfc.newService(workDDC, confMap)
 
-	st := dfc.NewStatefulset(ddc, confMap)
+	st := dfc.NewStatefulset(workDDC, confMap)
 	//initial fe status on start. in resource process step, may be use the status record the process.
 	dfc.initialFEStatus(ddc)
 
