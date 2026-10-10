@@ -304,6 +304,11 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 	//  if fe scale, drop fe node by http
 	if willRemovedAmount < 0 || cluster.Status.FEStatus.Phase == v1.ScaleDownFailed {
 		if err := dfc.dropFEBySQLClient(ctx, dfc.K8sclient, cluster); err != nil {
+			if mysql.IsRetryableDropObserverError(err) {
+				cluster.Status.FEStatus.Phase = v1.Reconciling
+				klog.Infof("ScaleDownFE temporarily deferred by Doris, will retry: %s", err.Error())
+				return nil, nil
+			}
 			cluster.Status.FEStatus.Phase = v1.ScaleDownFailed
 			klog.Errorf("ScaleDownFE failed, err:%s ", err.Error())
 			return &sc.Event{Type: sc.EventWarning, Reason: sc.FEHTTPFailed, Message: err.Error()},

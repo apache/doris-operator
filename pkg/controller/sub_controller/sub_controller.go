@@ -517,24 +517,32 @@ func (d *SubDefaultController) patchPVCs(ctx context.Context, dcr *dorisv1.Doris
 	//patch already exist in k8s .
 	prepared := true
 	for _, pvc := range pvcs {
+		original := pvc.DeepCopy()
 		oldCapacity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
 		newCapacity := volume.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
-		if !oldCapacity.Equal(newCapacity) {
+		capacityChanged := !oldCapacity.Equal(newCapacity)
+		if capacityChanged {
 			// if pvc need update, the resource have not prepared, return false.
 			prepared = false
-			eventType := EventNormal
-			reason := PVCUpdate
-			message := pvc.Name + " update successfully!"
 			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = newCapacity
-			if err := d.K8sclient.Patch(ctx, &pvc, client.Merge); err != nil {
-				klog.Errorf("SubDefaultController namespace %s name %s patch pvc %s failed, %s", dcr.Namespace, dcr.Name, pvc.Name, err.Error())
-				eventType = EventWarning
-				reason = PVCUpdateFailed
-				message = pvc.Name + " update failed, " + err.Error()
-			}
-
-			d.K8srecorder.Event(dcr, string(eventType), reason, message)
 		}
+		pvc.Finalizers = resource.RemoveOperatorPVCFinalizers(pvc.Finalizers)
+		finalizersChanged := len(original.Finalizers) != len(pvc.Finalizers)
+		if !capacityChanged && !finalizersChanged {
+			continue
+		}
+
+		eventType := EventNormal
+		reason := PVCUpdate
+		message := pvc.Name + " update successfully!"
+		if err := d.K8sclient.Patch(ctx, &pvc, client.MergeFrom(original)); err != nil {
+			klog.Errorf("SubDefaultController namespace %s name %s patch pvc %s failed, %s", dcr.Namespace, dcr.Name, pvc.Name, err.Error())
+			eventType = EventWarning
+			reason = PVCUpdateFailed
+			message = pvc.Name + " update failed, " + err.Error()
+		}
+
+		d.K8srecorder.Event(dcr, string(eventType), reason, message)
 	}
 
 	// if need add new pvc, the resource prepared not finished, return false.

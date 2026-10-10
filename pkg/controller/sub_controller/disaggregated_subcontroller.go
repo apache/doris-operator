@@ -37,7 +37,9 @@ import (
 	"github.com/spf13/viper"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -412,6 +414,19 @@ func (d *DisaggregatedSubDefaultController) ReconcilePVC(
 		if manager != string(v1.PVCProvisionerOperator) {
 			continue
 		}
+
+		for j := range oldPvcList.Items {
+			oldPvc := &oldPvcList.Items[j]
+			if !pvcMatchesTemplate(oldPvc.Name, sts.Name, pvcTemplates[i].Name) {
+				continue
+			}
+
+			newQuantity := pvcTemplates[i].Spec.Resources.Requests[corev1.ResourceStorage]
+			if event, err := d.reconcileExistingPVC(ctx, ddc, oldPvc, newQuantity); err != nil {
+				return event, err
+			}
+		}
+
 		for ordinal := range *commonSpec.Replicas {
 			pvc := resource.BuildDisaggregatedPVC(pvcTemplates[i], selector, ddc.Namespace, sts.Name, strconv.FormatInt(int64(ordinal), 10))
 			oldPvc := getPvc(oldPvcList, pvc.Name)
@@ -433,32 +448,54 @@ func (d *DisaggregatedSubDefaultController) ReconcilePVC(
 				continue
 			}
 
-			oldQuantity := oldPvc.Spec.Resources.Requests[corev1.ResourceStorage]
-			newQuantity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
-			//if !oldQuantity.Equal(newQuantity){
-			if oldQuantity.Cmp(newQuantity) == -1 {
-				// pvc need update
-				oldPvc.Spec.Resources.Requests[corev1.ResourceStorage] = newQuantity
-				if err := d.K8sclient.Patch(ctx, oldPvc, client.Merge); err != nil {
-					message := fmt.Sprintf("ReconcilePVC patch pvc failed, namespace: %s, ddc name: %s, patch pvc %s, error: %s", ddc.Namespace, ddc.Name, pvc.Name, err.Error())
-					klog.Errorf(message)
-					return &Event{Type: EventWarning, Reason: PVCUpdateFailed, Message: message}, err
-				}
-				message := fmt.Sprintf("ReconcilePVC patch pvc, namespace: %s, ddc name: %s update pvc %s .", ddc.Namespace, ddc.Name, pvc.Name)
-				klog.Infof(message)
-				d.K8srecorder.Event(ddc, string(EventNormal), PVCUpdate, message)
-			}
-
-			if oldQuantity.Cmp(newQuantity) == 1 {
-				message := fmt.Sprintf("ReconcilePVC pvc resize is rejected, PVC shrinking is not supported. namespace: %s, ddc name: %s, resize pvc %s", ddc.Namespace, ddc.Name, pvc.Name)
-				klog.Warningf(message)
-				d.K8srecorder.Event(ddc, string(EventWarning), PVCUpdateFailed, message)
-			}
-
 		}
 	}
 
 	return nil, nil
+}
+
+func (d *DisaggregatedSubDefaultController) reconcileExistingPVC(
+	ctx context.Context,
+	ddc *v1.DorisDisaggregatedCluster,
+	pvc *corev1.PersistentVolumeClaim,
+	newQuantity k8sresource.Quantity,
+) (*Event, error) {
+	original := pvc.DeepCopy()
+	oldQuantity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	if oldQuantity.Cmp(newQuantity) < 0 {
+		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = newQuantity
+	}
+	pvc.Finalizers = resource.RemoveOperatorPVCFinalizers(pvc.Finalizers)
+
+	if !equality.Semantic.DeepEqual(original.Spec.Resources.Requests, pvc.Spec.Resources.Requests) ||
+		!equality.Semantic.DeepEqual(original.Finalizers, pvc.Finalizers) {
+		if err := d.K8sclient.Patch(ctx, pvc, client.MergeFrom(original)); err != nil {
+			message := fmt.Sprintf("ReconcilePVC patch pvc failed, namespace: %s, ddc name: %s, patch pvc %s, error: %s", ddc.Namespace, ddc.Name, pvc.Name, err.Error())
+			klog.Error(message)
+			return &Event{Type: EventWarning, Reason: PVCUpdateFailed, Message: message}, err
+		}
+		message := fmt.Sprintf("ReconcilePVC patch pvc, namespace: %s, ddc name: %s update pvc %s .", ddc.Namespace, ddc.Name, pvc.Name)
+		klog.Info(message)
+		d.K8srecorder.Event(ddc, string(EventNormal), PVCUpdate, message)
+	}
+
+	if oldQuantity.Cmp(newQuantity) > 0 {
+		message := fmt.Sprintf("ReconcilePVC pvc resize is rejected, PVC shrinking is not supported. namespace: %s, ddc name: %s, resize pvc %s", ddc.Namespace, ddc.Name, pvc.Name)
+		klog.Warning(message)
+		d.K8srecorder.Event(ddc, string(EventWarning), PVCUpdateFailed, message)
+	}
+
+	return nil, nil
+}
+
+func pvcMatchesTemplate(pvcName, stsName, volumeName string) bool {
+	prefix := resource.BuildPVCName(stsName, "", volumeName)
+	if !strings.HasPrefix(pvcName, prefix) {
+		return false
+	}
+	ordinal := strings.TrimPrefix(pvcName, prefix)
+	_, err := strconv.ParseUint(ordinal, 10, 32)
+	return err == nil
 }
 
 func getPvc(pvcs corev1.PersistentVolumeClaimList, pvcName string) *corev1.PersistentVolumeClaim {

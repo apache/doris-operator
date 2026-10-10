@@ -28,7 +28,7 @@ import (
 	"sync"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/pkg/common/utils"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
@@ -246,9 +246,13 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 
 	if !volumeClaimTemplatesEqual(st.Spec.VolumeClaimTemplates, est.Spec.VolumeClaimTemplates) {
-		msg := fmt.Sprintf("compute group %s storage template is immutable after creation; modifying BE file_cache_path or persistent volume settings requires recreating the compute group", cg.UniqueId)
-		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset immutable storage template changed, namespace=%s name=%s, err=%s", st.Namespace, st.Name, msg)
-		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGStorageTemplateImmutable, Message: msg}, errors.New(msg)
+		if volumeClaimTemplatesResizeOnly(st.Spec.VolumeClaimTemplates, est.Spec.VolumeClaimTemplates) {
+			st.Spec.VolumeClaimTemplates = deepCopyVolumeClaimTemplates(est.Spec.VolumeClaimTemplates)
+		} else {
+			msg := fmt.Sprintf("compute group %s storage template is immutable after creation; modifying BE file_cache_path or persistent volume settings requires recreating the compute group", cg.UniqueId)
+			klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset immutable storage template changed, namespace=%s name=%s, err=%s", st.Namespace, st.Name, msg)
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGStorageTemplateImmutable, Message: msg}, errors.New(msg)
+		}
 	}
 
 	// Direct-drop scale-down is owned by the graceful state machine when the image
@@ -352,6 +356,36 @@ func volumeClaimTemplatesEqual(new, old []corev1.PersistentVolumeClaim) bool {
 	return equality.Semantic.DeepEqual(normalizedNew, normalizedOld)
 }
 
+func volumeClaimTemplatesResizeOnly(new, old []corev1.PersistentVolumeClaim) bool {
+	if len(new) != len(old) {
+		return false
+	}
+
+	normalizedNew := make([]corev1.PersistentVolumeClaim, len(new))
+	normalizedOld := make([]corev1.PersistentVolumeClaim, len(old))
+	for i := range new {
+		normalizedNew[i] = normalizeVolumeClaimTemplate(new[i])
+		normalizedOld[i] = normalizeVolumeClaimTemplate(old[i])
+
+		newQuantity, newExists := normalizedNew[i].Spec.Resources.Requests[corev1.ResourceStorage]
+		oldQuantity, oldExists := normalizedOld[i].Spec.Resources.Requests[corev1.ResourceStorage]
+		if !newExists || !oldExists || newQuantity.Cmp(oldQuantity) < 0 {
+			return false
+		}
+		normalizedNew[i].Spec.Resources.Requests[corev1.ResourceStorage] = oldQuantity
+	}
+
+	return equality.Semantic.DeepEqual(normalizedNew, normalizedOld)
+}
+
+func deepCopyVolumeClaimTemplates(templates []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+	copied := make([]corev1.PersistentVolumeClaim, len(templates))
+	for i := range templates {
+		copied[i] = *templates[i].DeepCopy()
+	}
+	return copied
+}
+
 func normalizeVolumeClaimTemplate(pvc corev1.PersistentVolumeClaim) corev1.PersistentVolumeClaim {
 	pvc.TypeMeta = metav1.TypeMeta{}
 	pvc.ObjectMeta = metav1.ObjectMeta{
@@ -360,6 +394,10 @@ func normalizeVolumeClaimTemplate(pvc corev1.PersistentVolumeClaim) corev1.Persi
 		Annotations: normalizeStringMap(pvc.Annotations),
 	}
 	pvc.Status = corev1.PersistentVolumeClaimStatus{}
+	delete(pvc.Annotations, dorisv1.ComponentResourceHash)
+	if len(pvc.Annotations) == 0 {
+		pvc.Annotations = nil
+	}
 	if pvc.Spec.VolumeMode == nil {
 		volumeMode := corev1.PersistentVolumeFilesystem
 		pvc.Spec.VolumeMode = &volumeMode
@@ -664,44 +702,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 		return nil
 	}
 
-	var clearPVC []string
-	//we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
-	stsName := ddc.GetCGStatefulsetName(cg)
-	sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
-	if err != nil {
-		klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs get statefulset namespace=%s, name=%s, failed, err=%s", ddc.Namespace, stsName, err.Error())
-		//waiting next reconciling.
-		return nil
-	}
-	replicas := *sts.Spec.Replicas
-	for _, pvc := range currentPVCs.Items {
-		pvcName := pvc.Name
-		sl := strings.Split(pvcName, stsName+"-")
-		if len(sl) != 2 {
-			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s not format pvc name format.", ddc.Namespace, pvcName)
-			continue
-		}
-		var index int64
-		var perr error
-		index, perr = strconv.ParseInt(sl[1], 10, 32)
-		if perr != nil {
-			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s index parse failed, err=%s", ddc.Namespace, pvcName, perr.Error())
-			continue
-		}
-		if int32(index) >= replicas {
-			clearPVC = append(clearPVC, pvcName)
-		}
-	}
-
-	var mergeError error
-	for _, pvcName := range clearPVC {
-		if err = k8s.DeletePVC(ctx, dcgs.K8sclient, ddc.Namespace, pvcName, pvcLabels); err != nil {
-			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCDeleteFailed, err.Error())
-			klog.Errorf("ClearStatefulsetUnusedPVCs deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", ddc.Namespace, pvcName, pvcName, err.Error())
-			mergeError = utils.MergeError(mergeError, err)
-		}
-	}
-	return mergeError
+	return nil
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) GetControllerName() string {

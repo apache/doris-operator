@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -208,6 +209,13 @@ func (db *DB) DropObserver(nodes []*Frontend) error {
 		}
 	}
 	return nil
+}
+
+func IsRetryableDropObserverError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "drop fe node not in safe time")
 }
 
 func (db *DB) GetObservers() ([]*Frontend, error) {

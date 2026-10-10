@@ -57,7 +57,6 @@ func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespa
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: annotations,
-			Finalizers:  []string{pvc_finalizer},
 		},
 		Spec: volume.PersistentVolumeClaimSpec,
 	}
@@ -75,11 +74,20 @@ func BuildDisaggregatedPVC(
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: pvcTemplate.Annotations,
-			Finalizers:  []string{pvcFinalizerApache},
 		},
 		Spec: pvcTemplate.Spec,
 	}
 	return pvc
+}
+
+func RemoveOperatorPVCFinalizers(finalizers []string) []string {
+	result := make([]string, 0, len(finalizers))
+	for _, finalizer := range finalizers {
+		if finalizer != pvc_finalizer && finalizer != pvcFinalizerApache {
+			result = append(result, finalizer)
+		}
+	}
+	return result
 }
 
 // finalAnnotations is a combination of user annotations and operator default annotations

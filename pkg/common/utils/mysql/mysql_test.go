@@ -189,6 +189,21 @@ func Test_DropObserver(t *testing.T) {
 	}
 }
 
+func Test_IsRetryableDropObserverError(t *testing.T) {
+	retryable := fmt.Errorf(
+		"drop observer fe-2:9010 failed: %w",
+		errors.New("drop fe node not in safe time, try later"))
+	if !IsRetryableDropObserverError(retryable) {
+		t.Fatal("expected Doris safe-time refusal to be retryable")
+	}
+	if IsRetryableDropObserverError(errors.New("access denied")) {
+		t.Fatal("expected unrelated SQL error to remain non-retryable")
+	}
+	if IsRetryableDropObserverError(nil) {
+		t.Fatal("expected nil error to be non-retryable")
+	}
+}
+
 func Test_GetObservers(t *testing.T) {
 	mysql_db, mock, err := sqlmock.New()
 	if err != nil {

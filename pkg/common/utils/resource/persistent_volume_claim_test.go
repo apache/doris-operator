@@ -19,7 +19,9 @@ package resource
 
 import (
 	"fmt"
+
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 )
@@ -37,6 +39,28 @@ func Test_BuildPVCAnnotations(t *testing.T) {
 	anno := buildPVCAnnotations(test)
 	if _, ok := anno[pvc_manager_annotation]; !ok {
 		t.Errorf("buildPVCAnnotations failed, not \"pvc_manager_annotation\" annotation.")
+	}
+}
+
+func TestBuildPVCDoesNotAddOperatorFinalizer(t *testing.T) {
+	pvc := BuildPVC(
+		dorisv1.PersistentVolume{}, map[string]string{"app": "doris"}, "default", "doris-fe", "0")
+	if len(pvc.Finalizers) != 0 {
+		t.Fatalf("BuildPVC finalizers = %v, want none", pvc.Finalizers)
+	}
+
+	pvc = BuildDisaggregatedPVC(
+		corev1.PersistentVolumeClaim{}, map[string]string{"app": "doris"}, "default", "doris-cg", "0")
+	if len(pvc.Finalizers) != 0 {
+		t.Fatalf("BuildDisaggregatedPVC finalizers = %v, want none", pvc.Finalizers)
+	}
+}
+
+func TestRemoveOperatorPVCFinalizersPreservesKubernetesFinalizers(t *testing.T) {
+	got := RemoveOperatorPVCFinalizers(
+		[]string{pvc_finalizer, pvcFinalizerApache, "kubernetes.io/pvc-protection"})
+	if len(got) != 1 || got[0] != "kubernetes.io/pvc-protection" {
+		t.Fatalf("RemoveOperatorPVCFinalizers = %v", got)
 	}
 }
 

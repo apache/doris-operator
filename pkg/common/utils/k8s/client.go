@@ -30,7 +30,6 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -378,14 +377,21 @@ func GetFoundationDBCluster(ctx context.Context, k8sclient client.Client, namesp
 
 // DeletePVC clean up existing pvc by pvc name, namespace and labels
 func DeletePVC(ctx context.Context, k8sclient client.Client, namespace, pvcName string, labels map[string]string) error {
-	pvc := corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
+	pvc, err := GetPVC(ctx, k8sclient, pvcName, namespace)
+	if apierrors.IsNotFound(err) {
+		return nil
 	}
-	err := k8sclient.Delete(ctx, &pvc)
+	if err != nil {
+		return err
+	}
+	original := pvc.DeepCopy()
+	pvc.Finalizers = resource.RemoveOperatorPVCFinalizers(pvc.Finalizers)
+	if len(original.Finalizers) != len(pvc.Finalizers) {
+		if err := k8sclient.Patch(ctx, pvc, client.MergeFrom(original)); err != nil {
+			return err
+		}
+	}
+	err = k8sclient.Delete(ctx, pvc)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

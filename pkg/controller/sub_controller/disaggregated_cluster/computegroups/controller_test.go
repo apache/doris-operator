@@ -22,14 +22,54 @@ import (
 	"testing"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestClearStatefulsetUnusedPVCsRetainsScaledDownClaims(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme failed: %v", err)
+	}
+	replicas := int32(2)
+	ddc := newTestDDC()
+	cg := newTestCG("cg1")
+	cg.Replicas = &replicas
+	ddc.Spec.ComputeGroups = []dv1.ComputeGroup{*cg}
+	labels := map[string]string{
+		dv1.DorisDisaggregatedClusterName:          ddc.Name,
+		dv1.DorisDisaggregatedComputeGroupUniqueId: cg.UniqueId,
+		dv1.DorisDisaggregatedPodType:              "compute",
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "data-doris-cg1-3",
+			Namespace: ddc.Namespace,
+			Labels:    labels,
+			UID:       types.UID("historical-uid"),
+		},
+	}
+	dcgs := &DisaggregatedComputeGroupsController{}
+	dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+
+	if err := dcgs.ClearStatefulsetUnusedPVCs(context.Background(), ddc, dv1.ComputeGroupStatus{UniqueId: cg.UniqueId}); err != nil {
+		t.Fatalf("clear unused pvc failed: %v", err)
+	}
+	var retained corev1.PersistentVolumeClaim
+	if err := dcgs.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: pvc.Namespace, Name: pvc.Name}, &retained); err != nil {
+		t.Fatalf("historical pvc was deleted: %v", err)
+	}
+	if retained.UID != pvc.UID {
+		t.Fatalf("historical pvc uid = %s, want %s", retained.UID, pvc.UID)
+	}
+}
 
 func TestReconcileStatefulsetRejectsStorageTemplateChange(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -40,7 +80,8 @@ func TestReconcileStatefulsetRejectsStorageTemplateChange(t *testing.T) {
 	ddc := newTestDDC()
 	cg := newTestCG("cg1")
 	existing := newTestStatefulSet(ddc.Namespace, ddc.GetCGStatefulsetName(cg), "100Gi")
-	desired := newTestStatefulSet(ddc.Namespace, ddc.GetCGStatefulsetName(cg), "200Gi")
+	desired := newTestStatefulSet(ddc.Namespace, ddc.GetCGStatefulsetName(cg), "100Gi")
+	desired.Spec.VolumeClaimTemplates[0].Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany}
 	dcgs := &DisaggregatedComputeGroupsController{}
 	dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
 
@@ -53,6 +94,26 @@ func TestReconcileStatefulsetRejectsStorageTemplateChange(t *testing.T) {
 	}
 	if event.Reason != sc.CGStorageTemplateImmutable {
 		t.Fatalf("event reason = %s, want %s", event.Reason, sc.CGStorageTemplateImmutable)
+	}
+}
+
+func TestVolumeClaimTemplatesResizeOnlyAllowsExpansion(t *testing.T) {
+	existing := newTestStatefulSet("default", "doris-cg1", "100Gi").Spec.VolumeClaimTemplates
+	desired := newTestStatefulSet("default", "doris-cg1", "200Gi").Spec.VolumeClaimTemplates
+	existing[0].Annotations = map[string]string{dorisv1.ComponentResourceHash: "old-hash"}
+	desired[0].Annotations = map[string]string{dorisv1.ComponentResourceHash: "new-hash"}
+
+	if !volumeClaimTemplatesResizeOnly(desired, existing) {
+		t.Fatal("volumeClaimTemplatesResizeOnly should allow storage expansion")
+	}
+}
+
+func TestVolumeClaimTemplatesResizeOnlyRejectsShrink(t *testing.T) {
+	existing := newTestStatefulSet("default", "doris-cg1", "200Gi").Spec.VolumeClaimTemplates
+	desired := newTestStatefulSet("default", "doris-cg1", "100Gi").Spec.VolumeClaimTemplates
+
+	if volumeClaimTemplatesResizeOnly(desired, existing) {
+		t.Fatal("volumeClaimTemplatesResizeOnly should reject storage shrink")
 	}
 }
 
