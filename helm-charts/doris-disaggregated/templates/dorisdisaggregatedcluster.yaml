@@ -78,16 +78,26 @@ spec:
     {{- end }}
   computeGroups:
   {{- $originalContext := . -}}
-  {{- range $index, $cgName := .Values.computeGroupNames }}
-  - uniqueId: {{ $cgName }}
-    replicas: {{ $originalContext.Values.computeSpec.replicas }}
-    image: {{ $originalContext.Values.computeSpec.image.repository }}:{{ $originalContext.Values.computeSpec.image.tag }}
+  {{- range $index, $cg := .Values.computeGroups }}
+  {{- $replicas := $originalContext.Values.computeSpec.replicas }}
+  {{- if $cg.replicas }}{{- $replicas = $cg.replicas }}{{- end }}
+  {{- $imageRepo := $originalContext.Values.computeSpec.image.repository }}
+  {{- $imageTag := $originalContext.Values.computeSpec.image.tag }}
+  {{- if $cg.image }}
+    {{- if $cg.image.repository }}{{- $imageRepo = $cg.image.repository }}{{- end }}
+    {{- if $cg.image.tag }}{{- $imageTag = $cg.image.tag }}{{- end }}
+  {{- end }}
+  {{- $resources := $originalContext.Values.computeSpec.resources }}
+  {{- if $cg.resources }}{{- $resources = $cg.resources }}{{- end }}
+  - uniqueId: {{ $cg.name }}
+    replicas: {{ $replicas }}
+    image: {{ $imageRepo }}:{{ $imageTag }}
     {{- if $originalContext.Values.computeSpec.imagePullSecrets }}
     imagePullSecrets:
     {{- toYaml $originalContext.Values.computeSpec.imagePullSecrets | nindent 6 }}
     {{- end }}
-    {{- if $originalContext.Values.computeSpec.resources }}
-    {{- toYaml $originalContext.Values.computeSpec.resources | nindent 4 }}
+    {{- if $resources }}
+    {{- toYaml $resources | nindent 4 }}
     {{- end }}
     configMaps:
     - name: {{ include "be.configmap.name" . }}
