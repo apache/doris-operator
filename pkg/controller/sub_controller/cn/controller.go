@@ -19,6 +19,8 @@ package cn
 
 import (
 	"context"
+	"time"
+
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
@@ -31,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type Controller struct {
@@ -223,7 +224,8 @@ func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 	}
 
 	// clear autoscaler when autoscaler config deleted or the doriscluster deleted.
-	if dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
+	// guard the dereference, only calls ClearResources when CnSpec is nil.
+	if dcr.Spec.CnSpec == nil || dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
 		if err := cn.DeleteAutoscaler(ctx, dcr); err != nil {
 			cn.K8srecorder.Eventf(dcr, string(sub_controller.EventWarning), sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
 		}
