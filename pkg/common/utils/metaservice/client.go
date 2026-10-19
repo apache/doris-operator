@@ -139,7 +139,10 @@ func (c *Client) query(ctx context.Context, path string, query url.Values, body 
 		query = url.Values{}
 	}
 	query.Set("token", c.token)
-	endpoint.RawQuery = query.Encode()
+	// MS reads query values through brpc's URI::GetQuery without URL decoding.
+	// Colons are legal in a URI query and must remain literal in cloud_unique_id
+	// (for example, 1:instance:backend), rather than being sent as %3A.
+	endpoint.RawQuery = strings.ReplaceAll(query.Encode(), "%3A", ":")
 	method := http.MethodPost
 	if body == nil {
 		method = http.MethodGet

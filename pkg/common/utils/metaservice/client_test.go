@@ -145,3 +145,21 @@ func TestGetInstanceIDForLegacyCloudUniqueID(t *testing.T) {
 		})
 	}
 }
+
+func TestGetInstanceIDPreservesColonsForBRPC(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Inspect the wire query, as brpc does, rather than net/url's decoded
+		// Query() result, which would hide an incompatible escaped colon.
+		if r.URL.RawQuery != "cloud_unique_id=1:instance:backend&token=token" {
+			t.Errorf("unexpected raw query: %s", r.URL.RawQuery)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Write([]byte(`{"code":"OK","result":{"instance_id":"instance"}}`))
+	}))
+	defer server.Close()
+	id, err := NewClient(server.URL, "token").GetInstanceID(context.Background(), "1:instance:backend")
+	if err != nil || id != "instance" {
+		t.Fatalf("instance=%s err=%v", id, err)
+	}
+}
