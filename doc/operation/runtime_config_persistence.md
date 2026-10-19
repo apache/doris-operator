@@ -57,6 +57,13 @@ A directory `.doris-runtime-config/<pod-name>` inside the selected mount is
 exposed at `/var/lib/doris/runtime-config`. The Pod name separates overrides even
 when an existing PVC is shared. Existing `subPath` mounts retain their prefix.
 
+For DDC compute-group scale-down, the operator retains the selected runtime
+configuration PVC so scaling back to the same ordinal can recover its overrides
+and migration marker. Other PVCs, including file cache PVCs, follow the existing
+cleanup policy. Retained configuration claims continue to consume storage while
+the ordinal is absent. This does not change deletion of the cluster or manual
+PVC deletion, and does not initialize cloud identity for entirely new nodes.
+
 An init container uses the **same image and security context** as the main
 container to create the directory and prepare a writable copy of the base
 ConfigMap configuration. When no base ConfigMap exists, it uses the image's

@@ -169,6 +169,28 @@ func setStorage(st *appsv1.StatefulSet, value string) {
 	st.Annotations[StorageAnnotation] = value
 }
 
+// RetainPVCOnScaleDown preserves the selected configuration store when an
+// ordinal is removed. Other claims, including file cache claims, remain subject
+// to normal cleanup. Explicit user-managed paths keep their existing policy.
+func RetainPVCOnScaleDown(st *appsv1.StatefulSet, pvcName string) (bool, error) {
+	recorded := st.Annotations[StorageAnnotation]
+	if recorded == "" || recorded == "unavailable" || recorded == "external" {
+		return false, nil
+	}
+	var selected storage
+	if err := json.Unmarshal([]byte(recorded), &selected); err != nil || selected.Volume == "" || selected.Claim == "" {
+		return false, fmt.Errorf("%s: invalid runtime configuration storage; refusing PVC cleanup", st.Name)
+	}
+	if claimIdentity(st, selected.Volume) != selected.Claim {
+		return false, fmt.Errorf("%s: runtime configuration storage changed; refusing PVC cleanup", st.Name)
+	}
+	if selected.Claim == "template:"+selected.Volume {
+		prefix := selected.Volume + "-" + st.Name + "-"
+		return strings.HasPrefix(pvcName, prefix), nil
+	}
+	return selected.Claim == "claim:"+pvcName, nil
+}
+
 func within(target, root string) bool {
 	return path.IsAbs(target) && (path.Clean(target) == path.Clean(root) || strings.HasPrefix(path.Clean(target), path.Clean(root)+"/"))
 }
