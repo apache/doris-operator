@@ -16438,6 +16438,23 @@ spec:
                           description: DrainTriggered indicates whether the drain
                             exec has been triggered for the current pod.
                           type: boolean
+                        initialBackendEpoch:
+                          description: InitialBackendEpoch is reserved for FE-observed
+                            backend process epoch when available.
+                          type: string
+                        initialBackendStartTime:
+                          description: |-
+                            InitialBackendStartTime is the FE-observed LastStartTime for the backend generation
+                            being drained. It is used to reject stale alive=true views during replacement.
+                          type: string
+                        initialContainerID:
+                          description: InitialContainerID is the main container ID
+                            of the pod generation being drained.
+                          type: string
+                        initialPodUID:
+                          description: InitialPodUID is the UID of the pod generation
+                            being drained.
+                          type: string
                         initialRestartCount:
                           description: InitialRestartCount records the BE container's
                             restart count before drain, to detect kubelet restarts.
@@ -16451,6 +16468,38 @@ spec:
                           description: Phase is the current step in the graceful action
                             state machine.
                           type: string
+                        replacementBackendEpoch:
+                          description: ReplacementBackendEpoch records the FE-observed
+                            backend process epoch accepted for the replacement generation.
+                          type: string
+                        replacementBackendStartTime:
+                          description: ReplacementBackendStartTime records the FE-observed
+                            LastStartTime accepted for the replacement generation.
+                          type: string
+                        replacementContainerID:
+                          description: ReplacementContainerID tracks the replacement
+                            pod's main container ID.
+                          type: string
+                        replacementPodUID:
+                          description: ReplacementPodUID tracks the replacement pod
+                            generation once it is observed ready.
+                          type: string
+                        restartAnomalyDetected:
+                          description: |-
+                            RestartAnomalyDetected indicates that kubelet restarted the main container
+                            after the graceful drain was triggered.
+                          type: boolean
+                        sentinelWritten:
+                          description: |-
+                            SentinelWritten indicates whether the operator has written the terminating sentinel
+                            into the current pod before triggering graceful drain.
+                          type: boolean
+                        stableBackendObservations:
+                          description: StableBackendObservations counts consecutive
+                            WaitBEAlive polls that observed the same accepted replacement
+                            generation.
+                          format: int32
+                          type: integer
                         startedAt:
                           description: StartedAt is when the current pod's graceful
                             action began.
