@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -42,6 +44,8 @@ type DBConfig struct {
 	Host     string
 	Port     string
 	Database string
+	// Timeout bounds connection establishment and each network read/write when set.
+	Timeout time.Duration
 }
 
 type TLSConfig struct {
@@ -65,6 +69,12 @@ type DB struct {
 
 func NewDorisSqlDB(cfg DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+	params := url.Values{}
+	if cfg.Timeout > 0 {
+		for _, key := range []string{"timeout", "readTimeout", "writeTimeout"} {
+			params.Set(key, cfg.Timeout.String())
+		}
+	}
 	rootCertPool := x509.NewCertPool()
 
 	if tlsConfig != nil && secret != nil {
@@ -89,9 +99,12 @@ func NewDorisSqlDB(cfg DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*
 		}); err != nil {
 			return nil, errors.New("NewDorisSqlDB register tls config failed," + err.Error())
 		}
-		dsn = dsn + "?tls=" + registerKey
+		params.Set("tls", registerKey)
 	}
 
+	if len(params) > 0 {
+		dsn += "?" + params.Encode()
+	}
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		klog.Errorf("NewDorisSqlDB sqlx.Open failed open doris sql client connection, err: %s \n", err.Error())
@@ -99,6 +112,7 @@ func NewDorisSqlDB(cfg DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*
 	}
 
 	if err = db.Ping(); err != nil {
+		db.Close()
 		klog.Errorf("NewDorisSqlDB sqlx.Open.Ping failed ping doris sql client connection, err: %s \n", err.Error())
 		return nil, err
 	}
@@ -129,6 +143,7 @@ func NewDorisMasterSqlDB(dbConf DBConfig, tlsConfig *TLSConfig, secret *corev1.S
 			Host:     master.Host,
 			Port:     dbConf.Port,
 			Database: "mysql",
+			Timeout:  dbConf.Timeout,
 		}, tlsConfig, secret)
 		if err != nil {
 			klog.Errorf("NewDorisMasterSqlDB failed, get fe master connection  err:%s", err.Error())

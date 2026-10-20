@@ -237,15 +237,22 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, err
 	}
 
+	// Finish an existing graceful action before starting SQL decommission.
+	if cluster.Spec.EnableDecommission && hasGracefulAction(&est) {
+		replicas := *est.Spec.Replicas
+		st.Spec.Replicas = &replicas
+	}
+	if pending, err := dcgs.reconcileDecommissionScaleDown(ctx, st, &est, cluster, cg); pending || err != nil {
+		if err != nil {
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
+		}
+		return nil, nil
+	}
+
 	err := dcgs.preApplyStatefulSet(ctx, st, &est, cluster, cg)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset preApplyStatefulSet namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
-	}
-
-	// be decimmission processing, skip apply statefulset.
-	if skipApplyStatefulset(cluster, cg) {
-		return nil, nil
 	}
 
 	// Graceful two-phase restart/shutdown: check if we need to perform a graceful action.

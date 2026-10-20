@@ -20,8 +20,10 @@ package mysql
 import (
 	_ "crypto/tls"
 	"database/sql/driver"
+	"net"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
@@ -259,5 +261,38 @@ func Test_DropBE(t *testing.T) {
 				t.Errorf("test decommission failed, err=%s", err.Error())
 			}
 		})
+	}
+}
+
+func TestNewDorisSqlDBBoundsStalledHandshake(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	release := make(chan struct{})
+	defer close(release)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		<-release
+	}()
+	host, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	db, err := NewDorisSqlDB(DBConfig{Host: host, Port: port, Database: "mysql", Timeout: 50 * time.Millisecond}, nil, nil)
+	if db != nil {
+		db.Close()
+	}
+	if err == nil {
+		t.Fatal("stalled handshake succeeded")
+	}
+	if time.Since(started) > 2*time.Second {
+		t.Fatal("SQL timeout did not bound the stalled handshake")
 	}
 }
