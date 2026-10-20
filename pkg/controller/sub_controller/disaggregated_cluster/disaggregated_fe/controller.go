@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"strconv"
 	"strings"
 
@@ -87,6 +88,9 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	svc := dfc.newService(ddc, confMap)
 
 	st := dfc.NewStatefulset(ddc, confMap)
+	if err := runtimeconfig.Prepare(ctx, dfc.K8sclient, dfc.K8srecorder, ddc, st, confMap); err != nil {
+		return err
+	}
 	//initial fe status on start. in resource process step, may be use the status record the process.
 	dfc.initialFEStatus(ddc)
 

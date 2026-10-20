@@ -30,6 +30,11 @@ var (
 
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
+	// RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+	// When omitted, new clusters enable it where safe storage exists; existing
+	// clusters keep their previous behavior until explicitly migrated.
+	RuntimeConfigPersistence *RuntimeConfigPersistenceSpec `json:"runtimeConfigPersistence,omitempty"`
+
 	//defines the fe cluster state that will be created by operator.
 	FeSpec *FeSpec `json:"feSpec,omitempty"`
 
@@ -545,4 +550,12 @@ type DorisClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&DorisCluster{}, &DorisClusterList{})
+}
+
+// RuntimeConfigPersistenceSpec controls persistence of FE, BE and MS mutable configuration.
+type RuntimeConfigPersistenceSpec struct {
+	// Enabled overrides the operator's recorded default. Enabling an existing
+	// cluster requires the runtime configuration migration tool. Disabling an
+	// already enabled cluster is not supported because it would lose overrides.
+	Enabled bool `json:"enabled"`
 }

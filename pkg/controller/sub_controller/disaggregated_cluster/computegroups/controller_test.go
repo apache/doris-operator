@@ -25,9 +25,12 @@ import (
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -118,5 +121,61 @@ func newTestStatefulSet(namespace, name, storage string) *appv1.StatefulSet {
 				},
 			}},
 		},
+	}
+}
+
+func TestScaleDownRetainsRuntimeConfigPVC(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		recorded  string
+		keepLog   bool
+		wantError bool
+	}{
+		{name: "legacy keeps existing cleanup"},
+		{name: "selected log survives", recorded: `{"volume":"be-log","claim":"template:be-log","mountPath":"/opt/apache-doris/be/log"}`, keepLog: true},
+		{name: "invalid storage blocks cleanup", recorded: `{`, keepLog: true, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			for _, add := range []func(*runtime.Scheme) error{appv1.AddToScheme, corev1.AddToScheme, dv1.AddToScheme} {
+				if err := add(scheme); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ddc := newTestDDC()
+			cg := newTestCG("cg1")
+			ddc.Spec.ComputeGroups = []dv1.ComputeGroup{*cg}
+			replicas := int32(1)
+			st := newTestStatefulSet(ddc.Namespace, ddc.GetCGStatefulsetName(cg), "1Gi")
+			st.Spec.Replicas = &replicas
+			st.Spec.VolumeClaimTemplates[0].Name = "be-log"
+			st.Annotations = map[string]string{"doris.apache.org/runtime-config-storage": tc.recorded}
+			dcgs := &DisaggregatedComputeGroupsController{}
+			labels := dcgs.newCGPodsSelector(ddc.Name, cg.UniqueId)
+			objects := []client.Object{st}
+			for _, volume := range []string{"be-log", "be-file-cache"} {
+				for _, ordinal := range []string{"0", "1"} {
+					objects = append(objects, &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: volume + "-" + st.Name + "-" + ordinal, Namespace: ddc.Namespace, Labels: labels}})
+				}
+			}
+			dcgs.K8sclient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+			err := dcgs.ClearStatefulsetUnusedPVCs(context.Background(), ddc, dv1.ComputeGroupStatus{UniqueId: cg.UniqueId})
+			if (err != nil) != tc.wantError {
+				t.Fatalf("cleanup error = %v", err)
+			}
+			for _, volume := range []string{"be-log", "be-file-cache"} {
+				for _, ordinal := range []string{"0", "1"} {
+					var pvc corev1.PersistentVolumeClaim
+					err := dcgs.K8sclient.Get(context.Background(), types.NamespacedName{Namespace: ddc.Namespace, Name: volume + "-" + st.Name + "-" + ordinal}, &pvc)
+					want := ordinal == "0" || tc.wantError || (volume == "be-log" && tc.keepLog)
+					if want && err != nil {
+						t.Fatalf("expected retained PVC %s/%s: %v", volume, ordinal, err)
+					}
+					if !want && !apierrors.IsNotFound(err) {
+						t.Fatalf("expected deleted PVC %s/%s: %v", volume, ordinal, err)
+					}
+				}
+			}
+		})
 	}
 }

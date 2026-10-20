@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"strconv"
 	"strings"
 
@@ -169,6 +170,9 @@ func (dms *DisaggregatedMSController) Sync(ctx context.Context, obj client.Objec
 	svc := dms.newService(ddc, confMap)
 
 	st := dms.newStatefulset(ddc, confMap, fdbEndpoint)
+	if err := runtimeconfig.Prepare(ctx, dms.K8sclient, dms.K8srecorder, ddc, st, confMap); err != nil {
+		return err
+	}
 	dms.initMSStatus(ddc)
 
 	dms.CheckSecretMountPath(ddc, ddc.Spec.MetaService.Secrets)
