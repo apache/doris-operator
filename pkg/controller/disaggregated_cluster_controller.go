@@ -26,6 +26,7 @@ import (
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	dcgs "github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/computegroups"
 	dfe "github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/disaggregated_fe"
@@ -220,6 +221,14 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 		klog.Warningf("disaggreatedClusterReconciler not find resource DorisDisaggregatedCluster namespaceName %s", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := runtimeconfig.EnsurePolicy(ctx, dc.Client, &ddc); err != nil {
+		dc.Recorder.Event(&ddc, corev1.EventTypeWarning, "RuntimeConfigPersistenceBlocked", err.Error())
+		return ctrl.Result{}, err
+	}
+
 	hv := hash.HashObject(ddc.Spec)
 
 	var res ctrl.Result

@@ -52,6 +52,10 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
     - [config fe specification](https://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-fe)
     - [config compute specification](http://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-cg)
 
+## 文档
+
+- [动态配置持久化与旧集群迁移](doc/operation/runtime_config_persistence.md)
+
 ## 开源支持
 - [CN Forum](https://ask.selectdb.com/)
 - [github issues](https://github.com/apache/doris-operator/issues)

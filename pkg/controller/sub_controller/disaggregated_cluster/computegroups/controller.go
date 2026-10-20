@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"regexp"
 	"strconv"
 	"strings"
@@ -149,6 +150,9 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 	cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 	st := dcgs.NewStatefulset(ddc, cg, cvs)
+	if err := runtimeconfig.Prepare(ctx, dcgs.K8sclient, dcgs.K8srecorder, ddc, st, cvs); err != nil {
+		return nil, err
+	}
 	internalSvc := dcgs.newInternalService(ddc, cg, cvs)
 	externalSvc := dcgs.newExternalService(ddc, cg, cvs)
 	dcgs.initialCGStatus(ddc, cg)
@@ -611,6 +615,13 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 			continue
 		}
 		if int32(index) >= replicas {
+			retain, err := runtimeconfig.RetainPVCOnScaleDown(sts, pvcName)
+			if err != nil {
+				return err
+			}
+			if retain {
+				continue
+			}
 			clearPVC = append(clearPVC, pvcName)
 		}
 	}

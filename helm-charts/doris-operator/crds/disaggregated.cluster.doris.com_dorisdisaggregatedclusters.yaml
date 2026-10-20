@@ -6978,6 +6978,21 @@ spec:
                       type: object
                     type: array
                 type: object
+              runtimeConfigPersistence:
+                description: |-
+                  RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+                  When omitted, new clusters enable it where safe storage exists; existing
+                  clusters keep their previous behavior until explicitly migrated.
+                properties:
+                  enabled:
+                    description: |-
+                      Enabled overrides the operator's recorded default. Enabling an existing
+                      cluster requires the runtime configuration migration tool. Disabling an
+                      already enabled cluster is not supported because it would lose overrides.
+                    type: boolean
+                required:
+                - enabled
+                type: object
             type: object
           status:
             properties:
