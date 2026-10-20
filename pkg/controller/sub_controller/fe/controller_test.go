@@ -18,129 +18,60 @@ package fe
 
 import (
 	"context"
-	"fmt"
+	"testing"
+
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kr "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"path/filepath"
-	"runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"testing"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var cfg *rest.Config
-var testEnv *envtest.Environment
-var mgr ctrl.Manager
-
-func init() {
-	testEnv = &envtest.Environment{
-		Scheme: k8sruntime.NewScheme(),
-		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "..", "bin", "k8s",
-			fmt.Sprintf("1.26.1-%s-%s", runtime.GOOS, runtime.GOARCH)),
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+func newFeController(t *testing.T, objects ...client.Object) (*Controller, client.Client) {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := appv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add appsv1 to scheme failed, err=%s", err.Error())
 	}
-
-	var err error
-	cfg, err = testEnv.Start()
-	if err != nil {
-		fmt.Println("init failed, err=" + err.Error())
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add corev1 to scheme failed, err=%s", err.Error())
 	}
-	mgr, err = ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		fmt.Println("Test_safeScaleDown NewManager failed, err=" + err.Error())
-	}
-	go func() {
-		err = mgr.Start(ctrl.SetupSignalHandler())
-	}()
+	k8sclient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+	return New(k8sclient, record.NewFakeRecorder(10)), k8sclient
 }
 
+// buildFePVC builds a pvc as the fe statefulset would name and label it.
+func buildFePVC(name string) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels: map[string]string{
+				v1.OwnerReference:    "test-fe",
+				v1.ComponentLabelKey: "fe",
+			},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: map[corev1.ResourceName]kr.Quantity{
+					"storage": kr.MustParse("500Gi"),
+				},
+			},
+		},
+	}
+}
+
+// Scaling fe down leaves pvcs above the new replica count behind, so ClearResources recycles them.
 func Test_ClearResources(t *testing.T) {
-	defer deferClear()
-
-	pvcs := []corev1.PersistentVolumeClaim{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-fe-0",
-				Namespace: "default",
-				Labels: map[string]string{
-					v1.OwnerReference:    "test-fe",
-					v1.ComponentLabelKey: "fe",
-				},
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: map[corev1.ResourceName]kr.Quantity{
-						"storage": kr.MustParse("500Gi"),
-					},
-				},
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						v1.OwnerReference:    "test-fe",
-						v1.ComponentLabelKey: "fe",
-					},
-				},
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-fe-1",
-				Namespace: "default",
-				Labels: map[string]string{
-					v1.OwnerReference:    "test-fe",
-					v1.ComponentLabelKey: "fe",
-				},
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: map[corev1.ResourceName]kr.Quantity{
-						"storage": kr.MustParse("500Gi"),
-					},
-				},
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						v1.OwnerReference:    "test-fe",
-						v1.ComponentLabelKey: "fe",
-					},
-				},
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-fe-2",
-				Namespace: "default",
-				Labels: map[string]string{
-					v1.OwnerReference:    "test-fe",
-					v1.ComponentLabelKey: "fe",
-				},
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: map[corev1.ResourceName]kr.Quantity{
-						"storage": kr.MustParse("500Gi"),
-					},
-				},
-				Selector: &metav1.LabelSelector{},
-			},
-		},
-	}
-
-	for i, _ := range pvcs {
-		if err := mgr.GetClient().Create(context.Background(), &pvcs[i]); err != nil {
-			t.Errorf("create pvc failed,err=%s", err.Error())
-		}
-	}
-
-	fc := New(mgr.GetClient(), mgr.GetEventRecorderFor("test-fe"))
+	fc, k8sclient := newFeController(t, buildFePVC("test-fe-0"), buildFePVC("test-fe-1"), buildFePVC("test-fe-2"))
 	cluster := &v1.DorisCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -149,7 +80,7 @@ func Test_ClearResources(t *testing.T) {
 		Spec: v1.DorisClusterSpec{
 			FeSpec: &v1.FeSpec{
 				BaseSpec: v1.BaseSpec{
-					Replicas: resource.GetInt32Pointer(3),
+					Replicas: resource.GetInt32Pointer(2),
 					PersistentVolumes: []v1.PersistentVolume{
 						{
 							MountPath: "/opt/apache-doris/fe/doris-meta",
@@ -174,12 +105,22 @@ func Test_ClearResources(t *testing.T) {
 			},
 		},
 	}
-	fc.ClearResources(context.Background(), cluster)
-}
 
-func deferClear() {
-	err := testEnv.Stop()
+	cleared, err := fc.ClearResources(context.Background(), cluster)
 	if err != nil {
-		fmt.Println(err)
+		t.Errorf("Test_ClearResources clear resources failed, err=%s", err.Error())
+	}
+	if !cleared {
+		t.Error("Test_ClearResources expected resources to be cleared")
+	}
+
+	for _, name := range []string{"test-fe-0", "test-fe-1"} {
+		if err := k8sclient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: name}, &corev1.PersistentVolumeClaim{}); err != nil {
+			t.Errorf("Test_ClearResources the pvc %s should be kept, err=%s", name, err.Error())
+		}
+	}
+	err = k8sclient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "test-fe-2"}, &corev1.PersistentVolumeClaim{})
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("Test_ClearResources the pvc test-fe-2 is not deleted, err=%v", err)
 	}
 }

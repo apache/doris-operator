@@ -18,51 +18,34 @@ package cn
 
 import (
 	"context"
-	"fmt"
-	v1 "github.com/apache/doris-operator/api/doris/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"path/filepath"
-	"runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"testing"
+
+	v1 "github.com/apache/doris-operator/api/doris/v1"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var cfg *rest.Config
-var testEnv *envtest.Environment
-var mgr ctrl.Manager
-
-func init() {
-	testEnv = &envtest.Environment{
-		Scheme: k8sruntime.NewScheme(),
-		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "..", "bin", "k8s",
-			fmt.Sprintf("1.26.1-%s-%s", runtime.GOOS, runtime.GOARCH)),
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+func newCnController(t *testing.T, objects ...client.Object) *Controller {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := appv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add appsv1 to scheme failed, err=%s", err.Error())
 	}
-
-	var err error
-	cfg, err = testEnv.Start()
-	if err != nil {
-		fmt.Println("init failed, err=" + err.Error())
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add corev1 to scheme failed, err=%s", err.Error())
 	}
-	mgr, err = ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		fmt.Println("Test_ClearResources NewManager failed, err=" + err.Error())
-	}
-	go func() {
-		err = mgr.Start(ctrl.SetupSignalHandler())
-	}()
+	return New(fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(), record.NewFakeRecorder(10))
 }
 
 // Sync only calls ClearResources when CnSpec is nil, so a cluster whose cnSpec was removed while
 // status.cnStatus is still set must not dereference the spec.
 func Test_ClearResources(t *testing.T) {
-	defer deferClear()
-	cc := New(mgr.GetClient(), mgr.GetEventRecorderFor("test-cn"))
+	cc := newCnController(t)
 	cluster := &v1.DorisCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -93,7 +76,7 @@ func Test_ClearResources(t *testing.T) {
 
 // A cluster that never had cn returns early on the nil status, before reaching the spec.
 func Test_ClearResources_NoCnStatus(t *testing.T) {
-	cc := New(mgr.GetClient(), mgr.GetEventRecorderFor("test-cn"))
+	cc := newCnController(t)
 	cluster := &v1.DorisCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-no-cn",
@@ -107,12 +90,5 @@ func Test_ClearResources_NoCnStatus(t *testing.T) {
 	}
 	if !cleared {
 		t.Error("Test_ClearResources_NoCnStatus expected resources to be cleared")
-	}
-}
-
-func deferClear() {
-	err := testEnv.Stop()
-	if err != nil {
-		fmt.Println(err)
 	}
 }

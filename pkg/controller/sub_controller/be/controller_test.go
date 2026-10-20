@@ -18,67 +18,40 @@ package be
 
 import (
 	"context"
-	"fmt"
+	"testing"
+
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"path/filepath"
-	"runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"testing"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var cfg *rest.Config
-var testEnv *envtest.Environment
-var mgr ctrl.Manager
-
-func init() {
-	testEnv = &envtest.Environment{
-		Scheme: k8sruntime.NewScheme(),
-		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "..", "bin", "k8s",
-			fmt.Sprintf("1.26.1-%s-%s", runtime.GOOS, runtime.GOARCH)),
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+func newBeController(t *testing.T, objects ...client.Object) (*Controller, client.Client) {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := appv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add appsv1 to scheme failed, err=%s", err.Error())
 	}
-
-	var err error
-	cfg, err = testEnv.Start()
-	if err != nil {
-		fmt.Println("init failed, err=" + err.Error())
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add corev1 to scheme failed, err=%s", err.Error())
 	}
-	mgr, err = ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		fmt.Println("Test_safeScaleDown NewManager failed, err=" + err.Error())
-	}
-	go func() {
-		err = mgr.Start(ctrl.SetupSignalHandler())
-	}()
+	k8sclient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+	return New(k8sclient, record.NewFakeRecorder(10)), k8sclient
 }
 
 func Test_ClearResources(t *testing.T) {
-	defer deferClear()
-	bc := New(mgr.GetClient(), mgr.GetEventRecorderFor("test-be"))
 	cluster := &v1.DorisCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
-		//Spec: v1.DorisClusterSpec{
-		//    BeSpec: &v1.BeSpec{
-		//        BaseSpec: v1.BaseSpec{
-		//            Replicas: resource.GetInt32Pointer(3),
-		//        },
-		//    },
-		//},
 		Status: v1.DorisClusterStatus{
 			BEStatus: &v1.ComponentStatus{
 				ComponentCondition: v1.ComponentCondition{
@@ -159,26 +132,16 @@ func Test_ClearResources(t *testing.T) {
 			},
 		}}
 
-	for _, dcrResource := range resources {
-		if err := mgr.GetClient().Create(context.Background(), dcrResource); err != nil {
-			t.Errorf("Test_ClearResources  create resource name =%s, failed,err=%s", dcrResource.GetName(), err.Error())
-		}
-	}
+	bc, k8sclient := newBeController(t, resources...)
 	if _, err := bc.ClearResources(context.Background(), cluster); err != nil {
 		t.Errorf("Test_ClearResources clear resources failed, err=%s", err.Error())
 	}
 
-	for i, _ := range resources {
+	for i := range resources {
 		name := resources[i].GetName()
-		if err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: "default", Name: name}, resources[i]); err != nil && !apierrors.IsNotFound(err) {
-			t.Errorf("Test_ClearResources the resource is not deleted, name=%s, err=%s", name, err.Error())
+		err := k8sclient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: name}, resources[i])
+		if !apierrors.IsNotFound(err) {
+			t.Errorf("Test_ClearResources the resource is not deleted, name=%s, err=%v", name, err)
 		}
-	}
-}
-
-func deferClear() {
-	err := testEnv.Stop()
-	if err != nil {
-		fmt.Println(err)
 	}
 }
