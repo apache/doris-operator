@@ -255,8 +255,21 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGStorageTemplateImmutable, Message: msg}, errors.New(msg)
 	}
 
+	// Finish an existing graceful action before starting SQL decommission. Keep
+	// replicas unchanged while that action owns the pod lifecycle.
+	if cluster.Spec.EnableDecommission && hasGracefulAction(&est) {
+		replicas := *est.Spec.Replicas
+		st.Spec.Replicas = &replicas
+	}
+	if pending, err := dcgs.reconcileDecommissionScaleDown(ctx, st, &est, cluster, cg); pending || err != nil {
+		if err != nil {
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
+		}
+		return nil, nil
+	}
+
 	// Direct-drop scale-down is owned by the graceful state machine when the image
-	// supports it. Decommissioning keeps the legacy pre-apply ordering.
+	// supports it. SQL decommission is handled above before applying resources.
 	gracefulInProgress := false
 	if !cluster.Spec.EnableDecommission {
 		gracefulInProgress = dcgs.reconcileGracefulStatefulSet(ctx, st, &est, cluster, cg)
