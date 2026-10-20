@@ -22,6 +22,7 @@ import (
 	"github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/tools/record"
@@ -100,6 +101,9 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	st := be.buildBEStatefulSet(dcr, config)
+	if err := runtimeconfig.Prepare(ctx, be.K8sclient, be.K8srecorder, dcr, &st, config); err != nil {
+		return err
+	}
 	if !be.PrepareReconcileResources(ctx, dcr, v1.Component_BE) {
 		klog.Infof("be controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
 		return nil

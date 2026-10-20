@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"regexp"
 	"strconv"
 	"strings"
@@ -149,6 +150,9 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 	cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 	st := dcgs.NewStatefulset(ddc, cg, cvs)
+	if err := runtimeconfig.Prepare(ctx, dcgs.K8sclient, dcgs.K8srecorder, ddc, st, cvs); err != nil {
+		return nil, err
+	}
 	internalSvc := dcgs.newInternalService(ddc, cg, cvs)
 	externalSvc := dcgs.newExternalService(ddc, cg, cvs)
 	dcgs.initialCGStatus(ddc, cg)
@@ -233,15 +237,22 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, err
 	}
 
+	// Finish an existing graceful action before starting SQL decommission.
+	if cluster.Spec.EnableDecommission && hasGracefulAction(&est) {
+		replicas := *est.Spec.Replicas
+		st.Spec.Replicas = &replicas
+	}
+	if pending, err := dcgs.reconcileDecommissionScaleDown(ctx, st, &est, cluster, cg); pending || err != nil {
+		if err != nil {
+			return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
+		}
+		return nil, nil
+	}
+
 	err := dcgs.preApplyStatefulSet(ctx, st, &est, cluster, cg)
 	if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset preApplyStatefulSet namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGSqlExecFailed, Message: err.Error()}, err
-	}
-
-	// be decimmission processing, skip apply statefulset.
-	if skipApplyStatefulset(cluster, cg) {
-		return nil, nil
 	}
 
 	// Graceful two-phase restart/shutdown: check if we need to perform a graceful action.
@@ -611,6 +622,13 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx
 			continue
 		}
 		if int32(index) >= replicas {
+			retain, err := runtimeconfig.RetainPVCOnScaleDown(sts, pvcName)
+			if err != nil {
+				return err
+			}
+			if retain {
+				continue
+			}
 			clearPVC = append(clearPVC, pvcName)
 		}
 	}

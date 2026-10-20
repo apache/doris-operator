@@ -38,6 +38,7 @@ import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
 	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
@@ -133,6 +134,11 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
+	}
+
+	if err := runtimeconfig.EnsurePolicy(ctx, r.Client, dcr); err != nil {
+		r.Recorder.Event(dcr, corev1.EventTypeWarning, "RuntimeConfigPersistenceBlocked", err.Error())
+		return ctrl.Result{}, err
 	}
 
 	if dcr.Spec.EnableRestartWhenConfigChange {

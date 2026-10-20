@@ -53,6 +53,10 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
   - [config fe specification](https://doris.apache.org/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-fe)
   - [config compute specification](http://doris.apache.org/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-cg)
 
+## Documentation
+
+- [Runtime configuration persistence and migration](doc/operation/runtime_config_persistence.md)
+
 ## Open source support
 - [CN Forum](https://ask.selectdb.com/)
 - [github issues](https://github.com/apache/doris-operator/issues)

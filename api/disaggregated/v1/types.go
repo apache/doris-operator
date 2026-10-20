@@ -23,6 +23,11 @@ import (
 )
 
 type DorisDisaggregatedClusterSpec struct {
+	// RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+	// When omitted, new clusters enable it where safe storage exists; existing
+	// clusters keep their previous behavior until explicitly migrated.
+	RuntimeConfigPersistence *RuntimeConfigPersistenceSpec `json:"runtimeConfigPersistence,omitempty"`
+
 	//VaultConfigmap specify the configmap that have configuration of file object information. example S3.
 	//configmap have to config, please reference the doc.
 	//InstanceConfigMap string `json:"instanceConfigMap,omitempty"`
@@ -569,4 +574,12 @@ type DorisDisaggregatedClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&DorisDisaggregatedCluster{}, &DorisDisaggregatedClusterList{})
+}
+
+// RuntimeConfigPersistenceSpec controls persistence of FE, BE and MS mutable configuration.
+type RuntimeConfigPersistenceSpec struct {
+	// Enabled overrides the operator's recorded default. Enabling an existing
+	// cluster requires the runtime configuration migration tool. Disabling an
+	// already enabled cluster is not supported because it would lose overrides.
+	Enabled bool `json:"enabled"`
 }

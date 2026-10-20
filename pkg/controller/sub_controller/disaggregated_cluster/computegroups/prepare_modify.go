@@ -21,6 +21,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
@@ -43,6 +44,9 @@ func (dcgs *DisaggregatedComputeGroupsController) preApplyStatefulSet(ctx contex
 
 	switch optType {
 	case "scaleDown":
+		if cluster.Spec.EnableDecommission {
+			return nil // The persistent MS-driven state machine owns this operation.
+		}
 		err := dcgs.scaleOut(ctx, cgStatus, cluster, cg)
 		if err != nil {
 			return err
@@ -66,45 +70,12 @@ func (dcgs *DisaggregatedComputeGroupsController) scaleOut(ctx context.Context, 
 	cgKeepAmount := *cg.Replicas
 	cgid := cgStatus.ComputeGroupId
 
-	if cluster.Spec.EnableDecommission {
-		if err := dcgs.scaledOutBENodesByDecommission(cluster, cgStatus, sqlClient, cgid, cgKeepAmount); err != nil {
-			return err
-		}
-	} else { // not decommission , drop node
-		if err := dcgs.scaledOutBENodesByDrop(sqlClient, cgid, cgKeepAmount); err != nil {
-			cgStatus.Phase = dv1.ScaleDownFailed
-			klog.Errorf("ScaleOut scaledOutBENodesByDrop ddcName:%s, namespace:%s, computeGroupName:%s, drop nodes failed:%s ", cluster.Name, cluster.Namespace, cgid, err.Error())
-			return err
-		}
-		cgStatus.Phase = dv1.Scaling
-	}
-	// return nil will apply sts
-	return nil
-}
-
-func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDecommission(cluster *dv1.DorisDisaggregatedCluster, cgStatus *dv1.ComputeGroupStatus, sqlClient *mysql.DB, cgid string, cgKeepAmount int32) error {
-	decommissionPhase, err := dcgs.decommissionProgressCheck(sqlClient, cgid, cgKeepAmount)
-	if err != nil {
+	if err := dcgs.scaledOutBENodesByDrop(sqlClient, cgid, cgKeepAmount); err != nil {
+		cgStatus.Phase = dv1.ScaleDownFailed
 		return err
 	}
-	switch decommissionPhase {
-	case resource.DecommissionAcceptable:
-		err = dcgs.decommissionBENodes(sqlClient, cgid, cgKeepAmount)
-		if err != nil {
-			cgStatus.Phase = dv1.ScaleDownFailed
-			klog.Errorf("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupId:%s , Decommission failed, err:%s ", cluster.Name, cluster.Namespace, cgid, err.Error())
-			return err
-		}
-		cgStatus.Phase = dv1.Decommissioning
-		return nil
-	case resource.Decommissioning, resource.DecommissionPhaseUnknown:
-		cgStatus.Phase = dv1.Decommissioning
-		klog.Infof("scaledOutBENodesByDecommission ddcName:%s, namespace:%s, computeGroupId:%s, Decommission in progress", cluster.Name, cluster.Namespace, cgid)
-		return nil
-	case resource.Decommissioned:
-		dcgs.scaledOutBENodesByDrop(sqlClient, cgid, cgKeepAmount)
-	}
 	cgStatus.Phase = dv1.Scaling
+	// return nil will apply sts
 	return nil
 }
 
@@ -139,28 +110,6 @@ func (dcgs *DisaggregatedComputeGroupsController) scaledOutBENodesByDrop(
 	return nil
 }
 
-func (dcgs *DisaggregatedComputeGroupsController) decommissionBENodes(
-	masterDBClient *mysql.DB,
-	cgName string,
-	cgKeepAmount int32) error {
-
-	dropNodes, err := getScaledOutBENode(masterDBClient, cgName, cgKeepAmount)
-	if err != nil {
-		klog.Errorf("decommissionBENodes getScaledOutBENode cgName %s failed, err:%s ", cgName, err.Error())
-		return err
-	}
-
-	if len(dropNodes) == 0 {
-		return nil
-	}
-	err = masterDBClient.DecommissionBE(dropNodes)
-	if err != nil {
-		klog.Errorf("decommissionBENodes cgName %s DropBENodes failed, err:%s ", cgName, err.Error())
-		return err
-	}
-	return nil
-}
-
 func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context.Context, cluster *dv1.DorisDisaggregatedCluster) (*mysql.DB, error) {
 	// get user and password
 	adminUserName, password := dcgs.GetManagementAdminUserAndPWD(ctx, cluster)
@@ -180,6 +129,9 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 		Port:     strconv.FormatInt(int64(queryPort), 10),
 		Database: "mysql",
 	}
+	if cluster.Spec.EnableDecommission {
+		dbConf.Timeout = 10 * time.Second
+	}
 	tlsConfig, secretName := dcgs.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, cluster)
 	secret, _ := k8s.GetSecret(context.Background(), dcgs.K8sclient, cluster.Namespace, secretName)
 
@@ -190,17 +142,6 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 		return nil, err
 	}
 	return masterDBClient, nil
-}
-
-// isDecommissionProgressFinished check decommission status
-func (dcgs *DisaggregatedComputeGroupsController) decommissionProgressCheck(masterDBClient *mysql.DB, cgid string, cgKeepAmount int32) (resource.DecommissionPhase, error) {
-	allBackends, err := masterDBClient.GetBackendsByComputeGroupId(cgid)
-	if err != nil {
-		klog.Errorf("decommissionProgressCheck failed, cgid %s ShowBackends err:%s", cgid, err.Error())
-		return resource.DecommissionPhaseUnknown, err
-	}
-	dts := resource.ConstructDecommissionTaskStatus(allBackends, cgKeepAmount)
-	return dts.GetDecommissionPhase(), nil
 }
 
 func getScaledOutBENode(
