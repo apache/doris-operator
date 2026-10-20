@@ -17,22 +17,15 @@
 package fe
 
 import (
+	"testing"
+
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"testing"
 )
 
 func Test_safeScaleDown(t *testing.T) {
-
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		t.Errorf("Test_safeScaleDown NewManager failed, err=%s", err.Error())
-	}
-
-	fc := New(mgr.GetClient(), mgr.GetEventRecorderFor("test-fe"))
+	fc, _ := newFeController(t)
 
 	dcrs := []*dorisv1.DorisCluster{
 		{
