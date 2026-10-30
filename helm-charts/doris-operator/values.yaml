@@ -17,6 +17,8 @@
 
 
 dorisOperator:
+  # Dynamic namespace label selection. Requires a build supporting --namespace-selector.
+  namespaceSelector: ""
   # the namespace of doris operator deployed, is not provided be set in values.yaml, please use the helm command specify, example "helm install -n doris"
   image:
     repository: apache/doris

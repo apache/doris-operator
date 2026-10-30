@@ -27,6 +27,7 @@ import (
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
+	"github.com/apache/doris-operator/pkg/controller/namespacescope"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	dcgs "github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/computegroups"
 	dfe "github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/disaggregated_fe"
@@ -58,6 +59,7 @@ var (
 )
 
 type DisaggregatedClusterReconciler struct {
+	NamespaceScope *namespacescope.Scope
 	client.Client
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
@@ -75,9 +77,10 @@ func (dc *DisaggregatedClusterReconciler) Init(mgr ctrl.Manager, options *Option
 	scs[dccsc.GetControllerName()] = dccsc
 
 	if err := (&DisaggregatedClusterReconciler{
-		Client:   mgr.GetClient(),
-		Recorder: mgr.GetEventRecorderFor(disaggregatedClusterController),
-		Scs:      scs,
+		NamespaceScope: options.NamespaceScope,
+		Client:         mgr.GetClient(),
+		Recorder:       mgr.GetEventRecorderFor(disaggregatedClusterController),
+		Scs:            scs,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, "unable to create controller ", "disaggregatedClusterReconciler")
 		os.Exit(1)
@@ -95,6 +98,9 @@ func (dc *DisaggregatedClusterReconciler) SetupWithManager(mgr ctrl.Manager) err
 	builder := dc.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = dc.watchPodBuilder(builder)
 	builder = dc.watchFDBConfigMapBuilder(builder)
+	if dc.NamespaceScope.Enabled() {
+		builder = namespacescope.Watch(builder, mgr.GetClient(), func() client.ObjectList { return &dv1.DorisDisaggregatedClusterList{} })
+	}
 	return builder.Complete(dc)
 }
 
@@ -215,6 +221,9 @@ func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder)
 // 3. clear need delete resource.
 // 4. display new status(eorganize status, update cr or status)
 func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	if allowed, err := dc.NamespaceScope.Allows(ctx, req.Namespace); err != nil || !allowed {
+		return ctrl.Result{}, err
+	}
 	var ddc dv1.DorisDisaggregatedCluster
 	err := dc.Get(ctx, req.NamespacedName, &ddc)
 	if apierrors.IsNotFound(err) {

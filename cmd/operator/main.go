@@ -41,6 +41,7 @@ import (
 	"github.com/apache/doris-operator/cmd/operator/conf"
 	"github.com/apache/doris-operator/pkg/common/utils/certificate"
 	"github.com/apache/doris-operator/pkg/controller"
+	"github.com/apache/doris-operator/pkg/controller/namespacescope"
 	"github.com/apache/doris-operator/pkg/controller/unnamedwatches"
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -117,6 +118,14 @@ func main() {
 	webhookServer := webhook.NewServer(webhook.Options{
 		Port: 9443,
 	})
+	if f.NamespaceSelector != "" && (f.Namespace != "" || envs.EnableWebhook) {
+		setupLog.Error(fmt.Errorf("namespace-selector requires global cache and ENABLE_WEBHOOK=false"), "invalid scope")
+		os.Exit(1)
+	}
+	if _, err := namespacescope.New(nil, f.NamespaceSelector); err != nil {
+		setupLog.Error(err, "invalid namespace-selector")
+		os.Exit(1)
+	}
 	defaultNamespaces := map[string]cache.Config{}
 	if f.Namespace != "" {
 		defaultNamespaces[f.Namespace] = cache.Config{}
@@ -157,6 +166,7 @@ func main() {
 	}
 
 	options := conf.NewControllerOptions(envs)
+	options.NamespaceScope, _ = namespacescope.New(mgr.GetAPIReader(), f.NamespaceSelector)
 	//initial all controllers
 	for _, c := range controller.Controllers {
 		c.Init(mgr, options)

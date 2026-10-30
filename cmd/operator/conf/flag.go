@@ -28,6 +28,7 @@ type Flag struct {
 	MetricsAddr          string
 	ProbeAddr            string
 	Namespace            string
+	NamespaceSelector    string
 	EnableLeaderElection bool
 	PrintVar             bool
 	EnableWebhook        bool
@@ -39,6 +40,7 @@ func ParseFlags() *Flag {
 	flag.StringVar(&f.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&f.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&f.Namespace, "namespace", v12.NamespaceAll, "The namespace to watch for changes.")
+	flag.StringVar(&f.NamespaceSelector, "namespace-selector", "", "Only reconcile namespaces matching this label selector; cannot be combined with --namespace.")
 	flag.BoolVar(&f.EnableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")

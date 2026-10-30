@@ -39,6 +39,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
+	"github.com/apache/doris-operator/pkg/controller/namespacescope"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
 	bk "github.com/apache/doris-operator/pkg/controller/sub_controller/broker"
@@ -75,6 +76,7 @@ var (
 
 // DorisClusterReconciler reconciles a DorisCluster object
 type DorisClusterReconciler struct {
+	NamespaceScope *namespacescope.Scope
 	client.Client
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
@@ -116,6 +118,9 @@ var (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if allowed, err := r.NamespaceScope.Allows(ctx, req.Namespace); err != nil || !allowed {
+		return ctrl.Result{}, err
+	}
 	klog.FromContext(ctx)
 	klog.Info("DorisClusterReconciler reconcile the update crd name ", req.Name, " namespace ", req.Namespace)
 	var edcr dorisv1.DorisCluster
@@ -358,6 +363,9 @@ func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = r.watchPodBuilder(builder)
 	builder = r.watchConfigMapBuilder(builder)
+	if r.NamespaceScope.Enabled() {
+		builder = namespacescope.Watch(builder, mgr.GetClient(), func() client.ObjectList { return &dorisv1.DorisClusterList{} })
+	}
 	return builder.Complete(r)
 }
 
@@ -374,6 +382,7 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	subcs[brokerControllerName] = brk
 
 	if err := (&DorisClusterReconciler{
+		NamespaceScope:  options.NamespaceScope,
 		Client:          mgr.GetClient(),
 		Recorder:        mgr.GetEventRecorderFor(name),
 		Scs:             subcs,

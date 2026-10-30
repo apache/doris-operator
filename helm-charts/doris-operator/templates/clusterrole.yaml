@@ -21,6 +21,9 @@ metadata:
   creationTimestamp: null
   name: {{ template "kube-doris.name" . }}-operator
 rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch]
   - apiGroups:
       - apps
     resources:

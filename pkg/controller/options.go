@@ -17,9 +17,12 @@
 
 package controller
 
+import "github.com/apache/doris-operator/pkg/controller/namespacescope"
+
 // operator start options
 type Options struct {
-	EnableWebHook bool
+	EnableWebHook  bool
+	NamespaceScope *namespacescope.Scope
 	// the operator name
 	Name string
 	//the secret name

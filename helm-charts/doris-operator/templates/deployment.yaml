@@ -81,6 +81,9 @@ spec:
             - /dorisoperator
           args:
             - --leader-elect
+            {{- if .Values.dorisOperator.namespaceSelector }}
+            - {{ printf "--namespace-selector=%s" .Values.dorisOperator.namespaceSelector | quote }}
+            {{- end }}
           image: {{ .Values.dorisOperator.image.repository }}:{{ .Values.dorisOperator.image.tag }}
           {{- if .Values.dorisOperator.image.imagePullPolicy }}
           imagePullPolicy: {{ .Values.dorisOperator.image.imagePullPolicy }}
@@ -93,7 +96,7 @@ spec:
                 - "ALL"
           env:
             - name: ENABLE_WEBHOOK
-              value: "{{ template  "webhook.enable" . }}"
+              value: {{ if .Values.dorisOperator.namespaceSelector }}"false"{{ else }}"{{ template "webhook.enable" . }}"{{ end }}
             - name: START_DISAGGREGATED_OPERATOR
               value: "true"
             - name: OPERATOR_NAMESPACE
