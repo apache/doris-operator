@@ -36,7 +36,7 @@ var (
 )
 
 const (
-	pvcFinalizerApache         = "apache.doris.org/pvc-finalizer"
+	PVCFinalizerApache         = "apache.doris.org/pvc-finalizer"
 	PVCManagerAnnotationApache = "apache.doris.org/pvc-manager"
 )
 
@@ -75,7 +75,7 @@ func BuildDisaggregatedPVC(
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: pvcTemplate.Annotations,
-			Finalizers:  []string{pvcFinalizerApache},
+			Finalizers:  []string{PVCFinalizerApache},
 		},
 		Spec: pvcTemplate.Spec,
 	}

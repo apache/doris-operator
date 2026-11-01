@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
@@ -62,6 +63,7 @@ func New(mgr ctrl.Manager) *DisaggregatedComputeGroupsController {
 	return &DisaggregatedComputeGroupsController{
 		DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
+			APIReader:      mgr.GetAPIReader(),
 			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedComputeGroupsController),
 			ControllerName: disaggregatedComputeGroupsController,
 		},
@@ -250,7 +252,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 	}
 
 	if !volumeClaimTemplatesEqual(st.Spec.VolumeClaimTemplates, est.Spec.VolumeClaimTemplates) {
-		msg := fmt.Sprintf("compute group %s storage template is immutable after creation; modifying BE file_cache_path or persistent volume settings requires recreating the compute group", cg.UniqueId)
+		msg := fmt.Sprintf("compute group %s storage template is immutable after creation; only capacity increases for operator-managed PVCs are supported; other persistent volume changes require recreating the compute group", cg.UniqueId)
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset immutable storage template changed, namespace=%s name=%s, err=%s", st.Namespace, st.Name, msg)
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.CGStorageTemplateImmutable, Message: msg}, errors.New(msg)
 	}
@@ -364,12 +366,27 @@ func volumeClaimTemplatesEqual(new, old []corev1.PersistentVolumeClaim) bool {
 	for i := range new {
 		normalizedNew[i] = normalizeVolumeClaimTemplate(new[i])
 		normalizedOld[i] = normalizeVolumeClaimTemplate(old[i])
+		// The StatefulSet template remains immutable, but operator-managed
+		// claims are expanded separately by ReconcilePVC using the CR spec.
+		// Ignore only non-decreasing capacity and its generated spec hash.
+		n, o := &normalizedNew[i], &normalizedOld[i]
+		if n.Annotations[resource.PVCManagerAnnotationApache] == string(dv1.PVCProvisionerOperator) &&
+			o.Annotations[resource.PVCManagerAnnotationApache] == string(dv1.PVCProvisionerOperator) {
+			requested := n.Spec.Resources.Requests[corev1.ResourceStorage]
+			existing := o.Spec.Resources.Requests[corev1.ResourceStorage]
+			if existing.Sign() > 0 && requested.Cmp(existing) >= 0 {
+				n.Spec.Resources.Requests[corev1.ResourceStorage] = existing.DeepCopy()
+				delete(n.Annotations, dorisv1.ComponentResourceHash)
+				delete(o.Annotations, dorisv1.ComponentResourceHash)
+			}
+		}
 	}
 
 	return equality.Semantic.DeepEqual(normalizedNew, normalizedOld)
 }
 
 func normalizeVolumeClaimTemplate(pvc corev1.PersistentVolumeClaim) corev1.PersistentVolumeClaim {
+	pvc = *pvc.DeepCopy()
 	pvc.TypeMeta = metav1.TypeMeta{}
 	pvc.ObjectMeta = metav1.ObjectMeta{
 		Name:        pvc.Name,
@@ -532,7 +549,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 	for i := range eCGs {
 		err = dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, eCGs[i])
 		if err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear ComputeGroup reduced replicas PVC failed, namespace=%s, ddc name=%s, uniqueId=%s err=%s", ddc.Namespace, ddc.Name, eCGs[i].UniqueId, err.Error())
+			return false, err
 		}
 	}
 
@@ -543,7 +560,7 @@ func (dcgs *DisaggregatedComputeGroupsController) ClearResources(ctx context.Con
 		}
 		err = dcgs.ClearStatefulsetUnusedPVCs(ctx, ddc, fakeCgs)
 		if err != nil {
-			klog.Errorf("disaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs clear deleted compute group failed, namespace=%s, ddc name=%s, uniqueId=%s err=%s", ddc.Namespace, ddc.Name, uniqueId, err.Error())
+			return false, err
 		}
 	}
 
@@ -655,73 +672,85 @@ func (dcgs *DisaggregatedComputeGroupsController) findUnusedStssAndUniqueIds(sts
 // 2.delete unused pvc for statefulset
 // 3.delete pvc if not used by any statefulset
 func (dcgs *DisaggregatedComputeGroupsController) ClearStatefulsetUnusedPVCs(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster, cgs dv1.ComputeGroupStatus) error {
+	// Destructive cleanup must not use informer snapshots after Sync has just
+	// created PVCs and patched the StatefulSet. Protect both desired replicas
+	// and replicas still owned by an in-progress graceful scale-down.
+	reader := dcgs.PVCReader()
+	var latest dv1.DorisDisaggregatedCluster
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(ddc), &latest); err != nil {
+		return client.IgnoreNotFound(err)
+	}
 	var cg *dv1.ComputeGroup
-	for i := range ddc.Spec.ComputeGroups {
-		/*	uniqueId := ddc.GetCGId(&ddc.Spec.ComputeGroups[i])
-			if clusterId == cgs.ClusterId {
-				cg = &ddc.Spec.ComputeGroups[i]
-			}*/
-		if ddc.Spec.ComputeGroups[i].UniqueId == cgs.UniqueId {
-			cg = &ddc.Spec.ComputeGroups[i]
+	for i := range latest.Spec.ComputeGroups {
+		if latest.Spec.ComputeGroups[i].UniqueId == cgs.UniqueId {
+			cg = &latest.Spec.ComputeGroups[i]
+			break
 		}
 	}
-
-	currentPVCs := corev1.PersistentVolumeClaimList{}
-	//pvcMap := make(map[string]*corev1.PersistentVolumeClaim)
-
-	pvcLabels := dcgs.newCGPodsSelector(ddc.Name, cgs.UniqueId)
-
-	if err := dcgs.K8sclient.List(ctx, &currentPVCs, client.InNamespace(ddc.Namespace), client.MatchingLabels(pvcLabels)); err != nil {
-		dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCListFailed, fmt.Sprintf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs list pvc failed:%s!", err.Error()))
-		return err
-	}
-
-	// now only clear scale down pod.
 	if cg == nil {
 		return nil
 	}
-
-	var clearPVC []string
-	//we should use statefulset replicas for avoiding the phase=scaleDown, when phase `scaleDown` cg' replicas is less than statefuslet.
-	stsName := ddc.GetCGStatefulsetName(cg)
-	sts, err := k8s.GetStatefulSet(ctx, dcgs.K8sclient, ddc.Namespace, stsName)
-	if err != nil {
-		klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs get statefulset namespace=%s, name=%s, failed, err=%s", ddc.Namespace, stsName, err.Error())
-		//waiting next reconciling.
+	stsName := latest.GetCGStatefulsetName(cg)
+	var sts appv1.StatefulSet
+	if err := reader.Get(ctx, types.NamespacedName{Namespace: latest.Namespace, Name: stsName}, &sts); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if !sts.DeletionTimestamp.IsZero() || sts.Spec.Replicas == nil || cg.Replicas == nil {
 		return nil
 	}
-	replicas := *sts.Spec.Replicas
-	for _, pvc := range currentPVCs.Items {
-		pvcName := pvc.Name
-		sl := strings.Split(pvcName, stsName+"-")
-		if len(sl) != 2 {
-			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s not format pvc name format.", ddc.Namespace, pvcName)
-			continue
-		}
-		var index int64
-		var perr error
-		index, perr = strconv.ParseInt(sl[1], 10, 32)
-		if perr != nil {
-			klog.Errorf("DisaggregatedComputeGroupsController ClearStatefulsetUnusedPVCs namespace %s name %s index parse failed, err=%s", ddc.Namespace, pvcName, perr.Error())
-			continue
-		}
-		if int32(index) >= replicas {
-			retain, err := runtimeconfig.RetainPVCOnScaleDown(sts, pvcName)
-			if err != nil {
-				return err
-			}
-			if retain {
-				continue
-			}
-			clearPVC = append(clearPVC, pvcName)
-		}
+	if latest.UID != "" && !ownerReference2ddc(&sts, &latest) {
+		return fmt.Errorf("refusing PVC cleanup for StatefulSet %s/%s with a different owner", sts.Namespace, sts.Name)
 	}
-
+	protectedReplicas := max(*cg.Replicas, *sts.Spec.Replicas)
+	pvcLabels := dcgs.newCGPodsSelector(latest.Name, cgs.UniqueId)
+	var currentPVCs corev1.PersistentVolumeClaimList
+	if err := reader.List(ctx, &currentPVCs, client.InNamespace(latest.Namespace), client.MatchingLabels(pvcLabels)); err != nil {
+		return err
+	}
 	var mergeError error
-	for _, pvcName := range clearPVC {
-		if err = k8s.DeletePVC(ctx, dcgs.K8sclient, ddc.Namespace, pvcName, pvcLabels); err != nil {
+	for i := range currentPVCs.Items {
+		pvc := &currentPVCs.Items[i]
+		// Only clean claims created by this Operator from known templates.
+		if pvc.Annotations[resource.PVCManagerAnnotationApache] != string(dv1.PVCProvisionerOperator) {
+			continue
+		}
+		ordinal := int64(-1)
+		for _, template := range sts.Spec.VolumeClaimTemplates {
+			prefix := template.Name + "-" + sts.Name + "-"
+			if strings.HasPrefix(pvc.Name, prefix) {
+				value := strings.TrimPrefix(pvc.Name, prefix)
+				if parsed, err := strconv.ParseInt(value, 10, 32); err == nil && parsed >= 0 && strconv.FormatInt(parsed, 10) == value {
+					ordinal = parsed
+				}
+				break
+			}
+		}
+		if ordinal < int64(protectedReplicas) {
+			continue
+		}
+		retain, err := runtimeconfig.RetainPVCOnScaleDown(&sts, pvc.Name)
+		if err != nil {
+			return err
+		}
+		if retain {
+			continue
+		}
+		// A newer scale request or StatefulSet update invalidates this cleanup
+		// snapshot. Retry rather than deleting against an obsolete decision.
+		var checkedDDC dv1.DorisDisaggregatedCluster
+		var checkedSTS appv1.StatefulSet
+		if err := reader.Get(ctx, client.ObjectKeyFromObject(&latest), &checkedDDC); err != nil {
+			return err
+		}
+		if err := reader.Get(ctx, client.ObjectKeyFromObject(&sts), &checkedSTS); err != nil {
+			return err
+		}
+		if checkedDDC.UID != latest.UID || checkedDDC.Generation != latest.Generation ||
+			checkedSTS.UID != sts.UID || checkedSTS.Generation != sts.Generation {
+			return fmt.Errorf("PVC cleanup snapshot changed for %s/%s; retrying", latest.Namespace, sts.Name)
+		}
+		if err := dcgs.DeleteUnusedPVC(ctx, pvc); err != nil {
 			dcgs.K8srecorder.Event(ddc, string(sc.EventWarning), sc.PVCDeleteFailed, err.Error())
-			klog.Errorf("ClearStatefulsetUnusedPVCs deletePVCs failed: namespace %s, name %s delete pvc %s, err: %s .", ddc.Namespace, pvcName, pvcName, err.Error())
 			mergeError = utils.MergeError(mergeError, err)
 		}
 	}

@@ -242,7 +242,11 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	// clear unused resources.
-	clearRes, clearErr := dc.clearUnusedResources(ctx, &ddc)
+	var clearRes ctrl.Result
+	var clearErr error
+	if reconErr == nil {
+		clearRes, clearErr = dc.clearUnusedResources(ctx, &ddc)
+	}
 	if clearErr != nil {
 		msg = msg + clearErr.Error()
 	}
@@ -281,11 +285,14 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 }
 
 func (dc *DisaggregatedClusterReconciler) clearUnusedResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
+	var errs []error
 	for _, subC := range dc.Scs {
-		subC.ClearResources(ctx, ddc)
+		if _, err := subC.ClearResources(ctx, ddc); err != nil {
+			errs = append(errs, fmt.Errorf("%s cleanup: %w", subC.GetControllerName(), err))
+		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, errors.Join(errs...)
 }
 
 func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {

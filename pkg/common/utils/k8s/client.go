@@ -119,7 +119,7 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 
 	st.ResourceVersion = est.ResourceVersion
 	err = PatchClientObject(ctx, k8sclient, st)
-	if err == nil || apierrors.IsConflict(err) {
+	if err == nil {
 		return nil
 	}
 	return err

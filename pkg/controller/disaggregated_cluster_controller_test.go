@@ -19,6 +19,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
@@ -33,7 +34,8 @@ import (
 )
 
 type fakeDisaggregatedSubController struct {
-	name string
+	name     string
+	clearErr error
 }
 
 func (f fakeDisaggregatedSubController) Sync(ctx context.Context, obj client.Object) error {
@@ -41,7 +43,7 @@ func (f fakeDisaggregatedSubController) Sync(ctx context.Context, obj client.Obj
 }
 
 func (f fakeDisaggregatedSubController) ClearResources(ctx context.Context, obj client.Object) (bool, error) {
-	return true, nil
+	return true, f.clearErr
 }
 
 func (f fakeDisaggregatedSubController) GetControllerName() string {
@@ -174,5 +176,16 @@ func newTestFDBConfigMap(clusterFile string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "fdb-system", Name: "fdb-a-config"},
 		Data:       map[string]string{metaservice.FDBClusterFileKey: clusterFile},
+	}
+}
+
+func TestCleanupErrorsAreReturned(t *testing.T) {
+	failure := errors.New("PVC cleanup conflict")
+	r := &DisaggregatedClusterReconciler{Scs: map[string]sc.DisaggregatedSubController{
+		"compute": fakeDisaggregatedSubController{name: "compute", clearErr: failure},
+	}}
+	_, err := r.clearUnusedResources(context.Background(), &dv1.DorisDisaggregatedCluster{})
+	if !errors.Is(err, failure) {
+		t.Fatalf("cleanup error was lost: %v", err)
 	}
 }
