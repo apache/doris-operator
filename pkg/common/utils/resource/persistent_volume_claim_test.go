@@ -35,8 +35,8 @@ func Test_BuildPVCAnnotations(t *testing.T) {
 	}
 
 	anno := buildPVCAnnotations(test)
-	if _, ok := anno[pvc_manager_annotation]; !ok {
-		t.Errorf("buildPVCAnnotations failed, not \"pvc_manager_annotation\" annotation.")
+	if _, ok := anno[PVCManagerAnnotationLegacy]; !ok {
+		t.Errorf("buildPVCAnnotations failed, not \"PVCManagerAnnotationLegacy\" annotation.")
 	}
 }
 

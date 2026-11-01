@@ -19,15 +19,18 @@ package sub_controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+// ErrPVCInUse means a scheduled Pod must release its claim before finalization.
+var ErrPVCInUse = errors.New("waiting for scheduled Pods to release deleting PVC")
 
 // PVCReader bypasses the informer cache for destructive lifecycle decisions.
 func (d *DisaggregatedSubDefaultController) PVCReader() client.Reader {
@@ -84,9 +87,11 @@ func (d *DisaggregatedSubDefaultController) FinishPVCDeletion(ctx context.Contex
 	if err := d.PVCReader().Get(ctx, client.ObjectKeyFromObject(pvc), &current); err != nil {
 		return client.IgnoreNotFound(err)
 	}
-	if current.UID != pvc.UID || current.DeletionTimestamp.IsZero() ||
-		current.Annotations[resource.PVCManagerAnnotationApache] != string(dv1.PVCProvisionerOperator) ||
-		!controllerutil.ContainsFinalizer(&current, resource.PVCFinalizerApache) {
+	if current.UID != pvc.UID || current.DeletionTimestamp.IsZero() {
+		return nil
+	}
+	finalizers := resource.ManagedPVCFinalizers(&current)
+	if len(finalizers) == 0 {
 		return nil
 	}
 	used, err := d.pvcReferenced(ctx, &current, true)
@@ -94,10 +99,12 @@ func (d *DisaggregatedSubDefaultController) FinishPVCDeletion(ctx context.Contex
 		return err
 	}
 	if used {
-		return fmt.Errorf("waiting for scheduled Pods to release deleting PVC %s/%s", current.Namespace, current.Name)
+		return fmt.Errorf("%w %s/%s", ErrPVCInUse, current.Namespace, current.Name)
 	}
 	before := current.DeepCopy()
-	controllerutil.RemoveFinalizer(&current, resource.PVCFinalizerApache)
+	for _, finalizer := range finalizers {
+		controllerutil.RemoveFinalizer(&current, finalizer)
+	}
 	return client.IgnoreNotFound(d.K8sclient.Patch(ctx, &current,
 		client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})))
 }

@@ -98,7 +98,7 @@ func init() {
 	//utilruntime.Must(v1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
-	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &unnamedwatches.WResource{})
+	controller.Controllers = append(controller.Controllers, &controller.DorisClusterReconciler{}, &controller.PVCFinalizerReconciler{}, &unnamedwatches.WResource{})
 	start := os.Getenv("START_DISAGGREGATED_OPERATOR")
 	if start == "true" {
 		controller.Controllers = append(controller.Controllers, &controller.DisaggregatedClusterReconciler{})
