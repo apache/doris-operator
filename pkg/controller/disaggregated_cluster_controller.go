@@ -281,6 +281,14 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	if msg != "" {
 		return res, errors.New(msg)
 	}
+	// A namespace-scoped cache cannot watch external ConfigMaps. Revisit
+	// cross-namespace FDB references even while healthy so connection changes
+	// propagate without requiring list/watch permissions outside our scope.
+	ref := ddc.Spec.MetaService.FDB.ConfigMapNamespaceName
+	if res.IsZero() && ddc.Spec.MetaService.FDB.Address == "" &&
+		ref.Name != "" && ref.Namespace != "" && ref.Namespace != ddc.Namespace {
+		res.RequeueAfter = time.Minute
+	}
 	return res, nil
 }
 

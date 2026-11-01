@@ -21,13 +21,16 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/disaggregated_cluster/metaservice"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -187,5 +190,48 @@ func TestCleanupErrorsAreReturned(t *testing.T) {
 	_, err := r.clearUnusedResources(context.Background(), &dv1.DorisDisaggregatedCluster{})
 	if !errors.Is(err, failure) {
 		t.Fatalf("cleanup error was lost: %v", err)
+	}
+}
+
+func TestReconcileRefreshesExternalFDBWhileHealthy(t *testing.T) {
+	for _, tc := range []struct {
+		name, refNamespace, address string
+		unhealthy                   bool
+		interval                    time.Duration
+	}{
+		{name: "external reference", refNamespace: "fdb-system", interval: time.Minute},
+		{name: "local reference uses existing watch", refNamespace: "doris-system"},
+		{name: "direct address takes precedence", refNamespace: "fdb-system", address: "fdb:direct@fdb-0:4500"},
+		{name: "unhealthy keeps faster retry", refNamespace: "fdb-system", unhealthy: true, interval: 10 * time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			if err := dv1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			ddc := &dv1.DorisDisaggregatedCluster{ObjectMeta: metav1.ObjectMeta{Name: "ddc", Namespace: "doris-system", Generation: 1,
+				Annotations: map[string]string{runtimeconfig.PolicyAnnotation: runtimeconfig.Legacy}}}
+			ddc.Spec.MetaService.FDB = dv1.FDB{Address: tc.address, ConfigMapNamespaceName: dv1.NamespaceName{Namespace: tc.refNamespace, Name: "fdb-config"}}
+			ddc.Status.ObservedGeneration = 1
+			ddc.Status.MetaServiceStatus.AvailableStatus = dv1.Available
+			ddc.Status.MetaServiceStatus.Phase = dv1.Ready
+			ddc.Status.FEStatus.AvailableStatus = dv1.Available
+			ddc.Status.FEStatus.Phase = dv1.Ready
+			ddc.Status.ClusterHealth.Health = dv1.Green
+			ddc.Status.ClusterHealth.CGCount = 1
+			ddc.Status.ClusterHealth.CGAvailableCount = 1
+			if tc.unhealthy {
+				ddc.Status.MetaServiceStatus.AvailableStatus = dv1.UnAvailable
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ddc).WithObjects(ddc).Build()
+			r := &DisaggregatedClusterReconciler{Client: c, Scs: map[string]sc.DisaggregatedSubController{"fake": fakeDisaggregatedSubController{}}}
+			result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(ddc)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.RequeueAfter != tc.interval {
+				t.Fatalf("retry=%v, want %v", result.RequeueAfter, tc.interval)
+			}
+		})
 	}
 }

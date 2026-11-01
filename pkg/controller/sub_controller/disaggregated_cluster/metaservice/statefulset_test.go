@@ -19,6 +19,7 @@ package metaservice
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
@@ -26,11 +27,14 @@ import (
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -163,4 +167,92 @@ func newFDBConfigMapTestDDC() *dv1.DorisDisaggregatedCluster {
 			}},
 		}},
 	}
+}
+
+// Model the real namespace cache: foreign ConfigMap reads must not go through it.
+type namespaceCachedClient struct {
+	client.Client
+	namespace string
+}
+
+func (c namespaceCachedClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*corev1.ConfigMap); ok && key.Namespace != c.namespace {
+		return fmt.Errorf("unknown namespace for the cache: %s", key.Namespace)
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+type forbiddenFDBReader struct{ client.Reader }
+
+func (r forbiddenFDBReader) Get(_ context.Context, key client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+	return apierrors.NewForbidden(schema.GroupResource{Resource: "configmaps"}, key.Name, fmt.Errorf("cross-namespace access denied"))
+}
+
+func TestSyncUsesAPIReaderForExternalFDBAndRefreshesEndpoint(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := appv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	ddc := newFDBConfigMapTestDDC()
+	ddc.Spec.MetaService.Replicas = pointer.Int32(1)
+	ddc.Spec.MetaService.Image = "apache/doris:ms-4.1.1"
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "fdb-system", Name: "fdb-a-config"},
+		Data: map[string]string{FDBClusterFileKey: "fdb:initial@fdb-0:4500"}}
+	live := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()
+	cached := namespaceCachedClient{Client: live, namespace: ddc.Namespace}
+	dms := &DisaggregatedMSController{DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
+		K8sclient: cached, APIReader: live, K8srecorder: record.NewFakeRecorder(20),
+	}}
+	assertEndpoint := func(want string) {
+		t.Helper()
+		var st appv1.StatefulSet
+		if err := live.Get(ctx, types.NamespacedName{Namespace: ddc.Namespace, Name: ddc.GetMSStatefulsetName()}, &st); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range st.Spec.Template.Spec.Containers {
+			for _, e := range c.Env {
+				if e.Name == resource.FDB_ENDPOINT {
+					if e.Value != want {
+						t.Fatalf("endpoint=%q, want=%q", e.Value, want)
+					}
+					return
+				}
+			}
+		}
+		t.Fatal("missing FDB endpoint")
+	}
+	if err := dms.Sync(ctx, ddc); err != nil {
+		t.Fatal(err)
+	}
+	assertEndpoint(cm.Data[FDBClusterFileKey])
+	if err := live.Get(ctx, client.ObjectKeyFromObject(cm), cm); err != nil {
+		t.Fatal(err)
+	}
+	cm.Data[FDBClusterFileKey] = "fdb:updated@fdb-1:4500"
+	if err := live.Update(ctx, cm); err != nil {
+		t.Fatal(err)
+	}
+	if err := dms.Sync(ctx, ddc); err != nil {
+		t.Fatal(err)
+	}
+	assertEndpoint(cm.Data[FDBClusterFileKey])
+	// APIReader must not bypass authorization or overwrite a working workload
+	// when the reference becomes inaccessible or disappears.
+	dms.APIReader = forbiddenFDBReader{Reader: live}
+	if err := dms.Sync(ctx, ddc); !apierrors.IsForbidden(err) {
+		t.Fatalf("expected forbidden, got %v", err)
+	}
+	assertEndpoint(cm.Data[FDBClusterFileKey])
+	dms.APIReader = live
+	if err := live.Delete(ctx, cm); err != nil {
+		t.Fatal(err)
+	}
+	if err := dms.Sync(ctx, ddc); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+	assertEndpoint(cm.Data[FDBClusterFileKey])
 }
