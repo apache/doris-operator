@@ -54,6 +54,14 @@ spec:
     nodeSelector:
     {{- toYaml .Values.msSpec.nodeSelector | nindent 6 }}
     {{- end }}
+    {{- if .Values.msSpec.tolerations }}
+    tolerations:
+    {{- toYaml .Values.msSpec.tolerations | nindent 4 }}
+    {{- end }}
+    {{- if .Values.msSpec.affinity }}
+    affinity:
+    {{- toYaml .Values.msSpec.affinity | nindent 6 }}
+    {{- end }}
   feSpec:
     replicas: {{ .Values.feSpec.replicas }}
     electionNumber: {{ include "fe.electionnumber" . }}
@@ -76,6 +84,18 @@ spec:
     persistentVolumes:
     {{- toYaml .Values.feSpec.persistentVolumes | nindent 4 }}
     {{- end }}
+    {{- if .Values.feSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml .Values.feSpec.nodeSelector | nindent 6 }}
+    {{- end }}
+    {{- if .Values.feSpec.tolerations }}
+    tolerations:
+    {{- toYaml .Values.feSpec.tolerations | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.affinity }}
+    affinity:
+    {{- toYaml .Values.feSpec.affinity | nindent 6 }}
+    {{- end }}
   computeGroups:
   {{- $originalContext := . -}}
   {{- range $index, $cgName := .Values.computeGroupNames }}
@@ -96,5 +116,17 @@ spec:
     {{- if $originalContext.Values.computeSpec.persistentVolumes }}
     persistentVolumes:
     {{- toYaml $originalContext.Values.computeSpec.persistentVolumes | nindent 4 }}
+    {{- end }}
+    {{- if $originalContext.Values.computeSpec.nodeSelector }}
+    nodeSelector:
+    {{- toYaml $originalContext.Values.computeSpec.nodeSelector | nindent 6 }}
+    {{- end }}
+    {{- if $originalContext.Values.computeSpec.tolerations }}
+    tolerations:
+    {{- toYaml $originalContext.Values.computeSpec.tolerations | nindent 4 }}
+    {{- end }}
+    {{- if $originalContext.Values.computeSpec.affinity }}
+    affinity:
+    {{- toYaml $originalContext.Values.computeSpec.affinity | nindent 6 }}
     {{- end }}
   {{- end }}
