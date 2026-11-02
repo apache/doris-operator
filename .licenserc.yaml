@@ -12,6 +12,10 @@ header:
     - 'licenses'
     - 'api/**/zz_generated.deepcopy.go'
     - 'config/crd/bases/*'
+    # Unmodified generated upstream CRDs; source/license/checksums are in UPSTREAM.md.
+    - 'config/fdb/v2.35.0/crds/apps.foundationdb.org_foundationdbclusters.yaml'
+    - 'config/fdb/v2.35.0/crds/apps.foundationdb.org_foundationdbbackups.yaml'
+    - 'config/fdb/v2.35.0/crds/apps.foundationdb.org_foundationdbrestores.yaml'
     - '**/*.md'
     - "**/*.json"
     - "**/*.txt"
