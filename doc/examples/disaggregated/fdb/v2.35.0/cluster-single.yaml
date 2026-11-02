@@ -1,0 +1,206 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: fdb-single
+  namespace: fdb-system
+spec:
+  version: 7.3.69
+  imageType: unified
+  mainContainer:
+    imageConfigs:
+    - version: 7.3.69
+      baseImage: selectdb/fdb-kubernetes-monitor
+      tag: 7.3.69
+  databaseConfiguration:
+    redundancy_mode: single
+    storage_engine: ssd-2
+    logs: 1
+    commit_proxies: 1
+    grv_proxies: 1
+    resolvers: 1
+  faultDomain:
+    key: kubernetes.io/hostname
+    valueFrom: spec.nodeName
+  storageServersPerPod: 1
+  logServersPerPod: 1
+  processCounts:
+    storage: 1
+    log: 1
+    stateless: 2
+  routing:
+    useDNSInClusterFile: true
+  useExplicitListenAddress: true
+  minimumUptimeSecondsForBounce: 60
+  automationOptions:
+    replacements:
+      enabled: true
+      maxConcurrentReplacements: 1
+  processes:
+    storage:
+      podTemplate:
+        spec:
+          serviceAccountName: fdb-monitor
+          automountServiceAccountToken: true
+          securityContext:
+            runAsUser: 4059
+            runAsGroup: 4059
+            fsGroup: 4059
+            runAsNonRoot: true
+          containers:
+          - name: foundationdb
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                cpu: '1'
+                memory: 2Gi
+          - name: foundationdb-kubernetes-sidecar
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 100m
+                memory: 256Mi
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      foundationdb.org/fdb-cluster-name: fdb-single
+                      foundationdb.org/fdb-process-class: storage
+      volumeClaimTemplate:
+        spec:
+          storageClassName: REPLACE_WITH_SSD_STORAGE_CLASS
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    log:
+      podTemplate:
+        spec:
+          serviceAccountName: fdb-monitor
+          automountServiceAccountToken: true
+          securityContext:
+            runAsUser: 4059
+            runAsGroup: 4059
+            fsGroup: 4059
+            runAsNonRoot: true
+          containers:
+          - name: foundationdb
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                cpu: '1'
+                memory: 2Gi
+          - name: foundationdb-kubernetes-sidecar
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 100m
+                memory: 256Mi
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      foundationdb.org/fdb-cluster-name: fdb-single
+                      foundationdb.org/fdb-process-class: log
+      volumeClaimTemplate:
+        spec:
+          storageClassName: REPLACE_WITH_SSD_STORAGE_CLASS
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    stateless:
+      podTemplate:
+        spec:
+          serviceAccountName: fdb-monitor
+          automountServiceAccountToken: true
+          securityContext:
+            runAsUser: 4059
+            runAsGroup: 4059
+            fsGroup: 4059
+            runAsNonRoot: true
+          containers:
+          - name: foundationdb
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: '1'
+                memory: 1Gi
+              limits:
+                cpu: '1'
+                memory: 2Gi
+          - name: foundationdb-kubernetes-sidecar
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 100m
+                memory: 256Mi
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      foundationdb.org/fdb-cluster-name: fdb-single
+                      foundationdb.org/fdb-process-class: stateless

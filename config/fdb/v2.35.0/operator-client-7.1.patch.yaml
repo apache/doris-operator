@@ -1,0 +1,58 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: fdb-kubernetes-operator-controller-manager
+    control-plane: controller-manager
+  name: fdb-kubernetes-operator-controller-manager
+  namespace: fdb-system
+spec:
+  template:
+    spec:
+      initContainers:
+      - args:
+        - --copy-library
+        - '7.1'
+        - --copy-binary
+        - fdbcli
+        - --copy-binary
+        - fdbbackup
+        - --copy-binary
+        - fdbrestore
+        - --output-dir
+        - /var/output-files
+        - --mode
+        - init
+        image: selectdb/fdb-kubernetes-monitor:7.1.67
+        name: foundationdb-kubernetes-init-7-1
+        volumeMounts:
+        - mountPath: /var/output-files
+          name: fdb-binaries
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+          limits:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
