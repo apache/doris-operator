@@ -30,15 +30,26 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	pvc_finalizer          = "selectdb.doris.com/pvc-finalizer"
-	pvc_manager_annotation = "selectdb.doris.com/pvc-manager"
-)
-
 const (
-	pvcFinalizerApache         = "apache.doris.org/pvc-finalizer"
+	PVCFinalizerLegacy         = "selectdb.doris.com/pvc-finalizer"
+	PVCManagerAnnotationLegacy = "selectdb.doris.com/pvc-manager"
+	PVCFinalizerApache         = "apache.doris.org/pvc-finalizer"
 	PVCManagerAnnotationApache = "apache.doris.org/pvc-manager"
 )
+
+// ManagedPVCFinalizers returns only our own finalizers whose corresponding
+// management annotation identifies an operator-provisioned claim. This remains
+// usable after the parent Doris CR has been deleted.
+func ManagedPVCFinalizers(pvc *corev1.PersistentVolumeClaim) []string {
+	var result []string
+	for _, finalizer := range pvc.Finalizers {
+		if (finalizer == PVCFinalizerLegacy && pvc.Annotations[PVCManagerAnnotationLegacy] == "operator") ||
+			(finalizer == PVCFinalizerApache && pvc.Annotations[PVCManagerAnnotationApache] == "operator") {
+			result = append(result, finalizer)
+		}
+	}
+	return result
+}
 
 func BuildPVCName(stsName, ordinal, volumeName string) string {
 	pvcName := stsName + "-" + ordinal
@@ -57,7 +68,7 @@ func BuildPVC(volume dorisv1.PersistentVolume, labels map[string]string, namespa
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: annotations,
-			Finalizers:  []string{pvc_finalizer},
+			Finalizers:  []string{PVCFinalizerLegacy},
 		},
 		Spec: volume.PersistentVolumeClaimSpec,
 	}
@@ -75,7 +86,7 @@ func BuildDisaggregatedPVC(
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: pvcTemplate.Annotations,
-			Finalizers:  []string{pvcFinalizerApache},
+			Finalizers:  []string{PVCFinalizerApache},
 		},
 		Spec: pvcTemplate.Spec,
 	}
@@ -86,7 +97,7 @@ func BuildDisaggregatedPVC(
 func buildPVCAnnotations(volume dorisv1.PersistentVolume) Annotations {
 	annotations := Annotations{}
 	if volume.PVCProvisioner == dorisv1.PVCProvisionerOperator {
-		annotations.Add(pvc_manager_annotation, "operator")
+		annotations.Add(PVCManagerAnnotationLegacy, "operator")
 		annotations.Add(dorisv1.ComponentResourceHash, hash.HashObject(volume.PersistentVolumeClaimSpec))
 	}
 

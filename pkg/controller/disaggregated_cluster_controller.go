@@ -242,7 +242,11 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	// clear unused resources.
-	clearRes, clearErr := dc.clearUnusedResources(ctx, &ddc)
+	var clearRes ctrl.Result
+	var clearErr error
+	if reconErr == nil {
+		clearRes, clearErr = dc.clearUnusedResources(ctx, &ddc)
+	}
 	if clearErr != nil {
 		msg = msg + clearErr.Error()
 	}
@@ -277,15 +281,26 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	if msg != "" {
 		return res, errors.New(msg)
 	}
+	// A namespace-scoped cache cannot watch external ConfigMaps. Revisit
+	// cross-namespace FDB references even while healthy so connection changes
+	// propagate without requiring list/watch permissions outside our scope.
+	ref := ddc.Spec.MetaService.FDB.ConfigMapNamespaceName
+	if res.IsZero() && ddc.Spec.MetaService.FDB.Address == "" &&
+		ref.Name != "" && ref.Namespace != "" && ref.Namespace != ddc.Namespace {
+		res.RequeueAfter = time.Minute
+	}
 	return res, nil
 }
 
 func (dc *DisaggregatedClusterReconciler) clearUnusedResources(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
+	var errs []error
 	for _, subC := range dc.Scs {
-		subC.ClearResources(ctx, ddc)
+		if _, err := subC.ClearResources(ctx, ddc); err != nil {
+			errs = append(errs, fmt.Errorf("%s cleanup: %w", subC.GetControllerName(), err))
+		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, errors.Join(errs...)
 }
 
 func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {

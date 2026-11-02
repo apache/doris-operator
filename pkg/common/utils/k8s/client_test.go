@@ -24,12 +24,15 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func Test_ApplyService(t *testing.T) {
@@ -238,5 +241,18 @@ func Test_DeletePVC(t *testing.T) {
 		if err != nil {
 			t.Errorf("delete pvc failed, pvc name=%s, err=%s", nn.Name, err.Error())
 		}
+	}
+}
+
+func TestApplyStatefulSetReturnsConflict(t *testing.T) {
+	st := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "cg", Namespace: "default"}}
+	c := fake.NewClientBuilder().WithObjects(st).WithInterceptorFuncs(interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			return apierrors.NewConflict(schema.GroupResource{Group: "apps", Resource: "statefulsets"}, obj.GetName(), nil)
+		},
+	}).Build()
+	err := ApplyStatefulSet(context.Background(), c, st.DeepCopy(), func(_, _ *appv1.StatefulSet) bool { return false })
+	if !apierrors.IsConflict(err) {
+		t.Fatalf("expected conflict to stop reconciliation, got %v", err)
 	}
 }

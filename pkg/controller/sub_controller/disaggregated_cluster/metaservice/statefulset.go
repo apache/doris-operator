@@ -22,13 +22,13 @@ import (
 	"fmt"
 
 	v1 "github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/metadata"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -150,8 +150,15 @@ func (dms *DisaggregatedMSController) resolveFDBEndpoint(ctx context.Context, dd
 		return "", fmt.Errorf("FDB address or ConfigMap reference is not configured")
 	}
 
-	cm, err := k8s.GetConfigMap(ctx, dms.K8sclient, ref.Namespace, ref.Name)
-	if err != nil {
+	// Referenced FDB ConfigMaps may be outside this Operator's cached
+	// namespaces. Read the API directly without expanding workload ownership.
+	// The API server still enforces this Operator's RBAC permissions.
+	reader := dms.APIReader
+	if reader == nil {
+		reader = dms.K8sclient
+	}
+	var cm corev1.ConfigMap
+	if err := reader.Get(ctx, types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}, &cm); err != nil {
 		return "", fmt.Errorf("get FDB ConfigMap %s/%s: %w", ref.Namespace, ref.Name, err)
 	}
 	fdbEndpoint, ok := cm.Data[FDBClusterFileKey]

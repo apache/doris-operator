@@ -79,6 +79,7 @@ type DisaggregatedSubController interface {
 
 type DisaggregatedSubDefaultController struct {
 	K8sclient      client.Client
+	APIReader      client.Reader
 	K8srecorder    record.EventRecorder
 	ControllerName string
 }
@@ -433,6 +434,13 @@ func (d *DisaggregatedSubDefaultController) ReconcilePVC(
 				continue
 			}
 
+			if !oldPvc.DeletionTimestamp.IsZero() {
+				if err := d.FinishPVCDeletion(ctx, oldPvc); err != nil {
+					return &Event{Type: EventWarning, Reason: PVCDeleteFailed, Message: err.Error()}, err
+				}
+				return nil, fmt.Errorf("waiting for deleting PVC %s/%s before recreating it", oldPvc.Namespace, oldPvc.Name)
+			}
+
 			oldQuantity := oldPvc.Spec.Resources.Requests[corev1.ResourceStorage]
 			newQuantity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
 			//if !oldQuantity.Equal(newQuantity){
@@ -452,7 +460,7 @@ func (d *DisaggregatedSubDefaultController) ReconcilePVC(
 			if oldQuantity.Cmp(newQuantity) == 1 {
 				message := fmt.Sprintf("ReconcilePVC pvc resize is rejected, PVC shrinking is not supported. namespace: %s, ddc name: %s, resize pvc %s", ddc.Namespace, ddc.Name, pvc.Name)
 				klog.Warningf(message)
-				d.K8srecorder.Event(ddc, string(EventWarning), PVCUpdateFailed, message)
+				return &Event{Type: EventWarning, Reason: PVCUpdateFailed, Message: message}, fmt.Errorf("%s", message)
 			}
 
 		}

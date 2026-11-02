@@ -53,6 +53,7 @@ func New(mgr ctrl.Manager) *DisaggregatedFEController {
 	return &DisaggregatedFEController{
 		DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
+			APIReader:      mgr.GetAPIReader(),
 			K8srecorder:    mgr.GetEventRecorderFor(disaggregatedFEController),
 			ControllerName: disaggregatedFEController},
 	}

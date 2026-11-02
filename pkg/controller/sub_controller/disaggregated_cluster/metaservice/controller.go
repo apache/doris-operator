@@ -153,6 +153,7 @@ func New(mgr ctrl.Manager) *DisaggregatedMSController {
 	return &DisaggregatedMSController{
 		sc.DisaggregatedSubDefaultController{
 			K8sclient:      mgr.GetClient(),
+			APIReader:      mgr.GetAPIReader(),
 			K8srecorder:    mgr.GetEventRecorderFor(metaServiceController),
 			ControllerName: metaServiceController,
 		}}
