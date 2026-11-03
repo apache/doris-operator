@@ -21,6 +21,7 @@ import (
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appv1 "k8s.io/api/apps/v1"
+	"k8s.io/utils/ptr"
 )
 
 func (be *Controller) buildBEStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}) appv1.StatefulSet {
@@ -31,4 +32,12 @@ func (be *Controller) buildBEStatefulSet(dcr *v1.DorisCluster, config map[string
 
 func (be *Controller) useNewDefaultValuesInStatefulset(st *appv1.StatefulSet) {
 	resource.UseNewDefaultInitContainerImage(&st.Spec.Template)
+}
+
+// statefulSetsEqual preserves the shared hash and legacy-env comparison, then
+// verifies the replica count owned by the native BE controller.
+func (be *Controller) statefulSetsEqual(new, old *appv1.StatefulSet) bool {
+	be.RestrictConditionsEqual(new, old)
+	equal := resource.StatefulSetDeepEqual(new, old, false)
+	return equal && ptr.Equal(new.Spec.Replicas, old.Spec.Replicas)
 }
