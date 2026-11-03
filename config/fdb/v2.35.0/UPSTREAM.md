@@ -2,7 +2,9 @@
 
 Source: https://github.com/FoundationDB/fdb-kubernetes-operator/tree/fd8fdbd2c6d14375116e97977f1f49e3d17b84a3
 
-CRDs are copied byte-for-byte from this revision (Apache-2.0). SHA-256:
+CRDs are downloaded from the [VeloDB mirror at tag `v2.35.0`](https://github.com/velodb/fdb-kubernetes-operator/tree/v2.35.0/config/crd/bases),
+which points to the upstream revision above (Apache-2.0). This versioned installation
+path does not keep CRD copies in this repository. SHA-256 of the downloaded files:
 
 - `apps.foundationdb.org_foundationdbclusters.yaml`: `e6921ca3fb10559adb71e8e1836b284df92627d54147f011b1f23863ee636909`
 - `apps.foundationdb.org_foundationdbbackups.yaml`: `0a4e293c97d8e400cf833d76869235c48e421e8a16ec657ccb75f60ad1b00898`

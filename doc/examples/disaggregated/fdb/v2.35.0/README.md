@@ -11,7 +11,9 @@ Use only one profile. No running-cluster validation is implied by these samples.
 - No existing controller watching `fdb-system`. CRDs are cluster-wide: check all
   existing FDB installations before installing these definitions. Do not overwrite
   shared CRDs or delete CRDs as an upgrade mechanism.
-- Operator and CRDs: v2.35.0, sourced from upstream commit
+- Operator and CRDs: v2.35.0. Download CRDs from
+  [the VeloDB mirror](https://github.com/velodb/fdb-kubernetes-operator/tree/v2.35.0/config/crd/bases),
+  pinned to upstream commit
   `fd8fdbd2c6d14375116e97977f1f49e3d17b84a3`. See
   [provenance and CRD checksums](../../../../../config/fdb/v2.35.0/UPSTREAM.md).
 - Controller: `selectdb/fdb-kubernetes-operator:v2.35.0`.
@@ -66,7 +68,11 @@ its maintainer. Otherwise:
 
 ```sh
 kubectl --kubeconfig "$KUBECONFIG" create namespace fdb-system
-kubectl --kubeconfig "$KUBECONFIG" apply --server-side -f config/fdb/v2.35.0/crds/
+FDB_CRDS=https://raw.githubusercontent.com/velodb/fdb-kubernetes-operator/v2.35.0/config/crd/bases
+for resource in clusters backups restores; do
+  kubectl --kubeconfig "$KUBECONFIG" apply --server-side \
+    -f "$FDB_CRDS/apps.foundationdb.org_foundationdb${resource}.yaml"
+done
 kubectl --kubeconfig "$KUBECONFIG" wait --for=condition=Established --timeout=60s \
   crd/foundationdbclusters.apps.foundationdb.org \
   crd/foundationdbbackups.apps.foundationdb.org \
