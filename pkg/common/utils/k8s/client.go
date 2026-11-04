@@ -116,6 +116,10 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 	}
 
 	updated := est.DeepCopy()
+	// Keep API validation of immutable fields instead of silently accepting unsupported changes.
+	updated.Spec.ServiceName = st.Spec.ServiceName
+	updated.Spec.Selector = st.Spec.Selector
+	updated.Spec.VolumeClaimTemplates = st.Spec.VolumeClaimTemplates
 	updated.Spec.Replicas = st.Spec.Replicas
 	updated.Spec.Template = *st.Spec.Template.DeepCopy()
 	// Preserve metadata supplied by other controllers and rollout tools.

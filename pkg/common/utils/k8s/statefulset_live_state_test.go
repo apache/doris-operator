@@ -24,6 +24,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -146,5 +147,36 @@ func TestStatefulSetReconcileWithAPIDefaults(t *testing.T) {
 	}
 	if got.ResourceVersion != rv {
 		t.Fatal("repeated reconcile patched unchanged workload")
+	}
+}
+
+func TestStatefulSetApplyReturnsImmutableFieldError(t *testing.T) {
+	env := &envtest.Environment{}
+	cfg, err := env.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := env.Stop(); err != nil {
+			t.Error(err)
+		}
+	})
+	c, err := client.New(cfg, client.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := c.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}); err != nil {
+		t.Fatal(err)
+	}
+	current := liveSTS()
+	if err := c.Create(ctx, current); err != nil {
+		t.Fatal(err)
+	}
+	desired := liveSTS()
+	desired.Spec.ServiceName = "different-headless-service"
+	err = k8s.ApplyStatefulSet(ctx, c, desired, func(n, o *appsv1.StatefulSet) bool { return resource.StatefulSetDeepEqual(n, o, false) })
+	if !apierrors.IsInvalid(err) {
+		t.Fatalf("immutable change was silently ignored: %v", err)
 	}
 }
