@@ -260,8 +260,8 @@ func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1
 
 func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dorisv1.DorisCluster{}).
-		Owns(&appv1.StatefulSet{}).
-		Owns(&corev1.Service{})
+		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
+		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner)
 }
 
 func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
