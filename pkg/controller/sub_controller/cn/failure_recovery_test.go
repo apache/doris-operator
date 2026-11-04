@@ -22,6 +22,7 @@ import (
 	"errors"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -58,5 +59,20 @@ func TestCNCleanupRetriesAfterDeleteFailure(t *testing.T) {
 	}
 	if len(list.Items) != 0 {
 		t.Fatal("cleanup skipped resources after status was lost")
+	}
+}
+
+func TestCNAutoscalerCleanupIsIdempotent(t *testing.T) {
+	for _, initial := range []*v1.HorizontalScaler{{Name: "cn-hpa", Version: v1.AutoSclaerV2}, {}} {
+		t.Run(initial.Name, func(t *testing.T) {
+			dcr := &v1.DorisCluster{ObjectMeta: metav1.ObjectMeta{Name: "doris", Namespace: "test"}, Status: v1.DorisClusterStatus{CnStatus: &v1.CnStatus{HorizontalScaler: initial}}}
+			c := newCnController(t)
+			c.K8sclient = fake.NewClientBuilder().WithObjects(&autoscalingv2.HorizontalPodAutoscaler{ObjectMeta: metav1.ObjectMeta{Name: "cn-hpa", Namespace: "test"}}).Build()
+			for i := 0; i < 2; i++ {
+				if done, err := c.ClearResources(context.Background(), dcr); !done || err != nil {
+					t.Fatalf("cleanup %d: done=%v err=%v", i, done, err)
+				}
+			}
+		})
 	}
 }

@@ -237,7 +237,7 @@ func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisClus
 }
 
 func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCluster) error {
-	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil {
+	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil || dcr.Status.CnStatus.HorizontalScaler.Name == "" {
 		return nil
 	}
 
@@ -248,7 +248,7 @@ func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCl
 		return err
 	}
 
-	dcr.Status.CnStatus.HorizontalScaler = &dorisv1.HorizontalScaler{}
+	dcr.Status.CnStatus.HorizontalScaler = nil
 	return nil
 }
 
