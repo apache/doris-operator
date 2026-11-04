@@ -80,7 +80,8 @@ func Test_StatefulsetSetDeepEqual(t *testing.T) {
 
 	nsts := []*appv1.StatefulSet{nst, envNotEqualNst, annoExistEqualNst}
 	osts := []*appv1.StatefulSet{ost, envNotEqualOst, annoExistEqualOst}
-	ress := []bool{true, false, true}
+	// Harmless legacy duplicates are compared against live fields, without requiring a hash annotation.
+	ress := []bool{true, true, true}
 	for i := 0; i < len(nsts); i++ {
 		res := StatefulSetDeepEqual(nsts[i], osts[i], false)
 		if res != ress[i] {

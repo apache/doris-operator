@@ -99,13 +99,11 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 		return err
 	}
 
-	//check the statefulset need update or not.
-	ev := equal(st, &est)
-
-	// apply pre-processing before create statefulset
+	// Render the final desired template before comparing, including the BE init image.
 	for _, pasf := range pasfs {
 		pasf(st, nil)
 	}
+	ev := equal(st, &est)
 
 	if create {
 		return CreateClientObject(ctx, k8sclient, st)
@@ -117,12 +115,43 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 		return nil
 	}
 
-	st.ResourceVersion = est.ResourceVersion
-	err = PatchClientObject(ctx, k8sclient, st)
-	if err == nil {
-		return nil
+	updated := est.DeepCopy()
+	updated.Spec.Replicas = st.Spec.Replicas
+	updated.Spec.Template = *st.Spec.Template.DeepCopy()
+	// Preserve metadata supplied by other controllers and rollout tools.
+	templateMeta := est.Spec.Template.ObjectMeta.DeepCopy()
+	if templateMeta.Labels == nil {
+		templateMeta.Labels = map[string]string{}
 	}
-	return err
+	for key, value := range st.Spec.Template.Labels {
+		templateMeta.Labels[key] = value
+	}
+	if templateMeta.Annotations == nil {
+		templateMeta.Annotations = map[string]string{}
+	}
+	for key, value := range st.Spec.Template.Annotations {
+		templateMeta.Annotations[key] = value
+	}
+	updated.Spec.Template.ObjectMeta = *templateMeta
+	if st.Spec.UpdateStrategy.Type != "" {
+		updated.Spec.UpdateStrategy = st.Spec.UpdateStrategy
+	}
+	if st.Spec.RevisionHistoryLimit != nil {
+		updated.Spec.RevisionHistoryLimit = st.Spec.RevisionHistoryLimit
+	}
+	if updated.Labels == nil {
+		updated.Labels = map[string]string{}
+	}
+	for key, value := range st.Labels {
+		updated.Labels[key] = value
+	}
+	if updated.Annotations == nil {
+		updated.Annotations = map[string]string{}
+	}
+	for key, value := range st.Annotations {
+		updated.Annotations[key] = value
+	}
+	return k8sclient.Patch(ctx, updated, client.MergeFromWithOptions(&est, client.MergeFromWithOptimisticLock{}))
 }
 
 func ApplyDorisCluster(ctx context.Context, k8sclient client.Client, dcr *dorisv1.DorisCluster) error {

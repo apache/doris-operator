@@ -23,8 +23,9 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/metadata"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -90,133 +91,99 @@ func NewStatefulSet(dcr *v1.DorisCluster, config map[string]interface{}, compone
 	return st
 }
 
-// StatefulSetDeepEqual judge two statefulset equal or not.
-func StatefulSetDeepEqual(new *appv1.StatefulSet, old *appv1.StatefulSet, excludeReplicas bool) bool {
-	equal := StatefulsetDeepEqualWithKey(new, old, v1.ComponentResourceHash, excludeReplicas)
-	if !equal {
-		return clear_config_env_path_numbers_alwaysEquals(new, old, v1.ComponentResourceHash, excludeReplicas)
-
+// StatefulSetDeepEqual compares live managed fields and preserves harmless
+// duplicate CONFIGMAP_MOUNT_PATH entries left by older native operators.
+func StatefulSetDeepEqual(new, old *appv1.StatefulSet, excludeReplicas bool) bool {
+	if StatefulsetDeepEqualWithKey(new, old, v1.ComponentResourceHash, excludeReplicas) {
+		return true
 	}
-
-	return true
+	return clear_config_env_path_numbers_alwaysEquals(new, old, v1.ComponentResourceHash, excludeReplicas)
 }
 
-// clear duplicate env for compatible 1.4.1, 1.5.1,1.6.1
-// Note, Note,Note, please delete the logic code in 2024.12.31,
-// used deepcopy for envs will assign to new and the operation will result new updated in unexpected.
-func clear_config_env_path_numbers_alwaysEquals(new *appv1.StatefulSet, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
-	newAvoidEnvsSt := new.DeepCopy()
-	var newEnvs []corev1.EnvVar
-	//for find the main container position for assign envs to new equal.
-	nMainContainerIndex := -1
-	for i, c := range new.Spec.Template.Spec.Containers {
-		if c.Name == string(v1.Component_FE) || c.Name == string(v1.Component_BE) || c.Name == string(v1.Component_CN) || c.Name == string(v1.Component_Broker) {
-			for _, env := range c.Env {
-				newEnv := env.DeepCopy()
-				newEnvs = append(newEnvs, *newEnv)
-			}
-			nMainContainerIndex = i
-			break
+func clear_config_env_path_numbers_alwaysEquals(new, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
+	candidate := new.DeepCopy()
+	for i := range candidate.Spec.Template.Spec.Containers {
+		container := &candidate.Spec.Template.Spec.Containers[i]
+		if container.Name != string(v1.Component_FE) && container.Name != string(v1.Component_BE) && container.Name != string(v1.Component_CN) && container.Name != string(v1.Component_Broker) {
+			continue
 		}
-	}
-
-	var oldEnvs []corev1.EnvVar
-	for _, c := range old.Spec.Template.Spec.Containers {
-		if c.Name == string(v1.Component_FE) || c.Name == string(v1.Component_BE) || c.Name == string(v1.Component_CN) || c.Name == string(v1.Component_Broker) {
-			oldEnvs = c.Env
-			break
-		}
-	}
-
-	for i := 0; i < len(newEnvs); i++ {
-		if newEnvs[i].Name == config_env_name {
-			newEnvs = append(newEnvs[:i], newEnvs[i+1:]...)
-			i--
-		}
-	}
-
-	poss := []int{}
-	for i := 0; i < len(oldEnvs); i++ {
-		if oldEnvs[i].Name == config_env_name {
-			poss = append(poss, i)
-		}
-	}
-	for i := 0; i < len(poss); i++ {
-		if poss[i] >= len(newEnvs) {
-			newEnvs = append(newEnvs, corev1.EnvVar{Name: config_env_name, Value: config_env_path})
-		} else {
-			index := poss[i]
-			lastEnvs := append([]corev1.EnvVar{{Name: config_env_name, Value: config_env_path}}, newEnvs[index:]...)
-			newEnvs = append(newEnvs[:index], lastEnvs...)
-		}
-	}
-
-	if len(newEnvs) != len(oldEnvs) {
-		return false
-	} else {
-		for i := 0; i < len(newEnvs); i++ {
-			if newEnvs[i].Name != oldEnvs[i].Name {
-				return false
-			}
-			if newEnvs[i].Value != "" && newEnvs[i].Value != oldEnvs[i].Value {
-				return false
+		var previous *corev1.Container
+		for j := range old.Spec.Template.Spec.Containers {
+			if old.Spec.Template.Spec.Containers[j].Name == container.Name {
+				previous = &old.Spec.Template.Spec.Containers[j]
+				break
 			}
 		}
-	}
-
-	newAvoidEnvsSt.Spec.Template.Spec.Containers[nMainContainerIndex].Env = newEnvs
-	if *new.Spec.Replicas == *old.Spec.Replicas {
-		nAvoidOb := statefulSetHashObject(newAvoidEnvsSt, excludeReplicas)
-		nAvoidHash := hash.HashObject(nAvoidOb)
-		oldHash := old.Annotations[annoKey]
-		return nAvoidHash == oldHash
-	} else {
-		*newAvoidEnvsSt.Spec.Replicas = *old.Spec.Replicas
-		nAvoidOb := statefulSetHashObject(newAvoidEnvsSt, excludeReplicas)
-		nAvoidHash := hash.HashObject(nAvoidOb)
-		oldHash := old.Annotations[annoKey]
-		if nAvoidHash == oldHash {
-			new.Spec.Template.Spec.Containers[nMainContainerIndex].Env = newEnvs
+		if previous == nil {
+			return false
 		}
-		return false
+		var expected []corev1.EnvVar
+		for _, env := range container.Env {
+			if env.Name == config_env_name {
+				if env.Value != config_env_path || env.ValueFrom != nil {
+					return false
+				}
+			} else {
+				expected = append(expected, env)
+			}
+		}
+		var compatible []corev1.EnvVar
+		next := 0
+		for _, env := range previous.Env {
+			if env.Name == config_env_name {
+				if env.Value != config_env_path || env.ValueFrom != nil {
+					return false
+				}
+				compatible = append(compatible, env)
+			} else {
+				if next >= len(expected) {
+					return false
+				}
+				compatible = append(compatible, expected[next])
+				next++
+			}
+		}
+		if next != len(expected) {
+			return false
+		}
+		container.Env = compatible
+		// Only preserve the legacy layout when every other managed template field
+		// matches. Replica changes must not trigger a rolling update of these pods.
+		if !StatefulsetDeepEqualWithKey(candidate, old, annoKey, true) {
+			return false
+		}
+		new.Spec.Template.Spec.Containers[i].Env = compatible
+		return StatefulsetDeepEqualWithKey(new, old, annoKey, excludeReplicas)
 	}
+	return false
 }
 
 func StatefulsetDeepEqualWithKey(new, old *appv1.StatefulSet, annoKey string, excludeReplicas bool) bool {
-	/*	if omit {
-		newHso := statefulSetHashObject(new, excludeReplicas)
-		newHashv := hash.HashObject(newHso)
-		oldHso := statefulSetHashObject(old, excludeReplicas)
-		oldHashv := hash.HashObject(oldHso)
-		return new.Namespace == old.Namespace && newHashv == oldHashv
-	}*/
-	var newHashv, oldHashv string
 	if annoKey == "" {
 		annoKey = v1.ComponentResourceHash
 	}
-
-	if _, ok := new.Annotations[annoKey]; ok {
-		newHashv = new.Annotations[annoKey]
-	} else {
-		newHso := statefulSetHashObject(new, excludeReplicas)
-		newHashv = hash.HashObject(newHso)
+	annotations := NewAnnotations(Annotations(new.Annotations))
+	annotations[annoKey] = hash.HashObject(statefulSetHashObject(new, excludeReplicas))
+	new.Annotations = annotations
+	if new.Name != old.Name || new.Namespace != old.Namespace {
+		return false
 	}
-
-	if _, ok := old.Annotations[annoKey]; ok {
-		oldHashv = old.Annotations[annoKey]
-	} else {
-		oldHso := statefulSetHashObject(old, excludeReplicas)
-		oldHashv = hash.HashObject(oldHso)
+	if !excludeReplicas && ptr.Deref(new.Spec.Replicas, int32(1)) != ptr.Deref(old.Spec.Replicas, int32(1)) {
+		return false
 	}
-
-	anno := Annotations{}
-	anno.AddAnnotation(new.Annotations)
-	anno.Add(annoKey, newHashv)
-	new.Annotations = anno
-
-	klog.Info("the statefulset name "+new.Name+" new hash value ", newHashv, " old have value ", oldHashv)
-	return newHashv == oldHashv &&
-		new.Namespace == old.Namespace
+	if new.Spec.ServiceName != old.Spec.ServiceName || !equality.Semantic.DeepEqual(new.Spec.Selector, old.Spec.Selector) {
+		return false
+	}
+	for key, value := range new.Labels {
+		if actual, ok := old.Labels[key]; !ok || actual != value {
+			return false
+		}
+	}
+	if !statefulSetStrategyEqual(new.Spec.UpdateStrategy, old.Spec.UpdateStrategy) {
+		return false
+	}
+	return equality.Semantic.DeepEqual(normalizedPodTemplate(new.Spec.Template, new.Spec.Template), normalizedPodTemplate(old.Spec.Template, new.Spec.Template)) &&
+		equality.Semantic.DeepEqual(normalizedClaimTemplates(new.Spec.VolumeClaimTemplates), normalizedClaimTemplates(old.Spec.VolumeClaimTemplates))
 }
 
 // hashStatefulsetObject contains the info for hash comparison.
