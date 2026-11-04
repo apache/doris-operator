@@ -161,6 +161,9 @@ func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSe
 		klog.Errorf("CnController Sync create statefulset name=%s, namespace=%s error=%s", st.Name, st.Namespace, err.Error())
 		return err
 	}
+	if err := k8s.ValidateResourceOwnership(st, &est); err != nil {
+		return err
+	}
 	//if the spec is changed, update the status of cn on src.
 	var excludeReplica bool
 	//if replicas =0 and not the first time, exclude the hash for autoscaler

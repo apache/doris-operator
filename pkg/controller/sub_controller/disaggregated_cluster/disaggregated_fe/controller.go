@@ -291,6 +291,10 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		return nil, err
 	}
 
+	if err := k8s.ValidateResourceOwner(cluster, &est); err != nil {
+		return nil, err
+	}
+
 	var replicas int32
 	if cluster.Spec.FeSpec.Replicas != nil {
 		replicas = *cluster.Spec.FeSpec.Replicas
