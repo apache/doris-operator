@@ -18,6 +18,8 @@
 package resource
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
+	"maps"
 	"strings"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
@@ -374,26 +376,68 @@ func ServiceDeepEqualWithAnnoKey(nsvc, osvc *corev1.Service, annoKey string) boo
 	if annoKey == "" {
 		annoKey = v1.ComponentResourceHash
 	}
-
-	var newHashValue, oldHashValue string
-	if _, ok := nsvc.Annotations[annoKey]; ok {
-		newHashValue = nsvc.Annotations[annoKey]
-	} else {
-		newHashService := serviceHashObject(nsvc, set.NewSetString(annoKey))
-		newHashValue = hash.HashObject(newHashService)
+	// The annotation describes the last desired object, not the current API state.
+	desiredHash := hash.HashObject(serviceHashObject(nsvc, set.NewSetString(annoKey)))
+	nsvc.Annotations = mergeMaps(nsvc.Annotations, map[string]string{annoKey: desiredHash})
+	n, o := NormalizedServiceSpec(nsvc, osvc), NormalizedServiceSpec(osvc, nil)
+	if nsvc.Name != osvc.Name || nsvc.Namespace != osvc.Namespace || n.Type != o.Type ||
+		n.SessionAffinity != o.SessionAffinity || n.PublishNotReadyAddresses != o.PublishNotReadyAddresses ||
+		n.LoadBalancerIP != o.LoadBalancerIP || !maps.Equal(n.Selector, o.Selector) || !equality.Semantic.DeepEqual(n.Ports, o.Ports) {
+		return false
 	}
-
-	if _, ok := osvc.Annotations[annoKey]; ok {
-		oldHashValue = osvc.Annotations[annoKey]
-	} else {
-		oldHashService := serviceHashObject(osvc, set.NewSetString(annoKey))
-		oldHashValue = hash.HashObject(oldHashService)
+	for key, value := range nsvc.Labels {
+		if actual, ok := osvc.Labels[key]; !ok || actual != value {
+			return false
+		}
 	}
+	for key, value := range nsvc.Annotations {
+		if actual, ok := osvc.Annotations[key]; key != annoKey && (!ok || actual != value) {
+			return false
+		}
+	}
+	return true
+}
 
-	// set hash value in annotation for avoiding deep equal.
-	nsvc.Annotations = mergeMaps(nsvc.Annotations, map[string]string{annoKey: newHashValue})
-	return newHashValue == oldHashValue &&
-		nsvc.Namespace == osvc.Namespace
+// NormalizedServiceSpec defaults only fields constructed by the operator and
+// retains API/cloud allocated values when the CR leaves them unspecified.
+func NormalizedServiceSpec(svc, existing *corev1.Service) corev1.ServiceSpec {
+	spec := *svc.Spec.DeepCopy()
+	if spec.Type == "" {
+		spec.Type = corev1.ServiceTypeClusterIP
+	}
+	if spec.SessionAffinity == "" {
+		spec.SessionAffinity = corev1.ServiceAffinityNone
+	}
+	if len(spec.Ports) == 0 {
+		spec.Ports = nil
+	}
+	for i := range spec.Ports {
+		port := &spec.Ports[i]
+		if port.Protocol == "" {
+			port.Protocol = corev1.ProtocolTCP
+		}
+		if port.TargetPort == (intstr.IntOrString{}) {
+			port.TargetPort = intstr.FromInt32(port.Port)
+		}
+		if existing != nil {
+			for _, old := range existing.Spec.Ports {
+				if old.Name == port.Name {
+					if port.NodePort == 0 && (spec.Type == corev1.ServiceTypeNodePort || spec.Type == corev1.ServiceTypeLoadBalancer) {
+						port.NodePort = old.NodePort
+					}
+					if port.AppProtocol == nil {
+						port.AppProtocol = old.AppProtocol
+					}
+					break
+				}
+			}
+		}
+	}
+	// Empty loadBalancerIP does not request ownership of a cloud-assigned address.
+	if existing != nil && spec.LoadBalancerIP == "" {
+		spec.LoadBalancerIP = existing.Spec.LoadBalancerIP
+	}
+	return spec
 }
 
 // hash service for diff new generate service and old service in kubernetes.
