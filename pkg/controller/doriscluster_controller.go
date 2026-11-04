@@ -37,7 +37,6 @@ import (
 	"context"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
-	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
@@ -56,7 +55,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -79,8 +77,6 @@ type DorisClusterReconciler struct {
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
 	Scs      map[string]sub_controller.SubController
-	//record configmap response instance. key: configMap namespacedName, value: DorisCluster namespacedName
-	WatchConfigMaps map[string]string
 }
 
 var (
@@ -139,15 +135,6 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err := runtimeconfig.EnsurePolicy(ctx, r.Client, dcr); err != nil {
 		r.Recorder.Event(dcr, corev1.EventTypeWarning, "RuntimeConfigPersistenceBlocked", err.Error())
 		return ctrl.Result{}, err
-	}
-
-	if dcr.Spec.EnableRestartWhenConfigChange {
-		coreConfigMaps := resource.GetDorisCoreConfigMapNames(dcr)
-		for componentType := range coreConfigMaps {
-			cmnn := types.NamespacedName{Namespace: dcr.Namespace, Name: coreConfigMaps[componentType]}
-			dcrnn := types.NamespacedName{Namespace: dcr.Namespace, Name: dcr.Name}
-			r.WatchConfigMaps[cmnn.String()] = dcrnn.String()
-		}
 	}
 
 	//subControllers reconcile for create or update sub resource.
@@ -309,52 +296,11 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 		mapFn, controller_builder.WithPredicates(p))
 }
 
-func (r *DorisClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
-	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(ctx context.Context, a client.Object) []reconcile.Request {
-			cmnn := types.NamespacedName{Namespace: a.GetNamespace(), Name: a.GetName()}
-			if dcrNamespacedNameStr, ok := r.WatchConfigMaps[cmnn.String()]; ok {
-				// nna[0] is namespace, nna[1] is dcrName,
-				nna := strings.Split(dcrNamespacedNameStr, "/")
-				// not run only for code standard
-				if len(nna) != 2 {
-					return nil
-				}
-
-				return []reconcile.Request{{NamespacedName: types.NamespacedName{
-					Namespace: nna[0],
-					Name:      nna[1],
-				}}}
-			}
-			return nil
-		})
-
-	p := predicate.Funcs{
-		CreateFunc: func(u event.CreateEvent) bool {
-
-			cmnn := types.NamespacedName{Namespace: u.Object.GetNamespace(), Name: u.Object.GetName()}
-			_, ok := r.WatchConfigMaps[cmnn.String()]
-			return ok
-		},
-
-		UpdateFunc: func(u event.UpdateEvent) bool {
-
-			cmnn := types.NamespacedName{Namespace: u.ObjectNew.GetNamespace(), Name: u.ObjectNew.GetName()}
-
-			if _, ok := r.WatchConfigMaps[cmnn.String()]; !ok {
-				return false
-			}
-
-			return true
-		},
-	}
-
-	return builder.Watches(&corev1.ConfigMap{},
-		mapFn, controller_builder.WithPredicates(p))
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &dorisv1.DorisCluster{}, coreConfigMapIndex, coreConfigMapIndexKeys); err != nil {
+		return err
+	}
 	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = r.watchPodBuilder(builder)
 	builder = r.watchConfigMapBuilder(builder)
@@ -374,10 +320,9 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	subcs[brokerControllerName] = brk
 
 	if err := (&DorisClusterReconciler{
-		Client:          mgr.GetClient(),
-		Recorder:        mgr.GetEventRecorderFor(name),
-		Scs:             subcs,
-		WatchConfigMaps: make(map[string]string),
+		Client:   mgr.GetClient(),
+		Recorder: mgr.GetEventRecorderFor(name),
+		Scs:      subcs,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, " unable to create controller ", "controller ", "DorisCluster ")
 		os.Exit(1)
