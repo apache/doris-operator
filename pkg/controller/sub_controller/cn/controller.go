@@ -162,10 +162,9 @@ func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSe
 		return err
 	}
 	//if the spec is changed, update the status of cn on src.
-	var excludeReplica bool
-	//if replicas =0 and not the first time, exclude the hash for autoscaler
-	if st.Spec.Replicas == nil && !autoscaler {
-		excludeReplica = true
+	excludeReplica := autoscaler || st.Spec.Replicas == nil
+	if excludeReplica {
+		st.Spec.Replicas = est.Spec.Replicas
 	}
 
 	//the statefulset equal should exclude pvc. pvc not allowed update when use statefulset manage, when use `operator` mode for management that pvc not allow updated in statetfulset spec.
