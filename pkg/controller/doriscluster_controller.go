@@ -45,6 +45,7 @@ import (
 	cn "github.com/apache/doris-operator/pkg/controller/sub_controller/cn"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/fe"
 	appv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -261,7 +262,8 @@ func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1
 func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dorisv1.DorisCluster{}).
 		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
-		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner)
+		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner).
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, controller_builder.MatchEveryOwner)
 }
 
 func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
