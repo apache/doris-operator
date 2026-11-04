@@ -127,6 +127,22 @@ func clear_config_env_path_numbers_alwaysEquals(new, old *appv1.StatefulSet, ann
 				expected = append(expected, env)
 			}
 		}
+		previousCount, desiredCount := 0, 0
+		for _, env := range previous.Env {
+			if env.Name == config_env_name {
+				previousCount++
+			}
+		}
+		for _, env := range container.Env {
+			if env.Name == config_env_name {
+				desiredCount++
+			}
+		}
+		// This exception is only for surplus duplicates from older versions.
+		// Never suppress adding a newly requested configuration environment.
+		if previousCount < 2 || previousCount <= desiredCount {
+			return false
+		}
 		var compatible []corev1.EnvVar
 		next := 0
 		for _, env := range previous.Env {
