@@ -166,7 +166,7 @@ func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dor
 	if err != nil {
 		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
-	return config, nil
+	return config, err
 }
 
 func (d *SubDefaultController) GetFinalPersistentVolumes(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {
