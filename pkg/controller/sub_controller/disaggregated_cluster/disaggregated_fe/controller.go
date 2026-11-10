@@ -113,6 +113,18 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return err
 	}
 
+	// Keep Service repair active while an FE image change waits for BE.
+	reader := dfc.APIReader
+	if reader == nil {
+		reader = dfc.K8sclient
+	}
+	if err := sc.CheckFrontendUpgrade(ctx, reader, ddc); err != nil {
+		if sc.IsBackendUpgradePending(err) {
+			dfc.K8srecorder.Event(ddc, string(sc.EventNormal), sc.WaitBackendUpgrade, err.Error())
+		}
+		return err
+	}
+
 	event, err = dfc.reconcileStatefulset(ctx, st, ddc)
 	if err != nil {
 		if event != nil {

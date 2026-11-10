@@ -22,6 +22,7 @@ import (
 
 	v1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -122,5 +123,30 @@ func Test_ClearResources(t *testing.T) {
 	err = k8sclient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "test-fe-2"}, &corev1.PersistentVolumeClaim{})
 	if !apierrors.IsNotFound(err) {
 		t.Errorf("Test_ClearResources the pvc test-fe-2 is not deleted, err=%v", err)
+	}
+}
+
+// A backend wait must not prevent repair of the FE Service used by BE startup.
+func TestFrontendUpgradeWaitRepairsServices(t *testing.T) {
+	cluster := &v1.DorisCluster{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: "cluster"}, Spec: v1.DorisClusterSpec{
+		FeSpec: &v1.FeSpec{BaseSpec: v1.BaseSpec{Image: "fe:new", Replicas: resource.GetInt32Pointer(1)}},
+		BeSpec: &v1.BeSpec{BaseSpec: v1.BaseSpec{Image: "be:new", Replicas: resource.GetInt32Pointer(1)}},
+	}}
+	fe := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "test-fe", Namespace: "default"}, Spec: appv1.StatefulSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "fe", Image: "fe:old"}}}}}}
+	fc, c := newFeController(t, fe)
+	if err := fc.Sync(context.Background(), cluster); !sc.IsBackendUpgradePending(err) {
+		t.Fatalf("expected backend wait, got %v", err)
+	}
+	for _, name := range []string{v1.GenerateExternalServiceName(cluster, v1.Component_FE), v1.GenerateInternalCommunicateServiceName(cluster, v1.Component_FE)} {
+		if err := c.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: name}, &corev1.Service{}); err != nil {
+			t.Fatalf("Service repair blocked: %v", err)
+		}
+	}
+	var actual appv1.StatefulSet
+	if err := c.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: fe.Name}, &actual); err != nil {
+		t.Fatal(err)
+	}
+	if actual.Spec.Template.Spec.Containers[0].Image != "fe:old" {
+		t.Fatal("FE upgraded before BE")
 	}
 }
