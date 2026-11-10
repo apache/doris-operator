@@ -73,6 +73,10 @@ func (d *SubDefaultController) CheckRestartTimeAndInject(dcr *dorisv1.DorisClust
 		baseSpec = &dcr.Spec.BeSpec.BaseSpec
 		restartedAt = dcr.Annotations[dorisv1.BERestartAt]
 		restartAnnotationsKey = dorisv1.BERestartAt
+	case dorisv1.Component_CN:
+		baseSpec = &dcr.Spec.CnSpec.BaseSpec
+		restartedAt = dcr.Annotations[dorisv1.CNRestartAt]
+		restartAnnotationsKey = dorisv1.CNRestartAt
 	default:
 		klog.Errorf("CheckRestartTimeAndInject dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
