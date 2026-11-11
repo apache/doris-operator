@@ -59,3 +59,4 @@ rules:
     verbs:
       - create
       - patch
+      - update
