@@ -54,6 +54,10 @@ msSpec:
       memory: 1Gi
   # the node have the labels will have the ms pods.
   nodeSelector: {}
+  # tolerations for scheduling the ms pods onto tainted nodes.
+  tolerations: []
+  # affinity rules for the ms pods, e.g. spreading them over zones.
+  affinity: {}
 
 # describe the fe specification for deploying.
 feSpec:
@@ -101,6 +105,12 @@ feSpec:
       resources:
         requests:
           storage: 200Gi
+  # the node have the labels will have the fe pods.
+  nodeSelector: {}
+  # tolerations for scheduling the fe pods onto tainted nodes.
+  tolerations: []
+  # affinity rules for the fe pods, e.g. spreading them over zones.
+  affinity: {}
 
 # specify the names of compute groups. this is required. if config
 computeGroupNames:
@@ -138,3 +148,9 @@ computeSpec:
       resources:
         requests:
           storage: 500Gi
+  # the node have the labels will have the compute group pods.
+  nodeSelector: {}
+  # tolerations for scheduling the compute group pods onto tainted nodes.
+  tolerations: []
+  # affinity rules for the compute group pods, e.g. spreading them over zones.
+  affinity: {}
