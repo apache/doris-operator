@@ -26,6 +26,7 @@ import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +50,7 @@ func TestDorisClusterWatchesExistingNonControllerOwnedResources(t *testing.T) {
 		}
 	})
 	scheme := runtime.NewScheme()
-	for _, add := range []func(*runtime.Scheme) error{dorisv1.AddToScheme, appsv1.AddToScheme, corev1.AddToScheme} {
+	for _, add := range []func(*runtime.Scheme) error{dorisv1.AddToScheme, appsv1.AddToScheme, corev1.AddToScheme, autoscalingv2.AddToScheme} {
 		if err := add(scheme); err != nil {
 			t.Fatal(err)
 		}
