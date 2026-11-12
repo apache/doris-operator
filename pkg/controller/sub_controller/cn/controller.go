@@ -238,29 +238,27 @@ func (cn *Controller) deployAutoScaler(ctx context.Context, policy dorisv1.AutoS
 }
 
 func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
-	cnStatus := dcr.Status.CnStatus
-	if cnStatus == nil {
-		klog.Info("Doris cluster is not have cn")
+	if dcr.Status.CnStatus == nil {
 		return true, nil
 	}
-
 	// clear autoscaler when autoscaler config deleted or the doriscluster deleted.
 	// guard the dereference, only calls ClearResources when CnSpec is nil.
 	if dcr.Spec.CnSpec == nil || dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
 		if err := cn.DeleteAutoscaler(ctx, dcr); err != nil {
 			cn.K8srecorder.Eventf(dcr, string(sub_controller.EventWarning), sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
+			return false, err
 		}
 	}
 
 	if dcr.Spec.CnSpec == nil {
-		cn.ClearCommonResources(ctx, dcr, dorisv1.Component_CN)
+		return cn.ClearCommonResources(ctx, dcr, dorisv1.Component_CN)
 	}
 
 	return true, nil
 }
 
 func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCluster) error {
-	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil {
+	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil || dcr.Status.CnStatus.HorizontalScaler.Name == "" {
 		return nil
 	}
 
@@ -271,7 +269,7 @@ func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCl
 		return err
 	}
 
-	dcr.Status.CnStatus.HorizontalScaler = &dorisv1.HorizontalScaler{}
+	dcr.Status.CnStatus.HorizontalScaler = nil
 	return nil
 }
 
