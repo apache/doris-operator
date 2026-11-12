@@ -151,8 +151,13 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	//subControllers reconcile for create or update sub resource.
+	upgradePending := false
 	for _, rc := range r.Scs {
 		if err := rc.Sync(ctx, dcr); err != nil {
+			if sub_controller.IsBackendUpgradePending(err) {
+				upgradePending = true
+				continue
+			}
 			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace: ", dcr.Namespace, " name: ", dcr.Name, " controller: ", rc.GetControllerName(), " error: ", err)
 			return requeueIfError(err)
 		}
@@ -175,7 +180,11 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return requeueIfError(err)
 	}
 
-	return r.updateDorisClusterStatus(ctx, dcr)
+	result, err := r.updateDorisClusterStatus(ctx, dcr)
+	if err == nil && upgradePending {
+		result = ctrl.Result{RequeueAfter: sub_controller.UpgradeRequeueAfter}
+	}
+	return result, err
 }
 
 // if cluster spec be reverted, doris operator should revert to old.

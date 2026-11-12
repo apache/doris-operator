@@ -18,11 +18,9 @@
 package sub_controller
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -34,7 +32,6 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
-	"github.com/spf13/viper"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -108,19 +105,22 @@ func (d *DisaggregatedSubDefaultController) GetConfigValuesFromConfigMaps(namesp
 }
 
 func (d *DisaggregatedSubDefaultController) resolveStartConfig(vb []byte, resolveKey string) map[string]interface{} {
+	var home string
 	switch resolveKey {
 	case resource.MS_RESOLVEKEY:
-		os.Setenv("DORIS_HOME", resource.DEFAULT_ROOT_PATH+"/ms")
+		home = resource.DEFAULT_ROOT_PATH + "/ms"
 	case resource.FE_RESOLVEKEY:
-		os.Setenv("DORIS_HOME", resource.DEFAULT_ROOT_PATH+"/fe")
+		home = resource.DEFAULT_ROOT_PATH + "/fe"
 	case resource.BE_RESOLVEKEY:
-		os.Setenv("DORIS_HOME", resource.DEFAULT_ROOT_PATH+"/be")
-	default:
+		home = resource.DEFAULT_ROOT_PATH + "/be"
 	}
 
-	viper.SetConfigType("properties")
-	viper.ReadConfig(bytes.NewBuffer(vb))
-	return viper.AllSettings()
+	settings, err := resource.ParseDorisConfig(vb, home, false)
+	if err != nil {
+		klog.Errorf("resolveStartConfig %s failed: %v", resolveKey, err)
+		return nil
+	}
+	return settings
 }
 
 // for config default values.

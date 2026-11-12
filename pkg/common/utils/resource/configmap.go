@@ -20,9 +20,10 @@ package resource
 import (
 	"bytes"
 	"errors"
-	"os"
+	"strings"
 
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/magiconair/properties"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
@@ -130,15 +131,55 @@ func ResolveConfigMaps(configMaps []*corev1.ConfigMap, componentType dorisv1.Com
 			continue
 		}
 		if value, ok := configMap.Data[key]; ok {
-			os.Setenv("DORIS_HOME", getDefaultDorisHome(componentType))
-			viper.SetConfigType("properties")
-			viper.AutomaticEnv()
-			viper.ReadConfig(bytes.NewBuffer([]byte(value)))
-			return viper.AllSettings(), nil
+			return ParseDorisConfig([]byte(value), getDefaultDorisHome(componentType), true)
 		}
 	}
 	err := errors.New("not fund configmap ResolveKey: " + key)
 	return nil, err
+}
+
+// ParseDorisConfig keeps both parser state and the default DORIS_HOME local to
+// this call. DCR and DDC controllers parse different components concurrently;
+// neither a global Viper nor changes to the process environment are safe here.
+// automaticEnv preserves native DCR environment overrides; DDC uses file values.
+func ParseDorisConfig(content []byte, dorisHome string, automaticEnv bool) (map[string]interface{}, error) {
+	// Read keys without expanding values so a file-defined DORIS_HOME can keep
+	// its existing properties expansion semantics. The prepended fallback is
+	// only used when the file does not define that exact property itself.
+	loader := properties.Loader{Encoding: properties.UTF8, DisableExpansion: true}
+	raw, err := loader.LoadBytes(content)
+	if err != nil {
+		return nil, err
+	}
+	hasHome := false
+	for _, key := range raw.Keys() {
+		if strings.EqualFold(key, "DORIS_HOME") {
+			hasHome = true
+		}
+	}
+	if dorisHome != "" {
+		content = append([]byte("DORIS_HOME="+dorisHome+"\n"), content...)
+	}
+	parser := viper.New()
+	parser.SetConfigType("properties")
+	if automaticEnv {
+		parser.AutomaticEnv()
+	}
+	if err := parser.ReadConfig(bytes.NewReader(content)); err != nil {
+		return nil, err
+	}
+	settings := parser.AllSettings()
+	if _, scalar := settings["doris_home"].(string); scalar && dorisHome != "" {
+		if !hasHome {
+			// A synthetic property must not change existing configuration hashes.
+			delete(settings, "doris_home")
+		} else if automaticEnv {
+			// Preserve the native component-home environment override without
+			// modifying the process environment.
+			settings["doris_home"] = dorisHome
+		}
+	}
+	return settings, nil
 }
 
 func GetMountConfigMapInfo(c dorisv1.ConfigMapInfo) (finalConfigMaps []dorisv1.MountConfigMapInfo) {
