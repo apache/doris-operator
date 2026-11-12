@@ -39,6 +39,11 @@ func (fc *Controller) ClearResources(ctx context.Context, cluster *v1.DorisClust
 	if cluster.Status.FEStatus == nil {
 		return true, nil
 	}
+
+	if cluster.Spec.FeSpec == nil {
+		return fc.ClearCommonResources(ctx, cluster, v1.Component_FE)
+	}
+
 	if err := fc.RecycleResources(ctx, cluster, v1.Component_FE); err != nil {
 		klog.Errorf("fe ClearResources recycle pvc resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
 		return false, err
