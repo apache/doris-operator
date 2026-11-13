@@ -234,7 +234,6 @@ func Test_AddTerminationGracePeriodSeconds_Default(t *testing.T) {
 	if pts.Spec.TerminationGracePeriodSeconds == nil {
 		t.Fatalf("expected terminationGracePeriodSeconds")
 	}
-	// Now includes default post-delay (DefaultPostDelaySeconds), so 30 instead of 200
 	if *pts.Spec.TerminationGracePeriodSeconds != 30 {
 		t.Errorf("expected default terminationGracePeriodSeconds=30 (with default post-delay), got %d", *pts.Spec.TerminationGracePeriodSeconds)
 	}
@@ -246,7 +245,6 @@ func Test_AddTerminationGracePeriodSeconds_ConfigOverride(t *testing.T) {
 	if pts.Spec.TerminationGracePeriodSeconds == nil {
 		t.Fatalf("expected terminationGracePeriodSeconds")
 	}
-	// 60 (wait) + DefaultPostDelaySeconds (default post-delay) = 90
 	if *pts.Spec.TerminationGracePeriodSeconds != 90 {
 		t.Errorf("expected configured terminationGracePeriodSeconds=90 (60+30), got %d", *pts.Spec.TerminationGracePeriodSeconds)
 	}

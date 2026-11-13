@@ -31,11 +31,9 @@ func GetPort(config map[string]interface{}, key string) int32 {
 	return defMap[key]
 }
 
-// GetTerminationGracePeriodSeconds get grace_shutdown_wait_seconds from config file.
+// GetTerminationGracePeriodSeconds get grace_shutdown_wait_seconds and grace_shutdown_post_delay_seconds from config file.
 func GetTerminationGracePeriodSeconds(config map[string]interface{}) int64 {
 	waitSeconds := int64(0)
-	// Default post-delay seconds from Apache Doris, ensures kubelet doesn't SIGKILL
-	// the BE process partway through the post-stop delay period.
 	postDelaySeconds := DefaultPostDelaySeconds
 
 	if v, ok := config[GRACE_SHUTDOWN_WAIT_SECONDS]; ok {
