@@ -46,11 +46,11 @@ func Test_GetTerminationGracePeriodSeconds(t *testing.T) {
 		},
 	}
 
-	ress := []int64{60, 0}
+	ress := []int64{90, 30}
 	for i, test := range tests {
 		res := GetTerminationGracePeriodSeconds(test)
 		if res != ress[i] {
-			t.Errorf("test TerminationGracePeriodSeconds failed, intput not equal expected")
+			t.Errorf("test TerminationGracePeriodSeconds failed, input=%v, got %d, expected %d", test, res, ress[i])
 		}
 	}
 }

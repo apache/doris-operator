@@ -65,6 +65,9 @@ const BRPC_LISTEN_PORT = "brpc_listen_port"
 
 const BROKER_IPC_PORT = "broker_ipc_port"
 const GRACE_SHUTDOWN_WAIT_SECONDS = "grace_shutdown_wait_seconds"
+const GRACE_SHUTDOWN_POST_DELAY_SECONDS = "grace_shutdown_post_delay_seconds"
+
+var DefaultPostDelaySeconds = int64(30)
 
 const ENABLE_FQDN = "enable_fqdn_mode"
 const START_MODEL_FQDN = "FQDN"
