@@ -37,6 +37,7 @@ func Test_GetPort(t *testing.T) {
 }
 
 func Test_GetTerminationGracePeriodSeconds(t *testing.T) {
+	// Default post-delay (DefaultPostDelaySeconds), so even with no config, we return DefaultPostDelaySeconds
 	tests := []map[string]interface{}{
 		{
 			"grace_shutdown_wait_seconds": "60",
@@ -46,11 +47,12 @@ func Test_GetTerminationGracePeriodSeconds(t *testing.T) {
 		},
 	}
 
-	ress := []int64{60, 0}
+	// With default post-delay (DefaultPostDelaySeconds): 60+DefaultPostDelaySeconds=90, 0+DefaultPostDelaySeconds=30
+	ress := []int64{90, 30}
 	for i, test := range tests {
 		res := GetTerminationGracePeriodSeconds(test)
 		if res != ress[i] {
-			t.Errorf("test TerminationGracePeriodSeconds failed, intput not equal expected")
+			t.Errorf("test TerminationGracePeriodSeconds failed, input=%v, got %d, expected %d", test, res, ress[i])
 		}
 	}
 }

@@ -33,13 +33,24 @@ func GetPort(config map[string]interface{}, key string) int32 {
 
 // GetTerminationGracePeriodSeconds get grace_shutdown_wait_seconds from config file.
 func GetTerminationGracePeriodSeconds(config map[string]interface{}) int64 {
+	waitSeconds := int64(0)
+	// Default post-delay seconds from Apache Doris, ensures kubelet doesn't SIGKILL
+	// the BE process partway through the post-stop delay period.
+	postDelaySeconds := DefaultPostDelaySeconds
+
 	if v, ok := config[GRACE_SHUTDOWN_WAIT_SECONDS]; ok {
 		if seconds, err := strconv.ParseInt(v.(string), 10, 64); err == nil {
-			return int64(seconds)
+			waitSeconds = int64(seconds)
 		}
 	}
 
-	return 0
+	if v, ok := config[GRACE_SHUTDOWN_POST_DELAY_SECONDS]; ok {
+		if seconds, err := strconv.ParseInt(v.(string), 10, 64); err == nil {
+			postDelaySeconds = int64(seconds)
+		}
+	}
+
+	return waitSeconds + postDelaySeconds
 }
 
 func GetString(config map[string]interface{}, key string) string {
