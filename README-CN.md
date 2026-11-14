@@ -40,17 +40,17 @@ kubectl apply -f https://raw.githubusercontent.com/apache/doris-operator/$(curl 
 
 ## 文档
 - 存算一体
-    - [deploy doris operator on kubernetes](https://doris.apache.org/zh-CN/docs/install/deploy-on-kubernetes/install-doris-operator)
-    - [config doris to deploy](https://doris.apache.org/zh-CN/docs/install/deploy-on-kubernetes/install-config-cluster)
-    - [deploy doris on kubernetes](https://doris.apache.org/zh-CN/docs/install/deploy-on-kubernetes/install-doris-cluster)
-    - [how to access doris cluster in kubernetes](https://doris.apache.org/zh-CN/docs/install/deploy-on-kubernetes/access-cluster)
-    - [cluster operation](https://doris.apache.org/zh-CN/docs/install/deploy-on-kubernetes/cluster-operation)
+    - [deploy doris operator on kubernetes](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/integrated-storage-compute/install-doris-operator)
+    - [config doris to deploy](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/integrated-storage-compute/install-config-cluster)
+    - [deploy doris on kubernetes](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/integrated-storage-compute/install-doris-cluster)
+    - [how to access doris cluster in kubernetes](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/integrated-storage-compute/access-cluster)
+    - [cluster operation](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/integrated-storage-compute/cluster-operation)
 - 存算分离
-    - [quick start](https://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/install-doris-cluster)
-    - [deploy foundationDB](https://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/install-fdb)
-    - [config meta service](https://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-ms)
-    - [config fe specification](https://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-fe)
-    - [config compute specification](http://doris.apache.org/zh-CN/docs/3.0/install/deploy-on-kubernetes/separating-storage-compute/config-cg)
+    - [quick start](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/separating-storage-compute/install-doris-cluster)
+    - [deploy foundationDB](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/separating-storage-compute/install-fdb)
+    - [config meta service](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/separating-storage-compute/config-ms)
+    - [config fe specification](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/separating-storage-compute/config-fe)
+    - [config compute specification](https://doris.apache.org/zh-CN/docs/3.x/install/deploy-on-kubernetes/separating-storage-compute/config-cg)
 
 ## 文档
 
