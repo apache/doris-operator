@@ -76,14 +76,21 @@ func newFEServicePorts(config map[string]interface{}, svcConf *dv1.ExportService
 		})
 	}
 
-	if svcConf == nil || svcConf.Type != corev1.ServiceTypeNodePort {
+	if svcConf == nil {
 		return ports
 	}
 
-	for i, _ := range ports {
-		for j, _ := range svcConf.PortMaps {
-			if ports[i].Port == svcConf.PortMaps[j].TargetPort {
+	for i := range ports {
+		for j := range svcConf.PortMaps {
+			if ports[i].Port != svcConf.PortMaps[j].TargetPort {
+				continue
+			}
+
+			if svcConf.Type == corev1.ServiceTypeNodePort {
 				ports[i].NodePort = svcConf.PortMaps[j].NodePort
+			}
+			if svcConf.PortMaps[j].AppProtocol != nil {
+				ports[i].AppProtocol = svcConf.PortMaps[j].AppProtocol
 			}
 		}
 	}

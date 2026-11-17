@@ -128,14 +128,21 @@ func newComputeServicePorts(cvs map[string]interface{}, svcConf *dv1.ExportServi
 		})
 	}
 
-	if svcConf == nil || svcConf.Type != corev1.ServiceTypeNodePort {
+	if svcConf == nil {
 		return sps
 	}
 
-	for i, _ := range sps {
-		for j, _ := range svcConf.PortMaps {
-			if sps[i].Port == svcConf.PortMaps[j].TargetPort {
+	for i := range sps {
+		for j := range svcConf.PortMaps {
+			if sps[i].Port != svcConf.PortMaps[j].TargetPort {
+				continue
+			}
+
+			if svcConf.Type == corev1.ServiceTypeNodePort {
 				sps[i].NodePort = svcConf.PortMaps[j].NodePort
+			}
+			if svcConf.PortMaps[j].AppProtocol != nil {
+				sps[i].AppProtocol = svcConf.PortMaps[j].AppProtocol
 			}
 		}
 	}

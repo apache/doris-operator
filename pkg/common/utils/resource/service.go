@@ -148,6 +148,9 @@ func constructServiceSpec(exportService *v1.ExportService, svc *corev1.Service, 
 		for i, _ := range ports {
 			if int(ep.TargetPort) == ports[i].TargetPort.IntValue() {
 				ports[i].NodePort = ep.NodePort
+				if ep.AppProtocol != nil {
+					ports[i].AppProtocol = ep.AppProtocol
+				}
 			}
 		}
 	}

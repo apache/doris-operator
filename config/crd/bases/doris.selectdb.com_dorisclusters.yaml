@@ -2053,6 +2053,16 @@ spec:
                         items:
                           description: DorisServicePort for ServiceType=NodePort situation.
                           properties:
+                            appProtocol:
+                              description: |-
+                                The application protocol for this port.
+                                This field follows standard Kubernetes label syntax.
+                                Un-prefixed names are reserved for IANA standard service names (as per
+                                RFC-6335 and https://www.iana.org/assignments/service-names).
+                                Non-standard protocols should use prefixed names such as
+                                mycompany.com/my-custom-protocol.
+                                More info: https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol
+                              type: string
                             nodePort:
                               description: |-
                                 The port on each node on which this service is exposed when type is
@@ -4184,6 +4194,16 @@ spec:
                         items:
                           description: DorisServicePort for ServiceType=NodePort situation.
                           properties:
+                            appProtocol:
+                              description: |-
+                                The application protocol for this port.
+                                This field follows standard Kubernetes label syntax.
+                                Un-prefixed names are reserved for IANA standard service names (as per
+                                RFC-6335 and https://www.iana.org/assignments/service-names).
+                                Non-standard protocols should use prefixed names such as
+                                mycompany.com/my-custom-protocol.
+                                More info: https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol
+                              type: string
                             nodePort:
                               description: |-
                                 The port on each node on which this service is exposed when type is
@@ -6932,6 +6952,16 @@ spec:
                         items:
                           description: DorisServicePort for ServiceType=NodePort situation.
                           properties:
+                            appProtocol:
+                              description: |-
+                                The application protocol for this port.
+                                This field follows standard Kubernetes label syntax.
+                                Un-prefixed names are reserved for IANA standard service names (as per
+                                RFC-6335 and https://www.iana.org/assignments/service-names).
+                                Non-standard protocols should use prefixed names such as
+                                mycompany.com/my-custom-protocol.
+                                More info: https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol
+                              type: string
                             nodePort:
                               description: |-
                                 The port on each node on which this service is exposed when type is
@@ -9063,6 +9093,16 @@ spec:
                         items:
                           description: DorisServicePort for ServiceType=NodePort situation.
                           properties:
+                            appProtocol:
+                              description: |-
+                                The application protocol for this port.
+                                This field follows standard Kubernetes label syntax.
+                                Un-prefixed names are reserved for IANA standard service names (as per
+                                RFC-6335 and https://www.iana.org/assignments/service-names).
+                                Non-standard protocols should use prefixed names such as
+                                mycompany.com/my-custom-protocol.
+                                More info: https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol
+                              type: string
                             nodePort:
                               description: |-
                                 The port on each node on which this service is exposed when type is

@@ -145,6 +145,31 @@ func TestNewExternalServiceWithNodePortConfig(t *testing.T) {
 	}
 }
 
+func TestNewExternalServiceAppProtocol(t *testing.T) {
+	dcgs := &DisaggregatedComputeGroupsController{}
+	ddc := newServiceTestDDC()
+	cg := newServiceTestCG("cg1")
+	mysql := "mysql"
+	cg.CommonSpec.Service = &dv1.ExportService{
+		Type: corev1.ServiceTypeClusterIP,
+		PortMaps: []dv1.PortMap{
+			{TargetPort: 9060, AppProtocol: &mysql},
+		},
+	}
+
+	svc := dcgs.newExternalService(ddc, cg, map[string]interface{}{})
+	for _, port := range svc.Spec.Ports {
+		if port.Name != resource.GetPortKey(resource.BE_PORT) {
+			continue
+		}
+		if port.AppProtocol == nil || *port.AppProtocol != mysql {
+			t.Fatalf("be port appProtocol = %v, want %s", port.AppProtocol, mysql)
+		}
+		return
+	}
+	t.Fatalf("be port not found in external service")
+}
+
 func TestInternalAndExternalServiceSelectors(t *testing.T) {
 	dcgs := &DisaggregatedComputeGroupsController{}
 	ddc := newServiceTestDDC()
