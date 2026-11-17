@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/apache/doris-operator/pkg/common/utils/feheap"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"strconv"
 	"strings"
@@ -89,6 +90,9 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	svc := dfc.newService(ddc, confMap)
 
 	st := dfc.NewStatefulset(ddc, confMap)
+	if err := feheap.Prepare(ddc, st); err != nil {
+		return err
+	}
 	if err := runtimeconfig.Prepare(ctx, dfc.K8sclient, dfc.K8srecorder, ddc, st, confMap); err != nil {
 		return err
 	}

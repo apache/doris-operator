@@ -36,6 +36,7 @@ package controller
 import (
 	"context"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/feheap"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
@@ -134,6 +135,10 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if !dcr.DeletionTimestamp.IsZero() {
 		r.resourceClean(ctx, dcr)
 		return ctrl.Result{}, nil
+	}
+
+	if err := feheap.EnsurePolicy(ctx, r.Client, dcr); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := runtimeconfig.EnsurePolicy(ctx, r.Client, dcr); err != nil {
