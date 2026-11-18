@@ -277,6 +277,9 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	if !disRes.IsZero() {
 		res = disRes
 	}
+	if reconRes.RequeueAfter > 0 {
+		res = reconRes
+	}
 
 	if msg != "" {
 		return res, errors.New(msg)
@@ -332,8 +335,13 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
 	// recall all sub for check error.
 	errs := []error{}
+	var result ctrl.Result
 	for _, subC := range dc.Scs {
 		if err := subC.Sync(ctx, ddc); err != nil {
+			if sc.IsBackendUpgradePending(err) {
+				result.RequeueAfter = sc.UpgradeRequeueAfter
+				continue
+			}
 			klog.Errorf("disaggreatedClusterReconciler sub reconciler %s sync err=%s.", subC.GetControllerName(), err.Error())
 			errs = append(errs, err)
 		}
@@ -346,7 +354,7 @@ func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc 
 		}
 		return ctrl.Result{}, errors.New(msg)
 	}
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 // when spec revert by operator should update cr or directly update status.
