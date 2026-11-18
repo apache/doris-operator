@@ -71,6 +71,21 @@ DorisClusterSpec
 <table>
 <tr>
 <td>
+<code>runtimeConfigPersistence</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.RuntimeConfigPersistenceSpec">
+RuntimeConfigPersistenceSpec
+</a>
+</em>
+</td>
+<td>
+<p>RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+When omitted, new clusters enable it where safe storage exists; existing
+clusters keep their previous behavior until explicitly migrated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>feSpec</code><br/>
 <em>
 <a href="#doris.selectdb.com/v1.FeSpec">
@@ -144,6 +159,44 @@ string
 <td>
 <p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
 the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableRestartWhenConfigChange</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableRestartWhenConfigChange configmap monitoring, default is false.
+When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kerberosInfo</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.KerberosInfo">
+KerberosInfo
+</a>
+</em>
+</td>
+<td>
+<p>KerberosInfo contains a series of access key files, Provides access to kerberos.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sharedPersistentVolumeClaims</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.SharedPersistentVolumeClaim">
+[]SharedPersistentVolumeClaim
+</a>
+</em>
+</td>
+<td>
+<p>SharedPersistentVolumeClaims used to configure the shared pvc that needs to be mounted on the pod</p>
 </td>
 </tr>
 </table>
@@ -333,6 +386,20 @@ int32
 </tr>
 <tr>
 <td>
+<code>readinessProbePolicy</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.ReadinessProbePolicy">
+ReadinessProbePolicy
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReadinessProbePolicy defines the timing policy for readiness probe.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>annotations</code><br/>
 <em>
 map[string]string
@@ -417,6 +484,23 @@ string
 <p>ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 If specified, these secrets will be passed to individual puller implementations for them to use.
 More info: <a href="https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod">https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>imagePullPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#pullpolicy-v1-core">
+Kubernetes core/v1.PullPolicy
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ImagePullPolicy is the pull policy for the component&rsquo;s container. Defaults to IfNotPresent.
+Set it to Always when the image is referenced by a mutable tag, since a node that has already
+cached that tag will otherwise keep running the image it pulled first.
+More info: <a href="https://kubernetes.io/docs/concepts/containers/images#updating-images">https://kubernetes.io/docs/concepts/containers/images#updating-images</a></p>
 </td>
 </tr>
 <tr>
@@ -583,6 +667,20 @@ Kubernetes core/v1.SecurityContext
 <p>Security context for all containers running in the pod (unless they override it).</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>secrets</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.Secret">
+[]Secret
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Multi Secret for pod.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.BeSpec">BeSpec
@@ -630,6 +728,46 @@ Default value is &lsquo;false&rsquo;.
 Enabling it means that the container must be started in privileged mode.
 Please confirm whether the host machine and k8s cluster allow it.
 Doris workloadgroup reference document: <a href="https://doris.apache.org/docs/admin-manual/resource-admin/workload-group">https://doris.apache.org/docs/admin-manual/resource-admin/workload-group</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>skipDefaultSystemInit</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
+Default value is &lsquo;false&rsquo;.
+Default System Init means that the container must be started in privileged mode.
+Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableFeAffinity</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.
+the weight of antiAffinity in same node is greater than this affinity.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autoResolveLimitCPU</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+Default value is &lsquo;false&rsquo;. This means that the Doris BE is unaware of the CPU configuration of resources.
+Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the &lsquo;be.conf&rsquo; file inside the BE container.
+Changing this configuration will cause a BE rolling restart.</p>
 </td>
 </tr>
 </tbody>
@@ -716,6 +854,16 @@ BaseSpec
 </tr>
 <tr>
 <td>
+<code>skipDefaultSystemInit</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>autoScalingPolicy</code><br/>
 <em>
 <a href="#doris.selectdb.com/v1.AutoScalingPolicy">
@@ -725,6 +873,20 @@ AutoScalingPolicy
 </td>
 <td>
 <p>AutoScalingPolicy auto scaling strategy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autoResolveLimitCPU</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+Default value is &lsquo;false&rsquo;. This means that the Doris BE is unaware of the CPU configuration of resources.
+Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the &lsquo;be.conf&rsquo; file inside the BE container.
+Changing this configuration will cause a BE rolling restart.</p>
 </td>
 </tr>
 </tbody>
@@ -910,6 +1072,16 @@ the name of fe service exposed for user.</p>
 </tr>
 <tr>
 <td>
+<code>coreConfigMapHashValue</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>failedInstances</code><br/>
 <em>
 []string
@@ -957,6 +1129,9 @@ ComponentCondition
 </table>
 <h3 id="doris.selectdb.com/v1.ComponentType">ComponentType
 (<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.SharedPersistentVolumeClaim">SharedPersistentVolumeClaim</a>)
+</p>
 <div>
 </div>
 <table>
@@ -1168,6 +1343,21 @@ string
 <tbody>
 <tr>
 <td>
+<code>runtimeConfigPersistence</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.RuntimeConfigPersistenceSpec">
+RuntimeConfigPersistenceSpec
+</a>
+</em>
+</td>
+<td>
+<p>RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+When omitted, new clusters enable it where safe storage exists; existing
+clusters keep their previous behavior until explicitly migrated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>feSpec</code><br/>
 <em>
 <a href="#doris.selectdb.com/v1.FeSpec">
@@ -1241,6 +1431,44 @@ string
 <td>
 <p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
 the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableRestartWhenConfigChange</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableRestartWhenConfigChange configmap monitoring, default is false.
+When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kerberosInfo</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.KerberosInfo">
+KerberosInfo
+</a>
+</em>
+</td>
+<td>
+<p>KerberosInfo contains a series of access key files, Provides access to kerberos.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sharedPersistentVolumeClaims</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.SharedPersistentVolumeClaim">
+[]SharedPersistentVolumeClaim
+</a>
+</em>
+</td>
+<td>
+<p>SharedPersistentVolumeClaims used to configure the shared pvc that needs to be mounted on the pod</p>
 </td>
 </tr>
 </tbody>
@@ -1371,6 +1599,24 @@ omitted or set equal to the &lsquo;port&rsquo; field.
 More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service">https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service</a></p>
 </td>
 </tr>
+<tr>
+<td>
+<code>appProtocol</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The application protocol for this port.
+This field follows standard Kubernetes label syntax.
+Un-prefixed names are reserved for IANA standard service names (as per
+RFC-6335 and <a href="https://www.iana.org/assignments/service-names)">https://www.iana.org/assignments/service-names)</a>.
+Non-standard protocols should use prefixed names such as
+mycompany.com/my-custom-protocol.
+More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol">https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol</a></p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.Endpoints">Endpoints
@@ -1391,7 +1637,7 @@ More info: <a href="https://kubernetes.io/docs/concepts/services-networking/serv
 <tbody>
 <tr>
 <td>
-<code>:address</code><br/>
+<code>address</code><br/>
 <em>
 []string
 </em>
@@ -1913,6 +2159,60 @@ AutoScalerVersion
 </td>
 <td>
 <p>the deploy horizontal version.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="doris.selectdb.com/v1.KerberosInfo">KerberosInfo
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.DorisClusterSpec">DorisClusterSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>krb5ConfigMap</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Krb5ConfigMap is the name of configmap within &lsquo;krb5.conf&rsquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keytabSecretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretName is the name of sercet within &lsquo;*.keytab&rsquo; files,
+refer to the following command to create a Secret :
+&lsquo;kubectl create secret generic {secret-name} &ndash;from-file=. &lsquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keytabPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>KeytabPath is the path where the Secret is finally stored inside the pod. default &lsquo;/etc/keytab/&rsquo;.
+It is not recommended to modify it unless necessary.
+This path is the path filled in when configuring &ldquo;hadoop.kerberos.keytab&rdquo;.</p>
 </td>
 </tr>
 </tbody>
@@ -2473,6 +2773,65 @@ MetricTarget
 </tr>
 </tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.ReadinessProbePolicy">ReadinessProbePolicy
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.BaseSpec">BaseSpec</a>)
+</p>
+<div>
+<p>ReadinessProbePolicy defines the timing policy for readiness probe.
+This allows users to tune readiness probe behavior to avoid unnecessary endpoint removal
+during transient resource pressure (e.g. large queries causing temporary health check timeouts).</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>timeoutSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Number of seconds after which the readiness probe times out.
+Defaults to 1 (Kubernetes default).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failureThreshold</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Minimum consecutive failures for the readiness probe to be considered failed.
+Defaults to 3.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>periodSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>How often (in seconds) to perform the readiness probe.
+Defaults to 5.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.ResourceMetricSource">ResourceMetricSource
 </h3>
 <p>
@@ -2523,6 +2882,37 @@ MetricTarget
 </tr>
 </tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.RuntimeConfigPersistenceSpec">RuntimeConfigPersistenceSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.DorisClusterSpec">DorisClusterSpec</a>)
+</p>
+<div>
+<p>RuntimeConfigPersistenceSpec controls persistence of FE, BE and MS mutable configuration.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled overrides the operator&rsquo;s recorded default. Enabling an existing
+cluster requires the runtime configuration migration tool. Disabling an
+already enabled cluster is not supported because it would lose overrides.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.ScalingPolicySelect">ScalingPolicySelect
 (<code>string</code> alias)</h3>
 <p>
@@ -2549,6 +2939,47 @@ MetricTarget
 </td>
 </tr></tbody>
 </table>
+<h3 id="doris.selectdb.com/v1.Secret">Secret
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.BaseSpec">BaseSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>name of secret that needs to mount.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mountPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Current Secret Mount Path, default is &ldquo;/etc/doris&rdquo;
+If Secret belongs to the same Secrets, their mountPath can&rsquo;t be repeated.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="doris.selectdb.com/v1.ServiceRole">ServiceRole
 (<code>string</code> alias)</h3>
 <div>
@@ -2565,6 +2996,61 @@ MetricTarget
 </tr><tr><td><p>&#34;internal&#34;</p></td>
 <td></td>
 </tr></tbody>
+</table>
+<h3 id="doris.selectdb.com/v1.SharedPersistentVolumeClaim">SharedPersistentVolumeClaim
+</h3>
+<p>
+(<em>Appears on:</em><a href="#doris.selectdb.com/v1.DorisClusterSpec">DorisClusterSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>mountPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>MountPath must be an absolute path. support use environment : ${DORIS_HOME}, ${DORIS_HOME} is /opt/apache-doris/fe/ in fe container, /opt/apache-doris/be in be container.
+if the MountPath conflict to the MountPath in BaseSpec.PersistentVolumes config, this MountPath will have high priority, and the MountPath will attach the shard pvc.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>persistentVolumeClaimName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the shared PersistentVolumeClaim&rsquo;s name
+PersistentVolumeClaim AccessModes must include ReadWriteMany, Please create the ReadWriteMany pvc before deploying doris cluster.
+Doris Operator will check the pvc exists or not, the AccessMode is ReadWriteMany or not.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>supportComponents</code><br/>
+<em>
+<a href="#doris.selectdb.com/v1.ComponentType">
+[]ComponentType
+</a>
+</em>
+</td>
+<td>
+<p>the components of need config the pvc, if empty, all deployment component will config the pvc.</p>
+</td>
+</tr>
+</tbody>
 </table>
 <h3 id="doris.selectdb.com/v1.SystemInitialization">SystemInitialization
 </h3>
@@ -2614,10 +3100,28 @@ string
 <p>Arguments to the entrypoint.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>ResourceRequirements</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ResourceRequirements</code> are embedded into this type.)
+</p>
+<p>defines the specification of resource cpu and mem for Custom initContainer.
+the default behavior of the operator <code>initContainer</code> does not require resource constraints.
+ep: {&ldquo;requests&rdquo;:{&ldquo;cpu&rdquo;: 4, &ldquo;memory&rdquo;: &ldquo;16Gi&rdquo;},&ldquo;limits&rdquo;:{&ldquo;cpu&rdquo;:4,&ldquo;memory&rdquo;:&ldquo;16Gi&rdquo;}}</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>1a70fe9</code>.
+on git commit <code>e519289</code>.
 </em></p>

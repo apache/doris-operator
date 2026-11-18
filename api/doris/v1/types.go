@@ -445,6 +445,16 @@ type DorisServicePort struct {
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service
 	// +optional
 	TargetPort int32 `json:"targetPort,omitempty"`
+
+	// The application protocol for this port.
+	// This field follows standard Kubernetes label syntax.
+	// Un-prefixed names are reserved for IANA standard service names (as per
+	// RFC-6335 and https://www.iana.org/assignments/service-names).
+	// Non-standard protocols should use prefixed names such as
+	// mycompany.com/my-custom-protocol.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol
+	// +optional
+	AppProtocol *string `json:"appProtocol,omitempty"`
 }
 
 // DorisClusterStatus defines the observed state of DorisCluster

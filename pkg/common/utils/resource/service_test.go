@@ -39,6 +39,42 @@ func Test_BuildExternalService(t *testing.T) {
 	}
 }
 
+func Test_BuildExternalServiceAppProtocol(t *testing.T) {
+	cluster := dcr.DeepCopy()
+	mysql := "mysql"
+	http := "http"
+	cluster.Spec.FeSpec.Service.ServicePorts = []v1.DorisServicePort{
+		{TargetPort: int32(GetPort(cm, QUERY_PORT)), AppProtocol: &mysql},
+		{TargetPort: int32(GetPort(cm, HTTP_PORT)), AppProtocol: &http},
+	}
+
+	svc := BuildExternalService(cluster, v1.Component_FE, cm)
+	expected := map[string]string{
+		GetPortKey(QUERY_PORT): mysql,
+		GetPortKey(HTTP_PORT):  http,
+	}
+	for _, port := range svc.Spec.Ports {
+		want, ok := expected[port.Name]
+		if !ok {
+			continue
+		}
+		if port.AppProtocol == nil || *port.AppProtocol != want {
+			t.Errorf("port %s appProtocol = %v, want %s", port.Name, port.AppProtocol, want)
+		}
+	}
+}
+
+func Test_BuildInternalServiceAppProtocolUnchanged(t *testing.T) {
+	for _, componentType := range []v1.ComponentType{v1.Component_FE, v1.Component_BE, v1.Component_CN, v1.Component_Broker} {
+		svc := BuildInternalService(dcr, componentType, cm)
+		for _, port := range svc.Spec.Ports {
+			if port.AppProtocol != nil {
+				t.Errorf("%s internal service port %s should not set appProtocol", componentType, port.Name)
+			}
+		}
+	}
+}
+
 func Test_GetDisaggregatedContainerPorts(t *testing.T) {
 	fcps := []corev1.ContainerPort{
 		{

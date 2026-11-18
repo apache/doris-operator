@@ -10,6 +10,46 @@
 </div>
 Resource Types:
 <ul></ul>
+<h3 id="disaggregated.cluster.doris.com/v1.AdminUser">AdminUser
+</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterSpec">DorisDisaggregatedClusterSpec</a>)
+</p>
+<div>
+<p>AdminUser describe administrator for manage components in specified cluster.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the user name for admin service&rsquo;s node.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>password</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>password, login to doris db.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="disaggregated.cluster.doris.com/v1.AvailableStatus">AvailableStatus
 (<code>string</code> alias)</h3>
 <p>
@@ -184,6 +224,20 @@ int32
 </tr>
 <tr>
 <td>
+<code>readinessProbePolicy</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.ReadinessProbePolicy">
+ReadinessProbePolicy
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReadinessProbePolicy defines the timing policy for readiness probe.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>ResourceRequirements</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
@@ -250,6 +304,30 @@ PersistentVolume
 </tr>
 <tr>
 <td>
+<code>logNotStore</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>if config true, the log will mount a pvc to store logs. the pvc size is definitely 200Gi, as the log recycling system will regular recycling.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>persistentVolumes</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.PersistentVolume">
+[]PersistentVolume
+</a>
+</em>
+</td>
+<td>
+<p>volume template for mountPath</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>tolerations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#toleration-v1-core">
@@ -272,7 +350,7 @@ ExportService
 </em>
 </td>
 <td>
-<p>export metaservice for accessing from outside k8s.</p>
+<p>export service for accessing from outside k8s.</p>
 </td>
 </tr>
 <tr>
@@ -380,6 +458,20 @@ SystemInitialization
 <p>SystemInitialization for fe, be setting system parameters.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>secrets</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.Secret">
+[]Secret
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Multi Secret for pod.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="disaggregated.cluster.doris.com/v1.ComputeGroup">ComputeGroup
@@ -406,7 +498,22 @@ string
 </em>
 </td>
 <td>
-<p>the unique identifier of compute group, first register in fe will use UniqueId as cluster name.</p>
+<p>the unique identifier of compute group, first register in fe will use UniqueId as compute group name.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableWorkloadGroup</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
+Default value is &lsquo;false&rsquo;.
+Enabling it means that the container must be started in privileged mode.
+Please confirm whether the host machine and k8s cluster allow it.
+Doris workloadgroup reference document: <a href="https://doris.apache.org/docs/admin-manual/resource-admin/workload-group">https://doris.apache.org/docs/admin-manual/resource-admin/workload-group</a></p>
 </td>
 </tr>
 <tr>
@@ -422,6 +529,34 @@ CommonSpec
 <p>
 (Members of <code>CommonSpec</code> are embedded into this type.)
 </p>
+</td>
+</tr>
+<tr>
+<td>
+<code>skipDefaultSystemInit</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
+Default value is &lsquo;false&rsquo;.
+Default System Init means that the container must be started in privileged mode.
+Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autoResolveLimitCPU</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.
+Default value is &lsquo;false&rsquo;. This means that the Doris BE is unaware of the CPU configuration of resources.
+Enabling this configuration means injecting an ENV named BE_CPU_LIMIT with the value requests.cpu into the pod. This configuration will also appear in the &lsquo;be.conf&rsquo; file inside the BE container.
+Changing this configuration will cause a BE rolling restart.</p>
 </td>
 </tr>
 </tbody>
@@ -484,6 +619,18 @@ string
 </em>
 </td>
 <td>
+<p>the unique id of compute group in kubernetes, this field is part of compute group statefulset.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>computeGroupId</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>the compute group id in doris meta, this response to the backend&rsquo;s tag &ldquo;compute_group_id&rdquo;;</p>
 </td>
 </tr>
 <tr>
@@ -531,6 +678,20 @@ int32
 <td>
 <em>(Optional)</em>
 <p>Total number of available pods (ready for at least minReadySeconds) targeted by this statefulset.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>gracefulAction</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.GracefulAction">
+GracefulAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GracefulAction tracks the state of an in-progress graceful two-phase restart/shutdown action.</p>
 </td>
 </tr>
 </tbody>
@@ -621,6 +782,21 @@ DorisDisaggregatedClusterSpec
 <table>
 <tr>
 <td>
+<code>runtimeConfigPersistence</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.RuntimeConfigPersistenceSpec">
+RuntimeConfigPersistenceSpec
+</a>
+</em>
+</td>
+<td>
+<p>RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+When omitted, new clusters enable it where safe storage exists; existing
+clusters keep their previous behavior until explicitly migrated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>metaService</code><br/>
 <em>
 <a href="#disaggregated.cluster.doris.com/v1.MetaService">
@@ -668,6 +844,45 @@ string
 <td>
 <p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
 the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>adminUser</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.AdminUser">
+AdminUser
+</a>
+</em>
+</td>
+<td>
+<p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableDecommission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>decommission be or not. default value is false.
+if true, will decommission be node when scale down compute group.
+if false, will drop be node when scale down compute group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kerberosInfo</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.KerberosInfo">
+KerberosInfo
+</a>
+</em>
+</td>
+<td>
+<p>KerberosInfo contains a series of access key files, Provides access to kerberos.</p>
 </td>
 </tr>
 </table>
@@ -704,6 +919,21 @@ DorisDisaggregatedClusterStatus
 <tbody>
 <tr>
 <td>
+<code>runtimeConfigPersistence</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.RuntimeConfigPersistenceSpec">
+RuntimeConfigPersistenceSpec
+</a>
+</em>
+</td>
+<td>
+<p>RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
+When omitted, new clusters enable it where safe storage exists; existing
+clusters keep their previous behavior until explicitly migrated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>metaService</code><br/>
 <em>
 <a href="#disaggregated.cluster.doris.com/v1.MetaService">
@@ -751,6 +981,45 @@ string
 <td>
 <p>the name of secret that type is <code>kubernetes.io/basic-auth</code> and contains keys username, password for management doris node in cluster as fe, be register.
 the password key is <code>password</code>. the username defaults to <code>root</code> and is omitempty.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>adminUser</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.AdminUser">
+AdminUser
+</a>
+</em>
+</td>
+<td>
+<p>administrator for register or drop component from fe cluster. adminUser for all component register and operator drop component.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableDecommission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>decommission be or not. default value is false.
+if true, will decommission be node when scale down compute group.
+if false, will drop be node when scale down compute group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kerberosInfo</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.KerberosInfo">
+KerberosInfo
+</a>
+</em>
+</td>
+<td>
+<p>KerberosInfo contains a series of access key files, Provides access to kerberos.</p>
 </td>
 </tr>
 </tbody>
@@ -819,6 +1088,17 @@ ClusterHealth
 </td>
 <td>
 <p>ComputeGroupStatuses reflect a list of computeGroup status.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>observedGeneration</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>is the most recent generation observed for DorisDisaggregatedCluster</p>
 </td>
 </tr>
 </tbody>
@@ -1018,6 +1298,331 @@ CommonSpec
 </tr>
 </tbody>
 </table>
+<h3 id="disaggregated.cluster.doris.com/v1.GracefulAction">GracefulAction
+</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.ComputeGroupStatus">ComputeGroupStatus</a>)
+</p>
+<div>
+<p>GracefulAction tracks the state of an in-progress graceful two-phase restart/shutdown operation.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.GracefulActionType">
+GracefulActionType
+</a>
+</em>
+</td>
+<td>
+<p>Type is the kind of graceful action: RollingUpdate, ScaleDown, or Delete.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>phase</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.GracefulActionPhase">
+GracefulActionPhase
+</a>
+</em>
+</td>
+<td>
+<p>Phase is the current step in the graceful action state machine.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>currentPod</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CurrentPod is the name of the pod currently being processed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>currentOrdinal</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>CurrentOrdinal is the ordinal index of the pod currently being processed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRevision</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>TargetRevision is the StatefulSet updateRevision being rolled out to (for RollingUpdate).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>desiredReplicas</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>DesiredReplicas is the target replica count (for ScaleDown).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>startedAt</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<p>StartedAt is when the current pod&rsquo;s graceful action began.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deadlineAt</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<p>DeadlineAt is when the current pod&rsquo;s drain timeout expires.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastMessage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>LastMessage is a human-readable message about the current action state.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>drainTriggered</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DrainTriggered indicates whether the drain exec has been triggered for the current pod.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialRestartCount</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>InitialRestartCount records the BE container&rsquo;s restart count before drain, to detect kubelet restarts.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sentinelWritten</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>SentinelWritten indicates whether the operator has written the terminating sentinel
+into the current pod before triggering graceful drain.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>restartAnomalyDetected</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>RestartAnomalyDetected indicates that kubelet restarted the main container
+after the graceful drain was triggered.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialPodUID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>InitialPodUID is the UID of the pod generation being drained.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialContainerID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>InitialContainerID is the main container ID of the pod generation being drained.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialBackendStartTime</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>InitialBackendStartTime is the FE-observed LastStartTime for the backend generation
+being drained. It is used to reject stale alive=true views during replacement.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialBackendEpoch</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>InitialBackendEpoch is reserved for FE-observed backend process epoch when available.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>replacementPodUID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ReplacementPodUID tracks the replacement pod generation once it is observed ready.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>replacementContainerID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ReplacementContainerID tracks the replacement pod&rsquo;s main container ID.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>replacementBackendStartTime</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ReplacementBackendStartTime records the FE-observed LastStartTime accepted for the replacement generation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>replacementBackendEpoch</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ReplacementBackendEpoch records the FE-observed backend process epoch accepted for the replacement generation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>stableBackendObservations</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>StableBackendObservations counts consecutive WaitBEAlive polls that observed the same accepted replacement generation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="disaggregated.cluster.doris.com/v1.GracefulActionPhase">GracefulActionPhase
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.GracefulAction">GracefulAction</a>)
+</p>
+<div>
+<p>GracefulActionPhase describes the current phase of a graceful action on a single pod.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;DeletePod&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;Done&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;Failed&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;TriggerDrain&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;WaitBEAlive&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;WaitDrain&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;WaitPodReady&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
+<h3 id="disaggregated.cluster.doris.com/v1.GracefulActionType">GracefulActionType
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.GracefulAction">GracefulAction</a>)
+</p>
+<div>
+<p>GracefulActionType describes the type of graceful action being performed.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;Delete&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;RollingUpdate&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;ScaleDown&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="disaggregated.cluster.doris.com/v1.Health">Health
 (<code>string</code> alias)</h3>
 <p>
@@ -1025,6 +1630,60 @@ CommonSpec
 </p>
 <div>
 </div>
+<h3 id="disaggregated.cluster.doris.com/v1.KerberosInfo">KerberosInfo
+</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterSpec">DorisDisaggregatedClusterSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>krb5ConfigMap</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Krb5ConfigMap is the name of configmap within &lsquo;krb5.conf&rsquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keytabSecretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretName is the name of sercet within &lsquo;*.keytab&rsquo; files,
+refer to the following command to create a Secret :
+&lsquo;kubectl create secret generic {secret-name} &ndash;from-file=. &lsquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keytabPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>KeytabPath is the path where the Secret is finally stored inside the pod. default &lsquo;/etc/keytab/&rsquo;.
+It is not recommended to modify it unless necessary.
+This path is the path filled in when configuring &ldquo;hadoop.kerberos.keytab&rdquo;.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="disaggregated.cluster.doris.com/v1.MetaService">MetaService
 </h3>
 <p>
@@ -1172,6 +1831,24 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="disaggregated.cluster.doris.com/v1.PVCProvisioner">PVCProvisioner
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.PersistentVolume">PersistentVolume</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;operator&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="disaggregated.cluster.doris.com/v1.PersistentVolume">PersistentVolume
 </h3>
 <p>
@@ -1237,6 +1914,19 @@ map[string]string
 It only takes effect in the first configuration and cannot be added or modified later.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>provisioner</code><br/>
+<em>
+<a href="#disaggregated.cluster.doris.com/v1.PVCProvisioner">
+PVCProvisioner
+</a>
+</em>
+</td>
+<td>
+<p>defines pvc provisioner, default is &ldquo;.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="disaggregated.cluster.doris.com/v1.Phase">Phase
@@ -1253,9 +1943,15 @@ It only takes effect in the first configuration and cannot be added or modified 
 <th>Description</th>
 </tr>
 </thead>
-<tbody><tr><td><p>&#34;Failed&#34;</p></td>
-<td><p>Failed represents service failed to start, can&rsquo;t be accessed.</p>
+<tbody><tr><td><p>&#34;Decommissioning&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;GracefulDeleting&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;GracefulRolling&#34;</p></td>
+<td><p>Graceful two-phase restart/shutdown phases</p>
 </td>
+</tr><tr><td><p>&#34;GracefulScaling&#34;</p></td>
+<td></td>
 </tr><tr><td><p>&#34;Ready&#34;</p></td>
 <td></td>
 </tr><tr><td><p>&#34;Reconciling&#34;</p></td>
@@ -1272,9 +1968,6 @@ It only takes effect in the first configuration and cannot be added or modified 
 <td></td>
 </tr><tr><td><p>&#34;Suspended&#34;</p></td>
 <td></td>
-</tr><tr><td><p>&#34;Upgrading&#34;</p></td>
-<td><p>Upgrading represents the spec of the service changed, service in smoothing upgrade.</p>
-</td>
 </tr></tbody>
 </table>
 <h3 id="disaggregated.cluster.doris.com/v1.PortMap">PortMap
@@ -1333,10 +2026,121 @@ omitted or set equal to the &lsquo;port&rsquo; field.
 More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service">https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service</a></p>
 </td>
 </tr>
+<tr>
+<td>
+<code>appProtocol</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The application protocol for this port.
+This field follows standard Kubernetes label syntax.
+Un-prefixed names are reserved for IANA standard service names (as per
+RFC-6335 and <a href="https://www.iana.org/assignments/service-names)">https://www.iana.org/assignments/service-names)</a>.
+Non-standard protocols should use prefixed names such as
+mycompany.com/my-custom-protocol.
+More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol">https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="disaggregated.cluster.doris.com/v1.ReadinessProbePolicy">ReadinessProbePolicy
+</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.CommonSpec">CommonSpec</a>)
+</p>
+<div>
+<p>ReadinessProbePolicy defines the timing policy for readiness probe.
+This allows users to tune readiness probe behavior to avoid unnecessary endpoint removal
+during transient resource pressure (e.g. large queries causing temporary health check timeouts).</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>timeoutSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Number of seconds after which the readiness probe times out.
+Defaults to 1 (Kubernetes default).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failureThreshold</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Minimum consecutive failures for the readiness probe to be considered failed.
+Defaults to 3.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>periodSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>How often (in seconds) to perform the readiness probe.
+Defaults to 5.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="disaggregated.cluster.doris.com/v1.RuntimeConfigPersistenceSpec">RuntimeConfigPersistenceSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.DorisDisaggregatedClusterSpec">DorisDisaggregatedClusterSpec</a>)
+</p>
+<div>
+<p>RuntimeConfigPersistenceSpec controls persistence of FE, BE and MS mutable configuration.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled overrides the operator&rsquo;s recorded default. Enabling an existing
+cluster requires the runtime configuration migration tool. Disabling an
+already enabled cluster is not supported because it would lose overrides.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="disaggregated.cluster.doris.com/v1.Secret">Secret
 </h3>
+<p>
+(<em>Appears on:</em><a href="#disaggregated.cluster.doris.com/v1.CommonSpec">CommonSpec</a>)
+</p>
 <div>
 </div>
 <table>
@@ -1349,7 +2153,7 @@ More info: <a href="https://kubernetes.io/docs/concepts/services-networking/serv
 <tbody>
 <tr>
 <td>
-<code>name</code><br/>
+<code>secretName</code><br/>
 <em>
 string
 </em>
@@ -1436,10 +2240,28 @@ string
 <p>Arguments to the entrypoint.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>ResourceRequirements</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ResourceRequirements</code> are embedded into this type.)
+</p>
+<p>defines the specification of resource cpu and mem for Custom initContainer.
+the default behavior of the operator <code>initContainer</code> does not require resource constraints.
+ep: {&ldquo;requests&rdquo;:{&ldquo;cpu&rdquo;: 4, &ldquo;memory&rdquo;: &ldquo;16Gi&rdquo;},&ldquo;limits&rdquo;:{&ldquo;cpu&rdquo;:4,&ldquo;memory&rdquo;:&ldquo;16Gi&rdquo;}}</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>7d27da0</code>.
+on git commit <code>e519289</code>.
 </em></p>
