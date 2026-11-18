@@ -55,8 +55,10 @@ func Prepare(owner client.Object, st *appsv1.StatefulSet) error {
 		if limit.Sign() <= 0 {
 			return nil
 		}
-		halfMiB := limit.Value() / (2 * 1024 * 1024)
-		if halfMiB < 1 {
+		// Dividing by 1.25 MiB gives 80% of the limit in whole MiB.
+		const bytesPerMiB = 1 << 20
+		heapMiB := limit.Value() / (bytesPerMiB * 5 / 4)
+		if heapMiB < 1 {
 			return fmt.Errorf("FE memory limit is too small to allocate a heap")
 		}
 		preserve8, preserve17 := false, false
@@ -112,7 +114,7 @@ func Prepare(owner client.Object, st *appsv1.StatefulSet) error {
 				{Name: "FE_HEAP_HOME", Value: feHome},
 				{Name: "FE_HEAP_SOURCE", Value: "/heap-source"},
 				{Name: "FE_HEAP_OUTPUT", Value: "/heap-prepared"},
-				{Name: "FE_HEAP_JDK8_MIB", Value: strconv.FormatInt(halfMiB, 10)},
+				{Name: "FE_HEAP_JDK8_MIB", Value: strconv.FormatInt(heapMiB, 10)},
 				{Name: "FE_HEAP_PRESERVE_JDK8", Value: strconv.FormatBool(preserve8)},
 				{Name: "FE_HEAP_PRESERVE_JDK17", Value: strconv.FormatBool(preserve17)},
 			},

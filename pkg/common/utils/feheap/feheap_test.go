@@ -179,7 +179,7 @@ func TestPrepareLimitsAndIdempotentRendering(t *testing.T) {
 				t.Fatal(err)
 			}
 			pod := st.Spec.Template.Spec
-			wantHeap := map[string]string{"4Gi": "2048", "8Gi": "4096", "16Gi": "8192", "5000Mi": "2500"}[limit]
+			wantHeap := map[string]string{"4Gi": "3276", "8Gi": "6553", "16Gi": "13107", "5000Mi": "4000"}[limit]
 			foundHeap := false
 			for _, env := range pod.InitContainers[0].Env {
 				if env.Name == "FE_HEAP_JDK8_MIB" {
@@ -283,7 +283,7 @@ func TestComposesWithRuntimePersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "MaxRAMPercentage=50") || !strings.Contains(string(got), "custom_config_dir = /var/lib/doris/runtime-config") {
+	if !strings.Contains(string(got), "MaxRAMPercentage=80") || !strings.Contains(string(got), "custom_config_dir = /var/lib/doris/runtime-config") {
 		t.Fatalf("composed config: %s", got)
 	}
 	override, err := os.ReadFile(store + "/.doris-runtime-config/cluster-fe-0/fe_custom.conf")
@@ -348,15 +348,15 @@ func runPrepareScript(t *testing.T, defaults, source, heap string, env ...string
 }
 
 func TestScriptAdaptsImageDefaults(t *testing.T) {
-	for _, heap := range []string{"2048", "4096", "8192"} {
+	for _, heap := range []string{"3276", "6553", "13107"} {
 		got := runPrepareScript(t, imageConfig, "", heap)
-		for _, want := range []string{"-Xmx" + heap + "m", "-XX:InitialRAMPercentage=25 -XX:MaxRAMPercentage=50", "--add-opens=java.base/java.lang=ALL-UNNAMED", "$LOG_DIR/fe.gc.log.$CUR_DATE", "http_port=8030"} {
+		for _, want := range []string{"-Xms" + heap + "m -Xmx" + heap + "m", "-XX:InitialRAMPercentage=80 -XX:MaxRAMPercentage=80", "--add-opens=java.base/java.lang=ALL-UNNAMED", "$LOG_DIR/fe.gc.log.$CUR_DATE", "http_port=8030"} {
 			if !strings.Contains(got, want) {
 				t.Fatalf("missing %q in %s", want, got)
 			}
 		}
-		if strings.Contains(got, "-Xms") || strings.Count(got, "-Xmx") != 1 {
-			t.Fatalf("fixed heap left in output: %s", got)
+		if strings.Count(got, "-Xms") != 1 || strings.Count(got, "-Xmx") != 1 {
+			t.Fatalf("unexpected extra fixed heap flags: %s", got)
 		}
 	}
 }
@@ -368,26 +368,26 @@ func TestScriptPreservesUserJVMSettings(t *testing.T) {
 		"JAVA_OPTS=\"-Xmx512m\"\nJAVA_OPTS_FOR_JDK_17=\"-Xmx1g\"\n",
 		"JAVA_OPTS_FOR_JDK_17=\n",
 	} {
-		got := runPrepareScript(t, imageConfig, source, "2048")
+		got := runPrepareScript(t, imageConfig, source, "3276")
 		for _, line := range strings.Split(strings.TrimSpace(source), "\n") {
 			if !strings.Contains(got, line) {
 				t.Fatalf("user setting lost: %s in %s", line, got)
 			}
 		}
-		if strings.Contains(got, "MaxRAMPercentage=50") {
+		if strings.Contains(got, "MaxRAMPercentage=80") {
 			t.Fatal("overwrote user JDK17 settings")
 		}
 	}
 }
 
 func TestScriptFillsMissingJVMSettings(t *testing.T) {
-	got := runPrepareScript(t, imageConfig, "# JAVA_OPTS=ignored\nhttp_port=18030\ncustom_config_dir=/custom\n", "2048")
-	if !strings.Contains(got, "-Xmx2048m") || !strings.Contains(got, "MaxRAMPercentage=50") || !strings.Contains(got, "custom_config_dir=/custom") || !strings.Contains(got, "http_port=18030") {
+	got := runPrepareScript(t, imageConfig, "# JAVA_OPTS=ignored\nhttp_port=18030\ncustom_config_dir=/custom\n", "3276")
+	if !strings.Contains(got, "-Xms3276m -Xmx3276m") || !strings.Contains(got, "MaxRAMPercentage=80") || !strings.Contains(got, "custom_config_dir=/custom") || !strings.Contains(got, "http_port=18030") {
 		t.Fatal(got)
 	}
 	// JDK 8 images need not contain JDK 17 options; do not create an incomplete entry.
-	got = runPrepareScript(t, "JAVA_OPTS='-Xmx8192m -XX:+UseG1GC'\n", "", "2048")
-	if strings.Contains(got, "JAVA_OPTS_FOR_JDK_17") || !strings.Contains(got, "-Xmx2048m") {
+	got = runPrepareScript(t, "JAVA_OPTS='-Xmx8192m -XX:+UseG1GC'\n", "", "3276")
+	if strings.Contains(got, "JAVA_OPTS_FOR_JDK_17") || !strings.Contains(got, "-Xms3276m -Xmx3276m") {
 		t.Fatal(got)
 	}
 }

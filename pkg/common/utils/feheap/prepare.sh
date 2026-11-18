@@ -59,5 +59,5 @@ adapt_heap() {
     mv "$conf.tmp" "$conf"
 }
 
-adapt_heap JAVA_OPTS "-Xmx${FE_HEAP_JDK8_MIB}m" "$FE_HEAP_PRESERVE_JDK8"
-adapt_heap JAVA_OPTS_FOR_JDK_17 '-XX:InitialRAMPercentage=25 -XX:MaxRAMPercentage=50' "$FE_HEAP_PRESERVE_JDK17"
+adapt_heap JAVA_OPTS "-Xms${FE_HEAP_JDK8_MIB}m -Xmx${FE_HEAP_JDK8_MIB}m" "$FE_HEAP_PRESERVE_JDK8"
+adapt_heap JAVA_OPTS_FOR_JDK_17 '-XX:InitialRAMPercentage=80 -XX:MaxRAMPercentage=80' "$FE_HEAP_PRESERVE_JDK17"

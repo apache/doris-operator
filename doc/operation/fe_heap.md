@@ -5,15 +5,15 @@ operator adapts image-provided FE JVM defaults when `limits.memory` is set:
 
 | Configuration entry | Heap defaults |
 | --- | --- |
-| `JAVA_OPTS` (JDK 8) | `-Xmx` equal to half the limit, rounded down to MiB; no explicit `-Xms` |
-| `JAVA_OPTS_FOR_JDK_17` | `-XX:InitialRAMPercentage=25 -XX:MaxRAMPercentage=50` |
+| `JAVA_OPTS` (JDK 8) | `-Xms` and `-Xmx` both set to 80% of the limit, rounded down to MiB |
+| `JAVA_OPTS_FOR_JDK_17` | `-XX:InitialRAMPercentage=80 -XX:MaxRAMPercentage=80` |
 
 The fixed image `-Xms` and `-Xmx` values are removed before adding these defaults.
 Other image JVM options, including GC, logging and module access, are retained.
 The JDK 17 calculation requires the image JVM to recognize the container memory
 limit correctly. Verify the effective heap on your supported image/cgroup
-combination. Reserving half the limit for non-heap memory is a default budget,
-not a guarantee against OOMKilled.
+combination. The 80% heap budget leaves roughly 20% of the limit for other
+container memory usage.
 
 No adaptation is performed without a memory limit. `requests.memory` is not a
 heap budget. This feature does not change BE JVM settings or Helm templates.
@@ -66,7 +66,7 @@ user; plan this as an FE configuration update.
 
 For verification, inspect `fe.conf` inside the running FE and the JVM effective
 flags (`jcmd <pid> VM.flags` where available). For an 8Gi limit, JDK 8 should use
-`-Xmx4096m`; JDK 17 should have an initial heap around 2Gi and maximum around 4Gi,
+`-Xms6553m -Xmx6553m`; JDK 17 should have initial and maximum heaps around 6.4Gi,
 subject to JVM alignment/ergonomics. Include a real startup check on both JDKs,
 custom fixed/percentage settings, and an upgrade check that existing FE Pod
 UIDs and templates remain unchanged until explicitly enabled.
