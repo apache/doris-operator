@@ -69,9 +69,35 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 		return nil
 	}
 
-	//resolve the bug: metadata.resourceversion invalid value '' must be specified for an update
-	svc.ResourceVersion = esvc.ResourceVersion
-	return PatchClientObject(ctx, k8sclient, svc)
+	// Patch a copy of the current object so API allocated fields and external
+	// metadata survive, while false/empty managed values are explicitly cleared.
+	updated := esvc.DeepCopy()
+	spec := resource.NormalizedServiceSpec(svc, &esvc)
+	updated.Spec.Ports = spec.Ports
+	updated.Spec.Selector = spec.Selector
+	updated.Spec.Type = spec.Type
+	updated.Spec.SessionAffinity = spec.SessionAffinity
+	updated.Spec.PublishNotReadyAddresses = spec.PublishNotReadyAddresses
+	updated.Spec.LoadBalancerIP = spec.LoadBalancerIP
+	if spec.SessionAffinity == corev1.ServiceAffinityNone {
+		updated.Spec.SessionAffinityConfig = nil
+	}
+	if updated.Labels == nil {
+		updated.Labels = map[string]string{}
+	}
+	for key, value := range svc.Labels {
+		updated.Labels[key] = value
+	}
+	if updated.Annotations == nil {
+		updated.Annotations = map[string]string{}
+	}
+	for key, value := range svc.Annotations {
+		updated.Annotations[key] = value
+	}
+	if len(svc.OwnerReferences) != 0 {
+		updated.OwnerReferences = svc.OwnerReferences
+	}
+	return k8sclient.Patch(ctx, updated, client.MergeFromWithOptions(&esvc, client.MergeFromWithOptimisticLock{}))
 }
 
 func ListServicesInNamespace(ctx context.Context, k8sclient client.Client, namespace string, selector map[string]string) ([]corev1.Service, error) {
