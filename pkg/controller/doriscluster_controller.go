@@ -35,6 +35,8 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
@@ -133,8 +135,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	dcr := edcr.DeepCopy()
 
 	if !dcr.DeletionTimestamp.IsZero() {
-		r.resourceClean(ctx, dcr)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.resourceClean(ctx, dcr)
 	}
 
 	if err := runtimeconfig.EnsurePolicy(ctx, r.Client, dcr); err != nil {
@@ -160,7 +161,9 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	//generate the dcr status.
-	r.clearNoEffectResources(ctx, dcr)
+	if err := r.clearNoEffectResources(ctx, dcr); err != nil {
+		return requeueIfError(err)
+	}
 	for _, rc := range r.Scs {
 		//update component status.
 
@@ -193,14 +196,18 @@ func (r *DorisClusterReconciler) updateDorisCluster(ctx context.Context, dcr *do
 	return k8s.ApplyDorisCluster(ctx, r.Client, dcr)
 }
 
-func (r *DorisClusterReconciler) clearNoEffectResources(context context.Context, cluster *dorisv1.DorisCluster) {
+func (r *DorisClusterReconciler) clearNoEffectResources(ctx context.Context, cluster *dorisv1.DorisCluster) error {
 	//calculate the status of doris cluster by subresource's status.
 	//clear resources when sub resource deleted. example: deployed fe,be,cn, when cn spec is deleted we should delete cn resources.
+	var errs []error
 	for _, rc := range r.Scs {
-		rc.ClearResources(context, cluster)
+		if done, err := rc.ClearResources(ctx, cluster); err != nil {
+			errs = append(errs, fmt.Errorf("%s cleanup: %w", rc.GetControllerName(), err))
+		} else if !done {
+			errs = append(errs, fmt.Errorf("%s cleanup pending", rc.GetControllerName()))
+		}
 	}
-
-	return
+	return errors.Join(errs...)
 }
 
 func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, dcr *dorisv1.DorisCluster) (ctrl.Result, error) {
@@ -216,8 +223,11 @@ func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, d
 		}
 	}
 
-	dcr.Status.DeepCopyInto(&edcr.Status)
 	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(dcr), &edcr); err != nil {
+			return err
+		}
+		dcr.Status.DeepCopyInto(&edcr.Status)
 		return r.Client.Status().Update(ctx, &edcr)
 	})
 }
@@ -251,12 +261,8 @@ func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
 }
 
 // clean all resource deploy by DorisCluster
-func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1.DorisCluster) {
-	for _, rc := range r.Scs {
-		rc.ClearResources(ctx, dcr)
-	}
-
-	return
+func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	return r.clearNoEffectResources(ctx, dcr)
 }
 
 func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
