@@ -20,6 +20,7 @@ package fe
 import (
 	"context"
 	v1 "github.com/apache/doris-operator/api/doris/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/feheap"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
@@ -139,6 +140,9 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	st := fc.buildFEStatefulSet(cluster, config)
+	if err := feheap.Prepare(cluster, &st); err != nil {
+		return err
+	}
 	if err := runtimeconfig.Prepare(ctx, fc.K8sclient, fc.K8srecorder, cluster, &st, config); err != nil {
 		return err
 	}

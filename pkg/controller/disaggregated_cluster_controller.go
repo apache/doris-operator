@@ -25,6 +25,7 @@ import (
 	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
+	"github.com/apache/doris-operator/pkg/common/utils/feheap"
 	"github.com/apache/doris-operator/pkg/common/utils/hash"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
@@ -224,6 +225,10 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if err := feheap.EnsurePolicy(ctx, dc.Client, &ddc); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := runtimeconfig.EnsurePolicy(ctx, dc.Client, &ddc); err != nil {
 		dc.Recorder.Event(&ddc, corev1.EventTypeWarning, "RuntimeConfigPersistenceBlocked", err.Error())
 		return ctrl.Result{}, err
