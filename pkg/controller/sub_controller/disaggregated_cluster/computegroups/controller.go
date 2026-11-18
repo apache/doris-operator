@@ -206,6 +206,9 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileInternalService(ctx c
 		return err
 	}
 
+	if err := k8s.ValidateResourceOwnership(svc, &existingSvc); err != nil {
+		return err
+	}
 	// If the existing service is already headless, use normal reconcile path.
 	if existingSvc.Spec.ClusterIP == "None" {
 		_, err = dcgs.DefaultReconcileService(ctx, svc)
@@ -248,6 +251,10 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx conte
 		return nil, nil
 	} else if err != nil {
 		klog.Errorf("disaggregatedComputeGroupsController reconcileStatefulset get statefulset failed, namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+		return nil, err
+	}
+
+	if err := k8s.ValidateResourceOwner(cluster, &est); err != nil {
 		return nil, err
 	}
 

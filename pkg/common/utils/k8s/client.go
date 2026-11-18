@@ -61,6 +61,9 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 	} else if err != nil {
 		return err
 	}
+	if err := ValidateResourceOwnership(svc, &esvc); err != nil {
+		return err
+	}
 	if equal(svc, &esvc) {
 		klog.Info("CreateOrUpdateService service Name, Ports, Selector, ServiceType, Labels have not change ", "namespace ", svc.Namespace, " name ", svc.Name)
 		return nil
@@ -99,6 +102,11 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 		return err
 	}
 
+	if !create {
+		if err := ValidateResourceOwnership(st, &est); err != nil {
+			return err
+		}
+	}
 	//check the statefulset need update or not.
 	ev := equal(st, &est)
 
@@ -152,14 +160,17 @@ func UpdateClientObject(ctx context.Context, k8sclient client.Client, object cli
 }
 
 func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
-	klog.Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
-	if err := k8sclient.Update(ctx, object); apierrors.IsNotFound(err) {
+	existing := object.DeepCopyObject().(client.Object)
+	if err := k8sclient.Get(ctx, client.ObjectKeyFromObject(object), existing); apierrors.IsNotFound(err) {
 		return k8sclient.Create(ctx, object)
 	} else if err != nil {
 		return err
 	}
-
-	return nil
+	if err := ValidateResourceOwnership(object, existing); err != nil {
+		return err
+	}
+	object.SetResourceVersion(existing.GetResourceVersion())
+	return k8sclient.Update(ctx, object)
 }
 
 // PatchClientObject patch object when the object exist. if not return error.
