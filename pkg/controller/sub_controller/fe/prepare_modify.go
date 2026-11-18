@@ -41,6 +41,9 @@ func (fc *Controller) prepareStatefulsetApply(ctx context.Context, cluster *v1.D
 		klog.Infof("fe controller controlClusterPhaseAndPreOperation get fe StatefulSet failed, err: %s", err.Error())
 		return nil
 	}
+	if err := k8s.ValidateResourceOwner(cluster, &oldSt); err != nil {
+		return err
+	}
 	if cluster.Spec.FeSpec.Replicas == nil {
 		cluster.Spec.FeSpec.Replicas = resource.GetInt32Pointer(0)
 	}

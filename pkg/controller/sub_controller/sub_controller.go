@@ -73,6 +73,10 @@ func (d *SubDefaultController) CheckRestartTimeAndInject(dcr *dorisv1.DorisClust
 		baseSpec = &dcr.Spec.BeSpec.BaseSpec
 		restartedAt = dcr.Annotations[dorisv1.BERestartAt]
 		restartAnnotationsKey = dorisv1.BERestartAt
+	case dorisv1.Component_CN:
+		baseSpec = &dcr.Spec.CnSpec.BaseSpec
+		restartedAt = dcr.Annotations[dorisv1.CNRestartAt]
+		restartAnnotationsKey = dorisv1.CNRestartAt
 	default:
 		klog.Errorf("CheckRestartTimeAndInject dorisClusterName %s, namespace %s componentType %s not supported.", dcr.Name, dcr.Namespace, componentType)
 	}
@@ -166,7 +170,7 @@ func (d *SubDefaultController) GetConfig(ctx context.Context, configMapInfo *dor
 	if err != nil {
 		klog.Errorf("SubDefaultController GetConfig get configmap failed, namespace: %s,err: %s \n", namespace, err.Error())
 	}
-	return config, nil
+	return config, err
 }
 
 func (d *SubDefaultController) GetFinalPersistentVolumes(ctx context.Context, dcr *dorisv1.DorisCluster, componentType dorisv1.ComponentType) ([]dorisv1.PersistentVolume, error) {

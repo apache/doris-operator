@@ -64,8 +64,16 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 		return nil
 	}
 
+	var oldStatus dorisv1.ComponentStatus
+	if dcr.Status.CnStatus != nil {
+		oldStatus = *(dcr.Status.CnStatus.ComponentStatus.DeepCopy())
+	}
 	if !cn.FeAvailable(dcr) {
 		return nil
+	}
+
+	if dcr.Spec.EnableRestartWhenConfigChange {
+		cn.CompareConfigmapAndTriggerRestart(dcr, oldStatus, dorisv1.Component_CN)
 	}
 
 	cnSpec := dcr.Spec.CnSpec
@@ -92,6 +100,11 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 			svc.Name, svc.Namespace, dcr.Name, err.Error())
 		return err
 	}
+	// cn rolling restart, same checks as be: phase is Available and the restart time is useful.
+	if oldStatus.ComponentCondition.Phase == dorisv1.Available && cn.CheckRestartTimeAndInject(dcr, dorisv1.Component_CN) {
+		dcr.Status.CnStatus.ComponentCondition.Phase = dorisv1.Restarting
+	}
+
 	cnStatefulSet := cn.buildCnStatefulSet(dcr, config)
 	if !cn.PrepareReconcileResources(ctx, dcr, dorisv1.Component_CN) {
 		klog.Infof("cn controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
@@ -137,6 +150,7 @@ func (cn *Controller) UpdateComponentStatus(cluster *dorisv1.DorisCluster) error
 		}
 	}
 
+	cs.CoreConfigMapHashValue = cn.BuildCoreConfigmapStatusHash(context.Background(), cluster, dorisv1.Component_CN)
 	cluster.Status.CnStatus = cs
 
 	// start autoscaler, the replicas should get from statefulset, statefulset's replicas will update by autoscaler when not set.
@@ -161,6 +175,9 @@ func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSe
 		klog.Errorf("CnController Sync create statefulset name=%s, namespace=%s error=%s", st.Name, st.Namespace, err.Error())
 		return err
 	}
+	if err := k8s.ValidateResourceOwnership(st, &est); err != nil {
+		return err
+	}
 	//if the spec is changed, update the status of cn on src.
 	excludeReplica := autoscaler || st.Spec.Replicas == nil
 	if excludeReplica {
@@ -169,6 +186,13 @@ func (cn *Controller) applyStatefulSet(ctx context.Context, st *appv1.StatefulSe
 
 	//the statefulset equal should exclude pvc. pvc not allowed update when use statefulset manage, when use `operator` mode for management that pvc not allow updated in statetfulset spec.
 	cn.RestrictConditionsEqual(st, &est)
+	// Update replaces the template, so keep the last restart or the next pass rolls the pods again.
+	if restartedAt, ok := est.Spec.Template.Annotations[dorisv1.CNRestartAt]; ok && st.Spec.Template.Annotations[dorisv1.CNRestartAt] == "" {
+		if st.Spec.Template.Annotations == nil {
+			st.Spec.Template.Annotations = map[string]string{}
+		}
+		st.Spec.Template.Annotations[dorisv1.CNRestartAt] = restartedAt
+	}
 	if !resource.StatefulSetDeepEqual(st, &est, excludeReplica) {
 		//if the replicas not zero, represent user have cancel autoscaler.
 		if st.Spec.Replicas != nil {
@@ -216,29 +240,27 @@ func (cn *Controller) deployAutoScaler(ctx context.Context, policy dorisv1.AutoS
 }
 
 func (cn *Controller) ClearResources(ctx context.Context, dcr *dorisv1.DorisCluster) (bool, error) {
-	cnStatus := dcr.Status.CnStatus
-	if cnStatus == nil {
-		klog.Info("Doris cluster is not have cn")
+	if dcr.Status.CnStatus == nil {
 		return true, nil
 	}
-
 	// clear autoscaler when autoscaler config deleted or the doriscluster deleted.
 	// guard the dereference, only calls ClearResources when CnSpec is nil.
 	if dcr.Spec.CnSpec == nil || dcr.Spec.CnSpec.AutoScalingPolicy == nil || !dcr.DeletionTimestamp.IsZero() {
 		if err := cn.DeleteAutoscaler(ctx, dcr); err != nil {
 			cn.K8srecorder.Eventf(dcr, string(sub_controller.EventWarning), sub_controller.AutoScalerDeleteFailed, "cn autoscaler deleted failed."+err.Error())
+			return false, err
 		}
 	}
 
 	if dcr.Spec.CnSpec == nil {
-		cn.ClearCommonResources(ctx, dcr, dorisv1.Component_CN)
+		return cn.ClearCommonResources(ctx, dcr, dorisv1.Component_CN)
 	}
 
 	return true, nil
 }
 
 func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCluster) error {
-	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil {
+	if dcr.Status.CnStatus == nil || dcr.Status.CnStatus.HorizontalScaler == nil || dcr.Status.CnStatus.HorizontalScaler.Name == "" {
 		return nil
 	}
 
@@ -249,7 +271,7 @@ func (cn *Controller) DeleteAutoscaler(ctx context.Context, dcr *dorisv1.DorisCl
 		return err
 	}
 
-	dcr.Status.CnStatus.HorizontalScaler = &dorisv1.HorizontalScaler{}
+	dcr.Status.CnStatus.HorizontalScaler = nil
 	return nil
 }
 

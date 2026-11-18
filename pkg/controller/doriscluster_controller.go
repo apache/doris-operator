@@ -35,9 +35,10 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
-	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/be"
@@ -45,6 +46,7 @@ import (
 	cn "github.com/apache/doris-operator/pkg/controller/sub_controller/cn"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller/fe"
 	appv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -56,7 +58,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -79,8 +80,6 @@ type DorisClusterReconciler struct {
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
 	Scs      map[string]sub_controller.SubController
-	//record configmap response instance. key: configMap namespacedName, value: DorisCluster namespacedName
-	WatchConfigMaps map[string]string
 }
 
 var (
@@ -132,8 +131,7 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	dcr := edcr.DeepCopy()
 
 	if !dcr.DeletionTimestamp.IsZero() {
-		r.resourceClean(ctx, dcr)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.resourceClean(ctx, dcr)
 	}
 
 	if err := runtimeconfig.EnsurePolicy(ctx, r.Client, dcr); err != nil {
@@ -141,25 +139,23 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	if dcr.Spec.EnableRestartWhenConfigChange {
-		coreConfigMaps := resource.GetDorisCoreConfigMapNames(dcr)
-		for componentType := range coreConfigMaps {
-			cmnn := types.NamespacedName{Namespace: dcr.Namespace, Name: coreConfigMaps[componentType]}
-			dcrnn := types.NamespacedName{Namespace: dcr.Namespace, Name: dcr.Name}
-			r.WatchConfigMaps[cmnn.String()] = dcrnn.String()
-		}
-	}
-
 	//subControllers reconcile for create or update sub resource.
+	upgradePending := false
 	for _, rc := range r.Scs {
 		if err := rc.Sync(ctx, dcr); err != nil {
+			if sub_controller.IsBackendUpgradePending(err) {
+				upgradePending = true
+				continue
+			}
 			klog.Error("DorisClusterReconciler reconcile ", " sub resource reconcile failed ", "namespace: ", dcr.Namespace, " name: ", dcr.Name, " controller: ", rc.GetControllerName(), " error: ", err)
 			return requeueIfError(err)
 		}
 	}
 
 	//generate the dcr status.
-	r.clearNoEffectResources(ctx, dcr)
+	if err := r.clearNoEffectResources(ctx, dcr); err != nil {
+		return requeueIfError(err)
+	}
 	for _, rc := range r.Scs {
 		//update component status.
 
@@ -175,7 +171,11 @@ func (r *DorisClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return requeueIfError(err)
 	}
 
-	return r.updateDorisClusterStatus(ctx, dcr)
+	result, err := r.updateDorisClusterStatus(ctx, dcr)
+	if err == nil && upgradePending {
+		result = ctrl.Result{RequeueAfter: sub_controller.UpgradeRequeueAfter}
+	}
+	return result, err
 }
 
 // if cluster spec be reverted, doris operator should revert to old.
@@ -192,14 +192,18 @@ func (r *DorisClusterReconciler) updateDorisCluster(ctx context.Context, dcr *do
 	return k8s.ApplyDorisCluster(ctx, r.Client, dcr)
 }
 
-func (r *DorisClusterReconciler) clearNoEffectResources(context context.Context, cluster *dorisv1.DorisCluster) {
+func (r *DorisClusterReconciler) clearNoEffectResources(ctx context.Context, cluster *dorisv1.DorisCluster) error {
 	//calculate the status of doris cluster by subresource's status.
 	//clear resources when sub resource deleted. example: deployed fe,be,cn, when cn spec is deleted we should delete cn resources.
+	var errs []error
 	for _, rc := range r.Scs {
-		rc.ClearResources(context, cluster)
+		if done, err := rc.ClearResources(ctx, cluster); err != nil {
+			errs = append(errs, fmt.Errorf("%s cleanup: %w", rc.GetControllerName(), err))
+		} else if !done {
+			errs = append(errs, fmt.Errorf("%s cleanup pending", rc.GetControllerName()))
+		}
 	}
-
-	return
+	return errors.Join(errs...)
 }
 
 func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, dcr *dorisv1.DorisCluster) (ctrl.Result, error) {
@@ -215,8 +219,11 @@ func (r *DorisClusterReconciler) updateDorisClusterStatus(ctx context.Context, d
 		}
 	}
 
-	dcr.Status.DeepCopyInto(&edcr.Status)
 	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(dcr), &edcr); err != nil {
+			return err
+		}
+		dcr.Status.DeepCopyInto(&edcr.Status)
 		return r.Client.Status().Update(ctx, &edcr)
 	})
 }
@@ -250,18 +257,15 @@ func (r *DorisClusterReconciler) reconcile(dcr *dorisv1.DorisCluster) bool {
 }
 
 // clean all resource deploy by DorisCluster
-func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1.DorisCluster) {
-	for _, rc := range r.Scs {
-		rc.ClearResources(ctx, dcr)
-	}
-
-	return
+func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1.DorisCluster) error {
+	return r.clearNoEffectResources(ctx, dcr)
 }
 
 func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dorisv1.DorisCluster{}).
 		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
-		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner)
+		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner).
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, controller_builder.MatchEveryOwner)
 }
 
 func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Builder {
@@ -309,52 +313,11 @@ func (r *DorisClusterReconciler) watchPodBuilder(builder *ctrl.Builder) *ctrl.Bu
 		mapFn, controller_builder.WithPredicates(p))
 }
 
-func (r *DorisClusterReconciler) watchConfigMapBuilder(builder *ctrl.Builder) *ctrl.Builder {
-	mapFn := handler.EnqueueRequestsFromMapFunc(
-		func(ctx context.Context, a client.Object) []reconcile.Request {
-			cmnn := types.NamespacedName{Namespace: a.GetNamespace(), Name: a.GetName()}
-			if dcrNamespacedNameStr, ok := r.WatchConfigMaps[cmnn.String()]; ok {
-				// nna[0] is namespace, nna[1] is dcrName,
-				nna := strings.Split(dcrNamespacedNameStr, "/")
-				// not run only for code standard
-				if len(nna) != 2 {
-					return nil
-				}
-
-				return []reconcile.Request{{NamespacedName: types.NamespacedName{
-					Namespace: nna[0],
-					Name:      nna[1],
-				}}}
-			}
-			return nil
-		})
-
-	p := predicate.Funcs{
-		CreateFunc: func(u event.CreateEvent) bool {
-
-			cmnn := types.NamespacedName{Namespace: u.Object.GetNamespace(), Name: u.Object.GetName()}
-			_, ok := r.WatchConfigMaps[cmnn.String()]
-			return ok
-		},
-
-		UpdateFunc: func(u event.UpdateEvent) bool {
-
-			cmnn := types.NamespacedName{Namespace: u.ObjectNew.GetNamespace(), Name: u.ObjectNew.GetName()}
-
-			if _, ok := r.WatchConfigMaps[cmnn.String()]; !ok {
-				return false
-			}
-
-			return true
-		},
-	}
-
-	return builder.Watches(&corev1.ConfigMap{},
-		mapFn, controller_builder.WithPredicates(p))
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *DorisClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &dorisv1.DorisCluster{}, coreConfigMapIndex, coreConfigMapIndexKeys); err != nil {
+		return err
+	}
 	builder := r.resourceBuilder(ctrl.NewControllerManagedBy(mgr))
 	builder = r.watchPodBuilder(builder)
 	builder = r.watchConfigMapBuilder(builder)
@@ -374,10 +337,9 @@ func (r *DorisClusterReconciler) Init(mgr ctrl.Manager, options *Options) {
 	subcs[brokerControllerName] = brk
 
 	if err := (&DorisClusterReconciler{
-		Client:          mgr.GetClient(),
-		Recorder:        mgr.GetEventRecorderFor(name),
-		Scs:             subcs,
-		WatchConfigMaps: make(map[string]string),
+		Client:   mgr.GetClient(),
+		Recorder: mgr.GetEventRecorderFor(name),
+		Scs:      subcs,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Error(err, " unable to create controller ", "controller ", "DorisCluster ")
 		os.Exit(1)

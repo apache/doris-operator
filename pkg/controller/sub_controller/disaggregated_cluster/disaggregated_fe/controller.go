@@ -113,6 +113,18 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 		return err
 	}
 
+	// Keep Service repair active while an FE image change waits for BE.
+	reader := dfc.APIReader
+	if reader == nil {
+		reader = dfc.K8sclient
+	}
+	if err := sc.CheckFrontendUpgrade(ctx, reader, ddc); err != nil {
+		if sc.IsBackendUpgradePending(err) {
+			dfc.K8srecorder.Event(ddc, string(sc.EventNormal), sc.WaitBackendUpgrade, err.Error())
+		}
+		return err
+	}
+
 	event, err = dfc.reconcileStatefulset(ctx, st, ddc)
 	if err != nil {
 		if event != nil {
@@ -288,6 +300,10 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		return nil, nil
 	} else if err != nil {
 		klog.Errorf("disaggregatedFEController reconcileStatefulset get statefulset failed, namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
+		return nil, err
+	}
+
+	if err := k8s.ValidateResourceOwner(cluster, &est); err != nil {
 		return nil, err
 	}
 

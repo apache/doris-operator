@@ -205,8 +205,8 @@ func fdbClusterFile(obj client.Object) (string, bool) {
 
 func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dv1.DorisDisaggregatedCluster{}).
-		Owns(&appv1.StatefulSet{}).
-		Owns(&corev1.Service{})
+		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
+		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner)
 }
 
 // Reconcile steps:
@@ -277,6 +277,9 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 	if !disRes.IsZero() {
 		res = disRes
 	}
+	if reconRes.RequeueAfter > 0 {
+		res = reconRes
+	}
 
 	if msg != "" {
 		return res, errors.New(msg)
@@ -332,8 +335,13 @@ func (dc *DisaggregatedClusterReconciler) reorganizeStatus(ddc *dv1.DorisDisaggr
 func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc *dv1.DorisDisaggregatedCluster) (ctrl.Result, error) {
 	// recall all sub for check error.
 	errs := []error{}
+	var result ctrl.Result
 	for _, subC := range dc.Scs {
 		if err := subC.Sync(ctx, ddc); err != nil {
+			if sc.IsBackendUpgradePending(err) {
+				result.RequeueAfter = sc.UpgradeRequeueAfter
+				continue
+			}
 			klog.Errorf("disaggreatedClusterReconciler sub reconciler %s sync err=%s.", subC.GetControllerName(), err.Error())
 			errs = append(errs, err)
 		}
@@ -346,7 +354,7 @@ func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc 
 		}
 		return ctrl.Result{}, errors.New(msg)
 	}
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 // when spec revert by operator should update cr or directly update status.
@@ -364,7 +372,7 @@ func (dc *DisaggregatedClusterReconciler) updateObjectORStatus(ctx context.Conte
 		}
 		if err := dc.Update(ctx, ddc); err != nil {
 			klog.Errorf("disaggreatedClusterReconciler update DorisDisaggregatedCluster namespace %s name %s  failed, err=%s", ddc.Namespace, ddc.Name, err.Error())
-			//return ctrl.Result{}, err
+			return ctrl.Result{}, err
 		}
 	}
 	res, err := dc.updateDorisDisaggregatedClusterStatus(ctx, deepCopyDDC)
@@ -435,6 +443,7 @@ func (dc *DisaggregatedClusterReconciler) updateDorisDisaggregatedClusterStatus(
 		return dc.Status().Update(ctx, &eddc)
 	}); err != nil {
 		klog.Errorf("updateDorisDisaggregatedClusterStatus update status failed err: %s", err.Error())
+		return ctrl.Result{}, err
 	}
 
 	// if the status is not equal before reconcile and now the status is not available we should requeue.

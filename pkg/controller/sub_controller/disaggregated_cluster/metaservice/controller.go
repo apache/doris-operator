@@ -219,6 +219,10 @@ func (dms *DisaggregatedMSController) reconcileStatefulset(ctx context.Context, 
 		return nil, err
 	}
 
+	if err := k8s.ValidateResourceOwner(ddc, &est); err != nil {
+		return nil, err
+	}
+
 	if err := k8s.ApplyStatefulSet(ctx, dms.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
 		dms.RestrictConditionsEqual(new, est)
 		//store annotations "doris.disaggregated.cluster/generation={generation}" on statefulset

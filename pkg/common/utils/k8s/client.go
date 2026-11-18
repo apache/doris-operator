@@ -58,7 +58,10 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 		}
 
 		return err
-	} else if err != nil && apierrors.IsNotFound(err) {
+	} else if err != nil {
+		return err
+	}
+	if err := ValidateResourceOwnership(svc, &esvc); err != nil {
 		return err
 	}
 	if equal(svc, &esvc) {
@@ -66,9 +69,35 @@ func ApplyService(ctx context.Context, k8sclient client.Client, svc *corev1.Serv
 		return nil
 	}
 
-	//resolve the bug: metadata.resourceversion invalid value '' must be specified for an update
-	svc.ResourceVersion = esvc.ResourceVersion
-	return PatchClientObject(ctx, k8sclient, svc)
+	// Patch a copy of the current object so API allocated fields and external
+	// metadata survive, while false/empty managed values are explicitly cleared.
+	updated := esvc.DeepCopy()
+	spec := resource.NormalizedServiceSpec(svc, &esvc)
+	updated.Spec.Ports = spec.Ports
+	updated.Spec.Selector = spec.Selector
+	updated.Spec.Type = spec.Type
+	updated.Spec.SessionAffinity = spec.SessionAffinity
+	updated.Spec.PublishNotReadyAddresses = spec.PublishNotReadyAddresses
+	updated.Spec.LoadBalancerIP = spec.LoadBalancerIP
+	if spec.SessionAffinity == corev1.ServiceAffinityNone {
+		updated.Spec.SessionAffinityConfig = nil
+	}
+	if updated.Labels == nil {
+		updated.Labels = map[string]string{}
+	}
+	for key, value := range svc.Labels {
+		updated.Labels[key] = value
+	}
+	if updated.Annotations == nil {
+		updated.Annotations = map[string]string{}
+	}
+	for key, value := range svc.Annotations {
+		updated.Annotations[key] = value
+	}
+	if len(svc.OwnerReferences) != 0 {
+		updated.OwnerReferences = svc.OwnerReferences
+	}
+	return k8sclient.Patch(ctx, updated, client.MergeFromWithOptions(&esvc, client.MergeFromWithOptimisticLock{}))
 }
 
 func ListServicesInNamespace(ctx context.Context, k8sclient client.Client, namespace string, selector map[string]string) ([]corev1.Service, error) {
@@ -97,6 +126,12 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 		create = true
 	} else if err != nil && !apierrors.IsNotFound(err) {
 		return err
+	}
+
+	if !create {
+		if err := ValidateResourceOwnership(st, &est); err != nil {
+			return err
+		}
 	}
 
 	// Render the final desired template before comparing, including the BE init image.
@@ -159,12 +194,7 @@ func ApplyStatefulSet(ctx context.Context, k8sclient client.Client, st *appv1.St
 }
 
 func ApplyDorisCluster(ctx context.Context, k8sclient client.Client, dcr *dorisv1.DorisCluster) error {
-	err := PatchClientObject(ctx, k8sclient, dcr)
-	if err == nil || apierrors.IsConflict(err) {
-		return nil
-	}
-
-	return err
+	return PatchClientObject(ctx, k8sclient, dcr)
 }
 
 func GetStatefulSet(ctx context.Context, k8sclient client.Client, namespace, name string) (*appv1.StatefulSet, error) {
@@ -190,14 +220,17 @@ func UpdateClientObject(ctx context.Context, k8sclient client.Client, object cli
 }
 
 func CreateOrUpdateClientObject(ctx context.Context, k8sclient client.Client, object client.Object) error {
-	klog.Infof("create or update resource namespace=%s,name=%s,kind=%s.", object.GetNamespace(), object.GetName(), object.GetObjectKind())
-	if err := k8sclient.Update(ctx, object); apierrors.IsNotFound(err) {
+	existing := object.DeepCopyObject().(client.Object)
+	if err := k8sclient.Get(ctx, client.ObjectKeyFromObject(object), existing); apierrors.IsNotFound(err) {
 		return k8sclient.Create(ctx, object)
 	} else if err != nil {
 		return err
 	}
-
-	return nil
+	if err := ValidateResourceOwnership(object, existing); err != nil {
+		return err
+	}
+	object.SetResourceVersion(existing.GetResourceVersion())
+	return k8sclient.Update(ctx, object)
 }
 
 // PatchClientObject patch object when the object exist. if not return error.

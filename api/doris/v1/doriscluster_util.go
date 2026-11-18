@@ -31,6 +31,7 @@ const (
 
 	FERestartAt string = "apache.doris.fe/restartedAt"
 	BERestartAt string = "apache.doris.be/restartedAt"
+	CNRestartAt string = "apache.doris.cn/restartedAt"
 )
 
 // the labels key
@@ -386,6 +387,8 @@ func GetRestartAnnotationKey(componentType ComponentType) string {
 		restartAnnotationsKey = FERestartAt
 	case Component_BE:
 		restartAnnotationsKey = BERestartAt
+	case Component_CN:
+		restartAnnotationsKey = CNRestartAt
 	default:
 		klog.Infof("GetRestartAnnotationKey the componentType %s is not supported.", componentType)
 	}

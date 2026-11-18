@@ -234,7 +234,8 @@ func Test_ServiceDeepEqual(t *testing.T) {
 			},
 		},
 	}
-	ress := []bool{false, false, true, true, true}
+	// Hash annotations and externally added annotations do not describe live managed fields.
+	ress := []bool{true, true, true, true, true}
 	for i := 0; i < len(ress); i++ {
 		res := ServiceDeepEqual(&src[i], &dst[i])
 		if res != ress[i] {

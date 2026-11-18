@@ -121,6 +121,14 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 		return err
 	}
 
+	// Keep Service repair active while an FE image change waits for BE.
+	if err := sub_controller.CheckFrontendUpgrade(ctx, fc.K8sclient, cluster); err != nil {
+		if sub_controller.IsBackendUpgradePending(err) {
+			fc.K8srecorder.Event(cluster, string(sub_controller.EventNormal), sub_controller.WaitBackendUpgrade, err.Error())
+		}
+		return err
+	}
+
 	if !fc.PrepareReconcileResources(ctx, cluster, v1.Component_FE) {
 		klog.Infof("fe controller sync preparing resource for reconciling namespace %s name %s!", cluster.Namespace, cluster.Name)
 		return nil
