@@ -205,8 +205,8 @@ func fdbClusterFile(obj client.Object) (string, bool) {
 
 func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dv1.DorisDisaggregatedCluster{}).
-		Owns(&appv1.StatefulSet{}).
-		Owns(&corev1.Service{})
+		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
+		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner)
 }
 
 // Reconcile steps:
