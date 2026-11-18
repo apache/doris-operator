@@ -226,6 +226,7 @@ func (dcgs *DisaggregatedComputeGroupsController) reconcileInternalService(ctx c
 
 // reconcileStatefulset return bool means reconcile print error message.
 func (dcgs *DisaggregatedComputeGroupsController) reconcileStatefulset(ctx context.Context, st *appv1.StatefulSet, cluster *dv1.DorisDisaggregatedCluster, cg *dv1.ComputeGroup) (*sc.Event, error) {
+	dcgs.useNewDefaultValuesInStatefulset(st)
 	//use new default value before apply new statefulset, when creating and apply spec change.
 	ndf := func(st *appv1.StatefulSet, est *appv1.StatefulSet) {
 		dcgs.useNewDefaultValuesInStatefulset(st)

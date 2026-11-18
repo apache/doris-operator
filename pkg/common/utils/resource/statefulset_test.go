@@ -80,11 +80,20 @@ func Test_StatefulsetSetDeepEqual(t *testing.T) {
 
 	nsts := []*appv1.StatefulSet{nst, envNotEqualNst, annoExistEqualNst}
 	osts := []*appv1.StatefulSet{ost, envNotEqualOst, annoExistEqualOst}
-	ress := []bool{true, false, true}
+	// Harmless legacy duplicates are compared against live fields, without requiring a hash annotation.
+	ress := []bool{true, true, true}
 	for i := 0; i < len(nsts); i++ {
 		res := StatefulSetDeepEqual(nsts[i], osts[i], false)
 		if res != ress[i] {
 			t.Errorf("statefulsetDeepEqual failed in index %d", i)
 		}
+	}
+}
+func TestLegacyCompatibilityDoesNotHideNewConfigEnv(t *testing.T) {
+	old := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "fe", Namespace: "test"}, Spec: appv1.StatefulSetSpec{Replicas: GetInt32Pointer(1), Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "fe", Image: "fe:test", Env: []corev1.EnvVar{{Name: "A", Value: "value"}}}}}}}}
+	desired := old.DeepCopy()
+	desired.Spec.Template.Spec.Containers[0].Env = append(desired.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: config_env_name, Value: config_env_path})
+	if StatefulSetDeepEqual(desired, old, false) {
+		t.Fatal("legacy compatibility hid a newly configured environment variable")
 	}
 }
