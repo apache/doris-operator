@@ -40,3 +40,12 @@ spec:
     - uniqueId: cg2
       replicas: 3
       image: apache/doris:be-3.0.3
+
+# New clusters receive the adminUser environment variables from an owned Secret.
+# On upgrade, existing clusters keep their current credential delivery. To migrate
+# during a maintenance window, annotate the DDC and wait for FE and compute
+# group rollouts:
+# kubectl annotate ddc <name> -n <namespace> doris.apache.org/admin-credential-mode=secret --overwrite
+# The adminUser fields remain in the DDC. Use spec.authSecret alone to keep
+# credentials outside the DDC. If both are configured, the environment still
+# uses adminUser and the existing authSecret mount is preserved.

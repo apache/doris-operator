@@ -824,12 +824,19 @@ func (dcgs *DisaggregatedComputeGroupsController) UpdateComponentStatus(obj clie
 
 func (dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1.DorisDisaggregatedCluster) error {
 	// get user and password
-	adminUserName, password := dcgs.GetManagementAdminUserAndPWD(context.Background(), ddc)
+	ctx := context.Background()
+	adminUserName, password, err := dcgs.GetManagementAdminUserAndPWD(ctx, ddc)
+	if err != nil {
+		return err
+	}
 
 	// get host and port
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
 	host := ddc.GetFEVIPAddresss()
-	confMap := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.FE_RESOLVEKEY, ddc.Spec.FeSpec.ConfigMaps)
+	confMap, err := dcgs.ManagementFEConfig(ctx, ddc)
+	if err != nil {
+		return err
+	}
 	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
 	cfg := mysql.NewDBConfig()
 	cfg.User = adminUserName
@@ -837,8 +844,10 @@ func (dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1
 	cfg.Host = host
 	cfg.Port = strconv.FormatInt(int64(queryPort), 10)
 
-	tlsConfig, secretName := dcgs.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, ddc)
-	secret, _ := k8s.GetSecret(context.Background(), dcgs.K8sclient, ddc.Namespace, secretName)
+	tlsConfig, secret, err := sc.LoadManagementTLS(ctx, dcgs.K8sclient, ddc.Namespace, confMap, ddc.Spec.FeSpec.Secrets)
+	if err != nil {
+		return err
+	}
 
 	db, err := mysql.NewDorisSqlDB(cfg, tlsConfig, secret)
 	if err != nil {

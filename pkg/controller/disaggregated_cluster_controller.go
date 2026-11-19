@@ -206,6 +206,7 @@ func fdbClusterFile(obj client.Object) (string, bool) {
 
 func (dc *DisaggregatedClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dv1.DorisDisaggregatedCluster{}).
+		Owns(&corev1.Secret{}).
 		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
 		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner)
 }
@@ -231,6 +232,11 @@ func (dc *DisaggregatedClusterReconciler) Reconcile(ctx context.Context, req rec
 
 	if err := runtimeconfig.EnsurePolicy(ctx, dc.Client, &ddc); err != nil {
 		dc.Recorder.Event(&ddc, corev1.EventTypeWarning, "RuntimeConfigPersistenceBlocked", err.Error())
+		return ctrl.Result{}, err
+	}
+
+	if err := sc.EnsureAdminCredentials(ctx, dc.Client, &ddc); err != nil {
+		dc.Recorder.Event(&ddc, corev1.EventTypeWarning, "AdminCredentialsPending", err.Error())
 		return ctrl.Result{}, err
 	}
 

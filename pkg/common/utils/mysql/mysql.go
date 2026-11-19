@@ -77,7 +77,10 @@ func NewDorisSqlDB(cfg DBConfig, tlsConfig *TLSConfig, secret *corev1.Secret) (*
 	}
 	rootCertPool := x509.NewCertPool()
 
-	if tlsConfig != nil && secret != nil {
+	if tlsConfig != nil {
+		if secret == nil {
+			return nil, errors.New("management TLS requires a certificate Secret")
+		}
 		ca := secret.Data[tlsConfig.CAFileName]
 		clientCert := secret.Data[tlsConfig.ClientCertFileName]
 		clientKey := secret.Data[tlsConfig.ClientKeyFileName]
