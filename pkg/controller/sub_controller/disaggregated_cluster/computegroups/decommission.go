@@ -27,7 +27,6 @@ import (
 	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	ms "github.com/apache/doris-operator/pkg/common/utils/metaservice"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
@@ -307,7 +306,10 @@ func (dcgs *DisaggregatedComputeGroupsController) decommissionSnapshot(ctx conte
 	if len(frontends) == 0 {
 		return nil, errors.New("no FE observations are available")
 	}
-	feConf := dcgs.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
+	feConf, err := dcgs.ManagementFEConfig(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	interval := 10 * time.Second
 	if value, ok := feConf["cloud_cluster_check_interval_second"]; ok {
 		seconds, err := strconv.Atoi(fmt.Sprint(value))
@@ -320,10 +322,12 @@ func (dcgs *DisaggregatedComputeGroupsController) decommissionSnapshot(ctx conte
 	}
 	// Allow two configured synchronization periods, and still verify FE state.
 	snapshot.SyncWait = 2 * interval
-	user, password := dcgs.GetManagementAdminUserAndPWD(ctx, cluster)
-	tlsConfig, secretName := dcgs.DisaggregatedSubDefaultController.FindSecretTLSConfig(feConf, cluster)
-	secret, err := k8s.GetSecret(ctx, dcgs.K8sclient, cluster.Namespace, secretName)
-	if tlsConfig != nil && err != nil {
+	user, password, err := dcgs.GetManagementAdminUserAndPWD(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	tlsConfig, secret, err := sc.LoadManagementTLS(ctx, dcgs.K8sclient, cluster.Namespace, feConf, cluster.Spec.FeSpec.Secrets)
+	if err != nil {
 		return nil, err
 	}
 	for _, fe := range frontends {

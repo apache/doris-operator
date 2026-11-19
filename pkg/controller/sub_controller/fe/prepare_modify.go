@@ -25,7 +25,6 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,7 +110,10 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 	serviceName := v1.GenerateExternalServiceName(targetDCR, v1.Component_FE)
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
 	host := serviceName + "." + targetDCR.Namespace
-	maps, _ := k8s.GetConfig(ctx, k8sclient, &targetDCR.Spec.FeSpec.ConfigMapInfo, targetDCR.Namespace, v1.Component_FE)
+	maps, err := k8s.GetConfig(ctx, k8sclient, &targetDCR.Spec.FeSpec.ConfigMapInfo, targetDCR.Namespace, v1.Component_FE)
+	if err != nil {
+		return err
+	}
 	queryPort := resource.GetPort(maps, resource.QUERY_PORT)
 
 	// connect to doris sql to get master node
@@ -125,10 +127,9 @@ func (fc *Controller) dropObserverBySqlClient(ctx context.Context, k8sclient cli
 	}
 
 	// check if TLS is enabled in FE config and find the corresponding secret
-	tlsConfig, secretName := fc.FindSecretTLSConfig(maps, targetDCR)
-	var tlsSecret *corev1.Secret
-	if tlsConfig != nil && secretName != "" {
-		tlsSecret, _ = k8s.GetSecret(ctx, k8sclient, targetDCR.Namespace, secretName)
+	tlsConfig, tlsSecret, err := sc.LoadManagementTLS(ctx, k8sclient, targetDCR.Namespace, maps, targetDCR.Spec.FeSpec.Secrets)
+	if err != nil {
+		return err
 	}
 
 	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, tlsConfig, tlsSecret)

@@ -21,15 +21,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/metadata"
-	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/set"
 	appv1 "k8s.io/api/apps/v1"
@@ -102,6 +99,20 @@ func (d *DisaggregatedSubDefaultController) GetConfigValuesFromConfigMaps(namesp
 	}
 
 	return nil
+}
+
+// ManagementFEConfig propagates configuration read errors before choosing SQL transport.
+func (d *DisaggregatedSubDefaultController) ManagementFEConfig(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (map[string]interface{}, error) {
+	for _, ref := range ddc.Spec.FeSpec.ConfigMaps {
+		cm, err := k8s.GetConfigMap(ctx, d.K8sclient, ddc.Namespace, ref.Name)
+		if err != nil {
+			return nil, err
+		}
+		if content, ok := cm.Data[resource.FE_RESOLVEKEY]; ok {
+			return resource.ParseDorisConfig([]byte(content), resource.DEFAULT_ROOT_PATH+"/fe", false)
+		}
+	}
+	return nil, nil
 }
 
 func (d *DisaggregatedSubDefaultController) resolveStartConfig(vb []byte, resolveKey string) map[string]interface{} {
@@ -283,19 +294,22 @@ func (d *DisaggregatedSubDefaultController) RestrictConditionsEqual(new *appv1.S
 	}
 }
 
-func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (string, string) {
-	adminUserName := "root"
-	password := ""
-	if ddc.Spec.AuthSecret != "" {
-		secret, _ := k8s.GetSecret(ctx, d.K8sclient, ddc.Namespace, ddc.Spec.AuthSecret)
-		adminUserName, password = resource.GetDorisLoginInformation(secret)
-	} else if ddc.Spec.AdminUser != nil {
-		adminUserName = ddc.Spec.AdminUser.Name
-		password = ddc.Spec.AdminUser.Password
+func (d *DisaggregatedSubDefaultController) GetManagementAdminUserAndPWD(ctx context.Context, ddc *v1.DorisDisaggregatedCluster) (string, string, error) {
+	if name := ddc.Spec.AuthSecret; name != "" {
+		secret, err := k8s.GetSecret(ctx, d.K8sclient, ddc.Namespace, name)
+		if err != nil {
+			return "", "", fmt.Errorf("read management Secret %s/%s: %w", ddc.Namespace, name, err)
+		}
+		if _, ok := secret.Data[corev1.BasicAuthPasswordKey]; !ok {
+			return "", "", fmt.Errorf("management Secret %s/%s lacks password key", ddc.Namespace, name)
+		}
+		user, password := resource.GetDorisLoginInformation(secret)
+		return user, password, nil
 	}
-
-	return adminUserName, password
-
+	if user := ddc.Spec.AdminUser; user != nil {
+		return user.Name, user.Password, nil
+	}
+	return "root", "", nil
 }
 
 // add cluster specification on container spec. this is useful to add common spec on different type pods, example: kerberos volume for fe and be.
@@ -858,35 +872,4 @@ func (d *DisaggregatedSubDefaultController) getFEMetaPath(confMap map[string]int
 		return resource.DEFAULT_ROOT_PATH + "/fe/doris-meta"
 	}
 	return v.(string)
-}
-
-func (d *DisaggregatedSubDefaultController) FindSecretTLSConfig(feConfMap map[string]interface{}, ddc *v1.DorisDisaggregatedCluster) (*mysql.TLSConfig, string /*secret name*/) {
-	enableTLS := resource.GetString(feConfMap, resource.ENABLE_TLS_KEY)
-	if enableTLS == "" {
-		return nil, ""
-	}
-
-	caCertFile := resource.GetString(feConfMap, resource.TLS_CA_CERTIFICATE_PATH_KEY)
-	clientCertFile := resource.GetString(feConfMap, resource.TLS_CERTIFICATE_PATH_KEY)
-	clientKeyFile := resource.GetString(feConfMap, resource.TLS_PRIVATE_KEY_PATH_KEY)
-	caFileName := path.Base(caCertFile)
-	clientCertFileName := path.Base(clientCertFile)
-	clientKeyFileName := path.Base(clientKeyFile)
-
-	caCertDir := filepath.Dir(caCertFile)
-	secretName := ""
-	for _, sn := range ddc.Spec.FeSpec.Secrets {
-		if sn.MountPath == caCertDir {
-			secretName = sn.SecretName
-			break
-		}
-	}
-
-	tlsConfig := &mysql.TLSConfig{
-		CAFileName:         caFileName,
-		ClientCertFileName: clientCertFileName,
-		ClientKeyFileName:  clientKeyFileName,
-	}
-
-	return tlsConfig, secretName
 }

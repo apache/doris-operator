@@ -26,9 +26,9 @@ import (
 	"time"
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
-	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/mysql"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/klog/v2"
 )
@@ -141,12 +141,18 @@ func dropBackendEnsuringAbsent(sqlClient *mysql.DB, target *mysql.Backend) error
 
 func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context.Context, cluster *dv1.DorisDisaggregatedCluster) (*mysql.DB, error) {
 	// get user and password
-	adminUserName, password := dcgs.GetManagementAdminUserAndPWD(ctx, cluster)
+	adminUserName, password, err := dcgs.GetManagementAdminUserAndPWD(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 
 	// get host and port
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
 	host := cluster.GetFEVIPAddresss()
-	confMap := dcgs.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
+	confMap, err := dcgs.ManagementFEConfig(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
 
 	// connect to doris sql to get master node
@@ -161,8 +167,10 @@ func (dcgs *DisaggregatedComputeGroupsController) getMasterSqlClient(ctx context
 	if cluster.Spec.EnableDecommission {
 		dbConf.Timeout = 10 * time.Second
 	}
-	tlsConfig, secretName := dcgs.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, cluster)
-	secret, _ := k8s.GetSecret(context.Background(), dcgs.K8sclient, cluster.Namespace, secretName)
+	tlsConfig, secret, err := sc.LoadManagementTLS(ctx, dcgs.K8sclient, cluster.Namespace, confMap, cluster.Spec.FeSpec.Secrets)
+	if err != nil {
+		return nil, err
+	}
 
 	// Connect to the master and run the SQL statement of system admin, because it is not excluded that the user can shrink be and fe at the same time
 	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, tlsConfig, secret)

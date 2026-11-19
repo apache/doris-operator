@@ -119,6 +119,7 @@ func (dfc *DisaggregatedFEController) NewPodTemplateSpec(ddc *v1.DorisDisaggrega
 
 	pts.Spec.Affinity = dfc.ConstructDefaultAffinity(v1.DorisDisaggregatedClusterName, labels[v1.DorisDisaggregatedClusterName], ddc.Spec.FeSpec.Affinity)
 
+	sub.SetAdminCredentialRevision(ddc, &pts)
 	return pts
 }
 
@@ -180,13 +181,7 @@ func (dfc *DisaggregatedFEController) newSpecificEnvs(ddc *v1.DorisDisaggregated
 		corev1.EnvVar{Name: resource.ENV_FE_ELECT_NUMBER, Value: strconv.FormatInt(int64(ddc.GetElectionNumber()), 10)},
 	)
 
-	// add user and password envs
-	if ddc.Spec.AdminUser != nil {
-		feEnvs = append(feEnvs,
-			corev1.EnvVar{Name: resource.ADMIN_USER, Value: ddc.Spec.AdminUser.Name},
-			corev1.EnvVar{Name: resource.ADMIN_PASSWD, Value: ddc.Spec.AdminUser.Password},
-		)
-	}
+	feEnvs = append(feEnvs, sub.AdminCredentialEnvs(ddc)...)
 
 	return feEnvs
 }

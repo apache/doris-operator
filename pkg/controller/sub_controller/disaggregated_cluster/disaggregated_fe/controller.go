@@ -375,15 +375,23 @@ func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc 
 // dropFEBySQLClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
 func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8sclient client.Client, cluster *v1.DorisDisaggregatedCluster) error {
 	// get adminuserName and pwd
-	adminUserName, password := dfc.GetManagementAdminUserAndPWD(ctx, cluster)
+	adminUserName, password, err := dfc.GetManagementAdminUserAndPWD(ctx, cluster)
+	if err != nil {
+		return err
+	}
 
 	// get host and port
 	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
 	host := cluster.GetFEVIPAddresss()
-	confMap := dfc.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
+	confMap, err := dfc.ManagementFEConfig(ctx, cluster)
+	if err != nil {
+		return err
+	}
 	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
-	tlsConfig, secretName := dfc.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, cluster)
-	secret, _ := k8s.GetSecret(context.Background(), dfc.K8sclient, cluster.Namespace, secretName)
+	tlsConfig, secret, err := sc.LoadManagementTLS(ctx, dfc.K8sclient, cluster.Namespace, confMap, cluster.Spec.FeSpec.Secrets)
+	if err != nil {
+		return err
+	}
 
 	// connect to doris sql to get master node
 	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.

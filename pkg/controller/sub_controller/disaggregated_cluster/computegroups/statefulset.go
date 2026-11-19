@@ -131,6 +131,7 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 	cgUniqueId := selector[dv1.DorisDisaggregatedComputeGroupUniqueId]
 	pts.Spec.Affinity = dcgs.ConstructDefaultAffinity(dv1.DorisDisaggregatedComputeGroupUniqueId, cgUniqueId, pts.Spec.Affinity)
 
+	sub.SetAdminCredentialRevision(ddc, &pts)
 	return pts
 }
 
@@ -213,13 +214,7 @@ func (dcgs *DisaggregatedComputeGroupsController) newSpecificEnvs(ddc *dv1.Doris
 		corev1.EnvVar{Name: resource.ENV_FE_ADDR, Value: feAddr},
 		corev1.EnvVar{Name: resource.ENV_FE_PORT, Value: fqpStr})
 
-	// add user and password envs
-	if ddc.Spec.AdminUser != nil {
-		cgEnvs = append(cgEnvs,
-			corev1.EnvVar{Name: resource.ADMIN_USER, Value: ddc.Spec.AdminUser.Name},
-			corev1.EnvVar{Name: resource.ADMIN_PASSWD, Value: ddc.Spec.AdminUser.Password},
-		)
-	}
+	cgEnvs = append(cgEnvs, sub.AdminCredentialEnvs(ddc)...)
 
 	if cg.EnableWorkloadGroup {
 		cgEnvs = append(cgEnvs,
