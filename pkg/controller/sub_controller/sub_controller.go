@@ -333,13 +333,13 @@ func (d *SubDefaultController) CheckSharedPVC(ctx context.Context, dcr *dorisv1.
 		pvc, err := k8s.GetPVC(ctx, d.K8sclient, claim.PersistentVolumeClaimName, dcr.Namespace)
 		if err != nil || pvc == nil {
 			errMessage := fmt.Sprintf("(PersistentVolumeClaim get failed name: %s, namespace: %s, err: %#v), ", claim.PersistentVolumeClaimName, dcr.Namespace, err)
-			klog.Errorf(errMessage)
+			klog.Error(errMessage)
 			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), errMessage)
 			return
 		}
 		if !set.ArrayContains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
 			errMessage := fmt.Sprintf("(PersistentVolumeClaim name: %s, namespace: %s AccessMode cannot be shared: %+v), ", claim.PersistentVolumeClaimName, dcr.Namespace, pvc.Spec.AccessModes)
-			klog.Errorf(errMessage)
+			klog.Error(errMessage)
 			d.K8srecorder.Event(dcr, string(EventWarning), string(CheckSharePVC), errMessage)
 			return
 		}
