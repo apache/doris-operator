@@ -429,7 +429,7 @@ func (d *DisaggregatedSubDefaultController) ReconcilePVC(
 					return &Event{Type: EventWarning, Reason: PVCCreateFailed, Message: message}, err
 				}
 				message := fmt.Sprintf("ReconcilePVC create pvc, namespace: %s, name: %s create pvc %s .", ddc.Namespace, ddc.Name, pvc.Name)
-				klog.Infof(message)
+				klog.Info(message)
 				d.K8srecorder.Event(ddc, string(EventNormal), PVCCreate, message)
 				continue
 			}
@@ -449,17 +449,17 @@ func (d *DisaggregatedSubDefaultController) ReconcilePVC(
 				oldPvc.Spec.Resources.Requests[corev1.ResourceStorage] = newQuantity
 				if err := d.K8sclient.Patch(ctx, oldPvc, client.Merge); err != nil {
 					message := fmt.Sprintf("ReconcilePVC patch pvc failed, namespace: %s, ddc name: %s, patch pvc %s, error: %s", ddc.Namespace, ddc.Name, pvc.Name, err.Error())
-					klog.Errorf(message)
+					klog.Error(message)
 					return &Event{Type: EventWarning, Reason: PVCUpdateFailed, Message: message}, err
 				}
 				message := fmt.Sprintf("ReconcilePVC patch pvc, namespace: %s, ddc name: %s update pvc %s .", ddc.Namespace, ddc.Name, pvc.Name)
-				klog.Infof(message)
+				klog.Info(message)
 				d.K8srecorder.Event(ddc, string(EventNormal), PVCUpdate, message)
 			}
 
 			if oldQuantity.Cmp(newQuantity) == 1 {
 				message := fmt.Sprintf("ReconcilePVC pvc resize is rejected, PVC shrinking is not supported. namespace: %s, ddc name: %s, resize pvc %s", ddc.Namespace, ddc.Name, pvc.Name)
-				klog.Warningf(message)
+				klog.Warning(message)
 				return &Event{Type: EventWarning, Reason: PVCUpdateFailed, Message: message}, fmt.Errorf("%s", message)
 			}
 

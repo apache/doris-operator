@@ -863,7 +863,7 @@ func (dcgs *DisaggregatedComputeGroupsController) recordComputeGroupIds(ddc *dv1
 		}
 		if _, ok := tags[mysql.COMPUTE_GROUP_ID]; !ok {
 			errMsg := fmt.Sprintf("DisaggregatedComputeGroupsController recordComputeGroupIds backend tag get compute_group_name failed, tag: %s, err: no compute_group_id field found ", backend.Tag)
-			klog.Errorf(errMsg)
+			klog.Error(errMsg)
 			return errors.New(errMsg)
 		}
 
