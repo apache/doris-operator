@@ -31,15 +31,24 @@ func GetPort(config map[string]interface{}, key string) int32 {
 	return defMap[key]
 }
 
-// GetTerminationGracePeriodSeconds get grace_shutdown_wait_seconds from config file.
+// GetTerminationGracePeriodSeconds get grace_shutdown_wait_seconds and grace_shutdown_post_delay_seconds from config file.
 func GetTerminationGracePeriodSeconds(config map[string]interface{}) int64 {
+	waitSeconds := int64(0)
+	postDelaySeconds := DefaultPostDelaySeconds
+
 	if v, ok := config[GRACE_SHUTDOWN_WAIT_SECONDS]; ok {
 		if seconds, err := strconv.ParseInt(v.(string), 10, 64); err == nil {
-			return int64(seconds)
+			waitSeconds = int64(seconds)
 		}
 	}
 
-	return 0
+	if v, ok := config[GRACE_SHUTDOWN_POST_DELAY_SECONDS]; ok {
+		if seconds, err := strconv.ParseInt(v.(string), 10, 64); err == nil {
+			postDelaySeconds = int64(seconds)
+		}
+	}
+
+	return waitSeconds + postDelaySeconds
 }
 
 func GetString(config map[string]interface{}, key string) string {
