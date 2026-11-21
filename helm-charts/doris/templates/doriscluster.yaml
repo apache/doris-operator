@@ -120,6 +120,18 @@ spec:
     secrets:
     {{- toYaml .Values.feSpec.secrets | nindent 4 }}
     {{- end }}
+    {{- if .Values.feSpec.volumes }}
+    volumes:
+    {{- toYaml .Values.feSpec.volumes | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.volumeMounts }}
+    volumeMounts:
+    {{- toYaml .Values.feSpec.volumeMounts | nindent 4 }}
+    {{- end }}
+    {{- if .Values.feSpec.initContainers }}
+    initContainers:
+    {{- toYaml .Values.feSpec.initContainers | nindent 4 }}
+    {{- end }}
     {{- if .Values.feSpec.persistentVolumeClaim }}
     persistentVolumes:
     {{- template "doriscluster.fe.pvc" . }}

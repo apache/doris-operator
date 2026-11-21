@@ -109,6 +109,15 @@ type FeSpec struct {
 	//the number of fe in election. electionNumber <= replicas, left as observers. default value=3
 	ElectionNumber *int32 `json:"electionNumber,omitempty"`
 
+	// VolumeMounts is the extral volume mounts for fe pod.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
+	// Volumes is the extral volumes for fe pod.
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// InitContainers is the extral init containers for fe pod.
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+
 	//the foundation spec for creating be software services.
 	BaseSpec `json:",inline"`
 }

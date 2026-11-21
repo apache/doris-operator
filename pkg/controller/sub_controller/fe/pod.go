@@ -33,7 +33,9 @@ func (fc *Controller) buildFEPodTemplateSpec(dcr *v1.DorisCluster, config map[st
 	feContainer := fc.feContainer(dcr, config)
 	containers = append(containers, feContainer)
 	containers = resource.ApplySecurityContext(containers, dcr.Spec.FeSpec.ContainerSecurityContext)
+	podTemplateSpec.Spec.InitContainers = append(podTemplateSpec.Spec.InitContainers, dcr.Spec.FeSpec.InitContainers...)
 	podTemplateSpec.Spec.Containers = containers
+	podTemplateSpec.Spec.Volumes = append(podTemplateSpec.Spec.Volumes, dcr.Spec.FeSpec.Volumes...)
 	return podTemplateSpec
 }
 
@@ -64,6 +66,8 @@ func (fc *Controller) feContainer(dcr *v1.DorisCluster, config map[string]interf
 		Name:  resource.ENV_FE_ELECT_NUMBER,
 		Value: strconv.FormatInt(int64(ele), 10),
 	})
+
+	c.VolumeMounts = append(c.VolumeMounts, dcr.Spec.FeSpec.VolumeMounts...)
 
 	return c
 }
