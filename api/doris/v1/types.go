@@ -55,6 +55,9 @@ type DorisClusterSpec struct {
 	// the password key is `password`. the username defaults to `root` and is omitempty.
 	AuthSecret string `json:"authSecret,omitempty"`
 
+	// EnableServiceMonitor creates a Secret with prometheus-additional.yaml for Prometheus additionalScrapeConfigs. Default false.
+	EnableServiceMonitor bool `json:"enableServiceMonitor,omitempty"`
+
 	// EnableRestartWhenConfigChange configmap monitoring, default is false.
 	// When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node
 	EnableRestartWhenConfigChange bool `json:"enableRestartWhenConfigChange,omitempty"`

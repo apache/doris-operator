@@ -25,6 +25,7 @@ import (
 	dorisv1 "github.com/apache/doris-operator/api/doris/v1"
 	sc "github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,6 +60,9 @@ func TestDcrBackendWaitContinuesSyncAndRequeuesHealthyCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := dorisv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 	dcr := &dorisv1.DorisCluster{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"}, Spec: dorisv1.DorisClusterSpec{FeSpec: &dorisv1.FeSpec{BaseSpec: dorisv1.BaseSpec{Replicas: ptr.To(int32(1))}}}, Status: dorisv1.DorisClusterStatus{FEStatus: &dorisv1.ComponentStatus{ComponentCondition: dorisv1.ComponentCondition{Phase: dorisv1.Available}}}}

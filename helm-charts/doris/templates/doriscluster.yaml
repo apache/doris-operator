@@ -31,6 +31,7 @@ metadata:
     {{- toYaml .Values.dorisCluster.annotations | nindent 4 }}
   {{- end }}
 spec:
+  enableServiceMonitor: {{ .Values.dorisCluster.enableServiceMonitor | default false }}
   {{- if .Values.dorisCluster.adminUser }}
   adminUser:
     {{- toYaml .Values.dorisCluster.adminUser | nindent 4 }}

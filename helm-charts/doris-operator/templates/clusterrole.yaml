@@ -96,6 +96,9 @@ rules:
       - update
       - list
       - watch
+      - create
+      - patch
+      - delete
   - apiGroups:
       - "admissionregistration.k8s.io"
     resources:

@@ -25,6 +25,8 @@ dorisCluster:
   enabledCn: false
   # specify the broker deploy or not.
   enabledBroker: false
+  # generate a Secret with prometheus-additional.yaml for Prometheus additionalScrapeConfigs.
+  enableServiceMonitor: false
   # specify the doriscluster adminuser or not.
   # set adminUser will record the password in clear text. This method has been abandoned and is not recommended.
   # When adding adminuser. should follow the steps:
