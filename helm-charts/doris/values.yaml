@@ -209,6 +209,27 @@ feSpec:
   # - secretName: my-secret
   #   mountPath: /etc/doris
   
+  # volumes allows adding extra volumes to fe pods.
+  volumes: []
+  # - name: fe-extra-volume
+  #   secret:
+  #     secretName: my-secret
+
+  # volumeMounts allows adding extra volume mounts to the fe container.
+  volumeMounts: []
+  # - name: fe-extra-volume
+  #   mountPath: /etc/fe-extra
+  #   readOnly: true
+
+  # initContainers allows adding extra init containers to fe pods.
+  initContainers: []
+  # - name: fe-extra-init
+  #   image: busybox:latest
+  #   command: ["/bin/sh", "-c", "echo init"]
+  #   volumeMounts:
+  #   - name: fe-extra-volume
+  #     mountPath: /etc/fe-extra
+
   persistentVolumeClaim: {}
     # meta volume, mountPath is /opt/apache-doris/fe/doris-meta
     # metaPersistentVolume:
