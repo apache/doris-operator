@@ -7096,6 +7096,10 @@ spec:
                   EnableRestartWhenConfigChange configmap monitoring, default is false.
                   When EnableRestartWhenConfigChange is true, changing the doris core configmap will cause a rolling restart of the corresponding node
                 type: boolean
+              enableServiceMonitor:
+                description: EnableServiceMonitor creates a Secret with prometheus-additional.yaml
+                  for Prometheus additionalScrapeConfigs. Default false.
+                type: boolean
               feSpec:
                 description: defines the fe cluster state that will be created by
                   operator.
