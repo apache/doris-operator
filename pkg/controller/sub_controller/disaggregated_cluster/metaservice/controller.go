@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeuser"
 	"strconv"
 	"strings"
 
@@ -171,7 +172,13 @@ func (dms *DisaggregatedMSController) Sync(ctx context.Context, obj client.Objec
 	svc := dms.newService(ddc, confMap)
 
 	st := dms.newStatefulset(ddc, confMap, fdbEndpoint)
+	if err := runtimeuser.Prepare(ctx, dms.K8sclient, ddc, st, ddc.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
 	if err := runtimeconfig.Prepare(ctx, dms.K8sclient, dms.K8srecorder, ddc, st, confMap); err != nil {
+		return err
+	}
+	if err := runtimeuser.AttachHelper(st, ddc.Spec.EnablePrivilegedHelper); err != nil {
 		return err
 	}
 	dms.initMSStatus(ddc)

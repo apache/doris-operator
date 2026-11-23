@@ -1279,11 +1279,8 @@ spec:
                     type: boolean
                   enableWorkloadGroup:
                     description: |-
-                      EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
-                      Default value is 'false'.
-                      Enabling it means that the container must be started in privileged mode.
-                      Please confirm whether the host machine and k8s cluster allow it.
-                      Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
+                      Deprecated: use spec.enablePrivilegedHelper for workload-group CPU control.
+                      This legacy field no longer makes the Doris container privileged.
                     type: boolean
                   envVars:
                     description: cnEnvVars is a slice of environment variables that
@@ -2092,10 +2089,8 @@ spec:
                     type: string
                   skipDefaultSystemInit:
                     description: |-
-                      SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
-                      Default value is 'false'.
-                      Default System Init means that the container must be started in privileged mode.
-                      Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
+                      Deprecated: the privileged host-wide system initializer is no longer injected.
+                      Prepare required sysctl and swap settings on the nodes before deployment.
                     type: boolean
                   startTimeout:
                     description: pod start timeout, unit is second
@@ -7091,6 +7086,14 @@ spec:
                 required:
                 - image
                 type: object
+              enablePrivilegedHelper:
+                default: false
+                description: |-
+                  EnablePrivilegedHelper delegates CPU cgroups to the Doris process through a
+                  privileged sidecar. Doris itself is never made privileged by this switch.
+                  Root-owned PVC migration uses a separate, non-privileged init container and
+                  is automatic even when this switch is false.
+                type: boolean
               enableRestartWhenConfigChange:
                 description: |-
                   EnableRestartWhenConfigChange configmap monitoring, default is false.

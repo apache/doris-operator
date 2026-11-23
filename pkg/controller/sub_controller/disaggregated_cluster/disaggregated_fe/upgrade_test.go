@@ -41,10 +41,10 @@ func TestFrontendUpgradeWaitRepairsServices(t *testing.T) {
 		t.Fatal(err)
 	}
 	cluster := &dv1.DorisDisaggregatedCluster{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: "cluster", Annotations: map[string]string{"doris.apache.org/runtime-config-policy": "disabled"}}, Spec: dv1.DorisDisaggregatedClusterSpec{
-		FeSpec:        dv1.FeSpec{ElectionNumber: ptr.To(int32(1)), CommonSpec: dv1.CommonSpec{Image: "fe:new", Replicas: ptr.To(int32(1))}},
+		FeSpec:        dv1.FeSpec{ElectionNumber: ptr.To(int32(1)), CommonSpec: dv1.CommonSpec{SecurityContext: &corev1.PodSecurityContext{RunAsUser: new(int64), RunAsGroup: new(int64)}, Image: "fe:new", Replicas: ptr.To(int32(1))}},
 		ComputeGroups: []dv1.ComputeGroup{{UniqueId: "be", CommonSpec: dv1.CommonSpec{Image: "be:new", Replicas: ptr.To(int32(1))}}},
 	}}
-	fe := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "test-fe", Namespace: "default"}, Spec: appv1.StatefulSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "fe", Image: "fe:old"}}}}}}
+	fe := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "test-fe", Namespace: "default"}, Spec: appv1.StatefulSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "fe", Image: "fe:old", SecurityContext: &corev1.SecurityContext{RunAsUser: new(int64), RunAsGroup: new(int64)}}}}}}}
 	ms := &corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: cluster.GetMSServiceName(), Namespace: "default"}, Subsets: []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}}}}}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(fe, ms).Build()
 	fc := &DisaggregatedFEController{DisaggregatedSubDefaultController: sc.DisaggregatedSubDefaultController{K8sclient: c, K8srecorder: record.NewFakeRecorder(10)}}

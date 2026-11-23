@@ -269,6 +269,7 @@ func (r *DorisClusterReconciler) resourceClean(ctx context.Context, dcr *dorisv1
 func (r *DorisClusterReconciler) resourceBuilder(builder *ctrl.Builder) *ctrl.Builder {
 	return builder.For(&dorisv1.DorisCluster{}).
 		Owns(&appv1.StatefulSet{}, controller_builder.MatchEveryOwner).
+		Owns(&corev1.Pod{}, controller_builder.MatchEveryOwner).
 		Owns(&corev1.Service{}, controller_builder.MatchEveryOwner).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, controller_builder.MatchEveryOwner)
 }

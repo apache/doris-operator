@@ -30,6 +30,13 @@ var (
 
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
+	// EnablePrivilegedHelper delegates CPU cgroups to the Doris process through a
+	// privileged sidecar. Doris itself is never made privileged by this switch.
+	// Root-owned PVC migration uses a separate, non-privileged init container and
+	// is automatic even when this switch is false.
+	// +kubebuilder:default=false
+	EnablePrivilegedHelper bool `json:"enablePrivilegedHelper,omitempty"`
+
 	// RuntimeConfigPersistence preserves mutable configuration on an existing PVC.
 	// When omitted, new clusters enable it where safe storage exists; existing
 	// clusters keep their previous behavior until explicitly migrated.
@@ -118,17 +125,12 @@ type BeSpec struct {
 	//the foundation spec for creating be software services.
 	BaseSpec `json:",inline"`
 
-	// EnableWorkloadGroup is a switch that determines whether the doris cluster enables the workload group.
-	// Default value is 'false'.
-	// Enabling it means that the container must be started in privileged mode.
-	// Please confirm whether the host machine and k8s cluster allow it.
-	// Doris workloadgroup reference document: https://doris.apache.org/docs/admin-manual/resource-admin/workload-group
+	// Deprecated: use spec.enablePrivilegedHelper for workload-group CPU control.
+	// This legacy field no longer makes the Doris container privileged.
 	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
 
-	// SkipDefaultSystemInit is a switch that skips the default initialization and is used to set the default environment configuration required by the doris BE node.
-	// Default value is 'false'.
-	// Default System Init means that the container must be started in privileged mode.
-	// Default System Init configuration is implemented through the initContainers of the pod, so changes to this configuration may be ignored by k8s when it is not the first deployment.
+	// Deprecated: the privileged host-wide system initializer is no longer injected.
+	// Prepare required sysctl and swap settings on the nodes before deployment.
 	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 
 	//EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.

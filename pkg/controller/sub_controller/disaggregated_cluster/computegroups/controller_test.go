@@ -342,6 +342,8 @@ func TestComputeGroupExpandsPVCsThenScalesUp(t *testing.T) {
 			cg.Replicas = operatorresource.GetInt32Pointer(2)
 			cg.LogNotStore = true
 			cg.Image = "apache/doris:be-4.1.1"
+			// This test models a known root image; image discovery is tested separately.
+			cg.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64), RunAsGroup: new(int64)}
 			cg.PersistentVolumes = []dv1.PersistentVolume{{
 				PVCProvisioner: dv1.PVCProvisionerOperator,
 				MountPaths:     []string{"/opt/apache-doris/be/file_cache"},
