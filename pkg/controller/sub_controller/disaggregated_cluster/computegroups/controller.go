@@ -155,7 +155,7 @@ func (dcgs *DisaggregatedComputeGroupsController) computeGroupSync(ctx context.C
 	}
 	cvs := dcgs.GetConfigValuesFromConfigMaps(ddc.Namespace, resource.BE_RESOLVEKEY, cg.CommonSpec.ConfigMaps)
 	st := dcgs.NewStatefulset(ddc, cg, cvs)
-	if err := runtimeuser.Prepare(ctx, dcgs.K8sclient, ddc, st, ddc.Spec.EnablePrivilegedHelper); err != nil {
+	if err := runtimeuser.PrepareWithWorkloadGroup(ctx, dcgs.K8sclient, ddc, st, ddc.Spec.EnablePrivilegedHelper, cg.EnableWorkloadGroup); err != nil {
 		return nil, err
 	}
 	if err := runtimeconfig.Prepare(ctx, dcgs.K8sclient, dcgs.K8srecorder, ddc, st, cvs); err != nil {

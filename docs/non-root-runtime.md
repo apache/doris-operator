@@ -19,7 +19,7 @@ and are rejected rather than silently rewriting existing data.
 | Transition | Required CR change | Operator behavior |
 | --- | --- | --- |
 | New non-root cluster | Create the normal CR | Resolve the image user; set fsGroup; check writable PVC mounts as that user. No privileged or root repair container. |
-| Root image to root image | Change image references | Preserve root identity; no ownership migration. |
+| Root image to root image | Change image references | Preserve the existing default initializer, explicit WG policy and runtime settings; no ownership migration. |
 | Root image to non-root image | Change image references | Prepare dedicated existing PVC permissions before starting the target user. The helper switch can stay false. |
 | Non-root to non-root, same UID/GID | Change image references | Reuse permissions and check access; no repeated full-tree repair on subsequent image upgrades. |
 
@@ -111,9 +111,10 @@ explicit positive value remains the administrator's choice. Resource changes
 that affect this startup value require a Pod restart.
 
 The helper configures `doris_cgroup_cpu_path=/doris-helper/cgroup`; do not override
-this path in persistent/custom BE configuration when using this mode. Existing
-`enableWorkloadGroup` no longer enables privilege on the main container: use the
-new switch for OS-level CPU control. Disabling the helper removes the helper and
+this path in persistent/custom BE configuration when using this mode. For non-root
+images, use the new switch for OS-level CPU control. Root BE and compute containers
+retain the existing `enableWorkloadGroup` behavior when the helper is disabled.
+Disabling the helper removes the helper and
 its host mounts through a rolling Pod replacement. Other WG functions that do
 not require OS CPU delegation remain Doris functionality.
 
@@ -129,10 +130,9 @@ behavior. Active swap files must be accessible from that initializer; host-only
 swap paths must be disabled on the node by the administrator. Privilege does not
 make a host filesystem path appear in a container. The initializer skips
 `swapoff -a` when no swap is active. The existing `skipDefaultSystemInit` still
-skips that step when explicitly requested. With the switch disabled no privileged system initializer is injected;
+skips that step when explicitly requested. For non-root images with the switch disabled no privileged system initializer is injected;
 prepare required node settings externally. User-supplied privileged initializers
-are rejected while the switch is false. Privileged Doris main containers are
-rejected regardless of the switch.
+are rejected for non-root images while the switch is false. With a root image and the default switch value, existing initializer and workload-group settings continue to apply.
 
 ## CPU and memory accounting
 

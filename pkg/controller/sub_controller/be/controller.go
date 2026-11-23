@@ -102,7 +102,7 @@ func (be *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	st := be.buildBEStatefulSet(dcr, config)
-	if err := runtimeuser.Prepare(ctx, be.K8sclient, dcr, &st, dcr.Spec.EnablePrivilegedHelper); err != nil {
+	if err := runtimeuser.PrepareWithWorkloadGroup(ctx, be.K8sclient, dcr, &st, dcr.Spec.EnablePrivilegedHelper, dcr.Spec.BeSpec.EnableWorkloadGroup); err != nil {
 		return err
 	}
 	if err := runtimeconfig.Prepare(ctx, be.K8sclient, be.K8srecorder, dcr, &st, config); err != nil {

@@ -81,11 +81,11 @@ func TestIdentityTransitions(t *testing.T) {
 			if hasInit(st, "migrate-volume-permissions") != tc.repair {
 				t.Fatalf("unexpected repair init: %+v", st.Spec.Template.Spec.InitContainers)
 			}
-			if hasInit(st, "default-init") {
-				t.Fatal("default-off still injects privileged system init")
+			if hasInit(st, "default-init") != (tc.new == 0) {
+				t.Fatalf("unexpected default-init for resolved uid %d", tc.new)
 			}
 			for _, v := range st.Spec.Template.Spec.InitContainers {
-				if v.SecurityContext != nil && v.SecurityContext.Privileged != nil && *v.SecurityContext.Privileged {
+				if tc.new != 0 && v.SecurityContext != nil && v.SecurityContext.Privileged != nil && *v.SecurityContext.Privileged {
 					t.Fatal("privileged init while helper disabled")
 				}
 			}
@@ -340,6 +340,19 @@ func TestCompletedMigrationClearsThroughStatefulSetApply(t *testing.T) {
 		}
 		if got.Spec.Template.Annotations[migrationAnnotation] != "" {
 			t.Fatal("metadata merge restored completed migration")
+		}
+	}
+}
+
+func TestLegacyWorkloadGroupUsesResolvedIdentity(t *testing.T) {
+	for _, uid := range []int64{0, 10001} {
+		owner, st, c := fixture(t, uid)
+		if err := PrepareWithWorkloadGroup(context.Background(), c, owner, st, false, true); err != nil {
+			t.Fatal(err)
+		}
+		privileged := ptr.Deref(st.Spec.Template.Spec.Containers[0].SecurityContext.Privileged, false)
+		if privileged != (uid == 0) || hasInit(st, "default-init") != (uid == 0) {
+			t.Fatalf("unexpected legacy security settings for uid %d", uid)
 		}
 	}
 }

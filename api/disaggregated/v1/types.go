@@ -120,14 +120,14 @@ type ComputeGroup struct {
 	//the unique identifier of compute group, first register in fe will use UniqueId as compute group name.
 	UniqueId string `json:"uniqueId"`
 
-	// Deprecated: use spec.enablePrivilegedHelper for workload-group CPU control.
-	// This legacy field no longer makes the Doris container privileged.
+	// Enable legacy workload-group CPU control for root images.
+	// Non-root images use spec.enablePrivilegedHelper for CPU delegation.
 	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
 
 	CommonSpec `json:",inline"`
 
-	// Skip the legacy root system initializer when enablePrivilegedHelper is true.
-	// When the helper is false, privileged system initialization is always omitted.
+	// Skip the default system initializer for this component.
+	// For non-root images the initializer also requires enablePrivilegedHelper.
 	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 
 	// AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.

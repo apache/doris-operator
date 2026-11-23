@@ -52,6 +52,11 @@ func mainIndex(p *corev1.PodSpec) int {
 // Prepare resolves identity before changing any workload. The recorded identity
 // is part of the template revision, rather than inferred from image tag strings.
 func Prepare(ctx context.Context, c client.Client, owner client.Object, st *appsv1.StatefulSet, helper bool) error {
+	return PrepareWithWorkloadGroup(ctx, c, owner, st, helper, false)
+}
+
+// PrepareWithWorkloadGroup preserves the explicit legacy BE/compute WG policy for root workloads.
+func PrepareWithWorkloadGroup(ctx context.Context, c client.Client, owner client.Object, st *appsv1.StatefulSet, helper, legacyWorkloadGroup bool) error {
 	p := &st.Spec.Template.Spec
 	i := mainIndex(p)
 	if i < 0 {
@@ -97,6 +102,19 @@ func Prepare(ctx context.Context, c client.Client, owner client.Object, st *apps
 				}
 			}
 		}
+	}
+	// Leave the legacy template intact when the resolved image runs as root.
+	// The normal resource builder already honors skipDefaultSystemInit and sets WG env.
+	if target.UID == 0 && !helper {
+		if legacyWorkloadGroup {
+			sc := main.SecurityContext.DeepCopy()
+			if sc == nil {
+				sc = &corev1.SecurityContext{}
+			}
+			sc.Privileged = ptr.To(true)
+			main.SecurityContext = sc
+		}
+		return nil
 	}
 	if st.Spec.Template.Annotations == nil {
 		st.Spec.Template.Annotations = map[string]string{}
