@@ -82,18 +82,33 @@ legacy ownership repair. Prepare storage externally in those environments.
 
 Set `enablePrivilegedHelper: true` to enable CPU cgroups for BE/CN and DDC compute
 containers. It creates a restartable init sidecar (`doris-cgroup-helper`), sharing
-the Pod's process namespace. Only this helper is privileged and mounts the host
+the Pod's process namespace. Only the auxiliary containers use privilege; the runtime helper mounts the host
 cgroup filesystem. Doris remains under its resolved user with no capabilities
 when non-root.
 
 The main startup wrapper sends its PID and process start time. The helper
-validates the UID, Pod UID, container cgroup scope and process generation, then
-creates a threaded CPU subtree **under that BE container's cgroup**. It delegates
-only that subtree to Doris through a propagated bind mount. It never replaces
-or raises the parent container's CPU or memory limits. The wrapper waits for a
-root-owned readiness acknowledgement before executing the ordinary Doris
-entrypoint. The helper watches for main-container restarts and remounts the new
-container's subtree. Helper readiness is included in Pod readiness.
+validates the UID, Pod UID, container cgroup scope and process generation. It
+keeps the BE leader in the container's memory domain. A propagated bind mount
+makes `/doris-helper/cgroup/query` refer to that same domain: Doris writes its
+process to `query/cgroup.procs`, so this is deliberately an alias, not a nested
+threaded cgroup. Only WG worker threads move into the numeric threaded children
+that Doris creates below it. A small home directory exposes the required cgroup
+control files as bind mounts; it does not fabricate controller or memory values.
+
+The helper delegates directory creation and the process/thread membership and
+subtree-control files. It does not change ownership or values of the container's
+`cpu.max`, `memory.max`, or `cgroup.type`. These limit files remain root-owned and
+are not writable by the non-root BE. The host cgroup mount is helper-only; Doris
+receives only its own container's delegation view.
+
+The wrapper waits for a root-owned readiness acknowledgement before executing
+the ordinary Doris entrypoint. The helper handles main-container restarts and
+remounts the new container's domain. Helper readiness is included in Pod
+readiness. For images that skip CPU quota lookup at a cgroup namespace root, the
+wrapper supplies `num_cores` from the container's CPU quota and process affinity
+when the effective configuration has no positive explicit `num_cores`. An
+explicit positive value remains the administrator's choice. Resource changes
+that affect this startup value require a Pod restart.
 
 The helper configures `doris_cgroup_cpu_path=/doris-helper/cgroup`; do not override
 this path in persistent/custom BE configuration when using this mode. Existing
@@ -108,18 +123,29 @@ unsupported hierarchy fails initialization instead of creating an unconstrained
 cgroup elsewhere. The helper is trusted privileged infrastructure and must only
 run images trusted by the cluster administrator.
 
-The old privileged `default-init` host-wide sysctl/swapoff initializer is no
-longer injected. Prepare required node settings before deployment. User-supplied
-privileged initializers are rejected when the helper switch is false; privileged
-Doris main containers are rejected regardless of the switch.
+With the switch enabled, the existing `default-init` also runs as root to prepare
+`vm.max_map_count` and swap settings, preserving the former system initialization
+behavior. Active swap files must be accessible from that initializer; host-only
+swap paths must be disabled on the node by the administrator. Privilege does not
+make a host filesystem path appear in a container. The initializer skips
+`swapoff -a` when no swap is active. The existing `skipDefaultSystemInit` still
+skips that step when explicitly requested. With the switch disabled no privileged system initializer is injected;
+prepare required node settings externally. User-supplied privileged initializers
+are rejected while the switch is false. Privileged Doris main containers are
+rejected regardless of the switch.
 
-## Memory accounting requirement
+## CPU and memory accounting
 
-Doris releases that require `memory` in the **leaf** `cgroup.controllers` can
-misidentify the host's RAM as available memory after entering a threaded CPU
-subgroup. The kernel still enforces the original memory limit; the wrong Doris
-budget can nevertheless cause OOM kills. Such images need the Doris memory
-controller detection fix before enabling the helper. A numeric `mem_limit`
-override is not the fix: effective container memory accounting must be tested
-with helper off and on. See the associated validation evidence for tested image
-versions and any outstanding build/runtime checks.
+A threaded CPU child has no memory controller of its own. Some Doris images
+check only the leaf `cgroup.controllers` before looking for ancestor memory
+files; moving the whole BE process there makes them fall back to host RAM. The
+kernel limit remains enforced, but the inflated Doris budget can cause OOMs.
+
+The helper avoids that layout. BE's leader stays in its original container
+memory domain and sees the real `memory.max`; WG worker threads share that same
+memory domain while their CPU usage is controlled in threaded children. This
+requires no BE memory-reader patch and no numeric `mem_limit` override. Test the
+actual image with helper off and on, including memory detection, WG CPU quotas,
+Pod resource limits, and both helper and main-container restarts. Turning the
+switch off does not promise OS-level WG resource control; turning it on must
+preserve the resource behavior expected from a root deployment.

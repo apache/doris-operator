@@ -31,7 +31,8 @@ var (
 // DorisClusterSpec defines the desired state of DorisCluster
 type DorisClusterSpec struct {
 	// EnablePrivilegedHelper delegates CPU cgroups to the Doris process through a
-	// privileged sidecar. Doris itself is never made privileged by this switch.
+	// privileged sidecar and enables the existing root system initializer unless skipped.
+	// Doris itself is never made privileged by this switch.
 	// Root-owned PVC migration uses a separate, non-privileged init container and
 	// is automatic even when this switch is false.
 	// +kubebuilder:default=false
@@ -129,8 +130,8 @@ type BeSpec struct {
 	// This legacy field no longer makes the Doris container privileged.
 	EnableWorkloadGroup bool `json:"enableWorkloadGroup,omitempty"`
 
-	// Deprecated: the privileged host-wide system initializer is no longer injected.
-	// Prepare required sysctl and swap settings on the nodes before deployment.
+	// Skip the legacy root system initializer when enablePrivilegedHelper is true.
+	// When the helper is false, privileged system initialization is always omitted.
 	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 
 	//EnableFeAffinity schedule the be pod on the hosts that have fe pod. when in test situation or have 3 fe and 3 be nodes, and wants one fe and one be in same host.

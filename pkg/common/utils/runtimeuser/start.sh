@@ -22,8 +22,15 @@ request="$$:$start"
 printf '%s\n' "$request" > /doris-helper/request/process
 ready=false
 for ((i=0;i<120;i++)); do
- if [[ "$(cat /doris-helper/ready 2>/dev/null || true)" == "$request" ]] && mountpoint -q /doris-helper/cgroup; then ready=true; break; fi
+ if [[ "$(cat /doris-helper/ready 2>/dev/null || true)" == "$request" ]] && mountpoint -q /doris-helper/cgroup/query; then ready=true; break; fi
  sleep 1
 done
 $ready || { echo 'Privileged helper did not delegate the CPU cgroup within 120s' >&2; exit 1; }
+conf="${CONFIGMAP_MOUNT_PATH}/be.conf"
+if ! grep -Eq '^[[:space:]]*num_cores[[:space:]]*=[[:space:]]*[1-9][0-9]*([[:space:]]*(#.*)?)?$' "$conf"; then
+ cores=$(cat /doris-helper/cpu-cores)
+ [[ "$cores" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid helper CPU capacity' >&2; exit 1; }
+ sed -i '/^[[:space:]]*num_cores[[:space:]]*=/d' "$conf"
+ printf '\nnum_cores = %s\n' "$cores" >> "$conf"
+fi
 exec "$@"

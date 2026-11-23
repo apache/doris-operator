@@ -24,7 +24,8 @@ import (
 
 type DorisDisaggregatedClusterSpec struct {
 	// EnablePrivilegedHelper delegates CPU cgroups to the Doris process through a
-	// privileged sidecar. Doris itself is never made privileged by this switch.
+	// privileged sidecar and enables the existing root system initializer unless skipped.
+	// Doris itself is never made privileged by this switch.
 	// Root-owned PVC migration uses a separate, non-privileged init container and
 	// is automatic even when this switch is false.
 	// +kubebuilder:default=false
@@ -125,8 +126,8 @@ type ComputeGroup struct {
 
 	CommonSpec `json:",inline"`
 
-	// Deprecated: the privileged host-wide system initializer is no longer injected.
-	// Prepare required sysctl and swap settings on the nodes before deployment.
+	// Skip the legacy root system initializer when enablePrivilegedHelper is true.
+	// When the helper is false, privileged system initialization is always omitted.
 	SkipDefaultSystemInit bool `json:"skipDefaultSystemInit,omitempty"`
 
 	// AutoResolveLimitCPU indicates whether to automatically set the CPU limit to doris BE config.

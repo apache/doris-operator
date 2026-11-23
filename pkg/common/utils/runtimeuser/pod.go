@@ -154,12 +154,18 @@ func Prepare(ctx context.Context, c client.Client, owner client.Object, st *apps
 		sc.Capabilities = &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}}
 	}
 	main.SecurityContext = sc
-	// Node tuning is an infrastructure responsibility. Never silently inject a
-	// host-wide swapoff/sysctl operation as a consequence of deploying non-root.
+	// The single opt-in also gates the existing privileged node initializer.
+	// Preserve its root identity when the Pod itself now defaults to non-root.
 	inits := []corev1.Container{}
 	for _, init := range p.InitContainers {
 		if init.Name == "default-init" {
-			continue
+			if !helper {
+				continue
+			}
+			init.SecurityContext = &corev1.SecurityContext{
+				Privileged: ptr.To(true), RunAsUser: ptr.To(int64(0)),
+				RunAsGroup: ptr.To(int64(0)), RunAsNonRoot: ptr.To(false),
+			}
 		}
 		if !helper && init.SecurityContext != nil && init.SecurityContext.Privileged != nil && *init.SecurityContext.Privileged {
 			return fmt.Errorf("custom privileged init %s requires enablePrivilegedHelper", init.Name)
@@ -168,7 +174,9 @@ func Prepare(ctx context.Context, c client.Client, owner client.Object, st *apps
 	}
 	p.InitContainers = inits
 	setEnv(main, "ENABLE_WORKLOAD_GROUP", "false")
-	setEnv(main, "SKIP_CHECK_ULIMIT", "true")
+	if !helper {
+		setEnv(main, "SKIP_CHECK_ULIMIT", "true")
+	}
 	if target.UID != 0 {
 		paths := []corev1.VolumeMount{}
 		for _, m := range main.VolumeMounts {

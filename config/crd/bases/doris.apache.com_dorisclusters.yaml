@@ -2089,8 +2089,8 @@ spec:
                     type: string
                   skipDefaultSystemInit:
                     description: |-
-                      Deprecated: the privileged host-wide system initializer is no longer injected.
-                      Prepare required sysctl and swap settings on the nodes before deployment.
+                      Skip the legacy root system initializer when enablePrivilegedHelper is true.
+                      When the helper is false, privileged system initialization is always omitted.
                     type: boolean
                   startTimeout:
                     description: pod start timeout, unit is second
@@ -7090,7 +7090,8 @@ spec:
                 default: false
                 description: |-
                   EnablePrivilegedHelper delegates CPU cgroups to the Doris process through a
-                  privileged sidecar. Doris itself is never made privileged by this switch.
+                  privileged sidecar and enables the existing root system initializer unless skipped.
+                  Doris itself is never made privileged by this switch.
                   Root-owned PVC migration uses a separate, non-privileged init container and
                   is automatic even when this switch is false.
                 type: boolean

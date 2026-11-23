@@ -183,6 +183,40 @@ func TestHelperNeverElevatesMain(t *testing.T) {
 	if !*st.Spec.Template.Spec.ShareProcessNamespace {
 		t.Fatal("missing PID namespace")
 	}
+	if !hasInit(st, "default-init") {
+		t.Fatal("opt-in lost the previous root system initialization")
+	}
+	for _, init := range st.Spec.Template.Spec.InitContainers {
+		if init.Name == "default-init" && (*init.SecurityContext.RunAsUser != 0 || *init.SecurityContext.RunAsNonRoot) {
+			t.Fatal("system initializer inherited the non-root Pod identity")
+		}
+	}
+}
+
+func TestHelperPreservesSystemInitOptOut(t *testing.T) {
+	owner, st, c := fixture(t, 10001)
+	// The existing resource builder omits default-init and sets this environment
+	// value when skipDefaultSystemInit is explicitly enabled.
+	st.Spec.Template.Spec.InitContainers = nil
+	setEnv(&st.Spec.Template.Spec.Containers[0], "SKIP_CHECK_ULIMIT", "true")
+	if err := Prepare(context.Background(), c, owner, st, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := AttachHelper(st, true); err != nil {
+		t.Fatal(err)
+	}
+	if hasInit(st, "default-init") || !hasInit(st, "doris-cgroup-helper") {
+		t.Fatal("system-init opt-out must not disable CPU delegation")
+	}
+	for _, env := range st.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == "SKIP_CHECK_ULIMIT" {
+			if env.Value != "true" {
+				t.Fatal("lost the explicit system-init opt-out")
+			}
+			return
+		}
+	}
+	t.Fatal("lost the explicit system-init opt-out")
 }
 
 func TestProbeRejectsIncompleteIdentity(t *testing.T) {

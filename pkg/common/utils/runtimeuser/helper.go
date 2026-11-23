@@ -97,7 +97,7 @@ printf '\ndoris_cgroup_cpu_path = /doris-helper/cgroup\n' >> /helper-config/be.c
 		Resources:       corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("32Mi")}, Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("64Mi")}},
 		VolumeMounts:    []corev1.VolumeMount{{Name: "doris-helper", MountPath: "/doris-helper", MountPropagation: ptr.To(corev1.MountPropagationBidirectional)}, {Name: "doris-host-cgroup", MountPath: "/host-cgroup"}},
 		StartupProbe:    &corev1.Probe{ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"test", "-d", "/doris-helper/request"}}}, PeriodSeconds: 1, FailureThreshold: 120},
-		ReadinessProbe:  &corev1.Probe{ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"/bin/bash", "-ec", `test -s /doris-helper/ready && mountpoint -q /doris-helper/cgroup`}}}, PeriodSeconds: 2, FailureThreshold: 1},
+		ReadinessProbe:  &corev1.Probe{ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"/bin/bash", "-ec", `test -s /doris-helper/ready && mountpoint -q /doris-helper/cgroup/query`}}}, PeriodSeconds: 2, FailureThreshold: 1},
 	}
 	p.InitContainers = append(p.InitContainers, h)
 	main.VolumeMounts = append(main.VolumeMounts, corev1.VolumeMount{Name: "doris-helper", MountPath: "/doris-helper", MountPropagation: ptr.To(corev1.MountPropagationHostToContainer)}, corev1.VolumeMount{Name: "doris-helper-config", MountPath: "/var/lib/doris/helper-config"})
