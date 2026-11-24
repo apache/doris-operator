@@ -131,6 +131,10 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 
 	event, err = dfc.reconcileStatefulset(ctx, st, ddc)
 	if err != nil {
+		if sc.IsFrontendRolloutPending(err) {
+			dfc.K8srecorder.Event(ddc, string(sc.EventNormal), string(sc.WaitFrontendRollout), err.Error())
+			return err
+		}
 		if event != nil {
 			dfc.K8srecorder.Event(ddc, string(event.Type), string(event.Reason), event.Message)
 		}
@@ -274,7 +278,11 @@ func (dfc *DisaggregatedFEController) UpdateComponentStatus(obj client.Object) e
 	}
 	// all fe pods  are Ready, FEStatus.Phase is Ready，
 	// for ClusterHealth.Health is green
-	if allUpdated && masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
+	// A master-aware rollout keeps the component reconciling (and therefore
+	// requeued) until it removes its StatefulSet annotation.
+	if hasFEGracefulAction(sts) {
+		ddc.Status.FEStatus.Phase = v1.Reconciling
+	} else if allUpdated && masterAliveReplicas == electionNumber && availableReplicas == *(feSpec.Replicas) {
 		ddc.Status.FEStatus.Phase = v1.Ready
 	}
 
@@ -337,6 +345,10 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 		cluster.Status.FEStatus.Phase = v1.Scaling
 	}
 
+	// Drive the master-aware FE rollout. An in-progress rollout owns the Pod
+	// lifecycle; ApplyStatefulSet below still persists its template/annotation.
+	rolloutPending := dfc.reconcileGracefulStatefulSet(ctx, st, &est, cluster)
+
 	// apply fe StatefulSet
 	if err := k8s.ApplyStatefulSet(ctx, dfc.K8sclient, st, func(new, est *appv1.StatefulSet) bool {
 		dfc.RestrictConditionsEqual(new, est)
@@ -356,10 +368,13 @@ func (dfc *DisaggregatedFEController) reconcileStatefulset(ctx context.Context, 
 			msUniqueIdKey := strings.ToLower(fmt.Sprintf(v1.UpdateStatefulsetName, cluster.GetFEStatefulsetName()))
 			ddc_annos.Add(msUniqueIdKey, "true")
 		}
-		return equal
+		return equal && feGracefulStatefulSetControlEqual(new, est)
 	}); err != nil {
 		klog.Errorf("disaggregatedFEController reconcileStatefulset apply statefulset namespace=%s name=%s failed, err=%s", st.Namespace, st.Name, err.Error())
 		return &sc.Event{Type: sc.EventWarning, Reason: sc.FEApplyResourceFailed, Message: err.Error()}, err
+	}
+	if rolloutPending {
+		return nil, &sc.FrontendRolloutPending{Message: fmt.Sprintf("master-aware FE rollout for StatefulSet %s is in progress", st.Name)}
 	}
 	return nil, nil
 }
@@ -374,27 +389,9 @@ func (dfc *DisaggregatedFEController) recycleResources(ctx context.Context, ddc 
 
 // dropFEBySQLClient only delete the fe nodes whose pod number is greater than the expected number (cluster.Spec.FeSpec.Replicas) by calling the drop_node interface
 func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8sclient client.Client, cluster *v1.DorisDisaggregatedCluster) error {
-	// get adminuserName and pwd
-	adminUserName, password := dfc.GetManagementAdminUserAndPWD(ctx, cluster)
-
-	// get host and port
-	// When the operator and dcr are deployed in different namespace, it will be inaccessible, so need to add the dcr svc namespace
-	host := cluster.GetFEVIPAddresss()
-	confMap := dfc.GetConfigValuesFromConfigMaps(cluster.Namespace, resource.FE_RESOLVEKEY, cluster.Spec.FeSpec.ConfigMaps)
-	queryPort := resource.GetPort(confMap, resource.QUERY_PORT)
-	tlsConfig, secretName := dfc.DisaggregatedSubDefaultController.FindSecretTLSConfig(confMap, cluster)
-	secret, _ := k8s.GetSecret(context.Background(), dfc.K8sclient, cluster.Namespace, secretName)
-
 	// connect to doris sql to get master node
 	// It may not be the master, or even the node that needs to be deleted, causing the deletion SQL to fail.
-	dbConf := mysql.DBConfig{
-		User:     adminUserName,
-		Password: password,
-		Host:     host,
-		Port:     strconv.FormatInt(int64(queryPort), 10),
-		Database: "mysql",
-	}
-	masterDBClient, err := mysql.NewDorisMasterSqlDB(dbConf, tlsConfig, secret)
+	masterDBClient, err := dfc.newMasterSQLClient(ctx, cluster)
 	if err != nil {
 		klog.Errorf("NewDorisMasterSqlDB failed, get fe node connection err:%s", err.Error())
 		return err
@@ -416,32 +413,10 @@ func (dfc *DisaggregatedFEController) dropFEBySQLClient(ctx context.Context, k8s
 	}
 
 	// get will delete Observes
-	var frontendMap map[int]*mysql.Frontend // frontendMap key is fe pod index ,value is frontend
-	stsName := cluster.GetFEStatefulsetName()
-
-	if resource.GetStartMode(confMap) == resource.START_MODEL_FQDN { // use host
-		frontendMap, err = mysql.BuildSeqNumberToFrontendMap(allObserves, nil, stsName)
-		if err != nil {
-			klog.Errorf("dropFEFromSQLClient failed, buildSeqNumberToFrontend err:%s", err.Error())
-			return nil
-		}
-	} else { // use ip
-		podMap := make(map[string]string) // key is pod ip, value is pod name
-		pods, err := k8s.GetPods(ctx, k8sclient, cluster.Namespace, dfc.getFEPodLabels(cluster))
-		if err != nil {
-			klog.Errorf("dropFEFromSQLClient failed, GetPods err:%s", err)
-			return nil
-		}
-		for _, item := range pods.Items {
-			if strings.HasPrefix(item.GetName(), stsName) {
-				podMap[item.Status.PodIP] = item.GetName()
-			}
-		}
-		frontendMap, err = mysql.BuildSeqNumberToFrontendMap(allObserves, podMap, stsName)
-		if err != nil {
-			klog.Errorf("dropFEFromSQLClient failed, buildSeqNumberToFrontend err:%s", err.Error())
-			return nil
-		}
+	frontendMap, err := dfc.frontendOrdinals(ctx, cluster, allObserves)
+	if err != nil {
+		klog.Errorf("dropFEFromSQLClient failed, buildSeqNumberToFrontend err:%s", err.Error())
+		return nil
 	}
 	observes := mysql.FindNeedDeletedObservers(frontendMap, needRemovedAmount)
 	// drop node and return

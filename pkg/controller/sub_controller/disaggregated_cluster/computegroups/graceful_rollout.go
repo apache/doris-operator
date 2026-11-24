@@ -58,7 +58,7 @@ const (
 
 	// gracefulActionAnnotation stores the rollout state on the StatefulSet.
 	// CR status alone is not safe here because old CRDs prune unknown status fields.
-	gracefulActionAnnotation = "doris.disaggregated.cluster/graceful-action"
+	gracefulActionAnnotation = sc.GracefulActionAnnotation
 
 	// waitPodReadyTimeoutFactor bounds how long we wait for the replacement pod
 	// to show up as Ready before surfacing a timeout warning and extending the wait.

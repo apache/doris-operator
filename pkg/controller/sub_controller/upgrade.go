@@ -38,7 +38,24 @@ import (
 const (
 	WaitBackendUpgrade  = "WaitBackendUpgrade"
 	UpgradeRequeueAfter = 5 * time.Second
+
+	// GracefulActionAnnotation stores the in-progress graceful rollout state on
+	// a component StatefulSet. CR status is not used because older CRDs prune
+	// status fields that they do not know about.
+	GracefulActionAnnotation = "doris.disaggregated.cluster/graceful-action"
 )
+
+// FrontendRolloutPending reports that the FE controller made progress on a
+// master-aware rollout and needs to be called again. It is a normal wait, not a
+// reconciliation failure.
+type FrontendRolloutPending struct{ Message string }
+
+func (p *FrontendRolloutPending) Error() string { return p.Message }
+
+func IsFrontendRolloutPending(err error) bool {
+	var pending *FrontendRolloutPending
+	return errors.As(err, &pending)
+}
 
 // BackendUpgradePending is a normal wait, not a reconciliation failure. The
 // parent must continue syncing BE controllers and revisit the FE even if the
@@ -133,7 +150,7 @@ func checkBackendUpgrade(ctx context.Context, reader client.Reader, namespace st
 	// Graceful OnDelete rollouts also wait for BE membership after Pod readiness.
 	// Respect their existing state machine rather than replacing its completion
 	// checks with native RollingUpdate counters or currentRevision equality.
-	if raw := sts.Annotations["doris.disaggregated.cluster/graceful-action"]; raw != "" {
+	if raw := sts.Annotations[GracefulActionAnnotation]; raw != "" {
 		var action dv1.GracefulAction
 		if err := json.Unmarshal([]byte(raw), &action); err != nil {
 			return wait("graceful action cannot be decoded")

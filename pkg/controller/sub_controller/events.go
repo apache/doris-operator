@@ -86,6 +86,11 @@ var (
 	GracefulActionCompleted         EventReason = "GracefulActionCompleted"
 	GracefulActionFailed            EventReason = "GracefulActionFailed"
 	GracefulActionDisabled          EventReason = "GracefulActionDisabled"
+	WaitFrontendRollout             EventReason = "WaitFrontendRollout"
+	FERolloutStarted                EventReason = "FERolloutStarted"
+	FERolloutPodDeleted             EventReason = "FERolloutPodDeleted"
+	FERolloutTimeout                EventReason = "FERolloutTimeout"
+	FERolloutQuorumWait             EventReason = "FERolloutQuorumWait"
 )
 
 type Event struct {

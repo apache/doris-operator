@@ -127,8 +127,15 @@ func NewDorisMasterSqlDB(dbConf DBConfig, tlsConfig *TLSConfig, secret *corev1.S
 	}
 	master, _, err := loadBalanceDBClient.GetFollowers()
 	if err != nil {
+		loadBalanceDBClient.Close()
 		klog.Errorf("NewDorisMasterSqlDB GetFollowers master failed, err:%s", err.Error())
 		return nil, err
+	}
+	// An election briefly leaves the cluster without a master. Callers poll this
+	// helper while FEs are restarted, so return an error instead of panicking.
+	if master == nil {
+		loadBalanceDBClient.Close()
+		return nil, errors.New("NewDorisMasterSqlDB found no master frontend in show frontends")
 	}
 	var masterDBClient *DB
 	if master.CurrentConnected == "Yes" {

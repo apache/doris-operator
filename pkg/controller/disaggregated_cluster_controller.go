@@ -343,7 +343,7 @@ func (dc *DisaggregatedClusterReconciler) reconcileSub(ctx context.Context, ddc 
 	var result ctrl.Result
 	for _, subC := range dc.Scs {
 		if err := subC.Sync(ctx, ddc); err != nil {
-			if sc.IsBackendUpgradePending(err) {
+			if sc.IsBackendUpgradePending(err) || sc.IsFrontendRolloutPending(err) {
 				result.RequeueAfter = sc.UpgradeRequeueAfter
 				continue
 			}

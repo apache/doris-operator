@@ -18,6 +18,7 @@
 package mysql
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -89,6 +90,9 @@ type Backend struct {
 func BuildSeqNumberToFrontendMap(frontends []*Frontend, ipMap map[string]string, podTemplateName string) (map[int]*Frontend, error) {
 	frontendMap := make(map[int]*Frontend)
 	for _, fe := range frontends {
+		if fe == nil {
+			continue
+		}
 		var podSignName string
 		if strings.HasPrefix(fe.Host, podTemplateName) {
 			// use fqdn, not need ipMap
@@ -99,8 +103,7 @@ func BuildSeqNumberToFrontendMap(frontends []*Frontend, ipMap map[string]string,
 			// podSignName like: doriscluster-sample-fe-0
 			podSignName = ipMap[fe.Host]
 		}
-		split := strings.Split(strings.Split(strings.Split(podSignName, podTemplateName)[1], ".")[0], "-")
-		num, err := strconv.Atoi(split[len(split)-1])
+		num, err := seqNumberFromPodSignName(podSignName, podTemplateName)
 		if err != nil {
 			klog.Errorf("buildSeqNumberToFrontend can not split pod name,pod name: %s,err:%s", podSignName, err.Error())
 			return nil, err
@@ -108,6 +111,31 @@ func BuildSeqNumberToFrontendMap(frontends []*Frontend, ipMap map[string]string,
 		frontendMap[num] = fe
 	}
 	return frontendMap, nil
+}
+
+// seqNumberFromPodSignName extracts the ordinal from a pod name or pod FQDN,
+// for example doris-fe-2 or doris-fe-2.doris-fe-internal.svc.cluster.local.
+func seqNumberFromPodSignName(podSignName, podTemplateName string) (int, error) {
+	if podSignName == "" {
+		return 0, fmt.Errorf("frontend host is not a pod of statefulset %s", podTemplateName)
+	}
+	index := strings.Index(podSignName, podTemplateName)
+	if index < 0 {
+		return 0, fmt.Errorf("frontend host %q does not belong to statefulset %s", podSignName, podTemplateName)
+	}
+	rest := podSignName[index+len(podTemplateName):]
+	rest = strings.TrimPrefix(rest, "-")
+	if dot := strings.IndexByte(rest, '.'); dot >= 0 {
+		rest = rest[:dot]
+	}
+	if dash := strings.IndexByte(rest, '-'); dash >= 0 {
+		rest = rest[:dash]
+	}
+	num, err := strconv.Atoi(rest)
+	if err != nil {
+		return 0, fmt.Errorf("frontend host %q has no numeric ordinal: %w", podSignName, err)
+	}
+	return num, nil
 }
 
 // FindNeedDeletedFrontends means descending sort fe by index and return top needRemovedAmount

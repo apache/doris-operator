@@ -22,6 +22,7 @@ import (
 
 	dv1 "github.com/apache/doris-operator/api/disaggregated/v1"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
@@ -64,5 +65,29 @@ func Test_NewPodTemplateSpec_TerminationGracePeriodSeconds(t *testing.T) {
 	}
 	if !foundPodInfoMount {
 		t.Fatalf("expected FE container to keep podinfo mount %q at %q", resource.POD_INFO_VOLUME_NAME, resource.POD_INFO_PATH)
+	}
+}
+
+func Test_NewStatefulset_UsesOnDeleteStrategy(t *testing.T) {
+	ddc := &dv1.DorisDisaggregatedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ddc",
+			Namespace: "default",
+			UID:       "test-uid",
+		},
+		Spec: dv1.DorisDisaggregatedClusterSpec{
+			FeSpec: dv1.FeSpec{
+				CommonSpec: dv1.CommonSpec{
+					Replicas: pointer.Int32(3),
+					Image:    "selectdb/doris.fe-ubuntu:latest",
+				},
+			},
+		},
+	}
+
+	dfc := &DisaggregatedFEController{}
+	st := dfc.NewStatefulset(ddc, map[string]interface{}{})
+	if st.Spec.UpdateStrategy.Type != appv1.OnDeleteStatefulSetStrategyType {
+		t.Fatalf("expected FE StatefulSet update strategy %s, got %s", appv1.OnDeleteStatefulSetStrategyType, st.Spec.UpdateStrategy.Type)
 	}
 }

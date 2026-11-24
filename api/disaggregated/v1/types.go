@@ -438,8 +438,12 @@ const (
 	GracefulPhaseDeletePod    GracefulActionPhase = "DeletePod"
 	GracefulPhaseWaitPodReady GracefulActionPhase = "WaitPodReady"
 	GracefulPhaseWaitBEAlive  GracefulActionPhase = "WaitBEAlive"
-	GracefulPhaseDone         GracefulActionPhase = "Done"
-	GracefulPhaseFailed       GracefulActionPhase = "Failed"
+	// GracefulPhaseWaitFEAlive waits until a restarted FE is observed alive in
+	// SHOW FRONTENDS and, when possible, has replayed the master's journal
+	// before the frontend rollout advances to the next Pod.
+	GracefulPhaseWaitFEAlive GracefulActionPhase = "WaitFEAlive"
+	GracefulPhaseDone        GracefulActionPhase = "Done"
+	GracefulPhaseFailed      GracefulActionPhase = "Failed"
 )
 
 // GracefulAction tracks the state of an in-progress graceful two-phase restart/shutdown operation.

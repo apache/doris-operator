@@ -76,6 +76,13 @@ func (dfc *DisaggregatedFEController) NewStatefulset(ddc *v1.DorisDisaggregatedC
 		st.Spec.VolumeClaimTemplates = vcts
 		st.Spec.ServiceName = ddc.GetFEInternalServiceName()
 		st.Spec.Template = pts
+		// The FE controller restarts Pods itself so that followers are rolled
+		// before the current master and each restarted FE can rejoin before the
+		// next restart. Native RollingUpdate would ignore FE membership and
+		// restart the master in StatefulSet ordinal order.
+		st.Spec.UpdateStrategy = appv1.StatefulSetUpdateStrategy{
+			Type: appv1.OnDeleteStatefulSetStrategyType,
+		}
 	}()
 
 	return st

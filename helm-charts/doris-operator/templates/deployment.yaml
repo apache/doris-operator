@@ -77,9 +77,7 @@ spec:
         # seccompProfile:
         #   type: RuntimeDefault
       containers:
-        - command:
-            - /dorisoperator
-          args:
+        - args:
             - --leader-elect
           image: {{ .Values.dorisOperator.image.repository }}:{{ .Values.dorisOperator.image.tag }}
           {{- if .Values.dorisOperator.image.imagePullPolicy }}
