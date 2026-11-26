@@ -17,12 +17,12 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# Build and publish release images
+# Build and publish release artifacts
 
 The Build Release Artifacts workflow builds container images and Helm charts
 from an existing Git tag and uploads the files to GitHub Actions. Publish the
-images from your workstation with an account that has write access to the
-destination repositories. [Workflow definition](../../.github/workflows/release-artifacts.yml)
+images and charts from your workstation with write access to the corresponding
+destinations. [Workflow definition](../../.github/workflows/release-artifacts.yml)
 
 ## Build and download the artifacts
 
@@ -35,7 +35,8 @@ destination repositories. [Workflow definition](../../.github/workflows/release-
    out the source from the requested tag.
 3. After the run succeeds, open **Summary** and click **Download release
    artifacts for 26.0.1**. Sign in to GitHub to download the ZIP. Unzip it and
-   run the publishing commands from the directory that contains `images/`.
+   run the publishing commands from the directory that contains `images/` and
+   `charts/`.
 
 You can also start the same workflow with the GitHub CLI.
 
@@ -81,4 +82,39 @@ for image in "$operator_image" "$debug_image"; do
   skopeo inspect --raw "docker://${image}" |
     jq -r '.manifests[].platform | "\(.os)/\(.architecture)"'
 done
+```
+
+## Publish the Helm charts
+
+Install Helm and configure `ossutil` locally for the `selectdb-charts` bucket in
+OSS China (Beijing), using `oss-cn-beijing.aliyuncs.com` and credentials with
+write access to the bucket. [OSS upload documentation](https://www.alibabacloud.com/help/en/oss/developer-reference/cp-upload-file)
+
+The bundled `charts/index.yaml` lists only the two packages in the ZIP. Merge
+them into the current repository index to preserve published versions. Upload
+both packages before updating the public index so every new entry points to a
+downloadable package. [Helm index documentation](https://helm.sh/docs/helm/helm_repo_index/)
+
+```bash
+(
+  set -e
+  repo_url=https://charts.selectdb.com
+  bucket_url=oss://selectdb-charts
+
+  curl -fsSL "$repo_url/index.yaml" -o current-index.yaml
+  helm repo index ./charts --url "$repo_url" --merge ./current-index.yaml
+
+  for chart in ./charts/*.tgz; do
+    ossutil cp "$chart" "$bucket_url/$(basename "$chart")"
+  done
+  ossutil cp ./charts/index.yaml "$bucket_url/index.yaml"
+)
+```
+
+To verify the release, fetch each chart through the public repository. Use the
+version from each `.tgz` filename.
+
+```bash
+helm show chart doris --repo https://charts.selectdb.com --version '<doris-chart-version>'
+helm show chart doris-operator --repo https://charts.selectdb.com --version '<doris-operator-chart-version>'
 ```

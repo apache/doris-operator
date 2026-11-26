@@ -24,8 +24,8 @@ They publish source artifacts only, turn the released Git tag into a GitHub
 release, and generate vote and announcement email drafts. They do not create
 Git tags or send email.
 
-To build release images and Helm charts from a tag and publish the images
-manually, see [Build and publish release images](README-artifacts.md).
+For tag-based builds and manual publication of container images and Helm charts,
+see [Build and publish release artifacts](README-artifacts.md).
 
 ## Prerequisites
 
