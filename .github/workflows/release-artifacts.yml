@@ -1,0 +1,103 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Build Release Artifacts
+run-name: Build release artifacts for ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing Git tag to build, for example 26.0.1
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the release tag
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo 'The Git tag must also be a valid container image tag.' >&2
+            exit 1
+          fi
+
+          tag_ref="refs/tags/$RELEASE_TAG"
+          git init --quiet
+          git fetch --no-tags --depth=1 "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" "$tag_ref:$tag_ref"
+          git checkout --detach "$tag_ref"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.22.1
+          token: ''
+
+      - name: Package Helm charts
+        run: |
+          chart_version=${RELEASE_TAG#release-}
+          chart_version=${chart_version#v}
+          mkdir -p "$RUNNER_TEMP/helm-charts" "$RUNNER_TEMP/release-artifacts/charts"
+          cp -R helm-charts/doris helm-charts/doris-operator "$RUNNER_TEMP/helm-charts/"
+          # Older tags already have chart versions. Replace only the template marker.
+          sed -i "s/{operatorVersion}/$chart_version/g" \
+            "$RUNNER_TEMP/helm-charts/doris/Chart.yaml" "$RUNNER_TEMP/helm-charts/doris-operator/Chart.yaml"
+          helm package "$RUNNER_TEMP/helm-charts/doris" "$RUNNER_TEMP/helm-charts/doris-operator" \
+            --destination "$RUNNER_TEMP/release-artifacts/charts"
+          helm repo index "$RUNNER_TEMP/release-artifacts/charts"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build multi-platform OCI image archives
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-artifacts/images"
+          docker buildx build --platform linux/amd64,linux/arm64 --provenance=false \
+            --tag "selectdb/doris.k8s-operator:$RELEASE_TAG" \
+            --output "type=oci,dest=$RUNNER_TEMP/release-artifacts/images/doris.k8s-operator.oci.tar" .
+          docker buildx build --platform linux/amd64,linux/arm64 --provenance=false \
+            --file Dockerfile_doris_debug --tag "selectdb/doris-debug-ubuntu:$RELEASE_TAG" \
+            --output "type=oci,dest=$RUNNER_TEMP/release-artifacts/images/doris-debug-ubuntu.oci.tar" .
+
+      - name: Upload release artifacts
+        id: artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: doris-operator-${{ inputs.tag }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release-artifacts/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Add download link to the run summary
+        env:
+          ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
+        run: |
+          {
+            printf '[Download release artifacts for %s](%s)\n\n' "$RELEASE_TAG" "$ARTIFACT_URL"
+            printf 'Source commit %s. The bundle contains two multi-platform OCI image archives and two Helm charts.\n\n' "$(git rev-parse HEAD)"
+            printf 'The Helm index lists only the charts in this bundle. Merge the current repository index before publishing to an existing chart repository.\n'
+          } >> "$GITHUB_STEP_SUMMARY"

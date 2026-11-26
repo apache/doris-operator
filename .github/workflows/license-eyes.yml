@@ -19,6 +19,9 @@
 name: License Check
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   license-check:
     name: "License Check"
@@ -26,7 +29,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Check License
         uses: apache/skywalking-eyes@v0.2.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
