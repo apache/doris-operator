@@ -23,7 +23,7 @@ header:
     - 'PROJECT'
     - 'helm-charts/doris-foundationdb/**'
 
-  comment: on-failure
+  comment: never
 
 # If you don't want to check dependencies' license compatibility, remove the following part
 dependency:
