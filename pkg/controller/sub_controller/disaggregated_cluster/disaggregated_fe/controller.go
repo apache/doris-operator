@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/apache/doris-operator/pkg/common/utils/feheap"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeuser"
 	"strconv"
 	"strings"
 
@@ -90,10 +91,16 @@ func (dfc *DisaggregatedFEController) Sync(ctx context.Context, obj client.Objec
 	svc := dfc.newService(ddc, confMap)
 
 	st := dfc.NewStatefulset(ddc, confMap)
+	if err := runtimeuser.Prepare(ctx, dfc.K8sclient, ddc, st, ddc.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
 	if err := feheap.Prepare(ddc, st); err != nil {
 		return err
 	}
 	if err := runtimeconfig.Prepare(ctx, dfc.K8sclient, dfc.K8srecorder, ddc, st, confMap); err != nil {
+		return err
+	}
+	if err := runtimeuser.AttachHelper(st, ddc.Spec.EnablePrivilegedHelper); err != nil {
 		return err
 	}
 	//initial fe status on start. in resource process step, may be use the status record the process.

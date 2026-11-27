@@ -200,6 +200,7 @@ func TestSyncUsesAPIReaderForExternalFDBAndRefreshesEndpoint(t *testing.T) {
 	ddc := newFDBConfigMapTestDDC()
 	ddc.Spec.MetaService.Replicas = pointer.Int32(1)
 	ddc.Spec.MetaService.Image = "apache/doris:ms-4.1.1"
+	ddc.Spec.MetaService.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64), RunAsGroup: new(int64)}
 	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "fdb-system", Name: "fdb-a-config"},
 		Data: map[string]string{FDBClusterFileKey: "fdb:initial@fdb-0:4500"}}
 	live := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()

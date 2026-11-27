@@ -27,7 +27,6 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -135,13 +134,6 @@ func (dcgs *DisaggregatedComputeGroupsController) NewPodTemplateSpec(ddc *dv1.Do
 }
 
 func (dcgs *DisaggregatedComputeGroupsController) NewCGContainer(ddc *dv1.DorisDisaggregatedCluster, cvs map[string]interface{}, cg *dv1.ComputeGroup) corev1.Container {
-
-	if cg.EnableWorkloadGroup {
-		if cg.ContainerSecurityContext == nil {
-			cg.ContainerSecurityContext = &corev1.SecurityContext{}
-		}
-		cg.ContainerSecurityContext.Privileged = pointer.Bool(true)
-	}
 
 	c := resource.NewContainerWithCommonSpec(&cg.CommonSpec)
 	c.Lifecycle = resource.LifeCycleWithPreStopScript(c.Lifecycle, sub.GetDisaggregatedPreStopScript(dv1.DisaggregatedBE))

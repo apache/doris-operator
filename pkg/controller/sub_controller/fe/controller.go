@@ -24,6 +24,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
 	"github.com/apache/doris-operator/pkg/common/utils/runtimeconfig"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeuser"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/tools/record"
@@ -140,10 +141,16 @@ func (fc *Controller) Sync(ctx context.Context, cluster *v1.DorisCluster) error 
 	}
 
 	st := fc.buildFEStatefulSet(cluster, config)
+	if err := runtimeuser.Prepare(ctx, fc.K8sclient, cluster, &st, cluster.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
 	if err := feheap.Prepare(cluster, &st); err != nil {
 		return err
 	}
 	if err := runtimeconfig.Prepare(ctx, fc.K8sclient, fc.K8srecorder, cluster, &st, config); err != nil {
+		return err
+	}
+	if err := runtimeuser.AttachHelper(&st, cluster.Spec.EnablePrivilegedHelper); err != nil {
 		return err
 	}
 	if err = k8s.ApplyStatefulSet(ctx, fc.K8sclient, &st, func(new *appv1.StatefulSet, old *appv1.StatefulSet) bool {

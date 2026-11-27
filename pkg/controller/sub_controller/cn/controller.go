@@ -25,6 +25,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeuser"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -106,6 +107,12 @@ func (cn *Controller) Sync(ctx context.Context, dcr *dorisv1.DorisCluster) error
 	}
 
 	cnStatefulSet := cn.buildCnStatefulSet(dcr, config)
+	if err := runtimeuser.Prepare(ctx, cn.K8sclient, dcr, &cnStatefulSet, dcr.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
+	if err := runtimeuser.AttachHelper(&cnStatefulSet, dcr.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
 	if !cn.PrepareReconcileResources(ctx, dcr, dorisv1.Component_CN) {
 		klog.Infof("cn controller sync preparing resource for reconciling namespace %s name %s!", dcr.Namespace, dcr.Name)
 		return nil

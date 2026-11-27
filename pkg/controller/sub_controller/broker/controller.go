@@ -23,6 +23,7 @@ import (
 	"github.com/apache/doris-operator/pkg/common/utils"
 	"github.com/apache/doris-operator/pkg/common/utils/k8s"
 	"github.com/apache/doris-operator/pkg/common/utils/resource"
+	"github.com/apache/doris-operator/pkg/common/utils/runtimeuser"
 	"github.com/apache/doris-operator/pkg/controller/sub_controller"
 	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +83,12 @@ func (bk *Controller) Sync(ctx context.Context, dcr *v1.DorisCluster) error {
 	}
 
 	st := bk.buildBKStatefulSet(dcr, config)
+	if err := runtimeuser.Prepare(ctx, bk.K8sclient, dcr, &st, dcr.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
+	if err := runtimeuser.AttachHelper(&st, dcr.Spec.EnablePrivilegedHelper); err != nil {
+		return err
+	}
 	if err = k8s.ApplyStatefulSet(ctx, bk.K8sclient, &st, func(new *appv1.StatefulSet, est *appv1.StatefulSet) bool {
 		// if have restart annotation, we should exclude the interference for comparison.
 		return resource.StatefulSetDeepEqual(new, est, false)

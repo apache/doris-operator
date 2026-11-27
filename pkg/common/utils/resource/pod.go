@@ -1363,7 +1363,10 @@ func constructBeDefaultInitContainer(defaultImage string) corev1.Container {
 		&v1.SystemInitialization{
 			Command:   []string{"/bin/sh"},
 			InitImage: defaultImage,
-			Args:      []string{"-c", "sysctl -w vm.max_map_count=2000000 && swapoff -a"},
+			// Do not invoke swapoff on an already prepared node. Active host
+			// swap files may still need node-side preparation if their paths
+			// are not visible from this container.
+			Args: []string{"-c", "sysctl -w vm.max_map_count=2000000 && if [ \"$(awk 'END {print NR}' /proc/swaps)\" -gt 1 ]; then swapoff -a; fi"},
 		},
 	)
 }
